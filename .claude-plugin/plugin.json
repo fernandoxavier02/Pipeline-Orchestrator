@@ -1,7 +1,7 @@
 {
   "name": "pipeline-orchestrator",
-  "version": "1.0.0",
-  "description": "Multi-agent TDD pipeline for Claude Code. Classifies tasks (SIMPLES/MEDIA/COMPLEXA), orchestrates 6-stage execution with proportional validation, TDD workflow, adversarial review, and final Go/No-Go decision.",
+  "version": "2.0.0",
+  "description": "Single-command multi-agent pipeline for Claude Code. Auto-classifies tasks, executes in adaptive batches with adversarial review per batch, defense-in-depth information gates, and proportional validation. Works with any project.",
   "author": {
     "name": "Ralph",
     "url": "https://github.com/user/pipeline-orchestrator"
@@ -14,6 +14,8 @@
     "orchestration",
     "code-quality",
     "adversarial-review",
-    "classification"
+    "batch-execution",
+    "classification",
+    "open-source"
   ]
 }
