@@ -124,22 +124,39 @@ Phase 3: GO
 
 ---
 
-## Install in 10 Seconds
+## Install in 30 Seconds
+
+**Step 1 — Clone the plugin:**
 
 ```bash
-git clone https://github.com/fernandoxavier02/Skill-Pipeline.git ~/.claude/plugins/pipeline-orchestrator
+git clone https://github.com/fernandoxavier02/Pipeline-Orchestrator.git ~/.claude/plugins/pipeline-orchestrator
 ```
 
-Or add to your settings:
+**Step 2 — Register the marketplace and enable the plugin:**
+
+Add this to your `~/.claude/settings.json` (create the file if it doesn't exist):
 
 ```jsonc
-// .claude/settings.json
 {
-  "plugins": ["~/.claude/plugins/pipeline-orchestrator"]
+  "extraKnownMarketplaces": {
+    "FX-studio-AI": {
+      "source": {
+        "source": "directory",
+        "path": "~/.claude/plugins/pipeline-orchestrator"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "pipeline-orchestrator@FX-studio-AI": true
+  }
 }
 ```
 
-**That's it.** No config files. No API keys. No runtime dependencies. Pure markdown — the pipeline auto-detects your build commands from `package.json`, `Makefile`, `Cargo.toml`, or `pyproject.toml`.
+> If you already have `enabledPlugins` or other fields, merge the entries — don't replace the whole file.
+
+**Step 3 — Restart Claude Code.** Type `/pipeline` to verify it loaded.
+
+**That's it.** No API keys. No runtime dependencies. Pure markdown — the pipeline auto-detects your build commands from `package.json`, `Makefile`, `Cargo.toml`, or `pyproject.toml`.
 
 ---
 

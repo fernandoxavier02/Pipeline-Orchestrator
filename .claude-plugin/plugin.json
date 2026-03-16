@@ -4,7 +4,7 @@
   "description": "Single-command multi-agent pipeline for Claude Code. Auto-classifies tasks, executes in adaptive batches with adversarial review per batch, defense-in-depth information gates, and proportional validation. Works with any project.",
   "author": {
     "name": "FX Studio AI",
-    "url": "https://github.com/fernandoxavier02/Skill-Pipeline"
+    "url": "https://github.com/fernandoxavier02/Pipeline-Orchestrator"
   },
   "license": "MIT",
   "keywords": [
