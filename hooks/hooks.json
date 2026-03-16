@@ -1,0 +1,13 @@
+{
+  "SessionStart": [
+    {
+      "matcher": "",
+      "hooks": [
+        {
+          "type": "prompt",
+          "prompt": "Pipeline plugin loaded. Available commands: /pipeline [request], /pipeline diagnostic [request], /pipeline continue. Use /pipeline to start the multi-agent TDD pipeline."
+        }
+      ]
+    }
+  ]
+}
