@@ -1,11 +1,11 @@
 ---
 name: pipeline
-description: "Automated multi-agent pipeline for any project. Use when ANY task needs structured execution — bug fixes, features, audits, user stories, UX reviews. A single /pipeline command auto-classifies, confirms with user, then executes with TDD, batch processing, adversarial review per batch, and Go/No-Go validation. Always use this for tasks affecting 2+ files or requiring careful orchestration. Even if the user doesn't mention 'pipeline' — if the task is non-trivial, this skill applies."
+description: "Automated multi-agent pipeline for any project. Use when ANY task needs structured execution — bug fixes, features, audits, user stories, UX reviews. A single /pipeline command auto-classifies, confirms with user, then executes with TDD, batch processing, context-independent adversarial review with user gates, final adversarial team (3 parallel agents), and Go/No-Go validation. Always use this for tasks affecting 2+ files or requiring careful orchestration. Even if the user doesn't mention 'pipeline' — if the task is non-trivial, this skill applies."
 ---
 
 # Pipeline Orchestrator
 
-Single-command multi-agent pipeline that auto-classifies tasks, executes in adaptive batches with TDD and per-batch adversarial review, then validates before completion.
+Single-command multi-agent pipeline that auto-classifies tasks, executes in adaptive batches with TDD, context-independent adversarial review with user gates, final adversarial team (3 parallel agents), then validates before completion.
 
 ## When to Use
 
@@ -30,6 +30,7 @@ Single-command multi-agent pipeline that auto-classifies tasks, executes in adap
 | Diagnostic | `/pipeline diagnostic [task]` | Classification + proposal only |
 | Continue | `/pipeline continue` | Resume from Phase 2 |
 | Force level | `/pipeline --simples\|--media\|--complexa [task]` | Override classification |
+| Review-only | `/pipeline review-only` | Final adversarial review on current uncommitted changes |
 
 ## Pipeline Phases
 
@@ -43,11 +44,14 @@ Phase 1: Proposal + Confirmation
 Phase 2: Batch Execution
   TDD: quality-gate-router → pre-tester (RED)
   Implementation: executor-controller (adaptive batches)
-    Per batch: micro-gate → implement → checkpoint → adversarial
-    Fix loop: max 3 attempts, then escalate
+    Per batch: micro-gate → implement → checkpoint
+  Review: ADVERSARIAL GATE → review-orchestrator (independent)
+    Per batch: adversarial + architecture in parallel → fix loop
 
 Phase 3: Closure
-  sanity-checker → final-validator (Pa de Cal) → finishing-branch
+  sanity-checker → FINAL ADVERSARIAL GATE (recommended)
+  → final-adversarial-orchestrator (3 parallel reviewers)
+  → final-validator (Pa de Cal) → finishing-branch
 ```
 
 ## Configuration
@@ -83,6 +87,9 @@ SIMPLES tasks use DIRETO (direct execution without pipeline).
 ## Key Safety Features
 
 - **Defense-in-depth gates:** macro-gate (after classification) + micro-gate (per task)
+- **Context-independent review:** review-orchestrator has ZERO implementation context
+- **Adversarial gate:** user is informed and asked before every adversarial review
+- **Final adversarial team:** 3 parallel independent reviewers catch cross-batch issues
 - **Per-batch adversarial review:** catches issues early, not just at the end
 - **Fix loop cap:** max 3 attempts, 3rd must use different approach, then escalates
 - **Stop rule:** 2 consecutive build/test failures → pipeline stops
