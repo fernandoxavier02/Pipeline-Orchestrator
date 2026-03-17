@@ -46,6 +46,16 @@ Terms used throughout the Pipeline Orchestrator plugin.
 
 **Adversarial Review** — Security-focused code review using specialized checklists (auth, input validation, error handling, injection, data integrity, crypto, business logic). Intensity is proportional to complexity.
 
+**Review Orchestrator** — An independent agent that coordinates per-batch code review. Spawned by pipeline.md (not executor-controller) to ensure zero context contamination from the implementation phase. Dispatches adversarial-batch and architecture-reviewer in parallel.
+
+**Adversarial Gate** — A user-facing checkpoint that informs the user before adversarial review begins. The user can approve, skip (if not mandatory), or adjust checklists. Mandatory when the batch touches auth, crypto, data-model, or payment domains.
+
+**Final Adversarial Review** — An optional (recommended) end-of-pipeline review that examines ALL changes as a whole. Three independent reviewers (security, architecture, quality) run in parallel with zero prior context. Catches cross-batch issues invisible to per-batch reviews.
+
+**Context Contamination** — When an agent that participated in implementation also influences the review (directly or by framing), introducing implicit bias. The review-orchestrator pattern prevents this by creating a clean context boundary.
+
+**Consensus Finding** — An issue identified independently by 2+ reviewers in the final adversarial review. Higher confidence than single-reviewer findings.
+
 **Vertical Slice** — An end-to-end feature increment that delivers value across all layers (backend → frontend → test). Each slice can be validated independently.
 
 **SSOT (Single Source of Truth)** — Each piece of data, rule, or configuration has exactly ONE authoritative source. If two sources exist for the same thing, the pipeline blocks until the conflict is resolved.
