@@ -39,6 +39,12 @@
 - Action: Check patterns, error handling, test coverage, code quality
 - Output: Quality findings with severity ratings
 
+### Step 4b: Final Adversarial Review (Recommended)
+- Input: Audit report + all files analyzed
+- Action: FINAL ADVERSARIAL GATE (user opts in) → independent security review
+- Output: Security findings on analyzed code
+- Gate: Opt-in. Recommended if code touches auth/data.
+
 ### Step 5: Report Assembly
 - Input: All findings
 - Action: Consolidate into structured audit report

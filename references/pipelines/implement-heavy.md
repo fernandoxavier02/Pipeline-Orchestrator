@@ -12,9 +12,10 @@
 | 2 | information-gate | Deep verification: spec, UX, data model, domain rules, SSOT |
 | 3 | executor-controller | Dispatch per-task subagents, 1 task per batch |
 | 4 | checkpoint-validator | Build + tests + regression after each batch |
-| 5 | adversarial-batch | All 7 checklists (complete) |
+| 5 | review-orchestrator | Independent batch review (adversarial + architecture in parallel) |
 | 6 | sanity-checker | Full validation + regression |
 | 7 | final-validator | Go/No-Go with complete evidence |
+| 8 | final-adversarial-orchestrator | Independent final review (recommended, opt-in) |
 
 ## Step-by-Step Flow
 
@@ -53,10 +54,17 @@
 - Action: Full build + tests + regression + acceptance criteria check
 - Output: Complete validation report
 
-### Step 7: Adversarial Review
-- Input: All files + all 7 checklists
-- Action: Complete security and quality review
-- Output: Findings -> fix loop (max 3)
+### Step 7: Adversarial Gate + Independent Review
+- Input: Checkpoint PASS result + files modified
+- Action: ADVERSARIAL GATE (user approves) → review-orchestrator spawns reviewers in parallel
+- Output: Consolidated findings → fix loop (max 3) if needed
+- Gate: User must approve review start. Mandatory if auth/crypto/data touched.
+
+### Step 7b: Final Adversarial Review (Recommended)
+- Input: All files modified across all batches
+- Action: FINAL ADVERSARIAL GATE (user opts in) → 3 independent reviewers in parallel
+- Output: Cross-batch findings, consensus analysis
+- Gate: Opt-in. Strongly recommended for COMPLEXA.
 
 ### Step 8: Final Decision
 - Input: All stage evidence

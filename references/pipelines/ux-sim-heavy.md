@@ -13,9 +13,10 @@
 | 1 | task-orchestrator | Classify as UX Simulation + COMPLEXA |
 | 2 | information-gate | Deep verification: journeys, devices, accessibility, personas |
 | 3 | executor-controller | Execute comprehensive simulations, 1 journey per batch |
-| 4 | adversarial-batch | UX-focused adversarial (error-handling, edge cases) |
+| 4 | review-orchestrator | Independent batch review (adversarial + architecture in parallel) |
 | 5 | sanity-checker | Verify coverage completeness |
 | 6 | final-validator | Full UX assessment |
+| 7 | final-adversarial-orchestrator | Independent final review (recommended, opt-in) |
 
 ## Step-by-Step Flow
 
@@ -46,10 +47,17 @@
 - Action: Check keyboard navigation, screen reader, color contrast, motion
 - Output: Accessibility findings
 
-### Step 6: Adversarial UX Review
-- Input: All findings + error-handling checklist
-- Action: Test error states, empty states, loading states, edge cases
-- Output: Edge case findings
+### Step 6: Adversarial Gate + Independent Review
+- Input: Checkpoint PASS result + files analyzed
+- Action: ADVERSARIAL GATE (user approves) → review-orchestrator spawns reviewers in parallel
+- Output: Consolidated findings → fix loop (max 3) if needed
+- Gate: User must approve review start. Mandatory if auth/crypto/data touched.
+
+### Step 6b: Final Adversarial Review (Recommended)
+- Input: Audit/UX report + all files analyzed
+- Action: FINAL ADVERSARIAL GATE (user opts in) → independent security review
+- Output: Security findings on analyzed code
+- Gate: Opt-in. Recommended if code touches auth/data.
 
 ### Step 7: Report Assembly
 - Input: All findings (journeys + cross-cutting + accessibility + adversarial)

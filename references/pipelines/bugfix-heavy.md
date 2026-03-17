@@ -13,9 +13,10 @@
 | 2 | information-gate | Deep verification: reproduction, environment, frequency, data state |
 | 3 | executor-controller | Dispatch per-task subagents, 1 task per batch |
 | 4 | checkpoint-validator | Build + tests + regression suite after each batch |
-| 5 | adversarial-batch | All 7 checklists (complete) |
+| 5 | review-orchestrator | Independent batch review (adversarial + architecture in parallel) |
 | 6 | sanity-checker | Full validation + regression + symptom verification |
 | 7 | final-validator | Go/No-Go decision with full evidence |
+| 8 | final-adversarial-orchestrator | Independent final review (recommended, opt-in) |
 
 ## Step-by-Step Flow
 
@@ -55,11 +56,17 @@
 - Output: Complete validation report
 - Gate: STOP RULE if 2 consecutive failures
 
-### Step 7: Adversarial Review
-- Input: All modified files + all 7 checklists
-- Action: Complete security and quality review
-- Output: Findings -> fix loop (max 3, then escalate)
-- Gate: Any Critical finding blocks until resolved
+### Step 7: Adversarial Gate + Independent Review
+- Input: Checkpoint PASS result + files modified
+- Action: ADVERSARIAL GATE (user approves) → review-orchestrator spawns reviewers in parallel
+- Output: Consolidated findings → fix loop (max 3) if needed
+- Gate: User must approve review start. Mandatory if auth/crypto/data touched.
+
+### Step 7b: Final Adversarial Review (Recommended)
+- Input: All files modified across all batches
+- Action: FINAL ADVERSARIAL GATE (user opts in) → 3 independent reviewers in parallel
+- Output: Cross-batch findings, consensus analysis
+- Gate: Opt-in. Strongly recommended for COMPLEXA.
 
 ### Step 8: Final Validation
 - Input: All stage results

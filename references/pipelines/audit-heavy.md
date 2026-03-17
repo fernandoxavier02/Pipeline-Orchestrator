@@ -13,9 +13,10 @@
 | 1 | task-orchestrator | Classify as Audit + COMPLEXA |
 | 2 | information-gate | Deep verification: scope, baseline, stakeholder, axes |
 | 3 | executor-controller | Dispatch analysis tasks across all axes (READ-ONLY) |
-| 4 | adversarial-batch | Security-focused audit layer (all 7 checklists) |
+| 4 | review-orchestrator | Independent batch review (adversarial + architecture in parallel) |
 | 5 | sanity-checker | Verify report completeness and evidence quality |
 | 6 | final-validator | Report quality + risk matrix assessment |
+| 7 | final-adversarial-orchestrator | Independent final review (recommended, opt-in) |
 
 ## Step-by-Step Flow
 
@@ -45,15 +46,22 @@
 - Action: Verify data integrity, migration safety, schema consistency
 - Output: Data findings
 
-### Step 6: Security Review
-- Input: All code in scope
-- Action: Apply all 7 adversarial checklists
-- Output: Security findings with severity
+### Step 6: Adversarial Gate + Independent Review
+- Input: Checkpoint PASS result + files analyzed
+- Action: ADVERSARIAL GATE (user approves) → review-orchestrator spawns reviewers in parallel
+- Output: Consolidated findings → fix loop (max 3) if needed
+- Gate: User must approve review start. Mandatory if auth/crypto/data touched.
 
 ### Step 7: Quality & Testing
 - Input: Test coverage data
 - Action: Assess test quality, coverage gaps, observability
 - Output: Quality findings
+
+### Step 7b: Final Adversarial Review (Recommended)
+- Input: Audit report + all files analyzed
+- Action: FINAL ADVERSARIAL GATE (user opts in) → independent security review
+- Output: Security findings on analyzed code
+- Gate: Opt-in. Recommended if code touches auth/data.
 
 ### Step 8: Risk Matrix Assembly
 - Input: All findings from steps 2-7

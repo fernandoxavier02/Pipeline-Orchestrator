@@ -39,6 +39,12 @@
 - Action: Classify by severity and type
 - Output: Prioritized problem list
 
+### Step 4b: Final Adversarial Review (Recommended)
+- Input: UX report + all files analyzed
+- Action: FINAL ADVERSARIAL GATE (user opts in) → independent security review
+- Output: Security findings on analyzed code
+- Gate: Opt-in. Recommended if code touches auth/data.
+
 ### Step 5: Report
 - Input: Classified problems
 - Action: Assemble problems-first report with recommendations

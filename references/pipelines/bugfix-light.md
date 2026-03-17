@@ -12,9 +12,10 @@
 | 2 | information-gate | Verify: reproduction steps, expected vs actual, recent changes |
 | 3 | executor-controller | Dispatch per-task subagents in batches of 2-3 |
 | 4 | checkpoint-validator | Build + tests after each batch |
-| 5 | adversarial-batch | auth + input-validation + error-handling checklists |
+| 5 | review-orchestrator | Independent batch review (adversarial + architecture in parallel) |
 | 6 | sanity-checker | Build + tests + symptom verification |
 | 7 | final-validator | Go/No-Go decision |
+| 8 | final-adversarial-orchestrator | Independent final review (recommended, opt-in) |
 
 ## Step-by-Step Flow
 
@@ -42,11 +43,17 @@
 - Output: Checkpoint result
 - Gate: STOP RULE if 2 consecutive failures
 
-### Step 5: Adversarial Review
-- Input: Modified files + relevant checklists
-- Action: Check auth, input validation, error handling
-- Output: Findings (if any) -> fix loop (max 3)
-- Gate: Critical findings block until fixed
+### Step 5: Adversarial Gate + Independent Review
+- Input: Checkpoint PASS result + files modified
+- Action: ADVERSARIAL GATE (user approves) → review-orchestrator spawns reviewers in parallel
+- Output: Consolidated findings → fix loop (max 3) if needed
+- Gate: User must approve review start. Mandatory if auth/crypto/data touched.
+
+### Step 5b: Final Adversarial Review (Recommended)
+- Input: All files modified across all batches
+- Action: FINAL ADVERSARIAL GATE (user opts in) → 3 independent reviewers in parallel
+- Output: Cross-batch findings, consensus analysis
+- Gate: Opt-in. Recommended for all. Strongly recommended for COMPLEXA.
 
 ### Step 6: Final Decision
 - Input: All stage results
