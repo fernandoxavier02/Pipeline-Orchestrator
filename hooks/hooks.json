@@ -5,7 +5,7 @@
       "hooks": [
         {
           "type": "prompt",
-          "prompt": "Pipeline Orchestrator v2.0 loaded. Single command: /pipeline [task]. Auto-classifies, confirms, executes in adaptive batches with TDD and per-batch adversarial review. Modes: /pipeline [task] | /pipeline diagnostic [task] | /pipeline continue | /pipeline --complexa [task]"
+          "prompt": "Pipeline Orchestrator v3.0 loaded. Single command: /pipeline [task]. Features: context-independent adversarial review, user gates before review, final adversarial team (3 parallel agents). Modes: /pipeline [task] | /pipeline diagnostic [task] | /pipeline continue | /pipeline review-only | /pipeline --hotfix [task]"
         }
       ]
     }
