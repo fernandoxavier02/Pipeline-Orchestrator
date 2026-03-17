@@ -13,16 +13,17 @@
 <h1 align="center">Pipeline Orchestrator</h1>
 
 <p align="center">
-  <strong>One command. Fifteen agents. Zero guesswork.</strong>
+  <strong>The governance layer that AI-assisted development was missing.</strong>
   <br><br>
-  You type <code>/pipeline fix the auth bug</code>.<br>
-  Fifteen specialized agents classify it, write tests first,<br>
-  implement the fix, review it for security holes,<br>
-  and hand you a Go/No-Go decision with evidence.<br><br>
-  <em>You stay in control. The pipeline does the heavy lifting.</em>
+  AI writes code fast. But fast without structure is just fast mistakes.<br>
+  Pipeline Orchestrator adds the discipline: TDD, security review,<br>
+  architecture conformance, and evidence-based validation --<br>
+  so you can trust what AI builds for you.<br><br>
+  <em>One command. Fifteen agents. Every claim backed by proof.</em>
 </p>
 
 <p align="center">
+  <a href="#why-this-exists">Why this exists</a> &nbsp;&bull;&nbsp;
   <a href="#30-second-demo">See it in action</a> &nbsp;&bull;&nbsp;
   <a href="#install-in-30-seconds">Install</a> &nbsp;&bull;&nbsp;
   <a href="#how-it-works">How it works</a> &nbsp;&bull;&nbsp;
@@ -30,6 +31,22 @@
   <a href="#security-hardening-v22">Security</a> &nbsp;&bull;&nbsp;
   <a href="docs/adapter-guide.md">Adapter Guide</a>
 </p>
+
+<p align="center">
+  <sub>Created by <a href="https://github.com/fernandoxavier02"><strong>Fernando Xavier</strong></a> &nbsp;|&nbsp; <a href="https://github.com/fernandoxavier02"><strong>FX Studio AI</strong></a></sub>
+</p>
+
+---
+
+## Why This Exists
+
+AI coding assistants are powerful -- but they lack discipline. They don't write tests first. They don't check for security holes. They don't verify their work against your project's patterns. They guess when they should ask. And when they get stuck, they loop forever instead of escalating.
+
+**Pipeline Orchestrator exists to solve this.** It's the governance layer that sits between your intent and AI execution, ensuring that every line of code AI writes is tested, reviewed, validated, and proven -- not just generated.
+
+Built by **[Fernando Xavier](https://github.com/fernandoxavier02)** at **[FX Studio AI](https://github.com/fernandoxavier02)**, this plugin was born from real-world experience shipping AI-assisted production code. After too many "it compiles so it's probably fine" moments, the question became clear: *what if AI could be as disciplined as your best senior engineer?*
+
+That's what this is. A senior engineering process, automated, for every task you throw at Claude.
 
 ---
 
@@ -647,6 +664,28 @@ See the [Adapter Guide](docs/adapter-guide.md) for migration details.
 
 ---
 
+## About
+
+### The Creator
+
+**[Fernando Xavier](https://github.com/fernandoxavier02)** is a software engineer and AI tooling specialist who builds systems that make AI-assisted development reliable enough for production. His work focuses on the intersection of multi-agent orchestration, prompt engineering, and software quality -- turning AI from a fast-but-risky code generator into a disciplined engineering partner.
+
+### FX Studio AI
+
+**[FX Studio AI](https://github.com/fernandoxavier02)** develops open-source plugins and tools for AI-assisted software development. The goal: help developers and teams adopt AI coding tools without sacrificing the engineering practices that keep production systems running -- TDD, security review, architecture conformance, and evidence-based validation.
+
+**Other projects by FX Studio AI:**
+- Pipeline Orchestrator (this repo) -- multi-agent governance for Claude Code
+- More tools coming soon -- follow [@fernandoxavier02](https://github.com/fernandoxavier02) for updates
+
+### Philosophy
+
+> *"AI should write code the way great engineers do: test first, review always, prove everything, and ask when unsure."*
+>
+> -- Fernando Xavier
+
+---
+
 ## License
 
 [MIT](LICENSE) -- use it, fork it, adapt it, ship it.
@@ -654,7 +693,12 @@ See the [Adapter Guide](docs/adapter-guide.md) for migration details.
 ---
 
 <p align="center">
-  <sub>Built with obsessive attention to <strong>when AI should stop and ask</strong>.</sub>
+  <strong>Pipeline Orchestrator</strong>
   <br>
-  <sub>by <strong>FX Studio AI</strong></sub>
+  <sub>The governance layer that AI-assisted development was missing.</sub>
+  <br><br>
+  <a href="https://github.com/fernandoxavier02"><img src="https://img.shields.io/badge/by-Fernando_Xavier-7C3AED?style=flat-square" alt="by Fernando Xavier"></a>
+  <a href="https://github.com/fernandoxavier02"><img src="https://img.shields.io/badge/FX_Studio_AI-open_source-blue?style=flat-square" alt="FX Studio AI"></a>
+  <br><br>
+  <sub>Built with obsessive attention to <strong>when AI should stop and ask</strong>.</sub>
 </p>
