@@ -4,9 +4,9 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Claude_Code-Plugin-7C3AED?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTEyIDJMNiA3djEwbDYgNSA2LTVWN3oiLz48L3N2Zz4=" alt="Claude Code Plugin">
-  <img src="https://img.shields.io/badge/version-2.2.0-blue?style=for-the-badge" alt="Version 2.2.0">
+  <img src="https://img.shields.io/badge/version-3.0.0-blue?style=for-the-badge" alt="Version 3.0.0">
   <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="MIT License">
-  <img src="https://img.shields.io/badge/agents-15-orange?style=for-the-badge" alt="15 Agents">
+  <img src="https://img.shields.io/badge/agents-17-orange?style=for-the-badge" alt="17 Agents">
   <img src="https://img.shields.io/badge/dependencies-zero-black?style=for-the-badge" alt="Zero Dependencies">
 </p>
 
@@ -19,7 +19,7 @@
   Pipeline Orchestrator adds the discipline: TDD, security review,<br>
   architecture conformance, and evidence-based validation --<br>
   so you can trust what AI builds for you.<br><br>
-  <em>One command. Fifteen agents. Every claim backed by proof.</em>
+  <em>One command. Seventeen agents. Every claim backed by proof.</em>
 </p>
 
 <p align="center">
@@ -27,7 +27,8 @@
   <a href="#30-second-demo">See it in action</a> &nbsp;&bull;&nbsp;
   <a href="#install-in-30-seconds">Install</a> &nbsp;&bull;&nbsp;
   <a href="#how-it-works">How it works</a> &nbsp;&bull;&nbsp;
-  <a href="#the-15-agents">Meet the agents</a> &nbsp;&bull;&nbsp;
+  <a href="#the-17-agents">Meet the agents</a> &nbsp;&bull;&nbsp;
+  <a href="#independent-review-architecture-v30">Context-Safe Review</a> &nbsp;&bull;&nbsp;
   <a href="#security-hardening-v22">Security</a> &nbsp;&bull;&nbsp;
   <a href="docs/adapter-guide.md">Adapter Guide</a>
 </p>
@@ -207,13 +208,18 @@ Add this to your `~/.claude/settings.json` (create the file if it doesn't exist)
                  |  | pre-tester       |     |  tests written (RED)
                  |  +------------------+     |
                  |                           |
-                 |  +-- Per Batch ------+    |
+                 |  +-- Implementation --+   |
                  |  | micro-gate        |    |  verify before coding
                  |  | implementer       |    |  write code (GREEN)
-                 |  | arch-review       |    |  pattern conformance
                  |  | checkpoint        |    |  build + test proof
-                 |  | adversarial       |    |  security review
-                 |  | fix loop   (<=3)  |    |  auto-fix or escalate
+                 |  +------------------+    |
+                 |                           |
+                 |  +-- Review (CLEAN) --+   |
+                 |  | ADVERSARIAL GATE  |    |  you approve before review starts
+                 |  | review-orchestr.  |    |  zero implementation context
+                 |  |  adversarial ─┐   |    |  security checklists
+                 |  |  arch-review ─┘   |    |  pattern conformance (PARALLEL)
+                 |  | fix loop  (<=3)   |    |  auto-fix or escalate
                  |  +------------------+    |
                  +-------------+-------------+
                               |
@@ -221,6 +227,8 @@ Add this to your `~/.claude/settings.json` (create the file if it doesn't exist)
                  |   PHASE 3: CLOSURE        |
                  |                           |
                  |  sanity-checker            |  final build + test proof
+                 |  FINAL ADVERSARIAL GATE    |  recommended, opt-in
+                 |  final-adversarial-orch.   |  3 parallel reviewers, zero context
                  |  final-validator           |  Go / Conditional / No-Go
                  |  finishing-branch          |  commit, PR, keep, or discard
                  +---------------------------+
@@ -241,7 +249,7 @@ The pipeline doesn't treat a typo fix like a database migration. Rigor scales au
 
 ---
 
-## The 15 Agents
+## The 17 Agents
 
 Every agent has one job. No agent guesses. If information is missing, the pipeline **stops and asks**.
 
@@ -277,19 +285,23 @@ Every agent has one job. No agent guesses. If information is missing, the pipeli
 </td>
 <td width="33%" valign="top">
 
-### Quality (3)
+### Quality (5)
 
 | Agent | Role |
 |:------|:-----|
 | **quality-gate-router** | Designs test scenarios |
 | **pre-tester** | Writes tests (RED) |
 | **architecture-reviewer** | Pattern conformance |
+| **review-orchestrator** | Independent per-batch review coordinator |
+| **final-adversarial-orchestrator** | End-of-pipeline 3-reviewer team |
 
 </td>
 </tr>
 </table>
 
 > **New in v2.2:** `executor-fix` is a dedicated agent (previously inline in executor-controller). It runs with fresh context, strict write-scope restrictions, and must use a different approach on attempt 3.
+
+> **New in v3.0:** `review-orchestrator` and `final-adversarial-orchestrator` move adversarial review completely out of the executor — reviewers now receive **zero implementation context**, eliminating the implicit bias of an agent reviewing its own work.
 
 ---
 
@@ -344,7 +356,90 @@ TASK_CONTEXT and FIX_CONTEXT are explicitly qualified as **non-override sources*
 
 ---
 
+## Independent Review Architecture (v3.0)
+
+The fundamental flaw in per-batch adversarial review: the agent that spawns the reviewer just finished implementing the code. It frames the review — implicitly — around what was done, not what should be checked.
+
+**v3.0 eliminates this.** Review is now fully separated from execution.
+
+### The Problem (v2.x)
+
+```
+executor-controller
+  ├─ implemented code          ← knows what was written and why
+  ├─ spawns architecture-reviewer   ← reviewer gets controller context
+  └─ spawns adversarial-batch       ← reviewer gets controller context
+                                      = implicit review bias
+```
+
+### The Solution (v3.0)
+
+```
+executor-controller
+  └─ implements + checkpoints only   ← no review responsibilities
+
+ADVERSARIAL GATE  ←  pipeline.md asks YOU before any review starts
+
+review-orchestrator  ←  spawned by pipeline.md (clean context)
+  ├─ adversarial-batch      ← PARALLEL, zero implementation context
+  └─ architecture-reviewer  ← PARALLEL, zero implementation context
+```
+
+### Final Adversarial Team
+
+At the end of the pipeline, after all batches complete, an optional (recommended) review team examines **all changes as a whole** — something per-batch reviews can't do:
+
+```
+FINAL ADVERSARIAL GATE  ←  you opt in (token cost disclosed upfront)
+
+final-adversarial-orchestrator
+  ├─ security adversarial    ← PARALLEL
+  ├─ architecture adversarial ← PARALLEL   zero prior context
+  └─ quality adversarial     ← PARALLEL
+       ↓
+  cross-reference findings → consensus analysis → cross-batch issues
+```
+
+**What only a full-diff review catches:**
+- Batch 1 introduced state that batch 3 misuses
+- Individually-safe changes that form a vulnerability chain
+- Architectural drift that's invisible batch-by-batch
+
+### New Mode: `/pipeline review-only`
+
+Run the final adversarial team on your current uncommitted changes — no pipeline execution needed:
+
+```bash
+/pipeline review-only
+# → detects all modified files via git diff
+# → runs 3 independent reviewers in parallel
+# → returns cross-referenced findings
+# → no fixes — you decide what to do
+```
+
+---
+
 ## What Makes It Different
+
+### Reviewers have no idea what was implemented
+
+In v2.x, the agent that implemented the code also spawned the reviewers. The reviewers started with full implementation context — which means they started with bias.
+
+In v3.0, the review team is spawned by the pipeline controller with a clean slate:
+
+```
+review-orchestrator receives:
+  ✓ list of modified files
+  ✓ complexity level
+  ✗ implementation summaries
+  ✗ design decisions
+  ✗ executor reasoning
+  ✗ anything the implementer thought
+
+Reviewers must form their own independent assessment from code alone.
+```
+
+**New in v3.0:** Before review starts, you see an ADVERSARIAL GATE — the files, domains touched, and checklists to apply. You can approve, skip, or adjust. Security-sensitive domains (auth, crypto, data-model) cannot be skipped.
 
 ### It asks before it guesses
 
@@ -447,7 +542,12 @@ references/complexity-matrix.md
 
 # Production on fire? Emergency mode with streamlined gates
 /pipeline --hotfix users can't login since last deploy
+
+# Independent adversarial review of current uncommitted changes
+/pipeline review-only
 ```
+
+**New in v3.0:** `/pipeline review-only` runs 3 independent adversarial reviewers on your current uncommitted changes — no full pipeline needed. Useful before a PR or after a manual edit session.
 
 **New in v2.2:** HOTFIX mode now requires one explicit confirmation ("Confirm this is a production emergency?") instead of auto-proceeding. Includes mandatory logging of who, why, what was skipped, and when.
 
@@ -527,7 +627,7 @@ pipeline-orchestrator/
 +-- agents/
 |   +-- core/                         # 7 agents: triage -> closure
 |   +-- executor/                     # 5 agents: batched implementation + fix
-|   +-- quality/                      # 3 agents: TDD + architecture
+|   +-- quality/                      # 5 agents: TDD + review + final adversarial team
 |
 +-- references/
 |   +-- complexity-matrix.md          # SSOT -- classification + proportionality
@@ -558,6 +658,9 @@ pipeline-orchestrator/
 | **Stops when stuck** | 2 consecutive build failures = pipeline stops + escalates |
 | **Resists injection** | 9 agents hardened against prompt injection from project files |
 | **Catches zero-test tricks** | 0 tests passed + 0 failed = FAIL, not PASS |
+| **Reviewers see no implementation context** | review-orchestrator spawned clean — no bias from the executor |
+| **You approve before review starts** | Adversarial gate shows files, domains, checklists — you control it |
+| **Full-diff final review** | 3 parallel independent reviewers catch cross-batch interaction bugs |
 
 ---
 
@@ -574,12 +677,36 @@ pipeline-orchestrator/
 | Bounded fix loops | | Retry forever | Max 3, then escalate |
 | Evidence-based claims | | Logs exist | Every claim needs proof |
 | Anti-prompt-injection | | | 9-agent defense layer |
+| Context-independent review | | | Reviewers get zero impl. context |
+| User gate before review | | | You approve before adversarial starts |
+| Full-diff final review | | | 3 parallel reviewers on all changes |
 | Works with any project | | Per-project setup | Auto-detects |
 | Production hotfix mode | | | Streamlined gates |
 
 ---
 
 ## Changelog
+
+### v3.0.0 -- Independent Review Architecture (2026-03-17)
+
+**Architecture**
+- `review-orchestrator` — new agent that coordinates per-batch review with **zero implementation context**. Spawned by `pipeline.md` directly, never by `executor-controller`. Dispatches `adversarial-batch` and `architecture-reviewer` in parallel.
+- `final-adversarial-orchestrator` — new end-of-pipeline review team: 3 independent reviewers (security, architecture, quality) run in parallel on **all changes as a whole**, catching cross-batch interaction bugs and emergent security patterns invisible to per-batch reviews.
+- `executor-controller` simplified — no longer spawns review agents. Its responsibility ends at checkpoint validation.
+
+**User Control**
+- **Adversarial Gate** (per-batch) — pipeline asks you before adversarial review starts. You see files, domains, and checklists. You can approve, skip, or adjust. Security-sensitive domains (auth, crypto, data-model, payment) cannot be skipped.
+- **Final Adversarial Gate** — opt-in review at end of pipeline. Token cost disclosed upfront. Recommended for all levels, strongly recommended for COMPLEXA.
+
+**New Mode**
+- `/pipeline review-only` — run the final adversarial team on current uncommitted changes without a full pipeline execution.
+
+**Documentation**
+- `references/complexity-matrix.md` — adversarial gate behavior table per complexity level
+- `references/glossary.md` — added: Review Orchestrator, Adversarial Gate, Final Adversarial Review, Context Contamination, Consensus Finding
+- All 10 pipeline reference files updated with new review steps
+
+---
 
 ### v2.2.0 -- Security Hardening (2026-03-17)
 
