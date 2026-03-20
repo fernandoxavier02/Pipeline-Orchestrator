@@ -1,13 +1,15 @@
 {
-  "SessionStart": [
-    {
-      "matcher": "",
-      "hooks": [
-        {
-          "type": "prompt",
-          "prompt": "Pipeline Orchestrator v3.0.1 loaded. Single command: /pipeline [task]. Features: code-first gap detection, anti-invention enforcement, context-independent adversarial review, user gates before review, final adversarial team (3 parallel agents). Modes: /pipeline [task] | /pipeline diagnostic [task] | /pipeline continue | /pipeline review-only | /pipeline --hotfix [task]"
-        }
-      ]
-    }
-  ]
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Pipeline Orchestrator v3.0.1 loaded. Single command: /pipeline [task]. Features: code-first gap detection, anti-invention enforcement, context-independent adversarial review, user gates before review, final adversarial team (3 parallel agents). Modes: /pipeline [task] | /pipeline diagnostic [task] | /pipeline continue | /pipeline review-only | /pipeline --hotfix [task]"
+          }
+        ]
+      }
+    ]
+  }
 }

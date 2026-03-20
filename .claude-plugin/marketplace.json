@@ -15,7 +15,7 @@
         "name": "FX Studio AI",
         "url": "https://github.com/fernandoxavier02/Pipeline-Orchestrator"
       },
-      "source": ".",
+      "source": "./",
       "category": "development"
     }
   ]

@@ -7,6 +7,7 @@
     "url": "https://github.com/fernandoxavier02/Pipeline-Orchestrator"
   },
   "license": "MIT",
+  "autoDiscover": true,
   "keywords": [
     "pipeline",
     "tdd",
