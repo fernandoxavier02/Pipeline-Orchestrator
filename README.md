@@ -5,7 +5,7 @@
 <p align="center">
   <img src="https://img.shields.io/github/stars/fernandoxavier02/Pipeline-Orchestrator?style=for-the-badge&color=7C3AED" alt="GitHub Stars">
   <img src="https://img.shields.io/badge/Claude_Code-Plugin-7C3AED?style=for-the-badge&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTEyIDJMNiA3djEwbDYgNSA2LTVWN3oiLz48L3N2Zz4=" alt="Claude Code Plugin">
-  <img src="https://img.shields.io/badge/version-3.0.1-blue?style=for-the-badge" alt="Version 3.0.1">
+  <img src="https://img.shields.io/badge/version-3.0.2-blue?style=for-the-badge" alt="Version 3.0.2">
   <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="MIT License">
   <img src="https://img.shields.io/badge/agents-19-orange?style=for-the-badge" alt="19 Agents">
   <img src="https://img.shields.io/badge/dependencies-zero-black?style=for-the-badge" alt="Zero Dependencies">
@@ -34,7 +34,7 @@
   <a href="#30-second-demo">See it in action</a> &nbsp;&bull;&nbsp;
   <a href="#install-in-30-seconds">Install</a> &nbsp;&bull;&nbsp;
   <a href="#how-it-works">How it works</a> &nbsp;&bull;&nbsp;
-  <a href="#the-17-agents">Meet the agents</a> &nbsp;&bull;&nbsp;
+  <a href="#the-19-agents">Meet the agents</a> &nbsp;&bull;&nbsp;
   <a href="#independent-review-architecture-v30">Context-Safe Review</a> &nbsp;&bull;&nbsp;
   <a href="#security-hardening-v22">Security</a> &nbsp;&bull;&nbsp;
   <a href="docs/adapter-guide.md">Adapter Guide</a>
@@ -728,6 +728,18 @@ pipeline-orchestrator/
 ---
 
 ## Changelog
+
+### v3.0.2 -- TDD Dispatch, Plan Mode & Adversarial Chain Fixes (2026-03-27)
+
+**Critical fixes verified by full audit pipeline (audit-heavy COMPLEXA):**
+
+- **TDD Dispatch formalized** (`pipeline.md` Step 2b): `quality-gate-router` and `pre-tester` now have explicit `Spawn` + `Pass` + `Expected output` blocks
+- **Plan Mode fixed** (`plan-architect.md`): Added `EnterPlanMode`, `ExitPlanMode` to `allowed-tools`
+- **`allowed-tools` added** to 4 agents: `finishing-branch`, `executor-fix`, `executor-implementer-task`, `pre-tester`
+- **`final-validator.md` stage names corrected**: `EXECUTOR_RESULT` → `BATCH_RESULTs (aggregated)`, `ADVERSARIAL_REVIEW` → `FINAL_ADVERSARIAL_REPORT`
+- **`executor-fix` dispatch expanded**: FIX_CONTEXT now passes all 5 required fields
+- **Cross-batch fix** (`pipeline.md:601`): `.findings` → `.combined_findings`
+- **`BATCH_CONTEXT.pre_tester_result`** added: TDD RED artifacts now flow to executor-controller
 
 ### v3.0.1 -- Clarification Quality & Anti-Invention (2026-03-19)
 
