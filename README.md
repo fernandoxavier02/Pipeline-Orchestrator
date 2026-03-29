@@ -736,7 +736,7 @@ pipeline-orchestrator/
 
 **New governance features for pipeline integrity and auditability:**
 
-- **Gate Hardness Taxonomy**: All 15 gates now have formal hardness levels (MANDATORY, HARD, CIRCUIT_BREAKER, SOFT). MANDATORY/HARD gates cannot be skipped; SOFT gates can be skipped but are always logged.
+- **Gate Hardness Taxonomy**: All 16 gates now have formal hardness levels (MANDATORY, HARD, CIRCUIT_BREAKER, SOFT). MANDATORY/HARD gates cannot be skipped; SOFT gates can be skipped but are always logged.
 - **Gate Decision Log**: Every gate trigger is appended to `gate-decisions.jsonl` (JSONL format) with gate name, hardness, phase, decision, timestamp, and confidence impact. Machine-readable audit trail.
 - **Phase Transition Summaries**: Mandatory visual summary block emitted before every phase transition (0→1, 1→2, 2→3). Shows what passed, what was skipped, gates triggered, and artifacts carried forward.
 - **Confidence Score**: Cumulative quality score (0.0-1.0) accumulated across phases. Dimensions: classification_clarity, info_completeness, design_alignment, plan_coverage, tdd_coverage, implementation_quality, gate_penalty, sanity_pass. Advisory input to final-validator.
