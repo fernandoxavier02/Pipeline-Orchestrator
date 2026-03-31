@@ -1,0 +1,3 @@
+{"gate":"INFO_GATE_BLOCKED","hardness":"HARD","phase":0,"decision":"RESOLVED","decided_by":"auto","timestamp":"2026-03-31T07:50:00","detail":"0 gaps - request fully specified from prior diagnosis","confidence_impact":0.0}
+{"gate":"ADVERSARIAL_GATE","hardness":"SOFT","phase":2,"decision":"APPROVED","decided_by":"user","timestamp":"2026-03-31T08:05:00","detail":"User approved adversarial review for batch 1","confidence_impact":0.0}
+{"gate":"ADVERSARIAL_BLOCK","hardness":"HARD","phase":2,"decision":"RESOLVED","decided_by":"system","timestamp":"2026-03-31T08:10:00","detail":"1 CRITICAL fixed (argv file read), 1 IMPORTANT fixed (dead code). 2 out-of-scope findings documented.","confidence_impact":0.0}
