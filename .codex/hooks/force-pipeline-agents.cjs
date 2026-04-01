@@ -1,6 +1,10 @@
 #!/usr/bin/env node
-
-const { parsePrompt, evaluateDecisionPrompt } = require("./orchestrator-gate-engine");
+/**
+ * Hook: force-pipeline-agents (Codex variant)
+ *
+ * Detects implementation requests and injects pipeline enforcement.
+ * Self-contained — no external dependencies.
+ */
 
 const PIPELINE_SKILL_MESSAGE = [
   "Skill /pipeline detected - executing full pipeline.",
@@ -16,6 +20,15 @@ const PIPELINE_SKILL_MESSAGE = [
   "- Phase transitions MUST emit summary blocks",
   "- Gate decisions MUST be logged to gate-decisions.jsonl",
   "- Do NOT classify as trivial to skip phases - if /pipeline was invoked, ALL phases apply",
+].join("\n");
+
+const ENFORCEMENT_MESSAGE = [
+  "This request requires the agent pipeline. You MUST:",
+  "",
+  "1. Use the /pipeline skill — it orchestrates the full flow automatically",
+  "   - Or call Agent tool with subagent_type=\"task-orchestrator\"",
+  "2. Wait for the orchestrator to classify and emit ORCHESTRATOR_DECISION",
+  "3. Do NOT start implementing without the pipeline first.",
 ].join("\n");
 
 const SKIP_PATTERNS = [
@@ -48,47 +61,50 @@ const PIPELINE_WORTHY = [
   /\b(feature|funcionalidade|novo|nova|new)/i,
   /\b(botao|button|tela|screen|pagina|page|componente|component)/i,
   /\b(analise|analisar|auditar|auditoria|revisar|verificar|investigar|diagnostic|causa raiz|root cause)\b/i,
-  /\b(pipeline|agentes|orquestrador|orchestrator|classifier|executor|observabilidade|logs|tracing|correlation|runlog)\b/i,
-  /\b(\.ts|\.tsx|\.js|\.md|\.json)\b/i,
-  /\b(functions\/|firestore\.rules|storage\.rules)\b/i,
+  /\b(pipeline|agentes|orquestrador|orchestrator)\b/i,
 ];
+
+function parsePrompt(raw) {
+  if (!raw) return "";
+  try {
+    const data = JSON.parse(raw);
+    return data.prompt || data.arguments || data.input || data.text || data.message || "";
+  } catch {
+    return raw;
+  }
+}
 
 function isTrivial(prompt) {
   const trimmed = (prompt || "").trim();
   if (!trimmed) return true;
-  return SKIP_PATTERNS.some((pattern) => pattern.test(trimmed));
+  return SKIP_PATTERNS.some((p) => p.test(trimmed));
 }
 
 function isSkill(prompt) {
   const trimmed = (prompt || "").trim();
-  return SKILL_PATTERNS.some((pattern) => pattern.test(trimmed));
+  return SKILL_PATTERNS.some((p) => p.test(trimmed));
 }
 
 function isPipelineWorthy(prompt) {
   const trimmed = (prompt || "").trim();
   if (!trimmed) return false;
   if (trimmed.length >= 140) return true;
-  return PIPELINE_WORTHY.some((pattern) => pattern.test(trimmed));
+  return PIPELINE_WORTHY.some((p) => p.test(trimmed));
 }
 
 async function main() {
   let raw = "";
   await new Promise((resolve) => {
-    let input = "";
+    let buf = "";
     process.stdin.setEncoding("utf8");
-    process.stdin.on("data", (chunk) => (input += chunk));
-    process.stdin.on("end", () => {
-      raw = (input || "").trim();
-      resolve();
-    });
+    process.stdin.on("data", (chunk) => (buf += chunk));
+    process.stdin.on("end", () => { raw = (buf || "").trim(); resolve(); });
   });
 
   let prompt = parsePrompt(raw).trim();
   if (!prompt) {
     const argvInput = process.argv.slice(2).join(" ").trim();
-    if (argvInput) {
-      prompt = argvInput;
-    }
+    if (argvInput) prompt = argvInput;
   }
 
   if (isTrivial(prompt)) {
@@ -99,23 +115,19 @@ async function main() {
   if (isSkill(prompt)) {
     const isPipeline = /^\/(pipeline-orchestrator:pipeline|pipeline)\b/i.test(prompt.trim());
     if (isPipeline) {
-      console.log(JSON.stringify({
-        continue: true,
-        systemMessage: PIPELINE_SKILL_MESSAGE
-      }));
+      console.log(JSON.stringify({ continue: true, systemMessage: PIPELINE_SKILL_MESSAGE }));
     } else {
       console.log(JSON.stringify({ continue: true }));
     }
     return;
   }
 
-  if (!isPipelineWorthy(prompt)) {
-    console.log(JSON.stringify({ continue: true }));
+  if (isPipelineWorthy(prompt)) {
+    console.log(JSON.stringify({ continue: true, systemMessage: ENFORCEMENT_MESSAGE }));
     return;
   }
 
-  const result = evaluateDecisionPrompt(prompt);
-  console.log(JSON.stringify({ continue: true, systemMessage: result.message }));
+  console.log(JSON.stringify({ continue: true }));
 }
 
 main().catch(() => {

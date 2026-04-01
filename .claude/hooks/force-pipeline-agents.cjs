@@ -111,8 +111,7 @@ function isPipelineWorthy(prompt) {
     /\b(analise|analisar|auditar|auditoria|revisar|verificar|investigar|diagnostic|causa raiz|root cause)\b/i,
     /\b(pipeline|agentes|orquestrador|orchestrator|classifier|executor|observabilidade|logs|tracing|correlation|runlog)\b/i,
     /\b(nao esta funcionando|nao funciona|precario|nao cumprem)\b/i,
-    /\b(\.py|\.html|\.jinja|\.jinja2|\.css|\.js|\.md|\.json|\.sql)\b/i,
-    /\b(OBZ\/bpo-pricing-platform\/|migrations\/|app\/models\.py)\b/i,
+    /\b(\.\w{1,4})\b.*\b(fix|bug|erro|alter|criar|remov|refator)/i,
   ];
 
   for (const pattern of pipelineWorthyPatterns) {
