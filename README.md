@@ -820,101 +820,21 @@ The sentinel catches this at **Phase 0a** -- before a single line of code is wri
 
 ### Architecture: 3 Components
 
-```
-                    +-----------------------+
-                    | sentinel-state.json   |
-                    | (single writer:       |
-                    |  pipeline controller) |
-                    +----------+------------+
-                               |
-              reads            |            reads
-         +---------------------+---------------------+
-         |                                           |
-         v                                           v
-+------------------+                    +-------------------+
-| sentinel-hook    |                    | sentinel agent    |
-| (PreToolUse)     |                    | (sonnet, red)     |
-|                  |                    |                   |
-| - Intercepts     |   spawns after    | - 3 modes:        |
-|   every Agent    |   deny or at      |   ORCHESTRATOR    |
-|   tool call      |   checkpoints     |   SEQUENCE        |
-| - Compares vs    +-------------------> COHERENCE        |
-|   expected_next  |                    |                   |
-| - Match: allow   |                    | - Emits visual    |
-| - Mismatch: deny |                    |   PASS/CORRECTED/ |
-|   with reason    |                    |   BLOCKED boxes   |
-+------------------+                    +-------------------+
-```
+<p align="center">
+  <img src="docs/assets/sentinel-architecture.png" alt="Sentinel Architecture" width="100%">
+</p>
 
 ### How It Works
 
-```
-Controller creates sentinel-state.json
-     |
-     v
-Phase 0a: task-orchestrator
-     |
-     v
-  +------------------------------------------+
-  | SENTINEL checkpoint #1                    |
-  | Mode: ORCHESTRATOR_VALIDATION             |
-  |                                           |
-  | Validates:                                |
-  |  - type x complexity -> correct variant?  |
-  |  - elevation rules respected?             |
-  |  - SSOT conflict detected but ignored?    |
-  |                                           |
-  | PASS -> continue                          |
-  | CORRECTED -> auto-fix, continue           |
-  | BLOCKED -> stop, ask user                 |
-  +------------------------------------------+
-     |
-     v
-Phase 0b: information-gate
-     |
-     v
-  ... (hook validates every spawn silently) ...
-     |
-     v
-Phase 2: Execution
-     |  +--- per batch -------------------+
-     |  | hook checks every Agent spawn   |
-     |  | match -> silent allow           |
-     |  | mismatch -> deny + sentinel     |
-     |  +---------------------------------+
-     |
-     v
-  +------------------------------------------+
-  | SENTINEL checkpoint #4 (COMPLEXA only)   |
-  | Mode: COHERENCE_VALIDATION               |
-  |                                           |
-  | Cross-references:                         |
-  |  - gate-decisions.jsonl consistency       |
-  |  - confidence drift (> 0.3 drop)          |
-  |  - MANDATORY gate tampering               |
-  +------------------------------------------+
-     |
-     v
-Phase 3: Closure -> Pa de Cal
-```
+<p align="center">
+  <img src="docs/assets/sentinel-flow.png" alt="Sentinel Execution Flow" width="100%">
+</p>
 
 ### Three Validation Modes
 
-| Mode | When | What It Checks |
-|:-----|:-----|:---------------|
-| **ORCHESTRATOR_VALIDATION** | After Phase 0a (always) | Classification correctness, routing matrix, elevation rules, SSOT conflicts |
-| **SEQUENCE_VALIDATION** | After hook denies a spawn | Phase skipping, wrong agent order, missing conditional phases |
-| **COHERENCE_VALIDATION** | At phase transitions (COMPLEXA) | Cross-gate consistency, confidence drift, gate hardness tampering |
-
-### Checkpoints by Complexity
-
-| Checkpoint | MEDIA | COMPLEXA |
-|:-----------|:-----:|:--------:|
-| #1 post_orchestrator | **Mandatory** | **Mandatory** |
-| #2 phase_0_to_1 | Recommended | **Mandatory** |
-| #3 phase_1_to_2 | Recommended | **Mandatory** |
-| #4 phase_2_to_3 | Recommended | **Mandatory** |
-| #5 post_final_validator | Recommended | **Mandatory** |
+<p align="center">
+  <img src="docs/assets/sentinel-modes.png" alt="Sentinel Validation Modes" width="100%">
+</p>
 
 ### Sentinel Output (always visible)
 
