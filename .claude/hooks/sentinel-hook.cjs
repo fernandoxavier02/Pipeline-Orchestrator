@@ -20,12 +20,10 @@ const path = require('path');
 
 // ── Auto-Discovery ──────────────────────────────────────────────────────────
 
-/**
- * Find the most recent sentinel-state.json without depending on env vars.
- * Priority 1: PIPELINE_DOC_PATH env var (backwards compatible override)
- * Priority 2: Scan .pipeline/docs/Pre-*-action/*/sentinel-state.json by mtime
- * Returns: absolute path to sentinel-state.json, or null if not found.
- */
+// Find the most recent sentinel-state.json without depending on env vars.
+// Priority 1: PIPELINE_DOC_PATH env var (backwards compatible override)
+// Priority 2: Scan .pipeline/docs/Pre-{level}-action/{session}/sentinel-state.json by mtime
+// Returns: absolute path to sentinel-state.json, or null if not found.
 function discoverStatePath() {
   // Priority 1: explicit env var (backwards compatible)
   const envPath = (process.env.PIPELINE_DOC_PATH || '').trim();
