@@ -1,0 +1,7 @@
+description = "Invoca o Auditor Senior para revisão profunda"
+
+prompt = """
+Invoque o Auditor Senior para revisão profunda da feature especificada.
+Use a ferramenta Bash para executar o seguinte comando:
+python3 /Users/fernandocostaxavier/.gemini/hooks/slash_commands.py /audit {{args}}
+"""

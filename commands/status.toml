@@ -1,0 +1,7 @@
+description = "Exibe Dashboard de governança e gates do Pipeline"
+
+prompt = """
+Exiba o dashboard de governança e os gates do Pipeline.
+Use a ferramenta Bash para executar o seguinte comando:
+python3 /Users/fernandocostaxavier/.gemini/hooks/dashboard.py
+"""

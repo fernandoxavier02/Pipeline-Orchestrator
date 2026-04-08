@@ -1,0 +1,7 @@
+description = "Inicia o Pipeline Orchestrator (SSOT: No Spec, No Code)"
+
+prompt = """
+Atue como o Orchestrator. Sua tarefa é executar o Pipeline para a feature especificada nos argumentos.
+Use a ferramenta Bash para executar o seguinte comando:
+python3 /Users/fernandocostaxavier/.gemini/hooks/slash_commands.py /pipeline {{args}}
+"""
