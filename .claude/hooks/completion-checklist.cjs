@@ -1,0 +1,138 @@
+#!/usr/bin/env node
+/**
+ * Hook: completion-checklist.cjs
+ * Event: Stop
+ *
+ * When the agent attempts to stop, verifies that minimum requirements
+ * were met according to pipeline orchestrator rules:
+ *   - ORCHESTRATOR_DECISION emitted
+ *   - Build/tests passed
+ *   - Pipeline phases completed (if /pipeline was invoked)
+ *
+ * Generic — works with any project. Project-specific commands should
+ * be configured in .claude/pipeline.local.md
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+/**
+ * Detecta se alguma spec com audit_source existe no projeto.
+ * Retorna lista de specs de auditoria encontradas.
+ */
+function findAuditSourcedSpecs() {
+  const specsDir = path.join(process.cwd(), '.kiro', 'specs');
+  const found = [];
+  try {
+    if (!fs.existsSync(specsDir)) return found;
+    const dirs = fs.readdirSync(specsDir, { withFileTypes: true });
+    for (const dir of dirs) {
+      if (!dir.isDirectory()) continue;
+      const specJsonPath = path.join(specsDir, dir.name, 'spec.json');
+      try {
+        if (!fs.existsSync(specJsonPath)) continue;
+        const specJson = JSON.parse(fs.readFileSync(specJsonPath, 'utf8'));
+        // Only flag specs that are not yet closed/completed and have audit_source
+        if (specJson.audit_source && specJson.phase !== 'closed') {
+          found.push({
+            name: dir.name,
+            audit_source: specJson.audit_source,
+            phase: specJson.phase || 'unknown'
+          });
+        }
+      } catch { /* ignore parse errors */ }
+    }
+  } catch { /* ignore fs errors */ }
+  return found;
+}
+
+let input = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', chunk => input += chunk);
+process.stdin.on('end', () => {
+  try {
+    const contextParts = [
+      '## Checklist de Conclusao (auto-injetado)',
+      '',
+    ];
+
+    // Kiro-specific rules — only include if .kiro directory exists
+    const kiroDir = path.join(process.cwd(), '.kiro');
+    if (fs.existsSync(kiroDir)) {
+      contextParts.push(
+        '### Regras Inegociaveis (.kiro/steering/golden-rule.md)',
+        '- [ ] Regra 1: Spec → Design → Tasks antes de codigo?',
+        '- [ ] Regra 2: Evidencia acima de suposicao?',
+        '- [ ] Regra 3: Mudanca minima, diff minimo?',
+        '- [ ] Regra 5: SSOT — regras criticas no backend?',
+        '- [ ] Regra 10: Build obrigatorio, max 2 tentativas?',
+        '- [ ] Regra 15: Nao-Invencao — lacunas preenchidas sem perguntar?',
+        '- [ ] Regra 16: Execucao Nao-Assumptiva — so o que foi pedido?',
+        '',
+        '### SSOT (.kiro/steering/authority-map.md)',
+        '- [ ] Dominio tocado tem SSOT unica? (recusa se 2 fontes detectadas)',
+        '',
+      );
+    }
+
+    contextParts.push(
+      '### Pipeline',
+      '- [ ] ORCHESTRATOR_DECISION emitido no inicio?',
+      '',
+      '### Qualidade',
+      '- [ ] Build/validacao executada? (use o comando de build do projeto)',
+      '- [ ] Testes executados (se existirem)? (use o comando de test do projeto)',
+      '- [ ] Testes passaram? TDD RED->GREEN se implementou codigo',
+      '- [ ] Sem regressoes? Suite de regressao do CHECKPOINT passa',
+    );
+
+    // v2.0: Check for audit-sourced specs
+    const auditSpecs = findAuditSourcedSpecs();
+    if (auditSpecs.length > 0) {
+      contextParts.push('');
+      contextParts.push('### Coverage Gate — Specs de Auditoria (OBRIGATORIO)');
+      contextParts.push(`Specs de auditoria detectadas: ${auditSpecs.map(s => s.name).join(', ')}`);
+      contextParts.push('');
+      for (const spec of auditSpecs) {
+        contextParts.push(`**${spec.name}** (fase: ${spec.phase}, audit: ${spec.audit_source})`);
+      }
+      contextParts.push('');
+      contextParts.push('- [ ] Coverage Gate emitido? (tabela gap→AC→task, TODOS os gaps cobertos)');
+      contextParts.push('- [ ] Priority Consistency? (gap P0 nunca em slice P2)');
+      contextParts.push('- [ ] /kiro:validate-spec rodado? (12 eixos de conteudo, alem do Spec Gate de formato)');
+      contextParts.push('');
+      contextParts.push('Se qualquer item acima NAO foi cumprido, complete antes de finalizar.');
+      contextParts.push('Ref: memory/spec-from-audit-checklist.md');
+    }
+
+    // v3.0: Pipeline phase enforcement (always inject — approach B)
+    contextParts.push('');
+    contextParts.push('### Pipeline Orchestrator — Fases Obrigatorias');
+    contextParts.push('Se /pipeline foi invocado nesta sessao, TODAS as fases devem ter sido executadas:');
+    contextParts.push('- [ ] Phase 0: task-orchestrator spawnado (CLASSIFICATION emitida)?');
+    contextParts.push('- [ ] Phase 0: information-gate spawnado (INFORMATION_GATE emitida)?');
+    contextParts.push('- [ ] Phase 1: PIPELINE PROPOSAL apresentado e usuario confirmou?');
+    contextParts.push('- [ ] Phase 2: executor-controller spawnado com batch execution?');
+    contextParts.push('- [ ] Phase 2: checkpoint-validator rodou (build + test)?');
+    contextParts.push('- [ ] Phase 3: sanity-checker spawnado com evidencia de comando + output?');
+    contextParts.push('- [ ] Phase 3: final-validator (Pa de Cal) emitiu GO/CONDITIONAL/NO-GO?');
+    contextParts.push('- [ ] Phase 3: finishing-branch apresentou opcoes de closeout?');
+    contextParts.push('- [ ] Gate decisions logadas em gate-decisions.jsonl?');
+    contextParts.push('- [ ] Phase transition summaries emitidos entre cada fase?');
+    contextParts.push('');
+    contextParts.push('Se /pipeline NAO foi invocado, ignore esta secao.');
+    contextParts.push('Se alguma fase foi pulada, PARE e complete antes de finalizar.');
+
+    contextParts.push('');
+    contextParts.push('Se algum item nao foi cumprido, considere completar antes de finalizar.');
+    contextParts.push('Se build falhou 2x: PARAR e analisar causa raiz (Stop Rule).');
+
+    console.log(JSON.stringify({
+      continue: true,
+      additionalContext: contextParts.join('\n')
+    }));
+
+  } catch (e) {
+    console.log(JSON.stringify({ continue: true }));
+  }
+});

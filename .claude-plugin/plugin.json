@@ -1,0 +1,23 @@
+{
+  "name": "pipeline-orchestrator",
+  "version": "3.1.0",
+  "description": "Single-command multi-agent pipeline for Claude Code. Auto-classifies tasks, executes in adaptive batches with TDD, context-independent adversarial review (user gates), final adversarial team (3 parallel agents), and proportional validation. Works with any project.",
+  "author": {
+    "name": "FX Studio AI",
+    "url": "https://github.com/fernandoxavier02/Pipeline-Orchestrator"
+  },
+  "license": "MIT",
+  "autoDiscover": true,
+  "keywords": [
+    "pipeline",
+    "tdd",
+    "multi-agent",
+    "orchestration",
+    "code-quality",
+    "adversarial-review",
+    "batch-execution",
+    "classification",
+    "sentinel",
+    "open-source"
+  ]
+}

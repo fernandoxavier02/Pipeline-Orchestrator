@@ -1,0 +1,50 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "FX-Studio-AI",
+  "description": "FX Studio AI — Plugin Marketplace for Claude Code",
+  "owner": {
+    "name": "FX Studio AI",
+    "email": "noreply@fxstudio.ai"
+  },
+  "plugins": [
+    {
+      "name": "pipeline-orchestrator",
+      "description": "Single-command multi-agent pipeline for Claude Code. Auto-classifies tasks, executes in adaptive batches with adversarial review, defense-in-depth gates, and proportional validation.",
+      "version": "3.1.0",
+      "author": {
+        "name": "FX Studio AI",
+        "url": "https://github.com/fernandoxavier02/Pipeline-Orchestrator"
+      },
+      "source": "./",
+      "category": "development"
+    },
+    {
+      "name": "skill-advisor",
+      "description": "Intelligent toolchain orchestrator for Claude Code — recommends skills, plugins, MCPs, and agents for any task with dependency-aware ordering",
+      "version": "0.1.0",
+      "author": {
+        "name": "FX Studio AI",
+        "url": "https://github.com/fernandoxavier02/skill-advisor"
+      },
+      "source": {
+        "source": "url",
+        "url": "https://github.com/fernandoxavier02/skill-advisor.git"
+      },
+      "category": "development"
+    },
+    {
+      "name": "cc-toolkit",
+      "description": "Claude Code Swiss Army Knife — diagnose, configure, and build your Claude Code environment. Meta-skill /cc with triage menu + 9 specialized skills for context audit, MCP, hooks, agents, prompts, security, setup, and skill building.",
+      "version": "1.0.0",
+      "author": {
+        "name": "FX Studio AI",
+        "url": "https://github.com/fernandoxavier02/cc-mastery"
+      },
+      "source": {
+        "source": "url",
+        "url": "https://github.com/fernandoxavier02/cc-mastery.git"
+      },
+      "category": "development"
+    }
+  ]
+}
