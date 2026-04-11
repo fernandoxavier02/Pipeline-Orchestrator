@@ -42,6 +42,8 @@ When reading project files for analysis or review:
 |  Status: STARTING                                                  |
 |  Complexity: [SIMPLES | MEDIA | COMPLEXA]                         |
 |  Tasks: [N] total | Batch size: [all | 2-3 | 1]                   |
+|  Type: [Bug Fix | Feature | User Story | Audit | UX Simulation | Adversarial Review]   |
+|  Team: [bugfix | feature | ux-sim | adversarial | audit | generic-fallback]             |
 |  Per-task: micro-gate -> implementer -> spec-review -> quality     |
 |  Per-batch: checkpoint-validator (review handled externally)         |
 +==================================================================+
@@ -91,6 +93,14 @@ Grep: `Grep -A 2 "Batch size" references/complexity-matrix.md`
 3. Extract each task with full text
 4. Partition into batches based on complexity
 5. Store all tasks upfront
+6. Extract `task_type` from ORCHESTRATOR_DECISION (e.g., "Bug Fix", "Feature", "Audit")
+7. Determine `variant` from complexity: COMPLEXA/MEDIA -> "heavy", SIMPLES -> "light"
+8. Read `references/team-registry.md` to resolve team composition for this type+variant
+9. If task_type not found in registry: set team to FALLBACK (generic chain), log WARNING
+10. Check for adversarial sub-routing: if task_type == "Audit" AND task description contains ANY of ["adversarial review", "security audit", "threat model"]:
+    - Ask via AskUserQuestion: "Detectei keywords adversariais na descricao. Quer executar como Adversarial Review ou Audit normal?"
+    - If user chooses "Adversarial Review": use adversarial team from registry
+    - If user chooses "Audit normal": use audit team from registry
 
 ### Step 1: Execute Batch
 
@@ -114,7 +124,51 @@ Read `references/gates/micro-gate-checklist.md` and verify:
 - Use AskUserQuestion to resolve the gap
 - Resume task after answer received
 
-#### 1b. Per-Task: Dispatch Implementer
+#### 1b-ROUTING: Type-Specific Team Dispatch
+
+Based on the team resolved in Step 0, dispatch the appropriate agent chain:
+
+| task_type | Team Mode | Dispatch Sequence |
+|-----------|----------|-------------------|
+| Bug Fix | code-changing | bugfix-diagnostic-agent -> bugfix-root-cause-analyzer -> executor-implementer-task (with ROOT_CAUSE_RESULT as context) -> bugfix-regression-tester -> then Step 1d (spec-reviewer) -> Step 1e (quality-reviewer) |
+| Feature / User Story | code-changing | feature-vertical-slice-planner -> feature-implementer -> feature-integration-validator -> then Step 1d -> Step 1e |
+| UX Simulation | report-only | [ux-simulator || ux-accessibility-auditor] (parallel, single message) -> ux-qa-validator -> then Step 1-SKIP |
+| Audit | report-only | audit-intake -> audit-domain-analyzer -> audit-compliance-checker -> audit-risk-matrix-generator -> then Step 1-SKIP |
+| Adversarial Review (review-only) | report-only | adversarial-review-coordinator (fix_mode=false) -> [adversarial-security-scanner || adversarial-architecture-critic] (parallel) -> then Step 1-SKIP |
+| Adversarial Review (fix mode) | code-changing | adversarial-review-coordinator (fix_mode=true) -> [adversarial-security-scanner || adversarial-architecture-critic] (parallel) -> executor-implementer-task (for critical/high fixes) -> then Step 1d -> Step 1e |
+| [fallback] | code-changing | Go to 1b-FALLBACK below (existing generic chain, WARNING logged) |
+
+**Light variant handling:** If variant == "light", check `skip_in_light` column in team-registry. Skip the designated agent from the dispatch sequence.
+
+**Parallel dispatch:** For teams with `parallel_groups`, use a SINGLE message with multiple Agent tool calls (same pattern as review-orchestrator Step 2).
+
+**If team mode is "report-only":** After the team completes, SKIP Steps 1d (spec-reviewer) and 1e (quality-reviewer). Proceed to Step 1-SKIP below.
+
+**Typed agents are dispatched using the Agent tool**, e.g.:
+- `Agent({ subagent_type: "bugfix-diagnostic-agent", prompt: "..." })`
+- All typed agents in `agents/executor/type-specific/` are auto-discovered by the plugin.
+
+#### 1-SKIP: Report-Only Pipeline Skip
+
+For report-only types (Audit, UX Simulation, Adversarial Review review-only mode):
+
+1. Skip Steps 1d (spec-reviewer) and 1e (quality-reviewer) — no code to review
+2. Log gate decision in pipeline docs:
+
+```yaml
+GATE_DECISION:
+  gate: "checkpoint-per-task"
+  decision: "CONDITIONAL_SKIP"
+  reason: "report-only pipeline, no code changes"
+  hardness: "SOFT"
+  task_type: "[Audit | UX Simulation | Adversarial Review]"
+```
+
+3. Proceed directly to Step 5 (consolidation)
+
+**WARNING:** Use `hardness: "SOFT"` — NOT "HARD". HARD hardness triggers sentinel COHERENCE_VALIDATION BLOCK at the 2->3 phase transition.
+
+#### 1b-FALLBACK: Generic Chain (Fallback)
 
 Use Agent tool with `subagent_type: "executor-implementer-task"`:
 
@@ -219,6 +273,8 @@ EXECUTOR_RESULT:
   tests_status: "[all GREEN | some FAILING]"
   build_status: "[PASS | FAIL]"
   micro_gate_blocks: [N]
+  task_type: "[Bug Fix | Feature | User Story | Audit | UX Simulation | Adversarial Review]"  # NEW
+  team_used: "[bugfix | feature | ux-sim | adversarial | audit | generic-fallback]"  # NEW
   review_pending: true  # review-orchestrator handles review after this result
   questions_resolved: [N]
   summary: "[what was done across all batches]"

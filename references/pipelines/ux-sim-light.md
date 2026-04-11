@@ -93,3 +93,18 @@ UX_SIMULATION_REPORT:
 ## Escalation
 - Blocker-level UX problems -> recommend immediate fix
 - Journey impossible to complete -> flag as critical
+
+---
+
+### Type-Specific Agent Team
+
+**Team:** UX Sim Light
+**Mode:** report-only
+**Agents (execution order):**
+1. ux-simulator — journey simulation, step-by-step friction points, problem classification
+2. ux-qa-validator — problem prioritization, report completeness verification, recommendations assembly
+
+**Note:** ux-accessibility-auditor is SKIPPED in Light (accessibility checks handled inline by ux-simulator where applicable).
+
+**Phase 3 Note:**
+This is a report-only pipeline. final-adversarial-orchestrator is SKIPPED (zero code review surface). Pipeline proceeds directly to final-validator.

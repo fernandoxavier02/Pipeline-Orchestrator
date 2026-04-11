@@ -109,3 +109,14 @@
 - 2 consecutive checkpoint failures -> STOP RULE
 - 3 adversarial attempts fail -> propose alternatives
 - Architecture disagreement -> user decides
+
+---
+
+### Type-Specific Agent Team
+
+**Team:** Feature Heavy
+**Mode:** code-changing
+**Agents (execution order):**
+1. feature-vertical-slice-planner — vertical slice decomposition, task breakdown, per-slice acceptance criteria
+2. feature-implementer — per-task TDD implementation, 1 task per batch
+3. feature-integration-validator — cross-slice integration checks, regression verification, acceptance criteria confirmation

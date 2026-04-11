@@ -129,3 +129,18 @@ AUDIT_REPORT:
 - Critical security findings -> recommend immediate remediation
 - SSOT conflicts -> flag as P0
 - Scope too large for single audit -> propose phased approach
+
+---
+
+### Type-Specific Agent Team
+
+**Team:** Audit Heavy
+**Mode:** report-only
+**Agents (execution order):**
+1. audit-intake — scope definition, axis selection, baseline establishment, audit plan with user approval
+2. audit-domain-analyzer — architecture mapping, SSOT verification, business rule consistency, dependency graph
+3. audit-compliance-checker — contracts audit, API validation, data integrity, security compliance checks
+4. audit-risk-matrix-generator — finding consolidation, risk matrix assembly, priority ordering, AUDIT_REPORT generation
+
+**Phase 3 Note:**
+This is a report-only pipeline. final-adversarial-orchestrator is SKIPPED (zero code review surface). Pipeline proceeds directly to final-validator.

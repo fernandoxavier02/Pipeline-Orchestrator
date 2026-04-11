@@ -88,3 +88,15 @@
 - Story too large (6+ tasks) -> escalate to user-story-heavy
 - Acceptance criteria ambiguous -> ASK user for clarification
 - Crosses 3+ domains -> re-assess complexity
+
+---
+
+### Type-Specific Agent Team
+
+**Team:** Feature Light (referenced from implement-light)
+**Mode:** code-changing
+**Agents (execution order):**
+1. feature-vertical-slice-planner — story decomposition into implementable tasks, acceptance criteria mapping
+2. feature-implementer — per-task TDD implementation, batches of 2-3
+
+**Note:** feature-integration-validator is SKIPPED in Light. User Story Light uses the same agent team as Feature Light. The difference is upstream: user-story pipeline includes story intake and decomposition steps before reaching executor-controller.

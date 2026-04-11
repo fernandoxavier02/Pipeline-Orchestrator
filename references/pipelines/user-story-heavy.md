@@ -108,3 +108,16 @@
 - 2 consecutive failures -> STOP RULE
 - 3 adversarial attempts fail -> propose alternatives
 - Story requirements change mid-execution -> re-plan
+
+---
+
+### Type-Specific Agent Team
+
+**Team:** Feature Heavy (referenced from implement-heavy)
+**Mode:** code-changing
+**Agents (execution order):**
+1. feature-vertical-slice-planner — story decomposition into vertical slices, acceptance criteria per slice
+2. feature-implementer — per-task TDD implementation, 1 task per batch
+3. feature-integration-validator — cross-slice integration checks, end-to-end journey verification, acceptance criteria confirmation
+
+**Note:** User Story Heavy uses the same agent team as Feature Heavy. The difference is upstream: user-story pipeline includes NLP story intake and cause-root matrix before reaching executor-controller.

@@ -89,3 +89,15 @@
 - Scope exceeds 5 files -> consider implement-heavy
 - Data model changes required -> elevate to COMPLEXA
 - Auth/security impact discovered -> add security checklists
+
+---
+
+### Type-Specific Agent Team
+
+**Team:** Feature Light
+**Mode:** code-changing
+**Agents (execution order):**
+1. feature-vertical-slice-planner — scope decomposition, task mapping, acceptance criteria per task
+2. feature-implementer — per-task TDD implementation, batches of 2-3
+
+**Note:** feature-integration-validator is SKIPPED in Light (cross-slice integration handled inline by checkpoint-validator).

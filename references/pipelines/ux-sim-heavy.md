@@ -128,3 +128,19 @@ UX_SIMULATION_REPORT:
 - Blocker UX issues -> recommend immediate fix before release
 - Accessibility failures -> flag as compliance risk
 - Systemic issues across 3+ journeys -> architectural recommendation
+
+---
+
+### Type-Specific Agent Team
+
+**Team:** UX Sim Heavy
+**Mode:** report-only
+**Agents (execution order):**
+1. ux-simulator — per-journey simulation, step-by-step friction analysis, cross-device consistency
+2. ux-accessibility-auditor — keyboard navigation, screen reader, color contrast, motion (parallel with ux-simulator)
+3. ux-qa-validator — cross-journey pattern analysis, systemic issue identification, report assembly
+
+**Dispatch note:** ux-simulator and ux-accessibility-auditor are dispatched IN PARALLEL per batch (parallel dispatch notation: `[ux-simulator || ux-accessibility-auditor]`).
+
+**Phase 3 Note:**
+This is a report-only pipeline. final-adversarial-orchestrator is SKIPPED (zero code review surface). Pipeline proceeds directly to final-validator.

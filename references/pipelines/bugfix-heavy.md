@@ -111,3 +111,15 @@
 - 2 consecutive checkpoint failures -> STOP RULE
 - 3 adversarial fix attempts fail -> propose 2 alternatives + discard
 - Root cause unclear after investigation -> user decision required
+
+---
+
+### Type-Specific Agent Team
+
+**Team:** Bug Fix Heavy
+**Mode:** code-changing
+**Agents (execution order):**
+1. bugfix-diagnostic-agent — terrain reconnaissance, full execution path trace, evidence chain
+2. bugfix-root-cause-analyzer — root cause consolidation, multi-point evidence verification, confidence assessment
+3. executor-implementer-task — controlled fix implementation (TDD, per-task batches) *(shared executor agent, not type-specific — lives at `agents/executor/executor-implementer-task.md`)*
+4. bugfix-regression-tester — post-fix regression suite, symptom verification, edge case coverage

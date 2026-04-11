@@ -93,3 +93,19 @@ AUDIT_REPORT:
 - Scope too large -> suggest breaking into focused audits
 - Critical security findings -> recommend immediate action
 - SSOT conflicts discovered -> flag as highest priority
+
+---
+
+### Type-Specific Agent Team
+
+**Team:** Audit Light
+**Mode:** report-only
+**Agents (execution order):**
+1. audit-intake — scope definition, axis selection, audit plan
+2. audit-compliance-checker — architecture analysis, domain rules, quality assessment, findings with severity ratings
+3. audit-risk-matrix-generator — finding consolidation, structured AUDIT_REPORT generation, recommendations
+
+**Note:** audit-domain-analyzer is SKIPPED in Light (domain analysis handled inline by audit-compliance-checker).
+
+**Phase 3 Note:**
+This is a report-only pipeline. final-adversarial-orchestrator is SKIPPED (zero code review surface). Pipeline proceeds directly to final-validator.

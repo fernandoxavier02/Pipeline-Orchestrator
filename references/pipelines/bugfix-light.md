@@ -88,3 +88,16 @@
 - If root cause spans 6+ files -> escalate to bugfix-heavy
 - If fix introduces regression -> STOP RULE
 - If 3 adversarial fix attempts fail -> propose alternatives to user
+
+---
+
+### Type-Specific Agent Team
+
+**Team:** Bug Fix Light
+**Mode:** code-changing
+**Agents (execution order):**
+1. bugfix-diagnostic-agent — diagnosis, root cause hypothesis, file:line evidence
+2. executor-implementer-task — fix implementation (TDD, batches of 2-3) *(shared executor agent, not type-specific — lives at `agents/executor/executor-implementer-task.md`)*
+3. bugfix-regression-tester — post-fix validation, symptom verification
+
+**Note:** bugfix-root-cause-analyzer is SKIPPED in Light (root cause consolidation handled inline by bugfix-diagnostic-agent).
