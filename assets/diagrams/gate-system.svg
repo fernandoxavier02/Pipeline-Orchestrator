@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#161b22"/>
+    </linearGradient>
+    <filter id="s3">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="400" fill="url(#bg3)" rx="12"/>
+
+  <!-- Title -->
+  <text x="600" y="40" text-anchor="middle" fill="#f0f6fc" font-size="22" font-weight="700" letter-spacing="1">DEFENSE-IN-DEPTH GATE SYSTEM</text>
+  <line x1="400" y1="50" x2="800" y2="50" stroke="#7C3AED" stroke-width="2" opacity="0.6"/>
+
+  <!-- MANDATORY -->
+  <rect x="40" y="75" width="270" height="250" rx="12" fill="#1a0a0a" stroke="#dc2626" stroke-width="2.5" filter="url(#s3)"/>
+  <rect x="40" y="75" width="270" height="42" rx="12" fill="#dc2626"/>
+  <rect x="40" y="105" width="270" height="2" fill="#dc2626"/>
+  <text x="175" y="102" text-anchor="middle" fill="#fff" font-size="15" font-weight="800">MANDATORY</text>
+
+  <text x="60" y="140" fill="#fca5a5" font-size="12" font-weight="700">Never bypassed</text>
+  <text x="60" y="158" fill="#8b949e" font-size="10">Not even by --hotfix or --force</text>
+
+  <line x1="60" y1="170" x2="290" y2="170" stroke="#dc2626" stroke-width="0.5" opacity="0.3"/>
+
+  <circle cx="75" cy="195" r="6" fill="#dc2626"/>
+  <text x="90" y="199" fill="#f0f6fc" font-size="11">SSOT Conflict</text>
+
+  <circle cx="75" cy="225" r="6" fill="#dc2626"/>
+  <text x="90" y="229" fill="#f0f6fc" font-size="11">Auth/Crypto Domain Review</text>
+
+  <circle cx="75" cy="255" r="6" fill="#dc2626"/>
+  <text x="90" y="259" fill="#f0f6fc" font-size="11">Data Model Protection</text>
+
+  <rect x="60" y="280" width="230" height="30" rx="6" fill="#450a0a" stroke="#dc2626" stroke-width="1"/>
+  <text x="175" y="300" text-anchor="middle" fill="#fca5a5" font-size="10" font-weight="700">Skip: IMPOSSIBLE | Override: NONE</text>
+
+  <!-- HARD -->
+  <rect x="330" y="75" width="270" height="250" rx="12" fill="#1a0f00" stroke="#ea580c" stroke-width="2.5" filter="url(#s3)"/>
+  <rect x="330" y="75" width="270" height="42" rx="12" fill="#ea580c"/>
+  <rect x="330" y="105" width="270" height="2" fill="#ea580c"/>
+  <text x="465" y="102" text-anchor="middle" fill="#fff" font-size="15" font-weight="800">HARD</text>
+
+  <text x="350" y="140" fill="#fdba74" font-size="12" font-weight="700">Blocks until resolved</text>
+  <text x="350" y="158" fill="#8b949e" font-size="10">Pipeline waits for resolution</text>
+
+  <line x1="350" y1="170" x2="580" y2="170" stroke="#ea580c" stroke-width="0.5" opacity="0.3"/>
+
+  <circle cx="365" cy="195" r="6" fill="#ea580c"/>
+  <text x="380" y="199" fill="#f0f6fc" font-size="11">Information Gap</text>
+
+  <circle cx="365" cy="225" r="6" fill="#ea580c"/>
+  <text x="380" y="229" fill="#f0f6fc" font-size="11">Test Approval Required</text>
+
+  <circle cx="365" cy="255" r="6" fill="#ea580c"/>
+  <text x="380" y="259" fill="#f0f6fc" font-size="11">Critical Adversarial Findings</text>
+
+  <rect x="350" y="280" width="230" height="30" rx="6" fill="#431407" stroke="#ea580c" stroke-width="1"/>
+  <text x="465" y="300" text-anchor="middle" fill="#fdba74" font-size="10" font-weight="700">Skip: NO | Resolve to continue</text>
+
+  <!-- CIRCUIT BREAKER -->
+  <rect x="620" y="75" width="270" height="250" rx="12" fill="#1a1400" stroke="#d97706" stroke-width="2.5" filter="url(#s3)"/>
+  <rect x="620" y="75" width="270" height="42" rx="12" fill="#d97706"/>
+  <rect x="620" y="105" width="270" height="2" fill="#d97706"/>
+  <text x="755" y="102" text-anchor="middle" fill="#fff" font-size="15" font-weight="800">CIRCUIT BREAKER</text>
+
+  <text x="640" y="140" fill="#fde68a" font-size="12" font-weight="700">Pipeline stops for safety</text>
+  <text x="640" y="158" fill="#8b949e" font-size="10">Requires explicit user reset</text>
+
+  <line x1="640" y1="170" x2="870" y2="170" stroke="#d97706" stroke-width="0.5" opacity="0.3"/>
+
+  <circle cx="655" cy="195" r="6" fill="#d97706"/>
+  <text x="670" y="199" fill="#f0f6fc" font-size="11">2 Consecutive Failures</text>
+
+  <circle cx="655" cy="225" r="6" fill="#d97706"/>
+  <text x="670" y="229" fill="#f0f6fc" font-size="11">3 Fix Attempts Exhausted</text>
+
+  <circle cx="655" cy="255" r="6" fill="#d97706"/>
+  <text x="670" y="259" fill="#f0f6fc" font-size="11">Systemic Pipeline Failure</text>
+
+  <rect x="640" y="280" width="230" height="30" rx="6" fill="#422006" stroke="#d97706" stroke-width="1"/>
+  <text x="755" y="300" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700">Skip: NO | Reset required</text>
+
+  <!-- SOFT -->
+  <rect x="910" y="75" width="260" height="250" rx="12" fill="#0a1a0a" stroke="#65a30d" stroke-width="2.5" filter="url(#s3)"/>
+  <rect x="910" y="75" width="260" height="42" rx="12" fill="#65a30d"/>
+  <rect x="910" y="105" width="260" height="2" fill="#65a30d"/>
+  <text x="1040" y="102" text-anchor="middle" fill="#fff" font-size="15" font-weight="800">SOFT</text>
+
+  <text x="930" y="140" fill="#bef264" font-size="12" font-weight="700">Recommended, skippable</text>
+  <text x="930" y="158" fill="#8b949e" font-size="10">Logged + confidence penalty</text>
+
+  <line x1="930" y1="170" x2="1150" y2="170" stroke="#65a30d" stroke-width="0.5" opacity="0.3"/>
+
+  <circle cx="945" cy="195" r="6" fill="#65a30d"/>
+  <text x="960" y="199" fill="#f0f6fc" font-size="11">Adversarial Review Gate</text>
+
+  <circle cx="945" cy="225" r="6" fill="#65a30d"/>
+  <text x="960" y="229" fill="#f0f6fc" font-size="11">Final Adversarial Gate</text>
+
+  <circle cx="945" cy="255" r="6" fill="#65a30d"/>
+  <text x="960" y="259" fill="#f0f6fc" font-size="11">Closeout Confirmation</text>
+
+  <rect x="930" y="280" width="220" height="30" rx="6" fill="#14532d" stroke="#65a30d" stroke-width="1"/>
+  <text x="1040" y="300" text-anchor="middle" fill="#bef264" font-size="10" font-weight="700">Skip: YES (penalty -0.10 to -0.15)</text>
+
+  <!-- Bottom connection line -->
+  <line x1="175" y1="340" x2="1040" y2="340" stroke="#30363d" stroke-width="1" stroke-dasharray="8,4"/>
+  <text x="600" y="370" text-anchor="middle" fill="#8b949e" font-size="11" font-weight="600">Every gate decision logged to gate-decisions.jsonl | Final Validator reads full audit trail</text>
+  <text x="600" y="390" text-anchor="middle" fill="#6d28d9" font-size="11" font-weight="600">Skipped SOFT gates penalize confidence score → affects Go/No-Go decision</text>
+</svg>

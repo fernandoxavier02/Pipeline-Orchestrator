@@ -1,0 +1,179 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 580" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#161b22"/>
+    </linearGradient>
+    <filter id="s2">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <rect width="1200" height="580" fill="url(#bg2)" rx="12"/>
+
+  <!-- Title -->
+  <text x="600" y="40" text-anchor="middle" fill="#f0f6fc" font-size="22" font-weight="700" letter-spacing="1">37-AGENT ARCHITECTURE</text>
+  <line x1="430" y1="50" x2="770" y2="50" stroke="#7C3AED" stroke-width="2" opacity="0.6"/>
+
+  <!-- LAYER 1: CORE -->
+  <rect x="30" y="70" width="1140" height="120" rx="10" fill="#1e1b4b" stroke="#7C3AED" stroke-width="2" filter="url(#s2)" opacity="0.95"/>
+  <text x="50" y="92" fill="#7C3AED" font-size="13" font-weight="800" letter-spacing="2">CORE LAYER</text>
+  <text x="200" y="92" fill="#6d28d9" font-size="11">Orchestration, Gates &amp; Validation</text>
+
+  <!-- Core agents -->
+  <rect x="50" y="105" width="120" height="65" rx="8" fill="#2d2150" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="110" y="128" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">Task</text>
+  <text x="110" y="142" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">Orchestrator</text>
+  <text x="110" y="159" text-anchor="middle" fill="#7c3aed" font-size="8">classification</text>
+
+  <rect x="185" y="105" width="120" height="65" rx="8" fill="#2d2150" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="245" y="128" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">Information</text>
+  <text x="245" y="142" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">Gate</text>
+  <text x="245" y="159" text-anchor="middle" fill="#7c3aed" font-size="8">gap detection</text>
+
+  <rect x="320" y="105" width="120" height="65" rx="8" fill="#2d2150" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="380" y="128" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">Design</text>
+  <text x="380" y="142" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">Interrogator</text>
+  <text x="380" y="159" text-anchor="middle" fill="#7c3aed" font-size="8">decision tree</text>
+
+  <rect x="455" y="105" width="120" height="65" rx="8" fill="#2d2150" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="515" y="128" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">Plan</text>
+  <text x="515" y="142" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">Architect</text>
+  <text x="515" y="159" text-anchor="middle" fill="#7c3aed" font-size="8">implementation plan</text>
+
+  <rect x="590" y="105" width="120" height="65" rx="8" fill="#2d2150" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="650" y="128" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">Checkpoint</text>
+  <text x="650" y="142" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">Validator</text>
+  <text x="650" y="159" text-anchor="middle" fill="#7c3aed" font-size="8">build + tests</text>
+
+  <rect x="725" y="105" width="120" height="65" rx="8" fill="#2d2150" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="785" y="128" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">Sanity</text>
+  <text x="785" y="142" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">Checker</text>
+  <text x="785" y="159" text-anchor="middle" fill="#7c3aed" font-size="8">final sanity</text>
+
+  <rect x="860" y="105" width="120" height="65" rx="8" fill="#2d2150" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="920" y="128" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">Final</text>
+  <text x="920" y="142" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700">Validator</text>
+  <text x="920" y="159" text-anchor="middle" fill="#7c3aed" font-size="8">Go / No-Go</text>
+
+  <!-- Sentinel overlay -->
+  <rect x="1000" y="100" width="155" height="75" rx="8" fill="#1e1b4b" stroke="#f59e0b" stroke-width="2" stroke-dasharray="5,3"/>
+  <text x="1078" y="125" text-anchor="middle" fill="#fde68a" font-size="12" font-weight="800">SENTINEL</text>
+  <text x="1078" y="142" text-anchor="middle" fill="#f59e0b" font-size="9">validates every</text>
+  <text x="1078" y="155" text-anchor="middle" fill="#f59e0b" font-size="9">agent spawn</text>
+  <text x="1078" y="168" text-anchor="middle" fill="#fde68a" font-size="8" font-weight="600">5 checkpoints</text>
+
+  <!-- LAYER 2: EXECUTOR -->
+  <rect x="30" y="210" width="555" height="120" rx="10" fill="#052e16" stroke="#22c55e" stroke-width="2" filter="url(#s2)" opacity="0.95"/>
+  <text x="50" y="232" fill="#22c55e" font-size="13" font-weight="800" letter-spacing="2">EXECUTOR LAYER</text>
+  <text x="225" y="232" fill="#16a34a" font-size="11">Implementation &amp; Batch Control</text>
+
+  <rect x="50" y="245" width="120" height="65" rx="8" fill="#14532d" stroke="#22c55e" stroke-width="1"/>
+  <text x="110" y="268" text-anchor="middle" fill="#86efac" font-size="10" font-weight="700">Executor</text>
+  <text x="110" y="282" text-anchor="middle" fill="#86efac" font-size="10" font-weight="700">Controller</text>
+  <text x="110" y="299" text-anchor="middle" fill="#22c55e" font-size="8">batch dispatch</text>
+
+  <rect x="185" y="245" width="120" height="65" rx="8" fill="#14532d" stroke="#22c55e" stroke-width="1"/>
+  <text x="245" y="268" text-anchor="middle" fill="#86efac" font-size="10" font-weight="700">Implementer</text>
+  <text x="245" y="282" text-anchor="middle" fill="#86efac" font-size="10" font-weight="700">Task</text>
+  <text x="245" y="299" text-anchor="middle" fill="#22c55e" font-size="8">per-task TDD</text>
+
+  <rect x="320" y="245" width="120" height="65" rx="8" fill="#14532d" stroke="#22c55e" stroke-width="1"/>
+  <text x="380" y="268" text-anchor="middle" fill="#86efac" font-size="10" font-weight="700">Spec &amp; Quality</text>
+  <text x="380" y="282" text-anchor="middle" fill="#86efac" font-size="10" font-weight="700">Reviewers</text>
+  <text x="380" y="299" text-anchor="middle" fill="#22c55e" font-size="8">per-task review</text>
+
+  <rect x="455" y="245" width="120" height="65" rx="8" fill="#14532d" stroke="#f59e0b" stroke-width="1"/>
+  <text x="515" y="268" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700">Executor</text>
+  <text x="515" y="282" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700">Fix</text>
+  <text x="515" y="299" text-anchor="middle" fill="#f59e0b" font-size="8">finding fixes</text>
+
+  <!-- LAYER 2B: QUALITY -->
+  <rect x="610" y="210" width="560" height="120" rx="10" fill="#451a03" stroke="#f59e0b" stroke-width="2" filter="url(#s2)" opacity="0.95"/>
+  <text x="630" y="232" fill="#f59e0b" font-size="13" font-weight="800" letter-spacing="2">QUALITY LAYER</text>
+  <text x="790" y="232" fill="#d97706" font-size="11">Independent Review &amp; TDD</text>
+
+  <rect x="630" y="245" width="120" height="65" rx="8" fill="#422006" stroke="#f59e0b" stroke-width="1"/>
+  <text x="690" y="268" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700">Review</text>
+  <text x="690" y="282" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700">Orchestrator</text>
+  <text x="690" y="299" text-anchor="middle" fill="#f59e0b" font-size="8">per-batch review</text>
+
+  <rect x="765" y="245" width="120" height="65" rx="8" fill="#422006" stroke="#f59e0b" stroke-width="1"/>
+  <text x="825" y="268" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700">Adversarial</text>
+  <text x="825" y="282" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700">+ Architecture</text>
+  <text x="825" y="299" text-anchor="middle" fill="#f59e0b" font-size="8">parallel review</text>
+
+  <rect x="900" y="245" width="120" height="65" rx="8" fill="#422006" stroke="#f59e0b" stroke-width="1"/>
+  <text x="960" y="268" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700">Quality Gate</text>
+  <text x="960" y="282" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700">Router</text>
+  <text x="960" y="299" text-anchor="middle" fill="#f59e0b" font-size="8">TDD scenarios</text>
+
+  <rect x="1035" y="245" width="120" height="65" rx="8" fill="#422006" stroke="#f59e0b" stroke-width="1"/>
+  <text x="1095" y="268" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700">Final Adversarial</text>
+  <text x="1095" y="282" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700">Orchestrator</text>
+  <text x="1095" y="299" text-anchor="middle" fill="#f59e0b" font-size="8">3 parallel agents</text>
+
+  <!-- LAYER 3: TYPE-SPECIFIC -->
+  <rect x="30" y="350" width="1140" height="210" rx="10" fill="#1e1b4b" stroke="#ec4899" stroke-width="2" filter="url(#s2)" opacity="0.95"/>
+  <text x="50" y="372" fill="#ec4899" font-size="13" font-weight="800" letter-spacing="2">TYPE-SPECIFIC LAYER</text>
+  <text x="260" y="372" fill="#be185d" font-size="11">16 Domain Expert Agents</text>
+
+  <!-- Audit team -->
+  <rect x="50" y="390" width="200" height="155" rx="8" fill="#2d2150" stroke="#f59e0b" stroke-width="1.5"/>
+  <rect x="50" y="390" width="200" height="28" rx="8" fill="#422006"/>
+  <text x="150" y="410" text-anchor="middle" fill="#fde68a" font-size="11" font-weight="700">AUDIT (4 agents)</text>
+  <text x="70" y="435" fill="#c4b5fd" font-size="10">audit-intake</text>
+  <text x="70" y="455" fill="#c4b5fd" font-size="10">audit-domain-analyzer</text>
+  <text x="70" y="475" fill="#c4b5fd" font-size="10">audit-compliance-checker</text>
+  <text x="70" y="495" fill="#c4b5fd" font-size="10">audit-risk-matrix-generator</text>
+  <line x1="150" y1="520" x2="150" y2="530" stroke="#f59e0b" stroke-width="1"/>
+  <text x="150" y="540" text-anchor="middle" fill="#f59e0b" font-size="8" font-weight="600">report-only</text>
+
+  <!-- Bugfix team -->
+  <rect x="270" y="390" width="180" height="155" rx="8" fill="#2d2150" stroke="#ef4444" stroke-width="1.5"/>
+  <rect x="270" y="390" width="180" height="28" rx="8" fill="#7f1d1d"/>
+  <text x="360" y="410" text-anchor="middle" fill="#fca5a5" font-size="11" font-weight="700">BUGFIX (3 agents)</text>
+  <text x="290" y="435" fill="#c4b5fd" font-size="10">bugfix-diagnostic</text>
+  <text x="290" y="455" fill="#c4b5fd" font-size="10">bugfix-root-cause</text>
+  <text x="290" y="475" fill="#c4b5fd" font-size="10">bugfix-regression-tester</text>
+  <line x1="360" y1="520" x2="360" y2="530" stroke="#ef4444" stroke-width="1"/>
+  <text x="360" y="540" text-anchor="middle" fill="#ef4444" font-size="8" font-weight="600">code-changing</text>
+
+  <!-- Feature team -->
+  <rect x="470" y="390" width="180" height="155" rx="8" fill="#2d2150" stroke="#22c55e" stroke-width="1.5"/>
+  <rect x="470" y="390" width="180" height="28" rx="8" fill="#14532d"/>
+  <text x="560" y="410" text-anchor="middle" fill="#86efac" font-size="11" font-weight="700">FEATURE (3 agents)</text>
+  <text x="490" y="435" fill="#c4b5fd" font-size="10">feature-slice-planner</text>
+  <text x="490" y="455" fill="#c4b5fd" font-size="10">feature-implementer</text>
+  <text x="490" y="475" fill="#c4b5fd" font-size="10">feature-integration-validator</text>
+  <line x1="560" y1="520" x2="560" y2="530" stroke="#22c55e" stroke-width="1"/>
+  <text x="560" y="540" text-anchor="middle" fill="#22c55e" font-size="8" font-weight="600">code-changing</text>
+
+  <!-- UX team -->
+  <rect x="670" y="390" width="180" height="155" rx="8" fill="#2d2150" stroke="#ec4899" stroke-width="1.5"/>
+  <rect x="670" y="390" width="180" height="28" rx="8" fill="#831843"/>
+  <text x="760" y="410" text-anchor="middle" fill="#f9a8d4" font-size="11" font-weight="700">UX SIM (3 agents)</text>
+  <text x="690" y="435" fill="#c4b5fd" font-size="10">ux-simulator</text>
+  <text x="690" y="455" fill="#c4b5fd" font-size="10">ux-accessibility-auditor</text>
+  <text x="690" y="475" fill="#c4b5fd" font-size="10">ux-qa-validator</text>
+  <text x="690" y="500" fill="#ec4899" font-size="9" font-style="italic">simulator ‖ a11y = parallel</text>
+  <line x1="760" y1="520" x2="760" y2="530" stroke="#ec4899" stroke-width="1"/>
+  <text x="760" y="540" text-anchor="middle" fill="#ec4899" font-size="8" font-weight="600">report-only</text>
+
+  <!-- Adversarial team -->
+  <rect x="870" y="390" width="285" height="155" rx="8" fill="#2d2150" stroke="#8b5cf6" stroke-width="1.5"/>
+  <rect x="870" y="390" width="285" height="28" rx="8" fill="#3b0764"/>
+  <text x="1012" y="410" text-anchor="middle" fill="#d8b4fe" font-size="11" font-weight="700">ADVERSARIAL (3 agents)</text>
+  <text x="890" y="435" fill="#c4b5fd" font-size="10">adversarial-review-coordinator</text>
+  <text x="890" y="455" fill="#c4b5fd" font-size="10">adversarial-security-scanner</text>
+  <text x="890" y="475" fill="#c4b5fd" font-size="10">adversarial-architecture-critic</text>
+  <text x="890" y="500" fill="#8b5cf6" font-size="9" font-style="italic">scanner ‖ critic = parallel, zero context</text>
+  <line x1="1012" y1="520" x2="1012" y2="530" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="1012" y="540" text-anchor="middle" fill="#8b5cf6" font-size="8" font-weight="600">review +/- fix</text>
+
+  <!-- Connection arrows -->
+  <path d="M 110 190 L 110 210" stroke="#7C3AED" stroke-width="1.5" stroke-dasharray="4,2"/>
+  <path d="M 690 190 L 690 210" stroke="#7C3AED" stroke-width="1.5" stroke-dasharray="4,2"/>
+  <path d="M 110 330 L 110 350" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="4,2"/>
+  <text x="85" y="343" fill="#22c55e" font-size="8" font-weight="600">dispatches</text>
+</svg>

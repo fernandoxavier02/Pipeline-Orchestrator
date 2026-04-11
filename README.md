@@ -62,59 +62,9 @@ That's it. The orchestrator classifies your task, selects the right pipeline, an
 
 Every task flows through 4 phases. The depth of each phase scales automatically with complexity.
 
-```mermaid
-flowchart TB
-    subgraph Phase0["PHASE 0 — TRIAGE"]
-        A["/pipeline task"] --> B["Task Orchestrator"]
-        B --> C{"Classify"}
-        C -->|"Bug Fix"| D["bugfix pipeline"]
-        C -->|"Feature"| E["implement pipeline"]
-        C -->|"Audit"| F["audit pipeline"]
-        C -->|"UX"| G["ux-sim pipeline"]
-        D & E & F & G --> H["Information Gate"]
-        H --> I{"Gaps?"}
-        I -->|"Yes"| J["Ask user ONE question"]
-        J --> I
-        I -->|"No"| K["CLEAR"]
-    end
-
-    subgraph Phase1["PHASE 1 — CONFIRM"]
-        K --> L["Present Proposal"]
-        L --> M{"User confirms?"}
-        M -->|"adjust"| L
-        M -->|"no"| N["EXIT"]
-        M -->|"yes"| O["Plan Architect"]
-    end
-
-    subgraph Phase2["PHASE 2 — EXECUTE"]
-        O --> P["Executor Controller"]
-        P --> Q["Per-Batch Loop"]
-        Q --> R["TDD: RED → GREEN"]
-        R --> S["Checkpoint: build + tests"]
-        S --> T{"Adversarial Gate"}
-        T -->|"approved"| U["Independent Review"]
-        U --> V{"Findings?"}
-        V -->|"critical"| W["Fix Loop (max 3)"]
-        W --> S
-        V -->|"clean"| X["Next Batch"]
-        X --> Q
-    end
-
-    subgraph Phase3["PHASE 3 — CLOSE"]
-        X --> Y["Sanity Checker"]
-        Y --> Z["Final Adversarial Team"]
-        Z --> AA["Final Validator"]
-        AA --> BB{"Decision"}
-        BB -->|"GO"| CC["Ship it"]
-        BB -->|"CONDITIONAL"| DD["Ship with notes"]
-        BB -->|"NO-GO"| EE["Block"]
-    end
-
-    style Phase0 fill:#1a1a2e,stroke:#7C3AED,color:#fff
-    style Phase1 fill:#16213e,stroke:#0ea5e9,color:#fff
-    style Phase2 fill:#1a1a2e,stroke:#22c55e,color:#fff
-    style Phase3 fill:#16213e,stroke:#f59e0b,color:#fff
-```
+<div align="center">
+  <img src="assets/diagrams/pipeline-flow.svg" alt="Pipeline Execution Flow" width="100%"/>
+</div>
 
 ### Adaptive Complexity
 
@@ -132,32 +82,7 @@ The pipeline adjusts its rigor automatically. No configuration needed.
 
 Six specialized pipeline families — each with **light** and **heavy** variants — cover every development scenario.
 
-```mermaid
-flowchart LR
-    subgraph Pipelines["12 PIPELINE VARIANTS"]
-        direction TB
-        BF["Bug Fix"] --- BFH["heavy: 4 agents"]
-        BF --- BFL["light: 3 agents"]
-        FT["Feature"] --- FTH["heavy: 3 agents"]
-        FT --- FTL["light: 2 agents"]
-        US["User Story"] --- USH["heavy: 3 agents"]
-        US --- USL["light: 2 agents"]
-        AU["Audit"] --- AUH["heavy: 4 agents"]
-        AU --- AUL["light: 3 agents"]
-        UX["UX Simulation"] --- UXH["heavy: 3 agents"]
-        UX --- UXL["light: 2 agents"]
-        AD["Adversarial"] --- ADH["heavy: 3 agents"]
-        AD --- ADL["light: 2 agents"]
-    end
-
-    style Pipelines fill:#0d1117,stroke:#7C3AED,color:#fff
-    style BF fill:#ef4444,stroke:#ef4444,color:#fff
-    style FT fill:#22c55e,stroke:#22c55e,color:#fff
-    style US fill:#3b82f6,stroke:#3b82f6,color:#fff
-    style AU fill:#f59e0b,stroke:#f59e0b,color:#fff
-    style UX fill:#ec4899,stroke:#ec4899,color:#fff
-    style AD fill:#8b5cf6,stroke:#8b5cf6,color:#fff
-```
+> **Heavy** = full agent team (COMPLEXA/MEDIA). **Light** = reduced team with graceful degradation (SIMPLES).
 
 | Pipeline | When | What Happens |
 |----------|------|-------------|
@@ -176,52 +101,9 @@ flowchart LR
 
 Pipeline Orchestrator deploys agents in three layers — each with a distinct role and zero context leakage between layers.
 
-```mermaid
-flowchart TB
-    subgraph Core["CORE — Orchestration & Gates"]
-        TO["Task Orchestrator"] --> IG["Information Gate"]
-        IG --> DI["Design Interrogator"]
-        DI --> PA["Plan Architect"]
-        SN["Sentinel"] -.->|"validates every spawn"| TO
-        SN -.-> IG
-        SN -.-> DI
-    end
-
-    subgraph Executor["EXECUTOR — Implementation"]
-        EC["Executor Controller"] --> EI["Implementer Task"]
-        EC --> SR["Spec Reviewer"]
-        EC --> QR["Quality Reviewer"]
-        EC --> EF["Executor Fix"]
-        CV["Checkpoint Validator"] --> EC
-    end
-
-    subgraph Quality["QUALITY — Independent Review"]
-        RO["Review Orchestrator"] --> AB["Adversarial Batch"]
-        RO --> AR["Architecture Reviewer"]
-        FAO["Final Adversarial"] --> FSA["Security Adversarial"]
-        FAO --> FAA["Architecture Adversarial"]
-        FAO --> FQA["Quality Adversarial"]
-        SC["Sanity Checker"] --> FV["Final Validator"]
-    end
-
-    subgraph TypeSpecific["TYPE-SPECIFIC — Domain Experts"]
-        direction LR
-        AuditTeam["Audit: intake → domain → compliance → risk"]
-        BugfixTeam["Bugfix: diagnostic → root-cause → regression"]
-        FeatureTeam["Feature: slice-planner → implementer → validator"]
-        UXTeam["UX: simulator ‖ a11y-auditor → qa-validator"]
-        AdvTeam["Adversarial: coordinator → scanner ‖ critic"]
-    end
-
-    Core --> Executor
-    Executor --> Quality
-    EC -->|"dispatches"| TypeSpecific
-
-    style Core fill:#1e1b4b,stroke:#7C3AED,color:#fff
-    style Executor fill:#052e16,stroke:#22c55e,color:#fff
-    style Quality fill:#451a03,stroke:#f59e0b,color:#fff
-    style TypeSpecific fill:#1e1b4b,stroke:#ec4899,color:#fff
-```
+<div align="center">
+  <img src="assets/diagrams/agent-architecture.svg" alt="37-Agent Architecture" width="100%"/>
+</div>
 
 ### Type-Specific Teams by Pipeline
 
@@ -270,20 +152,9 @@ flowchart TB
 
 Every layer of the pipeline has independent safety mechanisms. No single point of failure.
 
-```mermaid
-flowchart LR
-    subgraph Gates["GATE SYSTEM"]
-        direction TB
-        M["MANDATORY\nSSOT conflicts\nSecurity domains"] ~~~ H["HARD\nInfo gaps\nTest approval\nCheckpoint fail"]
-        H ~~~ CB["CIRCUIT BREAKER\n2x consecutive fail\n3x fix loop exhaust"]
-        CB ~~~ S["SOFT\nAdversarial review\nFinal review\nCloseout confirm"]
-    end
-
-    style M fill:#dc2626,stroke:#dc2626,color:#fff
-    style H fill:#ea580c,stroke:#ea580c,color:#fff
-    style CB fill:#d97706,stroke:#d97706,color:#fff
-    style S fill:#65a30d,stroke:#65a30d,color:#fff
-```
+<div align="center">
+  <img src="assets/diagrams/gate-system.svg" alt="Defense-in-Depth Gate System" width="100%"/>
+</div>
 
 | Gate Type | Can Skip? | User Override? | Example |
 |-----------|:---------:|:--------------:|---------|

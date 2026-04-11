@@ -1,0 +1,196 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 720" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#161b22"/>
+    </linearGradient>
+    <linearGradient id="phase0" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7C3AED"/>
+      <stop offset="100%" stop-color="#6D28D9"/>
+    </linearGradient>
+    <linearGradient id="phase1" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0ea5e9"/>
+      <stop offset="100%" stop-color="#0284c7"/>
+    </linearGradient>
+    <linearGradient id="phase2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#22c55e"/>
+      <stop offset="100%" stop-color="#16a34a"/>
+    </linearGradient>
+    <linearGradient id="phase3" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#d97706"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="720" fill="url(#bg)" rx="12"/>
+
+  <!-- Title -->
+  <text x="600" y="45" text-anchor="middle" fill="#f0f6fc" font-size="22" font-weight="700" letter-spacing="1">PIPELINE EXECUTION FLOW</text>
+  <line x1="440" y1="55" x2="760" y2="55" stroke="#7C3AED" stroke-width="2" opacity="0.6"/>
+
+  <!-- PHASE 0 -->
+  <rect x="30" y="80" width="270" height="280" rx="12" fill="#1a1a2e" stroke="#7C3AED" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="30" y="80" width="270" height="40" rx="12" fill="url(#phase0)"/>
+  <rect x="30" y="108" width="270" height="2" fill="url(#phase0)"/>
+  <text x="165" y="106" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">PHASE 0 — TRIAGE</text>
+
+  <rect x="55" y="135" width="220" height="32" rx="6" fill="#2d2150" stroke="#7C3AED" stroke-width="1"/>
+  <text x="165" y="156" text-anchor="middle" fill="#c4b5fd" font-size="12" font-weight="600">Task Orchestrator</text>
+
+  <line x1="165" y1="167" x2="165" y2="180" stroke="#7C3AED" stroke-width="1.5" marker-end="url(#arrowPurple)"/>
+
+  <rect x="55" y="180" width="220" height="32" rx="6" fill="#2d2150" stroke="#7C3AED" stroke-width="1"/>
+  <text x="165" y="201" text-anchor="middle" fill="#c4b5fd" font-size="12" font-weight="600">Information Gate</text>
+
+  <line x1="165" y1="212" x2="165" y2="225" stroke="#7C3AED" stroke-width="1.5"/>
+
+  <rect x="55" y="225" width="220" height="32" rx="6" fill="#2d2150" stroke="#7C3AED" stroke-width="1"/>
+  <text x="165" y="246" text-anchor="middle" fill="#c4b5fd" font-size="12" font-weight="600">Design Interrogator</text>
+  <text x="165" y="260" text-anchor="middle" fill="#8b5cf6" font-size="9" font-style="italic">(COMPLEXA or --grill)</text>
+
+  <rect x="55" y="275" width="220" height="32" rx="6" fill="#2d2150" stroke="#7C3AED" stroke-width="1"/>
+  <text x="165" y="296" text-anchor="middle" fill="#c4b5fd" font-size="12" font-weight="600">Sentinel Validation</text>
+
+  <text x="165" y="345" text-anchor="middle" fill="#6d28d9" font-size="10" font-weight="600">Auto-classifies type + complexity</text>
+
+  <!-- Arrow Phase 0 → 1 -->
+  <line x1="300" y1="220" x2="330" y2="220" stroke="#7C3AED" stroke-width="2" stroke-dasharray="6,3"/>
+  <polygon points="328,215 338,220 328,225" fill="#7C3AED"/>
+
+  <!-- PHASE 1 -->
+  <rect x="340" y="80" width="220" height="280" rx="12" fill="#16213e" stroke="#0ea5e9" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="340" y="80" width="220" height="40" rx="12" fill="url(#phase1)"/>
+  <rect x="340" y="108" width="220" height="2" fill="url(#phase1)"/>
+  <text x="450" y="106" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">PHASE 1 — CONFIRM</text>
+
+  <rect x="365" y="135" width="170" height="32" rx="6" fill="#1e3a5f" stroke="#0ea5e9" stroke-width="1"/>
+  <text x="450" y="156" text-anchor="middle" fill="#7dd3fc" font-size="12" font-weight="600">Present Proposal</text>
+
+  <line x1="450" y1="167" x2="450" y2="185" stroke="#0ea5e9" stroke-width="1.5"/>
+
+  <!-- Decision diamond -->
+  <polygon points="450,185 490,210 450,235 410,210" fill="#1e3a5f" stroke="#0ea5e9" stroke-width="1.5"/>
+  <text x="450" y="214" text-anchor="middle" fill="#7dd3fc" font-size="10" font-weight="600">User?</text>
+
+  <text x="498" y="195" fill="#22c55e" font-size="10" font-weight="600">yes</text>
+  <text x="398" y="195" fill="#ef4444" font-size="10" font-weight="600">no</text>
+
+  <line x1="450" y1="235" x2="450" y2="255" stroke="#0ea5e9" stroke-width="1.5"/>
+
+  <rect x="365" y="255" width="170" height="32" rx="6" fill="#1e3a5f" stroke="#0ea5e9" stroke-width="1"/>
+  <text x="450" y="276" text-anchor="middle" fill="#7dd3fc" font-size="12" font-weight="600">Plan Architect</text>
+  <text x="450" y="290" text-anchor="middle" fill="#0ea5e9" font-size="9" font-style="italic">(COMPLEXA or --plan)</text>
+
+  <text x="450" y="345" text-anchor="middle" fill="#0284c7" font-size="10" font-weight="600">User confirms before execution</text>
+
+  <!-- Arrow Phase 1 → 2 -->
+  <line x1="560" y1="220" x2="590" y2="220" stroke="#0ea5e9" stroke-width="2" stroke-dasharray="6,3"/>
+  <polygon points="588,215 598,220 588,225" fill="#0ea5e9"/>
+
+  <!-- PHASE 2 -->
+  <rect x="600" y="80" width="280" height="280" rx="12" fill="#0a1f0a" stroke="#22c55e" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="600" y="80" width="280" height="40" rx="12" fill="url(#phase2)"/>
+  <rect x="600" y="108" width="280" height="2" fill="url(#phase2)"/>
+  <text x="740" y="106" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">PHASE 2 — EXECUTE</text>
+
+  <!-- Batch loop indicator -->
+  <rect x="618" y="128" width="244" height="150" rx="8" fill="none" stroke="#22c55e" stroke-width="1" stroke-dasharray="4,2" opacity="0.4"/>
+  <text x="740" y="142" text-anchor="middle" fill="#22c55e" font-size="9" font-weight="600" opacity="0.7">PER BATCH LOOP</text>
+
+  <rect x="630" y="150" width="220" height="26" rx="5" fill="#14532d" stroke="#22c55e" stroke-width="1"/>
+  <text x="740" y="168" text-anchor="middle" fill="#86efac" font-size="11" font-weight="600">TDD: RED → GREEN</text>
+
+  <line x1="740" y1="176" x2="740" y2="186" stroke="#22c55e" stroke-width="1"/>
+
+  <rect x="630" y="186" width="220" height="26" rx="5" fill="#14532d" stroke="#22c55e" stroke-width="1"/>
+  <text x="740" y="204" text-anchor="middle" fill="#86efac" font-size="11" font-weight="600">Checkpoint: build + tests</text>
+
+  <line x1="740" y1="212" x2="740" y2="222" stroke="#22c55e" stroke-width="1"/>
+
+  <rect x="630" y="222" width="220" height="26" rx="5" fill="#14532d" stroke="#22c55e" stroke-width="1"/>
+  <text x="740" y="240" text-anchor="middle" fill="#86efac" font-size="11" font-weight="600">Adversarial Review</text>
+
+  <line x1="740" y1="248" x2="740" y2="258" stroke="#22c55e" stroke-width="1"/>
+
+  <rect x="630" y="258" width="220" height="26" rx="5" fill="#14532d" stroke="#f59e0b" stroke-width="1"/>
+  <text x="740" y="276" text-anchor="middle" fill="#fde68a" font-size="11" font-weight="600">Fix Loop (max 3)</text>
+
+  <!-- Retry arrow -->
+  <path d="M 855 268 Q 870 220 855 175" fill="none" stroke="#f59e0b" stroke-width="1" stroke-dasharray="3,2"/>
+  <polygon points="857,178 855,168 850,178" fill="#f59e0b"/>
+
+  <text x="740" y="345" text-anchor="middle" fill="#16a34a" font-size="10" font-weight="600">Adaptive batching by complexity</text>
+
+  <!-- Arrow Phase 2 → 3 -->
+  <line x1="880" y1="220" x2="910" y2="220" stroke="#22c55e" stroke-width="2" stroke-dasharray="6,3"/>
+  <polygon points="908,215 918,220 908,225" fill="#22c55e"/>
+
+  <!-- PHASE 3 -->
+  <rect x="920" y="80" width="250" height="280" rx="12" fill="#1f1206" stroke="#f59e0b" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="920" y="80" width="250" height="40" rx="12" fill="url(#phase3)"/>
+  <rect x="920" y="108" width="250" height="2" fill="url(#phase3)"/>
+  <text x="1045" y="106" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">PHASE 3 — CLOSE</text>
+
+  <rect x="945" y="135" width="200" height="32" rx="6" fill="#422006" stroke="#f59e0b" stroke-width="1"/>
+  <text x="1045" y="156" text-anchor="middle" fill="#fde68a" font-size="12" font-weight="600">Sanity Checker</text>
+
+  <line x1="1045" y1="167" x2="1045" y2="180" stroke="#f59e0b" stroke-width="1.5"/>
+
+  <rect x="945" y="180" width="200" height="32" rx="6" fill="#422006" stroke="#f59e0b" stroke-width="1"/>
+  <text x="1045" y="201" text-anchor="middle" fill="#fde68a" font-size="12" font-weight="600">Final Adversarial Team</text>
+  <text x="1045" y="215" text-anchor="middle" fill="#f59e0b" font-size="9" font-style="italic">(3 parallel reviewers)</text>
+
+  <line x1="1045" y1="218" x2="1045" y2="231" stroke="#f59e0b" stroke-width="1.5"/>
+
+  <rect x="945" y="231" width="200" height="32" rx="6" fill="#422006" stroke="#f59e0b" stroke-width="1"/>
+  <text x="1045" y="252" text-anchor="middle" fill="#fde68a" font-size="12" font-weight="600">Final Validator (Pa de Cal)</text>
+
+  <line x1="1045" y1="263" x2="1045" y2="278" stroke="#f59e0b" stroke-width="1.5"/>
+
+  <!-- Decision boxes -->
+  <rect x="945" y="278" width="62" height="28" rx="5" fill="#166534" stroke="#22c55e" stroke-width="1.5"/>
+  <text x="976" y="297" text-anchor="middle" fill="#86efac" font-size="11" font-weight="700">GO</text>
+
+  <rect x="1014" y="278" width="62" height="28" rx="5" fill="#854d0e" stroke="#f59e0b" stroke-width="1.5"/>
+  <text x="1045" y="297" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700">COND</text>
+
+  <rect x="1083" y="278" width="62" height="28" rx="5" fill="#7f1d1d" stroke="#ef4444" stroke-width="1.5"/>
+  <text x="1114" y="297" text-anchor="middle" fill="#fca5a5" font-size="10" font-weight="700">NO-GO</text>
+
+  <text x="1045" y="345" text-anchor="middle" fill="#d97706" font-size="10" font-weight="600">Confidence-scored Go/No-Go</text>
+
+  <!-- Bottom stats bar -->
+  <rect x="30" y="390" width="1140" height="60" rx="10" fill="#161b22" stroke="#30363d" stroke-width="1"/>
+
+  <circle cx="100" cy="420" r="18" fill="#7C3AED" opacity="0.15"/>
+  <text x="100" y="413" text-anchor="middle" fill="#c4b5fd" font-size="18" font-weight="800">37</text>
+  <text x="100" y="435" text-anchor="middle" fill="#8b949e" font-size="10">Agents</text>
+
+  <circle cx="280" cy="420" r="18" fill="#0ea5e9" opacity="0.15"/>
+  <text x="280" y="413" text-anchor="middle" fill="#7dd3fc" font-size="18" font-weight="800">12</text>
+  <text x="280" y="435" text-anchor="middle" fill="#8b949e" font-size="10">Pipelines</text>
+
+  <circle cx="460" cy="420" r="18" fill="#22c55e" opacity="0.15"/>
+  <text x="460" y="413" text-anchor="middle" fill="#86efac" font-size="18" font-weight="800">4</text>
+  <text x="460" y="435" text-anchor="middle" fill="#8b949e" font-size="10">Gate Types</text>
+
+  <circle cx="640" cy="420" r="18" fill="#f59e0b" opacity="0.15"/>
+  <text x="640" y="413" text-anchor="middle" fill="#fde68a" font-size="18" font-weight="800">7</text>
+  <text x="640" y="435" text-anchor="middle" fill="#8b949e" font-size="10">Checklists</text>
+
+  <circle cx="820" cy="420" r="18" fill="#ec4899" opacity="0.15"/>
+  <text x="820" y="413" text-anchor="middle" fill="#f9a8d4" font-size="18" font-weight="800">5</text>
+  <text x="820" y="435" text-anchor="middle" fill="#8b949e" font-size="10">Sentinel Checks</text>
+
+  <circle cx="1000" cy="420" r="18" fill="#ef4444" opacity="0.15"/>
+  <text x="1000" y="413" text-anchor="middle" fill="#fca5a5" font-size="18" font-weight="800">0</text>
+  <text x="1000" y="435" text-anchor="middle" fill="#8b949e" font-size="10">Dependencies</text>
+</svg>
