@@ -27,6 +27,10 @@
 
 ---
 
+> **Note:** This repo is both the Pipeline Orchestrator plugin AND the **FX-Studio-AI marketplace** hosting three plugins (pipeline-orchestrator, skill-advisor, cc-toolkit). Install the marketplace once to access all three. See [the suite section](#see-also--fx-studio-ai-suite) at the bottom.
+
+---
+
 ## The Problem
 
 You ship code. Tests pass. Linter is green. PR looks clean.
@@ -287,6 +291,18 @@ pipeline-orchestrator/
 
 - [Claude Code](https://claude.com/claude-code) CLI or Desktop App
 - No external dependencies — pure markdown agents
+
+---
+
+## See also — FX-Studio-AI suite
+
+Pipeline Orchestrator is one of three plugins in the **FX-Studio-AI marketplace**. They form a coherent workflow:
+
+1. **[cc-toolkit](https://github.com/fernandoxavier02/cc-mastery)** — onboarding and diagnostics. Get your Claude Code setup in order.
+2. **[skill-advisor](https://github.com/fernandoxavier02/skill-advisor)** — discovery and routing. Use the tools you already have, effectively.
+3. **Pipeline Orchestrator** (this repo) — adversarial review. Ship production code safely.
+
+Install the marketplace once, use any combination.
 
 ---
 
