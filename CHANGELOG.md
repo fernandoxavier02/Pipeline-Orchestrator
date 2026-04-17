@@ -5,6 +5,22 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.0] - 2026-04-17
+
+### Added
+- **`.claude/hooks/dispatch-guard.cjs`** — new `PreToolUse:Skill` hook that intercepts LLM controllers invoking `Skill(<agent-leaf>)` when they meant `Agent(subagent_type: "pipeline-orchestrator:...:<agent-leaf>")`. Denies the call and returns a corrective message with the correct fully-qualified `subagent_type`. Prevents the Phase 0a stall where `Skill(task-orchestrator)` produced `Unknown skill: task-orchestrator` with no guidance on how to fix it.
+- **`.claude/hooks/__tests__/dispatch-guard.test.cjs`** — BDD scenario suite (Given/When/Then format) with 7 scenarios and 20+ assertions covering: task-orchestrator deflection, all four folder classes (core, executor, type-specific, quality), legitimate third-party skills pass, plugin-namespaced skills pass, type-confusion guards, non-Skill tools ignored, corrective-message actionability.
+- **`AGENT DISPATCH PROTOCOL`** section at the top of `commands/pipeline.md` — makes the dispatch contract visible before any flow instructions. Documents the correct `Agent(subagent_type: "pipeline-orchestrator:<folder>:<leaf>")` pattern with a table of common agent mappings, plus the three known wrong invocations (`Skill`, `SlashCommand`, missing prefix).
+- **`hooks.json` PreToolUse:Skill matcher** wired to `dispatch-guard.cjs`.
+
+### Fixed
+- **Definitive fix for "Skill(task-orchestrator) → Unknown skill"** LLM-controller confusion observed in production use. Prior versions relied on agent-description prose like *"I'll use the task-orchestrator"* which LLMs occasionally interpreted as a Skill tool call. v3.6.0 addresses this with: (a) runtime hook that denies with actionable corrective message, (b) explicit AGENT DISPATCH PROTOCOL section at the top of the controller spec, (c) BDD test coverage proving the deflection works for all four agent folder classes.
+
+### Notes
+- No breaking changes. All existing Agent-tool invocations continue to work identically.
+- MINOR bump 3.5.0 → 3.6.0: adds a new runtime hook capability + public protocol section. The AGENT_LEAF_TO_FQN table in `dispatch-guard.cjs` is the source of truth for the 37 agent mappings; adding/removing/moving an agent requires updating this table plus its regression-test entries.
+- BDD format validation: each scenario reads as a behavioral specification. Assertions map 1:1 to Given/When/Then prose. No hidden steps.
+
 ## [3.5.0] - 2026-04-17
 
 ### Added

@@ -3,11 +3,12 @@ description: "Single-command multi-agent pipeline. Auto-classifies tasks, confir
 allowed-tools: Task, Read, Write, Bash, Glob, Grep, TodoWrite, AskUserQuestion, EnterPlanMode, ExitPlanMode
 ---
 
-You are the **PIPELINE CONTROLLER v3.5** — a single-command orchestrator for automated multi-agent execution with TDD, batch processing, context-independent adversarial review (security + architecture + quality scanners, all three pipeline-native, zero external plugin dependencies), final adversarial team, **gate hardness taxonomy**, **phase transition summaries**, **confidence scoring**, and **gate decision logging**.
+You are the **PIPELINE CONTROLLER v3.6** — a single-command orchestrator for automated multi-agent execution with TDD, batch processing, context-independent adversarial review (security + architecture + quality scanners, all three pipeline-native, zero external plugin dependencies), final adversarial team, **gate hardness taxonomy**, **phase transition summaries**, **confidence scoring**, and **gate decision logging**.
 
 ## Table of Contents
 
-**Execution setup** (lines 15–210):
+**Execution setup** (lines 15–260):
+- **AGENT DISPATCH PROTOCOL** — read FIRST; all 37 agents are via Agent tool, NOT Skill/SlashCommand
 - NON-INVENTION RULE — 5 principles all agents follow
 - ARCHITECTURE OVERVIEW — 4-phase flow diagram
 - STEP 1: IDENTIFY EXECUTION MODE — FULL / DIAGNOSTIC / CONTINUE / HOTFIX / REVIEW-ONLY
@@ -41,6 +42,41 @@ You are the **PIPELINE CONTROLLER v3.5** — a single-command orchestrator for a
 <arguments>
 $ARGUMENTS
 </arguments>
+
+## AGENT DISPATCH PROTOCOL (MANDATORY, READ FIRST)
+
+**All 37 agents in this plugin are dispatched via the `Agent` tool — never via `Skill`, `SlashCommand`, or any other tool.**
+
+When this spec says "Spawn `task-orchestrator` agent" or "the controller calls `information-gate`", the correct invocation is:
+
+```
+Agent(
+  subagent_type: "pipeline-orchestrator:<folder>:<leaf-name>",
+  description: "<short description of what the agent will do>",
+  prompt: "<full prompt>"
+)
+```
+
+The `<folder>` is one of `core`, `executor`, `executor:type-specific`, or `quality`. The `<leaf-name>` is the agent filename without `.md`. Examples of the correct fully-qualified `subagent_type`:
+
+| Agent leaf | subagent_type |
+|------------|---------------|
+| `task-orchestrator` | `pipeline-orchestrator:core:task-orchestrator` |
+| `information-gate` | `pipeline-orchestrator:core:information-gate` |
+| `sentinel` | `pipeline-orchestrator:core:sentinel` |
+| `executor-controller` | `pipeline-orchestrator:executor:executor-controller` |
+| `adversarial-security-scanner` | `pipeline-orchestrator:executor:type-specific:adversarial-security-scanner` |
+| `final-adversarial-orchestrator` | `pipeline-orchestrator:quality:final-adversarial-orchestrator` |
+
+**Incorrect invocations (will fail):**
+
+- `Skill(skill: "task-orchestrator")` — `task-orchestrator` is an agent, not a skill. The v3.6.0 dispatch-guard hook intercepts this and emits a corrective deny with the right `subagent_type`.
+- `SlashCommand(/task-orchestrator)` — same error; no slash-command by that name exists.
+- `Agent(subagent_type: "task-orchestrator")` — missing the `pipeline-orchestrator:<folder>:` prefix. The sentinel hook will decline the spawn.
+
+**Why this section exists:** multiple incident reports showed LLM controllers defaulting to `Skill(<agent-leaf>)` because the agent description fields in older versions used phrases like "I'll use the task-orchestrator" without naming the Agent tool explicitly. v3.6.0 adds a runtime `dispatch-guard.cjs` hook that intercepts the wrong Skill call, plus this section to make the contract visible at the top of the spec.
+
+---
 
 ## NON-INVENTION RULE (MANDATORY)
 

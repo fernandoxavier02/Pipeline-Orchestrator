@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Pipeline Orchestrator v3.5.0 loaded. Try: /pipeline [task] for full execution, /pipeline diagnostic [task] to preview without executing, /pipeline --grill [task] for design interrogation. Config: create .claude/pipeline.local.md to set build/test commands (optional — auto-detection available)."
+            "prompt": "Pipeline Orchestrator v3.6.0 loaded. Try: /pipeline [task] for full execution, /pipeline diagnostic [task] to preview without executing, /pipeline --grill [task] for design interrogation. Config: create .claude/pipeline.local.md to set build/test commands (optional — auto-detection available)."
           }
         ]
       }
@@ -40,6 +40,15 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/sentinel-hook.cjs\""
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/dispatch-guard.cjs\""
           }
         ]
       }
