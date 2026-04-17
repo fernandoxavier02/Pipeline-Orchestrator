@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.2.0-blue?style=for-the-badge" alt="Version" />
+  <img src="https://img.shields.io/badge/version-3.2.1-blue?style=for-the-badge" alt="Version" />
   <img src="https://img.shields.io/badge/agents-37-7C3AED?style=for-the-badge" alt="Agents" />
   <img src="https://img.shields.io/badge/platform-Claude_Code-000?style=for-the-badge" alt="Platform" />
   <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="License" />
@@ -249,9 +249,10 @@ pipeline-orchestrator/
 │   │   ├── sentinel             # Pipeline guardian
 │   │   ├── checkpoint-validator # Build + test verification
 │   │   ├── sanity-checker       # Final sanity verification
+│   │   ├── adversarial-batch    # Per-batch security checklist review
 │   │   ├── final-validator      # Go/No-Go decision (Pa de Cal)
 │   │   └── finishing-branch     # Closeout options
-│   ├── executor/                # 6 execution agents
+│   ├── executor/                # 5 + feature-implementer (type-specific/)
 │   │   ├── executor-controller  # Batch orchestration
 │   │   ├── executor-implementer # Per-task implementation
 │   │   ├── executor-fix         # Targeted fixes for findings
@@ -264,13 +265,13 @@ pipeline-orchestrator/
 │   │       ├── ux-*             # 3 UX specialists
 │   │       └── adversarial-*    # 3 adversarial specialists
 │   └── quality/                 # 7 review agents
-│       ├── review-orchestrator  # Per-batch review coordination
-│       ├── adversarial-batch    # Security checklist review
+│       ├── review-orchestrator      # Per-batch review coordination
 │       ├── architecture-reviewer
 │       ├── design-interrogator
 │       ├── plan-architect
-│       ├── quality-gate-router  # TDD scenario generation
-│       └── pre-tester           # RED phase test creation
+│       ├── final-adversarial-orchestrator  # Phase 3 final review (3 parallel)
+│       ├── quality-gate-router      # TDD scenario generation
+│       └── pre-tester               # RED phase test creation
 ├── commands/
 │   └── pipeline.md              # The /pipeline command
 ├── references/
