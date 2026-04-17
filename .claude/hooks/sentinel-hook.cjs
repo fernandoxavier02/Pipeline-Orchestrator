@@ -6,13 +6,31 @@
  *
  * Protocol:
  *   - Exit 0 with no stdout → allow (silent pass)
+ *   - Exit 0 with stderr WARN → allow + operator-visible advisory (e.g. unknown schema_version)
  *   - Exit 0 with hookSpecificOutput deny → deny this tool call, reason fed to Claude
- *   - Exit 0 with hookSpecificOutput allow + additionalContext → allow with warning
- *   - Exit 2 with stderr → hard block, stderr fed to Claude
+ *   - Exit 0 with hookSpecificOutput allow + additionalContext → allow with warning in Claude context
+ *   - Exit 2 with stderr → hard block, stderr fed to Claude (circuit breaker)
  *
  * Auto-discovers sentinel-state.json from .pipeline/docs/Pre-*-action/.
  * Falls back to PIPELINE_DOC_PATH env var if set.
  * NEVER spawns agents, writes files, or emits visual output.
+ *
+ * TRUST ASSUMPTION (v3.4.0, SEC-2):
+ * The hook treats `sentinel-state.json` as trusted input from the pipeline
+ * controller. It does NOT verify integrity, authorship, or freshness beyond
+ * a stale timestamp warning and a schema_version check. Consequences:
+ *   - Any actor with write access to PIPELINE_DOC_PATH can neutralize the
+ *     sentinel by setting `pipeline_active: false` or writing an unknown
+ *     `schema_version` (the hook emits stderr WARN for the latter, but still
+ *     allows for backwards compat).
+ *   - Concurrent pipelines sharing a PIPELINE_DOC_PATH race on the counter.
+ * Mitigations that are OUT OF SCOPE here (handled by the controller):
+ *   - Integrity tokens / session IDs in the state file.
+ *   - File locking for concurrent pipelines.
+ *   - Validation that reviewed artifacts never land at PIPELINE_DOC_PATH.
+ * If the state file is untrusted, the controller must refuse to proceed —
+ * the hook cannot recover from an adversarial state file and is NOT the
+ * last line of defense against controller compromise.
  */
 
 const fs = require('fs');
@@ -82,16 +100,18 @@ function handleInput(raw) {
   }
 
   // 2. Extract agent identity from tool_input
+  // Guard against type confusion — only strings participate in routing.
+  // Numeric, array, object, null, undefined → treat as unknown, allow.
   const toolInput = input.tool_input || {};
-  const fullAgentType = toolInput.subagent_type || '';
+  const agentType = typeof toolInput.subagent_type === 'string' ? toolInput.subagent_type : '';
 
   // Only validate pipeline-orchestrator agents — allow all others
-  if (!fullAgentType || !fullAgentType.startsWith('pipeline-orchestrator:')) {
+  if (!agentType || !agentType.startsWith('pipeline-orchestrator:')) {
     return process.exit(0); // not a pipeline agent, don't interfere
   }
 
   // "pipeline-orchestrator:core:sentinel" → "sentinel"
-  const agentName = fullAgentType.split(':').pop();
+  const agentName = agentType.split(':').pop();
 
   // 3. Anti-loop: sentinel itself always passes
   if (agentName === 'sentinel') {
@@ -136,9 +156,18 @@ function handleInput(raw) {
     return process.exit(0);
   }
 
-  // 7. Schema version check
-  if (state.schema_version !== 1) {
-    return process.exit(0); // incompatible version → don't interfere
+  // 7. Schema version check (SEC-3, v3.4.0)
+  // Unknown schema_version is allowed for backwards compatibility, but the hook
+  // now emits a stderr WARN so operators can detect version mismatches or state
+  // file corruption. Silent allow was a safety-defeating default pre-v3.4.0.
+  // Normalize to Number so string "1" matches (SEC-B3-01, Batch 3 round 2).
+  const schemaVersionNum = Number(state.schema_version);
+  if (schemaVersionNum !== 1) {
+    process.stderr.write(
+      `SENTINEL WARN: unknown schema_version=${JSON.stringify(state.schema_version)} in ${stateFilePath}. ` +
+      `Treating as non-enforcing (silent allow) for backwards compat. Expected schema_version=1.\n`
+    );
+    return process.exit(0);
   }
 
   // 8. Pipeline inactive? → silent pass
@@ -154,8 +183,9 @@ function handleInput(raw) {
 
   if (lastUpdated > 0 && elapsed > STALE_THRESHOLD_MS) {
     const elapsedSec = Math.round(elapsed / 1000);
+    const thresholdSec = Math.round(STALE_THRESHOLD_MS / 1000);
     staleWarning =
-      `SENTINEL WARNING: State file is ${elapsedSec}s old (threshold: 60s). ` +
+      `SENTINEL WARNING: State file is ${elapsedSec}s old (threshold: ${thresholdSec}s). ` +
       `The controller may have forgotten to update sentinel-state.json before this spawn. ` +
       `expected_next="${state.expected_next || '?'}" may be stale. ` +
       `Verify that you updated the state file via Write tool BEFORE this Agent call.`;
@@ -192,7 +222,7 @@ function handleInput(raw) {
   }
 
   // 12. Check if this is a known alias or partial match
-  if (expected && fullAgentType.toLowerCase().endsWith(expected)) {
+  if (expected && agentType.toLowerCase().endsWith(expected)) {
     return process.exit(0); // suffix match → allow
   }
 

@@ -56,9 +56,19 @@ Terms used throughout the Pipeline Orchestrator plugin.
 
 **Consensus Finding** — An issue identified independently by 2+ reviewers in the final adversarial review. Higher confidence than single-reviewer findings.
 
+**Zero-Context Agent** — An agent that receives ONLY a file list (or minimal metadata) as input and forms its own understanding by reading the code directly. It does NOT receive implementation summaries, design rationale, prior review findings, or task descriptions. Zero-context agents eliminate confirmation bias and simulate the perspective of a reviewer who never saw the discussion that produced the code.
+
+**Agent Naming Convention** — Two explicit naming contracts in the `agents/` tree:
+- In `agents/executor/type-specific/`, agents prefixed `adversarial-*` (`adversarial-security-scanner`, `adversarial-architecture-critic`, `adversarial-quality-reviewer`) are **zero-context** reviewers dispatched by `final-adversarial-orchestrator`. `adversarial-review-coordinator` in the same folder is itself context-aware but dispatches zero-context children.
+- In `agents/executor/` top level, agents prefixed `executor-*` (`executor-controller`, `executor-fix`, `executor-implementer-task`, `executor-quality-reviewer`, `executor-spec-reviewer`) are **context-aware** per-task agents that run inside `executor-controller`, with full knowledge of the task, implementation, and prior review results.
+- In `agents/executor/type-specific/`, the other prefixes (`audit-*`, `bugfix-*`, `feature-*`, `ux-*`) are **context-aware** domain specialists dispatched by `executor-controller` based on task type.
+- When a new reviewer is added, the `adversarial-*` prefix is reserved for zero-context operation. An `adversarial-*` file that runs with context must document why in its spec frontmatter. Conversely, a zero-context reviewer that does NOT use the `adversarial-*` prefix must document why.
+
 **Vertical Slice** — An end-to-end feature increment that delivers value across all layers (backend → frontend → test). Each slice can be validated independently.
 
 **SSOT (Single Source of Truth)** — Each piece of data, rule, or configuration has exactly ONE authoritative source. If two sources exist for the same thing, the pipeline blocks until the conflict is resolved.
+
+**Residual Risk: LLM Prompt Injection** — Any agent in this plugin that reads project files (including pipeline-authored spec files, configuration, and reviewed source) is vulnerable to prompt-injection content embedded in those files. The `ANTI-PROMPT-INJECTION (MANDATORY)` block in every adversarial agent's spec is a textual instruction to the LLM, not a runtime guard. Mitigations built into the plugin: (a) Zero-Context Agents reduce the attack surface by receiving only file lists; (b) the Inline Invariants block in `commands/pipeline.md` overrides Grep-loaded content that disagrees with it; (c) `sentinel-state.json` tampering is detectable but not prevented (hook emits stderr WARN on unknown schema versions). What is NOT mitigated: an attacker who can write to a reviewed file can attempt to influence the reviewing agent's output through embedded directives. Treat this as a known residual risk at the LLM layer — the defense is defense-in-depth (multi-reviewer consensus, sentinel sequence validation, human-visible gate decisions) rather than a single enforcement point.
 
 ## Architecture
 

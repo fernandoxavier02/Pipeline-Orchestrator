@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.3.0-blue?style=for-the-badge" alt="Version" />
+  <img src="https://img.shields.io/badge/version-3.4.0-blue?style=for-the-badge" alt="Version" />
   <img src="https://img.shields.io/badge/agents-37-7C3AED?style=for-the-badge" alt="Agents" />
   <img src="https://img.shields.io/badge/platform-Claude_Code-000?style=for-the-badge" alt="Platform" />
   <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="License" />

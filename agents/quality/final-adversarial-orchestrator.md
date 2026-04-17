@@ -48,7 +48,6 @@ This agent reviews the COMPLETE diff as a whole, with zero contamination from an
 |             adversarial-architecture-critic ‖                      |
 |             adversarial-quality-reviewer                           |
 |  Mode: ALL 3 context-independent (ZERO prior context)              |
-|  Mode: FULL INDEPENDENT (zero prior context)                       |
 +==================================================================+
 ```
 
@@ -167,13 +166,13 @@ FINAL_ADVERSARIAL_REPORT:
 
 ## INTENSITY BY PIPELINE LEVEL
 
-| Pipeline Level | Disponível | Recomendação | Intensidade |
-|---------------|------------|--------------|-------------|
-| SIMPLES (DIRETO) | Sim | Recomendado se tocou auth/data | 1 reviewer: adversarial-security-scanner |
-| MEDIA (Light) | Sim | Recomendado | 2 reviewers: adversarial-security-scanner ‖ adversarial-architecture-critic |
-| COMPLEXA (Heavy) | Sim | Fortemente recomendado | 3 reviewers: adversarial-security-scanner ‖ adversarial-architecture-critic ‖ adversarial-quality-reviewer |
+| Pipeline Level | Available | Recommendation | Intensity |
+|---------------|-----------|----------------|-----------|
+| SIMPLES (DIRETO) | Yes | Recommended if auth/data was touched | 1 reviewer: adversarial-security-scanner |
+| MEDIA (Light) | Yes | Recommended | 2 reviewers: adversarial-security-scanner ‖ adversarial-architecture-critic |
+| COMPLEXA (Heavy) | Yes | Strongly recommended | 3 reviewers: adversarial-security-scanner ‖ adversarial-architecture-critic ‖ adversarial-quality-reviewer |
 
-**Regra:** Mesmo para SIMPLES, se o pipeline tocou auth/crypto/data-model, a recomendação sobe para "Fortemente recomendado" e a intensidade para 2 reviewers.
+**Rule:** Even for SIMPLES, if the pipeline touched auth/crypto/data-model, the recommendation escalates to "Strongly recommended" and the intensity to 2 reviewers.
 
 ---
 
@@ -181,7 +180,7 @@ FINAL_ADVERSARIAL_REPORT:
 
 1. **Zero contamination** — You receive NO implementation context, NO per-batch review details
 2. **Parallel only** — All reviewers MUST be spawned simultaneously
-3. **Always COMPLEXA intensity** — Final review uses full intensity regardless of original classification
+3. **Intensity follows the table above** — SIMPLES gets 1 reviewer, MEDIA gets 2, COMPLEXA gets 3. When `domains_touched` includes `auth`/`crypto`/`data-model`/`payment`, the minimum intensity escalates per the rule below the table. When the user explicitly requests FULL intensity regardless of level, spawn all 3 reviewers
 4. **Cross-reference required** — You MUST cross-reference findings between reviewers
 5. **No fixes** — Report only. If findings exist, final-validator handles the decision
 6. **Opt-in** — User MUST authorize this review via the FINAL_ADVERSARIAL_GATE
