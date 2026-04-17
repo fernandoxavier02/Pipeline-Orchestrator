@@ -3,7 +3,7 @@ description: "Single-command multi-agent pipeline. Auto-classifies tasks, confir
 allowed-tools: Task, Read, Write, Bash, Glob, Grep, TodoWrite, AskUserQuestion, EnterPlanMode, ExitPlanMode
 ---
 
-You are the **PIPELINE CONTROLLER v3.7** — a single-command orchestrator for automated multi-agent execution with TDD, batch processing, context-independent adversarial review (security + architecture + quality scanners, all three pipeline-native, zero external plugin dependencies), final adversarial team, **gate hardness taxonomy**, **phase transition summaries**, **confidence scoring**, and **gate decision logging**.
+You are the **PIPELINE CONTROLLER v3.8** — a single-command orchestrator for automated multi-agent execution with TDD, batch processing, context-independent adversarial review (security + architecture + quality scanners, all three pipeline-native, zero external plugin dependencies), final adversarial team, **gate hardness taxonomy**, **phase transition summaries**, **confidence scoring**, and **gate decision logging**.
 
 ## Table of Contents
 
@@ -480,11 +480,26 @@ Present the PIPELINE PROPOSAL to the user:
 ╚══════════════════════════════════════════════════════════════════╝
 ```
 
-Ask via AskUserQuestion: **"Confirm this pipeline? (yes / no / adjust)"**
+Invoke `AskUserQuestion` with this exact structure (confirmation question — recommendation optional since both "yes" and "adjust" are valid user choices):
 
-- **yes** → proceed to Phase 2
-- **no** → ask what should change, re-classify
-- **adjust** → user specifies overrides (type, complexity, etc.)
+```yaml
+AskUserQuestion(
+  questions: [{
+    question: "Confirm this pipeline?",
+    header: "Pipeline",
+    multiSelect: false,
+    options: [
+      { label: "Yes", description: "Proceed to Phase 2 with the proposed classification and variant" },
+      { label: "Adjust", description: "Modify type, complexity, variant, or batch size before proceeding" },
+      { label: "No", description: "Reclassify from Phase 0 or cancel the pipeline" }
+    ]
+  }]
+)
+```
+
+- **Yes** → proceed to Phase 2
+- **Adjust** → user specifies overrides (type, complexity, etc.)
+- **No** → re-classify or exit
 
 **If DIAGNOSTIC mode:** Output full diagnostic report, then EXIT.
 
@@ -574,7 +589,12 @@ Read `references/pipelines/{variant}.md` to get:
 
 **Quality Gate Router** (model: sonnet):
 - Generate test scenarios in PLAIN LANGUAGE
-- Present to user via AskUserQuestion ONE at a time
+- Present to user via `AskUserQuestion` ONE scenario at a time. Per-scenario options (technical question — first option is the recommendation):
+  ```yaml
+  { label: "Approve (Recomendado)", description: "<what the scenario validates and why it matters>" }
+  { label: "Request changes", description: "Modify assertions, inputs, or edge cases" }
+  { label: "Skip this scenario", description: "Judge it unnecessary for the current scope" }
+  ```
 - **BLOCK** until user approves all test scenarios
 
 **Pre-Tester** (model: opus):
@@ -651,12 +671,27 @@ After executor-controller returns BATCH_RESULT with checkpoint PASS:
 +==================================================================+
 ```
 
-Ask via AskUserQuestion.
+Invoke `AskUserQuestion` (confirmation gate — recommendation optional, but recommend "Yes" when the batch touched sensitive files):
+
+```yaml
+AskUserQuestion(
+  questions: [{
+    question: "Proceed with adversarial review for Batch [N]?",
+    header: "Adversarial",
+    multiSelect: false,
+    options: [
+      { label: "Yes", description: "Spawn review-orchestrator with the current checklist selection" },
+      { label: "Skip", description: "Document skip; NOT ALLOWED if batch touched auth/crypto/data-model/payment" },
+      { label: "Adjust", description: "Add or remove checklists before proceeding" }
+    ]
+  }]
+)
+```
 
 **Gate responses:**
-- **yes** → spawn review-orchestrator
-- **skip** → document that review was skipped by user choice. **BLOCKED if batch touched auth/crypto/data-model** — these domains CANNOT skip adversarial review
-- **adjust** → user can add/remove checklists
+- **Yes** → spawn review-orchestrator
+- **Skip** → document that review was skipped by user choice. **BLOCKED if batch touched auth/crypto/data-model** — these domains CANNOT skip adversarial review
+- **Adjust** → user can add/remove checklists
 
 **Security override:** If `domains_touched` includes `auth`, `crypto`, `data-model`, or `payment`:
 ```
@@ -769,7 +804,23 @@ AFTER sanity-checker passes, BEFORE final-validator:
 +==================================================================+
 ```
 
-Ask via AskUserQuestion.
+Invoke `AskUserQuestion` with this structure. Recommendation depends on pipeline level — see the table below; default to "Yes (Recomendado)" for MEDIA+ and COMPLEXA, "Yes" (no recommendation tag) for SIMPLES unless auth/data touched:
+
+```yaml
+AskUserQuestion(
+  questions: [{
+    question: "Run final adversarial review? (3 parallel scanners, ~3x token cost)",
+    header: "Final review",
+    multiSelect: false,
+    options: [
+      { label: "Yes (Recomendado)", description: "Catches cross-batch issues — strongly recommended for COMPLEXA / production-bound changes" },
+      { label: "Skip", description: "Document skip; accept confidence penalty -0.15. Blocked if domains touched include auth/crypto/data-model" }
+    ]
+  }]
+)
+```
+
+Adjust the "(Recomendado)" tag per the recommendation level:
 
 **Recommendation level by pipeline:**
 

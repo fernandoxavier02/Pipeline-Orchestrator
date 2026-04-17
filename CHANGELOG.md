@@ -5,6 +5,20 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.0] - 2026-04-17
+
+### Added
+- **Inline `AskUserQuestion` examples in `commands/pipeline.md`** for all 4 user-decision touchpoints (Phase 1 proposal, TDD scenario approval, per-batch adversarial gate, final adversarial gate). Each example shows the complete structured call with options, `(Recomendado)` labels where applicable, and descriptions explaining trade-offs. Eliminates the prior pattern of "Ask via AskUserQuestion." as a bare reference without shape guidance.
+- **USER INTERACTION PROTOCOL blocks added to 11 edge-case agents** (v3.7.0 covered 5 user-facing agents; v3.8.0 extends to agents that may ask in edge cases): `executor-controller`, `executor-implementer-task`, `executor-fix`, `feature-implementer`, `bugfix-diagnostic-agent`, `bugfix-root-cause-analyzer`, `bugfix-regression-tester`, `pre-tester`, `ux-simulator`, `ux-accessibility-auditor`, `ux-qa-validator`. Total coverage: **16 agents** with explicit protocol blocks.
+
+### Fixed
+- **Protocol coverage gap from v3.7.0 audit.** v3.7.0 mandated `AskUserQuestion` + recommendation-first globally, but only 5 agents had the detailed block in their spec. Edge-case agents (e.g. executor-implementer-task raising a micro-gate gap, or bugfix-root-cause-analyzer needing evidence-confirmation input) could fall back to prose under LLM improvisation. v3.8.0 closes this gap with targeted blocks in each agent's spec, tailored to its specific interaction mode.
+
+### Notes
+- No breaking changes. MINOR bump because the new inline examples and per-agent blocks extend the public contract surface of the controller spec.
+- The 12 "pure output" agents (revisores, classificador, zero-context scanners, coordinators) were deliberately not updated — they return structured YAML to the controller and never prompt the user directly. Adding the block there would be misleading bloat. They remain as-is.
+- Agent coverage inventory: `information-gate`, `design-interrogator`, `plan-architect`, `quality-gate-router`, `finishing-branch` (v3.7.0) + `executor-controller`, `executor-implementer-task`, `executor-fix`, `feature-implementer`, `bugfix-*` (3), `pre-tester`, `ux-*` (3) (v3.8.0) = 16 agents with USER INTERACTION PROTOCOL blocks.
+
 ## [3.7.0] - 2026-04-17
 
 ### Added
