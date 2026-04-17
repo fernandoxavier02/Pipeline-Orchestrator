@@ -79,10 +79,26 @@ function runHook(stdinPayload, env = {}, opts = {}) {
   };
 }
 
-function tempDir() {
+// Temp dir factory with end-of-process cleanup (v3.5.0).
+// Every directory created here is registered for removal on exit so the
+// suite does not leak sentinel-hook-test-* directories across CI runs.
+const _tempDirs = [];
+let _cleanupRegistered = false;
+function createTempDir() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sentinel-hook-test-'));
+  _tempDirs.push(dir);
+  if (!_cleanupRegistered) {
+    _cleanupRegistered = true;
+    process.on('exit', () => {
+      for (const d of _tempDirs) {
+        try { fs.rmSync(d, { recursive: true, force: true }); } catch { /* ignore */ }
+      }
+    });
+  }
   return dir;
 }
+// Backwards-compat alias — same contract now includes cleanup.
+const tempDir = createTempDir;
 
 function writeState(dir, stateObj) {
   fs.writeFileSync(path.join(dir, 'sentinel-state.json'), JSON.stringify(stateObj, null, 2));
@@ -422,6 +438,133 @@ function writeState(dir, stateObj) {
   const r6 = runHook({ tool_name: 'Agent', tool_input: { subagent_type: AGENTS.TASK_ORCHESTRATOR } });
   // This is actually a valid bootstrap spawn without state file — should be allowed
   assertEqual(r6.exitCode, 0, '[15f] real pipeline-orchestrator agent still works after type-guard refactor');
+}
+
+// 16. Corrupted state file (parse error) emits WARN instead of silent allow
+//     RISK-2 fix (v3.5.0): fail-open on parse error was silent; now it emits
+//     stderr WARN so operators detect state-file corruption or partial writes.
+//     Backwards compatible (still exits 0).
+{
+  const docPath = tempDir();
+  // Write garbage — not valid JSON
+  fs.writeFileSync(path.join(docPath, 'sentinel-state.json'), '{ "schema_version": 1, "pipeline_active": true, truncated');
+  const r = runHook(
+    {
+      tool_name: 'Agent',
+      tool_input: { subagent_type: AGENTS.SECURITY_SCANNER }
+    },
+    { PIPELINE_DOC_PATH: docPath }
+  );
+  assertEqual(r.exitCode, 0, '[16] corrupted state file returns exit 0 (fail-open backwards compat)');
+  assertContains(r.stderr, 'SENTINEL WARN', '[16] corrupted state file emits SENTINEL WARN to stderr');
+  assertContains(r.stderr, 'parse', '[16] stderr warning mentions parse failure');
+}
+
+// 17. discoverStatePath happy path — filesystem walk picks newest Pre-* session
+//     TEST-1 coverage (v3.5.0): default production code path was untested. A
+//     silent regression would never fail. This test constructs a real tree under
+//     cwd and verifies auto-discovery resolves the newest sentinel-state.json.
+{
+  const root = tempDir();
+  // Build a .pipeline/docs/Pre-Complexa-action/<session>/sentinel-state.json tree
+  const older = path.join(root, '.pipeline', 'docs', 'Pre-Simples-action', 'older-session');
+  const newer = path.join(root, '.pipeline', 'docs', 'Pre-Complexa-action', 'newer-session');
+  fs.mkdirSync(older, { recursive: true });
+  fs.mkdirSync(newer, { recursive: true });
+  // Write both files, then set deterministic mtimes via fs.utimesSync.
+  // v3.5.0 round 2: replaced busy-wait spin with explicit utime — no dependency
+  // on OS mtime granularity or CPU scheduling. The mtime ordering is now a
+  // test precondition, not a race outcome.
+  const olderPath = path.join(older, 'sentinel-state.json');
+  const newerPath = path.join(newer, 'sentinel-state.json');
+  fs.writeFileSync(olderPath, JSON.stringify({
+    schema_version: 1, pipeline_active: true, expected_next: 'task-orchestrator',
+    last_updated: new Date().toISOString(), consecutive_corrections: 0
+  }));
+  fs.writeFileSync(newerPath, JSON.stringify({
+    schema_version: 1, pipeline_active: true, expected_next: 'adversarial-security-scanner',
+    last_updated: new Date().toISOString(), consecutive_corrections: 0
+  }));
+  // Older = 10s ago, newer = now — guaranteed distinct mtimes
+  const now = new Date();
+  const past = new Date(now.getTime() - 10_000);
+  fs.utimesSync(olderPath, past, past);
+  fs.utimesSync(newerPath, now, now);
+
+  // With PIPELINE_DOC_PATH unset, the hook auto-discovers via cwd
+  // Expected: newer state file wins, so security-scanner should be allowed
+  const r = runHook(
+    { tool_name: 'Agent', tool_input: { subagent_type: AGENTS.SECURITY_SCANNER } },
+    { PIPELINE_DOC_PATH: '' },
+    { cwd: root }
+  );
+  assertEqual(r.exitCode, 0, '[17] discoverStatePath happy path: exit 0');
+  assertEqual(r.stdout.trim(), '', '[17] discoverStatePath picked newer state, security-scanner matches → silent allow');
+
+  // Cross-check: task-orchestrator would be DENIED (older state said task-orchestrator but newer wins)
+  const r2 = runHook(
+    { tool_name: 'Agent', tool_input: { subagent_type: AGENTS.TASK_ORCHESTRATOR } },
+    { PIPELINE_DOC_PATH: '' },
+    { cwd: root }
+  );
+  assertEqual(r2.exitCode, 0, '[17b] auto-discovery consistent: exit 0 for divergence');
+  assertContains(r2.stdout, '"permissionDecision":"deny"', '[17b] task-orchestrator DENIED because newer state expects security-scanner (divergence)');
+}
+
+// 18. Suffix-match alias branch — if expected_next is a short form of full agent name, allow
+//     TEST-2 coverage (v3.5.0): the suffix match at hook line ~223 is a documented
+//     alias path. When expected_next equals the last segment of the full agent type,
+//     or is a suffix of the full name, the hook allows. This is load-bearing for
+//     sentinel's own SEQUENCE_VALIDATION which sometimes stores short names.
+{
+  const docPath = tempDir();
+  writeState(docPath, {
+    schema_version: 1,
+    pipeline_active: true,
+    // Short form — just the leaf name
+    expected_next: 'adversarial-quality-reviewer',
+    last_updated: new Date().toISOString(),
+    consecutive_corrections: 0
+  });
+  // Full-qualified agent path has the leaf as suffix → should match
+  const r = runHook(
+    { tool_name: 'Agent', tool_input: { subagent_type: AGENTS.QUALITY_REVIEWER } },
+    { PIPELINE_DOC_PATH: docPath }
+  );
+  assertEqual(r.exitCode, 0, '[18] suffix-match alias returns exit 0');
+  assertEqual(r.stdout.trim(), '', '[18] suffix-match alias allows silently');
+
+  // Negative control: a completely different agent name must NOT suffix-match
+  const r2 = runHook(
+    { tool_name: 'Agent', tool_input: { subagent_type: AGENTS.SECURITY_SCANNER } },
+    { PIPELINE_DOC_PATH: docPath }
+  );
+  assertEqual(r2.exitCode, 0, '[18b] non-matching agent returns exit 0 (deny via stdout)');
+  assertContains(r2.stdout, '"permissionDecision":"deny"', '[18b] non-matching agent DENIED');
+}
+
+// 19. Extended type-confusion boundary (SEC-B3-02 v3.5.0 codification)
+//     Extra non-string subagent_type vectors that must NOT crash and must NOT
+//     be coerced into a valid route.
+{
+  // 19a: boolean subagent_type
+  const rBool = runHook({ tool_name: 'Agent', tool_input: { subagent_type: true } });
+  assertEqual(rBool.exitCode, 0, '[19a] boolean subagent_type returns exit 0 (no crash)');
+  assertEqual(rBool.stdout.trim(), '', '[19a] boolean subagent_type emits no stdout');
+
+  // 19b: object with custom toString() claiming to be a pipeline-orchestrator agent
+  // JSON.stringify serializes custom toString() away, so it arrives as {} — must not route
+  const rObj = runHook({
+    tool_name: 'Agent',
+    tool_input: { subagent_type: { toString: 'pipeline-orchestrator:core:task-orchestrator' } }
+  });
+  assertEqual(rObj.exitCode, 0, '[19b] object subagent_type returns exit 0 (no crash)');
+  assertEqual(rObj.stdout.trim(), '', '[19b] object subagent_type does not route as pipeline agent');
+
+  // 19c: nested array
+  const rNested = runHook({ tool_name: 'Agent', tool_input: { subagent_type: [['nested']] } });
+  assertEqual(rNested.exitCode, 0, '[19c] nested array subagent_type returns exit 0 (no crash)');
+  assertEqual(rNested.stdout.trim(), '', '[19c] nested array does not route');
 }
 
 // ── Report ──────────────────────────────────────────────────────────────────

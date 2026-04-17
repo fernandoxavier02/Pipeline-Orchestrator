@@ -148,11 +148,23 @@ function handleInput(raw) {
   }
 
   // 6. Read and parse state file
+  // RISK-2 fix (v3.5.0): unparseable state file was silent fail-open pre-v3.5.
+  // Now emits stderr WARN so operators detect corruption, partial writes, or
+  // concurrent-write races. Still exits 0 for backwards compatibility — a
+  // corrupted state file should not hard-block a user's pipeline.
   let state;
   try {
     state = JSON.parse(fs.readFileSync(stateFilePath, 'utf8'));
-  } catch {
-    // State file corrupted → fail-open (recovery scenario)
+  } catch (err) {
+    // Sanitize output (SEC-1, v3.5.0 round 2): log only the basename — absolute
+    // path may echo partial secrets if the file was mid-rotation; the error
+    // message may leak JSON fragments around the parse failure.
+    const basename = path.basename(stateFilePath);
+    const errKind = err && err.name ? err.name : 'ParseError';
+    process.stderr.write(
+      `SENTINEL WARN: failed to parse state file ${basename} (${errKind}). ` +
+      `Treating as non-enforcing (silent allow) for backwards compat. Check for partial writes or concurrent pipelines.\n`
+    );
     return process.exit(0);
   }
 
