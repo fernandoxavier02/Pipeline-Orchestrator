@@ -5,6 +5,25 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.0] - 2026-04-17
+
+### Added
+- **`USER INTERACTION PROTOCOL`** section near the top of `commands/pipeline.md` (right after AGENT DISPATCH PROTOCOL). Mandates that every user decision point in the pipeline use the `AskUserQuestion` tool to render arrow-key selectable options — NEVER free-form prose. For technical questions (multiple viable approaches with trade-offs), the first option must be the agent's recommendation labeled `(Recomendado)` with reasoning in the option description. For confirmation questions (binary yes/no), the recommendation is optional.
+- **Agent-level USER INTERACTION PROTOCOL blocks** added to the 5 user-facing agents:
+  - `information-gate` — technical vs factual gaps, both via `AskUserQuestion`
+  - `design-interrogator` — always recommendation-first (every question is technical by design)
+  - `plan-architect` — approve/adjust/reject with plan as recommendation
+  - `quality-gate-router` — one `AskUserQuestion` per test scenario, approve as recommendation
+  - `finishing-branch` — closeout options (commit/push/keep/discard) with context-dependent recommendation; double-confirm for destructive actions
+- Glossary entry **`User Interaction Protocol (v3.7.0+)`** codifying the contract.
+
+### Fixed
+- **Prose-prompt anti-pattern** eliminated. Prior versions documented `Ask via AskUserQuestion` but did not explicitly forbid the text-answer alternative. In observed usage, agents occasionally rendered prompts like `"Qual opção prefere? (A / B / C)"` in markdown output and waited for a typed response — which is error-prone and breaks deterministic gate handling. v3.7.0 makes the prohibition explicit with an anti-pattern table.
+
+### Notes
+- No breaking changes. All existing `AskUserQuestion` usages continue to work. MINOR bump because the protocol section is a new public contract surface.
+- The `(Recomendado)` suffix is Portuguese to match the existing localization convention (options are user-visible in the terminal).
+
 ## [3.6.0] - 2026-04-17
 
 ### Added
