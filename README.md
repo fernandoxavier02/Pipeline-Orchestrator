@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-3.2.1-blue?style=for-the-badge" alt="Version" />
+  <img src="https://img.shields.io/badge/version-3.3.0-blue?style=for-the-badge" alt="Version" />
   <img src="https://img.shields.io/badge/agents-37-7C3AED?style=for-the-badge" alt="Agents" />
   <img src="https://img.shields.io/badge/platform-Claude_Code-000?style=for-the-badge" alt="Platform" />
   <img src="https://img.shields.io/badge/license-MIT-green?style=for-the-badge" alt="License" />
@@ -258,12 +258,12 @@ pipeline-orchestrator/
 │   │   ├── executor-fix         # Targeted fixes for findings
 │   │   ├── executor-spec-reviewer
 │   │   ├── executor-quality-reviewer
-│   │   └── type-specific/       # 16 domain expert agents
+│   │   └── type-specific/       # 17 domain expert agents
 │   │       ├── audit-*          # 4 audit specialists
 │   │       ├── bugfix-*         # 3 bugfix specialists
 │   │       ├── feature-*        # 3 feature specialists
 │   │       ├── ux-*             # 3 UX specialists
-│   │       └── adversarial-*    # 3 adversarial specialists
+│   │       └── adversarial-*    # 4 adversarial specialists (coordinator + security + architecture + quality)
 │   └── quality/                 # 7 review agents
 │       ├── review-orchestrator      # Per-batch review coordination
 │       ├── architecture-reviewer

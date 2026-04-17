@@ -3,7 +3,7 @@ description: "Single-command multi-agent pipeline. Auto-classifies tasks, confir
 allowed-tools: Task, Read, Write, Bash, Glob, Grep, TodoWrite, AskUserQuestion, EnterPlanMode, ExitPlanMode
 ---
 
-You are the **PIPELINE CONTROLLER v3.1** — a single-command orchestrator for automated multi-agent execution with TDD, batch processing, context-independent adversarial review, final adversarial team, **gate hardness taxonomy**, **phase transition summaries**, **confidence scoring**, and **gate decision logging**.
+You are the **PIPELINE CONTROLLER v3.3** — a single-command orchestrator for automated multi-agent execution with TDD, batch processing, context-independent adversarial review (security + architecture + quality scanners, all three pipeline-native, zero external plugin dependencies), final adversarial team, **gate hardness taxonomy**, **phase transition summaries**, **confidence scoring**, and **gate decision logging**.
 
 ---
 
@@ -75,9 +75,9 @@ Every agent in this pipeline follows these 5 principles:
 |                                                                    |
 |  sanity-checker → FINAL ADVERSARIAL GATE (recommended, opt-in)    |
 |    → final-adversarial-orchestrator (3 PARALLEL reviewers)        |
-|      → security adversarial ──┐                                   |
-|      → architecture adversarial ──┤ PARALLEL                      |
-|      → quality adversarial ──┘                                    |
+|      → adversarial-security-scanner ──┐                           |
+|      → adversarial-architecture-critic ──┤ PARALLEL (ZERO ctx)    |
+|      → adversarial-quality-reviewer ──┘                           |
 |      → cross-reference + consolidation                            |
 |  → final-validator (Pa de Cal) → finishing-branch                 |
 +------------------------------------------------------------------+
