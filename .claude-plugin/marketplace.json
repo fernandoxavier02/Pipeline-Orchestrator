@@ -53,7 +53,7 @@
     {
       "name": "engineering-context",
       "description": "Generates mandatory engineering rules, architecture contracts, anti-pattern catalogs, and validation tests adapted to any project's stack. 6 focused skills: setup, detect-stack, map-architecture, generate-rules, mine-anti-patterns, validate-context.",
-      "version": "1.0.1",
+      "version": "1.0.2",
       "author": {
         "name": "FX Studio AI",
         "url": "https://github.com/fernandoxavier02/engineering-context"
@@ -61,7 +61,7 @@
       "source": {
         "source": "url",
         "url": "https://github.com/fernandoxavier02/engineering-context.git",
-        "ref": "v1.0.1"
+        "ref": "v1.0.2"
       },
       "category": "development"
     }
