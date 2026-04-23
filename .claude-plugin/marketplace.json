@@ -39,7 +39,7 @@
     {
       "name": "cc-toolkit",
       "description": "Claude Code Swiss Army Knife — diagnose, configure, and build your Claude Code environment. Meta-skill /cc with triage menu + 9 specialized skills for context audit, MCP, hooks, agents, prompts, security, setup, and skill building.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "author": {
         "name": "FX Studio AI",
         "url": "https://github.com/fernandoxavier02/cc-mastery"
@@ -47,6 +47,21 @@
       "source": {
         "source": "url",
         "url": "https://github.com/fernandoxavier02/cc-mastery.git"
+      },
+      "category": "development"
+    },
+    {
+      "name": "engineering-context",
+      "description": "Generates mandatory engineering rules, architecture contracts, anti-pattern catalogs, and validation tests adapted to any project's stack. 6 focused skills: setup, detect-stack, map-architecture, generate-rules, mine-anti-patterns, validate-context.",
+      "version": "1.0.1",
+      "author": {
+        "name": "FX Studio AI",
+        "url": "https://github.com/fernandoxavier02/engineering-context"
+      },
+      "source": {
+        "source": "url",
+        "url": "https://github.com/fernandoxavier02/engineering-context.git",
+        "ref": "v1.0.1"
       },
       "category": "development"
     }
