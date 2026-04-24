@@ -61,6 +61,64 @@ function getActiveExecWindow(pipelineDir, lockSessionId) {
   return null;
 }
 
+
+/**
+ * Opens an exec-window authorizing Edit/Write outside .pipeline/ for a given session.
+ * Called by the pipeline-controller agent BEFORE spawning an N2 executor agent.
+ *
+ * @param {string} pipelineDir - The project cwd (parent of .pipeline/)
+ * @param {string} sessionId - Current pipeline session_id (must match the lock's session_id)
+ * @param {object} [opts]
+ * @param {number} [opts.ttl_minutes=5] - window lifetime in minutes (default 5, was 30 prior to v4.1)
+ * @param {string} [opts.purpose] - human-readable reason, surfaces in audit log
+ * @param {string} [opts.spawning_agent] - N2 agent subagent_type about to be spawned
+ * @returns {object} the window metadata written to disk
+ * @throws if sessionId fails regex validation
+ */
+function openExecWindow(pipelineDir, sessionId, opts = {}) {
+  if (!SESSION_ID_RE.test(sessionId)) {
+    throw new Error('invalid session_id');
+  }
+  const ttlMinutes = opts.ttl_minutes ?? 5;
+  const sessionsDir = path.join(pipelineDir, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  const now = Date.now();
+  const window = {
+    session_id: sessionId,
+    opened_at: now,
+    expires_at: now + ttlMinutes * 60 * 1000,
+    purpose: opts.purpose || '',
+    spawning_agent: opts.spawning_agent || '',
+  };
+  const finalPath = path.join(sessionsDir, `${sessionId}.exec-window`);
+  const tmpPath = `${finalPath}.${process.pid}.tmp`;
+  fs.writeFileSync(tmpPath, JSON.stringify(window, null, 2));
+  fs.renameSync(tmpPath, finalPath);
+  return window;
+}
+
+/**
+ * Closes an exec-window for a given session. Idempotent: no error if window doesn't exist.
+ * Called by the pipeline-controller agent AFTER an N2 executor agent returns.
+ *
+ * @param {string} pipelineDir - The project cwd
+ * @param {string} sessionId - Current pipeline session_id
+ * @returns {boolean} true if a window was deleted, false if none existed
+ */
+function closeExecWindow(pipelineDir, sessionId) {
+  if (!SESSION_ID_RE.test(sessionId)) {
+    return false;
+  }
+  const windowPath = path.join(pipelineDir, '.pipeline', 'sessions', `${sessionId}.exec-window`);
+  try {
+    fs.unlinkSync(windowPath);
+    return true;
+  } catch (err) {
+    if (err.code === 'ENOENT') return false;
+    throw err;
+  }
+}
+
 function shouldBlock(filePath, pipelineDir) {
   if (typeof filePath !== 'string' || typeof pipelineDir !== 'string') {
     return { block: true, reason: 'PIPELINE_LOCK_ACTIVE: invalid payload (failing closed)' };
@@ -150,4 +208,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow };
+module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, openExecWindow, closeExecWindow };
