@@ -92,6 +92,24 @@ test('handlePreToolUse: bloqueia Write fora de .pipeline/ com lock ativo', () =>
   fs.rmSync(tmp, { recursive: true });
 });
 
+test('handlePreToolUse: bloqueia MultiEdit fora de .pipeline/ com lock ativo', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-m.lock'),
+    JSON.stringify({ session_id: 'sess-m', status: 'active', expires_at: Date.now() + 3600_000 })
+  );
+  const result = handlePreToolUse({
+    tool_name: 'MultiEdit',
+    tool_input: { file_path: path.join(tmp, 'src/baz.py') },
+    cwd: tmp,
+  });
+  assert.strictEqual(result.decision, 'block');
+  assert.match(result.reason, /PIPELINE_LOCK_ACTIVE/);
+  fs.rmSync(tmp, { recursive: true });
+});
+
 test('handlePreToolUse: ignora tools não-Edit (Bash, Read)', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
   const sessionsDir = path.join(tmp, '.pipeline', 'sessions');

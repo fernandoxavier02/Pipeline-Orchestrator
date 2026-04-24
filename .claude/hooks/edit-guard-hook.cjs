@@ -57,7 +57,7 @@ function buildBlockMessage(filePath, sessionId) {
 }
 
 function handlePreToolUse(payload) {
-  if (!['Edit', 'Write', 'NotebookEdit'].includes(payload.tool_name)) {
+  if (!['Edit', 'Write', 'NotebookEdit', 'MultiEdit'].includes(payload.tool_name)) {
     return { decision: 'allow' };
   }
   const filePath = payload.tool_input?.file_path;

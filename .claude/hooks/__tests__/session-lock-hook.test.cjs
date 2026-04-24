@@ -83,6 +83,9 @@ test('isValidSessionId: rejeita path traversal', () => {
   assert.strictEqual(isValidSessionId(''), false);
   assert.strictEqual(isValidSessionId(null), false);
   assert.strictEqual(isValidSessionId('a'.repeat(65)), false);
+  assert.strictEqual(isValidSessionId('..'), false);
+  assert.strictEqual(isValidSessionId('.hidden'), false);
+  assert.strictEqual(isValidSessionId('-flag'), false);
 });
 
 test('isValidSessionId: aceita IDs válidos', () => {

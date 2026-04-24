@@ -970,7 +970,7 @@ Every agent saves their phase file to PIPELINE_DOC_PATH:
 
 ## CRITICAL REMINDERS
 
-13 invariants grouped by concern. Full details in the `references/` files named below.
+14 invariants grouped by concern. Full details in the `references/` files named below.
 
 ### Infrastructure
 1. **Single PIPELINE_DOC_PATH + sentinel state file** — Create `PIPELINE_DOC_PATH` ONCE at Phase 0; pass to ALL agents. Create `{PIPELINE_DOC_PATH}/sentinel-state.json` BEFORE any Agent spawn, updating it via Write tool BEFORE every spawn. Emit progress blocks + phase transition summaries BEFORE every phase change. See `references/sentinel-integration.md` for the full state-file protocol.
@@ -982,18 +982,18 @@ Every agent saves their phase file to PIPELINE_DOC_PATH:
 5. **User interaction is always via `AskUserQuestion`** — never ask the user to type a response in prose. For technical questions, first option is the agent's recommendation labeled `(Recomendado)`. Full protocol at the top of this file.
 
 ### Control flow
-5. **Automatic batching** — Batch size is determined by complexity (SIMPLES=all, MEDIA=2-3, COMPLEXA=1), NOT user preference.
-6. **Per-batch adversarial + Fix loop max 3** — Independent review happens after EACH batch, not once at end. Attempt 3 must use a different approach; on failure, STOP and propose alternatives.
-7. **STOP RULE + Phase rollback** — 2 consecutive failures → stop and escalate. Phase 2 systemic failure can rollback to Phase 1.5 for re-planning; final adversarial CRITICAL findings can trigger a Phase 2 fix batch.
+6. **Automatic batching** — Batch size is determined by complexity (SIMPLES=all, MEDIA=2-3, COMPLEXA=1), NOT user preference.
+7. **Per-batch adversarial + Fix loop max 3** — Independent review happens after EACH batch, not once at end. Attempt 3 must use a different approach; on failure, STOP and propose alternatives.
+8. **STOP RULE + Phase rollback** — 2 consecutive failures → stop and escalate. Phase 2 systemic failure can rollback to Phase 1.5 for re-planning; final adversarial CRITICAL findings can trigger a Phase 2 fix batch.
 
 ### Review discipline
-8. **Review independence** — `review-orchestrator` is spawned by `this agent prompt`, NEVER by `executor-controller`. Adversarial reviewers receive ONLY the file list — zero implementation context.
-9. **Parallel reviewers** — The three final adversarial scanners MUST be spawned simultaneously (single message, three Agent tool calls) to preserve independence.
-10. **Final review is RECOMMENDED** — Always offer, inform token cost (~3x), respect user choice. Mandatory if the batch touched auth/crypto/data-model/payment.
+9. **Review independence** — `review-orchestrator` is spawned by `this agent prompt`, NEVER by `executor-controller`. Adversarial reviewers receive ONLY the file list — zero implementation context.
+10. **Parallel reviewers** — The three final adversarial scanners MUST be spawned simultaneously (single message, three Agent tool calls) to preserve independence.
+11. **Final review is RECOMMENDED** — Always offer, inform token cost (~3x), respect user choice. Mandatory if the batch touched auth/crypto/data-model/payment.
 
 ### Evidence and audit
-11. **Verification-before-claim** — Every sanity assertion requires command + actual output. No assertions on trust.
-12. **Gate decision log + confidence score** — EVERY gate trigger appended to `{PIPELINE_DOC_PATH}/gate-decisions.jsonl` (append-only, controller-only writes). Confidence score stored at `{PIPELINE_DOC_PATH}/confidence-score.yaml` and passed to final-validator. Both are advisory — binary PASS/FAIL checks take precedence. Details in `references/gates.md` and `references/confidence.md`.
+12. **Verification-before-claim** — Every sanity assertion requires command + actual output. No assertions on trust.
+13. **Gate decision log + confidence score** — EVERY gate trigger appended to `{PIPELINE_DOC_PATH}/gate-decisions.jsonl` (append-only, controller-only writes). Confidence score stored at `{PIPELINE_DOC_PATH}/confidence-score.yaml` and passed to final-validator. Both are advisory — binary PASS/FAIL checks take precedence. Details in `references/gates.md` and `references/confidence.md`.
 
 ### Sentinel
-13. **Sentinel state tracking** — `PreToolUse:Agent` hook (`.claude/hooks/sentinel-hook.cjs`) validates every Agent spawn against `expected_next`. On divergence, denies and instructs Claude to spawn sentinel for diagnosis. The 5 mandatory checkpoints (ORCHESTRATOR_VALIDATION, 0→1, 1→2, 2→3, post_final_validator) are defined in `references/sentinel-integration.md`. Handle SENTINEL_VERDICT (PASS/CORRECTED/BLOCKED) per Section 3 of that reference.
+14. **Sentinel state tracking** — `PreToolUse:Agent` hook (`.claude/hooks/sentinel-hook.cjs`) validates every Agent spawn against `expected_next`. On divergence, denies and instructs Claude to spawn sentinel for diagnosis. The 5 mandatory checkpoints (ORCHESTRATOR_VALIDATION, 0→1, 1→2, 2→3, post_final_validator) are defined in `references/sentinel-integration.md`. Handle SENTINEL_VERDICT (PASS/CORRECTED/BLOCKED) per Section 3 of that reference.
