@@ -64,6 +64,21 @@
         "ref": "v1.0.2"
       },
       "category": "development"
+    },
+    {
+      "name": "tts-minimax",
+      "description": "Text-to-speech plugin for Claude Code via MiniMax T2A v2 (pt-BR). Hook Stop gera audio automatico apos cada resposta com pre-resumo via GLM-4.5-Air. Player TUI PowerShell com navegacao setas/Enter/X/ESC e auto-refresh. Windows 11 + PowerShell 7.",
+      "version": "2.0.1",
+      "author": {
+        "name": "FX Studio AI",
+        "url": "https://github.com/fernandoxavier02/tts-minimax"
+      },
+      "source": {
+        "source": "url",
+        "url": "https://github.com/fernandoxavier02/tts-minimax.git",
+        "ref": "v2.0.1"
+      },
+      "category": "productivity"
     }
   ]
 }
