@@ -354,3 +354,55 @@ test('exec-window: session_id with invalid regex is IGNORED (no filename injecti
   assert.strictEqual(result.block, true);
   fs.rmSync(tmp, { recursive: true });
 });
+
+// --- NI-5 lifecycle tests (v4.1) ---
+
+const { openExecWindow, closeExecWindow } = require('../edit-guard-hook.cjs');
+
+test('NI-5 lifecycle: no window -> edit blocked; open -> allowed; close -> blocked again', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lifecycle-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  // Setup: active lock
+  fs.writeFileSync(path.join(sessionsDir, 'sess-L.lock'),
+    JSON.stringify({ session_id: 'sess-L', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  const target = path.join(tmp, 'src', 'foo.py');
+
+  // Stage 1: no window -> blocked
+  assert.strictEqual(shouldBlock(target, tmp).block, true, 'stage 1: no window, expect blocked');
+
+  // Stage 2: open -> allowed
+  openExecWindow(tmp, 'sess-L', { purpose: 'test-n2', spawning_agent: 'executor-implementer-task' });
+  assert.ok(fs.existsSync(path.join(sessionsDir, 'sess-L.exec-window')), 'window file created');
+  assert.strictEqual(shouldBlock(target, tmp).block, false, 'stage 2: window open, expect allowed');
+
+  // Stage 3: close -> blocked again
+  const deleted = closeExecWindow(tmp, 'sess-L');
+  assert.strictEqual(deleted, true, 'close returned true');
+  assert.ok(!fs.existsSync(path.join(sessionsDir, 'sess-L.exec-window')), 'window file removed');
+  assert.strictEqual(shouldBlock(target, tmp).block, true, 'stage 3: window closed, expect blocked');
+
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-5 openExecWindow: rejeita session_id invalido', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lifecycle-'));
+  assert.throws(() => openExecWindow(tmp, '../../../etc/passwd'), /invalid session_id/);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-5 closeExecWindow: idempotente (retorna false quando window nao existe)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lifecycle-'));
+  assert.strictEqual(closeExecWindow(tmp, 'sess-none'), false);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-5 openExecWindow: default TTL e 5 minutos (sera formalizado no Batch 2)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lifecycle-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  const window = openExecWindow(tmp, 'sess-ttl');
+  const ttlMs = window.expires_at - window.opened_at;
+  assert.strictEqual(ttlMs, 5 * 60 * 1000, `expected 5min TTL, got ${ttlMs}ms`);
+  fs.rmSync(tmp, { recursive: true });
+});
