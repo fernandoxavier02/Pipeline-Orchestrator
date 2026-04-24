@@ -34,6 +34,33 @@ function getActiveLock(pipelineDir) {
   return candidates[0];
 }
 
+function getActiveExecWindow(pipelineDir, lockSessionId) {
+  // Cooperative authorization: when a pipeline-controller spawns N2 executor agents,
+  // it writes .pipeline/sessions/{session_id}.exec-window to temporarily authorize
+  // Edit/Write outside .pipeline/. This is NOT cryptographic protection — see
+  // CHANGELOG/MIGRATION security disclaimer.
+  if (typeof lockSessionId !== 'string' || !SESSION_ID_RE.test(lockSessionId)) return null;
+  const sessionsDir = path.join(pipelineDir, '.pipeline', 'sessions');
+  if (!fs.existsSync(sessionsDir)) return null;
+  const files = fs.readdirSync(sessionsDir).filter((f) => f.endsWith('.exec-window'));
+  const now = Date.now();
+  for (const f of files) {
+    try {
+      const win = JSON.parse(fs.readFileSync(path.join(sessionsDir, f), 'utf8'));
+      if (
+        typeof win.session_id === 'string' &&
+        SESSION_ID_RE.test(win.session_id) &&
+        win.session_id === lockSessionId &&
+        typeof win.expires_at === 'number' &&
+        win.expires_at > now
+      ) {
+        return win;
+      }
+    } catch (_) { /* skip malformed */ }
+  }
+  return null;
+}
+
 function shouldBlock(filePath, pipelineDir) {
   if (typeof filePath !== 'string' || typeof pipelineDir !== 'string') {
     return { block: true, reason: 'PIPELINE_LOCK_ACTIVE: invalid payload (failing closed)' };
@@ -50,6 +77,15 @@ function shouldBlock(filePath, pipelineDir) {
 
   if (isInsidePipeline) return { block: false };
 
+  // F-001: exec-window cooperative authorization for N2 executor agents.
+  // When an active, non-expired exec-window exists for the locked session_id,
+  // allow Edit/Write outside .pipeline/. Controller is responsible for
+  // opening/closing the window around N2 spawns.
+  const execWindow = getActiveExecWindow(pipelineDir, lock.session_id);
+  if (execWindow) {
+    return { block: false, reason: 'exec_window_active', execWindow, lock };
+  }
+
   return {
     block: true,
     reason: `PIPELINE_LOCK_ACTIVE: ${buildBlockMessage(filePath, lock.session_id)}`,
@@ -61,6 +97,8 @@ function buildBlockMessage(filePath, sessionId) {
   return (
     `Pipeline session ${sessionId} is active. Direct edits to ${filePath} are blocked. ` +
     `Spawn Agent(subagent_type: "pipeline-orchestrator:core:pipeline-controller", ...) to orchestrate changes. ` +
+    `If this edit is being performed by a pipeline-controller-spawned executor agent, ensure the controller ` +
+    `opened an exec-window via Write to .pipeline/sessions/${sessionId}.exec-window before the edit. ` +
     `To resume this session, run /pipeline-orchestrator:pipeline continue. ` +
     `The lock is released automatically when Claude Code stops (Stop hook cleanup). ` +
     `As a last resort only, you may manually delete .pipeline/sessions/${sessionId}.lock.`
@@ -112,4 +150,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse };
+module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow };
