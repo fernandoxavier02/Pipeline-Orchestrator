@@ -9,7 +9,7 @@
 set -euo pipefail
 
 TMPDIR=$(mktemp -d)
-trap "rm -rf $TMPDIR" EXIT
+trap 'rm -rf "$TMPDIR"' EXIT
 
 # Path handed to node in JSON payloads. On Git Bash, node.exe is
 # Windows-native and does not understand /tmp/... — convert to C:\... so
@@ -35,9 +35,26 @@ echo "$RESULT" | grep -q "permissionDecision.*deny" || { echo "FAIL: expected de
 echo "PASS: edit-guard-hook blocks Edit outside .pipeline/"
 
 # Test 3: edit-guard-hook permite Edit em .pipeline/
+STDERR_FILE=$(mktemp)
+set +e
 RESULT=$(echo '{"tool_name":"Edit","tool_input":{"file_path":"'"$NODE_CWD_JSON"'/.pipeline/docs/r.md"},"cwd":"'"$NODE_CWD_JSON"'"}' | \
-  node .claude/hooks/edit-guard-hook.cjs)
-test -z "$RESULT" || { echo "FAIL: expected allow (empty), got: $RESULT"; exit 1; }
+  node .claude/hooks/edit-guard-hook.cjs 2>"$STDERR_FILE")
+RC=$?
+set -e
+if [ "$RC" -ne 0 ]; then
+  echo "FAIL: edit-guard-hook exited with $RC on allow path"
+  cat "$STDERR_FILE"
+  rm -f "$STDERR_FILE"
+  exit 1
+fi
+# Allow = empty stdout (current behavior) or explicit {"permissionDecision":"allow"}
+if [ -n "$RESULT" ] && ! echo "$RESULT" | grep -q '"permissionDecision":"allow"'; then
+  echo "FAIL: expected empty or explicit allow, got: $RESULT"
+  cat "$STDERR_FILE"
+  rm -f "$STDERR_FILE"
+  exit 1
+fi
+rm -f "$STDERR_FILE"
 echo "PASS: edit-guard-hook allows Edit inside .pipeline/"
 
 echo "ALL SMOKE TESTS PASSED"

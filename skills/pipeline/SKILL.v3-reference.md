@@ -1,6 +1,7 @@
----
-name: pipeline
-description: "Automated multi-agent pipeline for any project. Use when ANY task needs structured execution — bug fixes, features, audits, user stories, UX reviews. A single /pipeline command auto-classifies, confirms with user, then executes with TDD, batch processing, context-independent adversarial review with user gates, final adversarial team (3 parallel agents), and Go/No-Go validation. Always use this for tasks affecting 2+ files or requiring careful orchestration. Even if the user doesn't mention 'pipeline' — if the task is non-trivial, this skill applies."
+# Pipeline v3 SKILL (archive — NOT loaded)
+
+This file is a frozen reference of the v3 SKILL.md (900-line orchestration prose) preserved during the v4 thin-skill refactor. It is NOT registered as a skill (no `name:` frontmatter). Do not execute its instructions — the v4 controller agent inherits and updates this spec. See `skills/pipeline/SKILL.md` for the live (thin) skill.
+
 ---
 
 # Pipeline Orchestrator
