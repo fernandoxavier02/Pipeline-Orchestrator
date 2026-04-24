@@ -504,3 +504,40 @@ test('NI-4 getActiveExecWindow: ignora window escrito com expires_at > 60min ale
     'window with TTL > 60min must not authorize');
   fs.rmSync(tmp, { recursive: true });
 });
+
+test('NI-4 getActiveExecWindow: ignora window com opened_at no futuro (pre-armed)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'future-open-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-F.lock'),
+    JSON.stringify({ session_id: 'sess-F', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  const now = Date.now();
+  // TTL = 20min (valid), but opened_at is 30min in the future (pre-armed window)
+  fs.writeFileSync(path.join(sessionsDir, 'sess-F.exec-window'),
+    JSON.stringify({ session_id: 'sess-F', opened_at: now + 30 * 60_000, expires_at: now + 50 * 60_000 }));
+  assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, true,
+    'pre-armed window (opened_at > now) must not authorize');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-4 getActiveExecWindow: ignora window legacy sem opened_at', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'legacy-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-L2.lock'),
+    JSON.stringify({ session_id: 'sess-L2', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  // Window missing opened_at entirely
+  fs.writeFileSync(path.join(sessionsDir, 'sess-L2.exec-window'),
+    JSON.stringify({ session_id: 'sess-L2', expires_at: Date.now() + 10 * 60_000 }));
+  assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, true,
+    'legacy window without opened_at must not authorize');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-4 openExecWindow: rejeita NaN / Infinity em ttl_minutes', () => {
+  const tmp = setupValidLock('sess-nan');
+  assert.throws(() => openExecWindow(tmp, 'sess-nan', { ttl_minutes: NaN }), /finite number/);
+  assert.throws(() => openExecWindow(tmp, 'sess-nan', { ttl_minutes: Infinity }), /finite number/);
+  assert.throws(() => openExecWindow(tmp, 'sess-nan', { ttl_minutes: -Infinity }), /finite number/);
+  fs.rmSync(tmp, { recursive: true });
+});
