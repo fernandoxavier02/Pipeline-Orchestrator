@@ -31,6 +31,12 @@
 
 ---
 
+## v4 Breaking Changes
+
+v4.0.0 moves orchestration to an isolated controller agent. See [Migration Guide](docs/MIGRATION-v3-to-v4.md) for upgrade details.
+
+---
+
 ## The Problem
 
 You ship code. Tests pass. Linter is green. PR looks clean.
