@@ -359,6 +359,24 @@ test('exec-window: session_id with invalid regex is IGNORED (no filename injecti
 
 const { openExecWindow, closeExecWindow } = require('../edit-guard-hook.cjs');
 
+// Helper for NI-5 tests: create tmp pipelineDir with valid active lock for sessionId
+function setupValidLock(sessionId) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'withlock-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, `${sessionId}.lock`),
+    JSON.stringify({
+      session_id: sessionId,
+      status: 'active',
+      created_at: Date.now(),
+      expires_at: Date.now() + 3600_000,
+    })
+  );
+  return tmp;
+}
+
+
 test('NI-5 lifecycle: no window -> edit blocked; open -> allowed; close -> blocked again', () => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lifecycle-'));
   const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
@@ -397,12 +415,59 @@ test('NI-5 closeExecWindow: idempotente (retorna false quando window nao existe)
   fs.rmSync(tmp, { recursive: true });
 });
 
-test('NI-5 openExecWindow: default TTL e 5 minutos (sera formalizado no Batch 2)', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lifecycle-'));
+test('NI-5 openExecWindow: TTL e positivo e honra ttl_minutes quando passado', () => {
+  const tmp = setupValidLock('sess-ttl-check');
+  const win1 = openExecWindow(tmp, 'sess-ttl-check', { ttl_minutes: 7 });
+  assert.strictEqual(win1.expires_at - win1.opened_at, 7 * 60 * 1000, 'explicit 7min honored');
+  closeExecWindow(tmp, 'sess-ttl-check');
+  const win2 = openExecWindow(tmp, 'sess-ttl-check');
+  assert.ok(win2.expires_at > win2.opened_at, 'default TTL is positive');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+// --- NI-5 adversarial fix pass 1 (v4.1 Batch 1 fix) RED tests ---
+
+test('NI-5 openExecWindow: rejeita se nao ha lock ativo para o sessionId', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nolock-'));
+  assert.throws(() => openExecWindow(tmp, 'sess-orphan'), /no active lock/);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-5 openExecWindow: rejeita se lock existe mas e de OUTRO sessionId', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wronglock-'));
   const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
   fs.mkdirSync(sessionsDir, { recursive: true });
-  const window = openExecWindow(tmp, 'sess-ttl');
-  const ttlMs = window.expires_at - window.opened_at;
-  assert.strictEqual(ttlMs, 5 * 60 * 1000, `expected 5min TTL, got ${ttlMs}ms`);
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-A.lock'),
+    JSON.stringify({
+      session_id: 'sess-A',
+      status: 'active',
+      created_at: Date.now(),
+      expires_at: Date.now() + 3600_000,
+    })
+  );
+  assert.throws(() => openExecWindow(tmp, 'sess-B'), /no active lock/);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-5 openExecWindow: rejeita ttl_minutes <= 0', () => {
+  const tmp = setupValidLock('sess-ttl-neg');
+  assert.throws(
+    () => openExecWindow(tmp, 'sess-ttl-neg', { ttl_minutes: 0 }),
+    /ttl_minutes must be > 0/
+  );
+  assert.throws(
+    () => openExecWindow(tmp, 'sess-ttl-neg', { ttl_minutes: -5 }),
+    /ttl_minutes must be > 0/
+  );
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-5 openExecWindow: nao deixa .tmp leftover apos sucesso', () => {
+  const tmp = setupValidLock('sess-atomic');
+  openExecWindow(tmp, 'sess-atomic');
+  const files = fs.readdirSync(path.join(tmp, '.pipeline', 'sessions'));
+  const tmps = files.filter((f) => f.endsWith('.tmp'));
+  assert.strictEqual(tmps.length, 0, `expected no .tmp files, got: ${tmps.join(',')}`);
   fs.rmSync(tmp, { recursive: true });
 });
