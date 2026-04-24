@@ -30,8 +30,13 @@ function createLock(baseDir, sessionId, opts = {}) {
   };
   const finalPath = path.join(sessionsDir, `${sessionId}.lock`);
   const tmpPath = `${finalPath}.${process.pid}.tmp`;
-  fs.writeFileSync(tmpPath, JSON.stringify(lock, null, 2));
-  fs.renameSync(tmpPath, finalPath);
+  try {
+    fs.writeFileSync(tmpPath, JSON.stringify(lock, null, 2));
+    fs.renameSync(tmpPath, finalPath);
+  } catch (err) {
+    try { fs.unlinkSync(tmpPath); } catch (_) { /* ignore */ }
+    throw err;
+  }
   return lock;
 }
 

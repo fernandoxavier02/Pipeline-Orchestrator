@@ -79,7 +79,17 @@ function openExecWindow(pipelineDir, sessionId, opts = {}) {
   if (!SESSION_ID_RE.test(sessionId)) {
     throw new Error('invalid session_id');
   }
+  // Defense-in-depth: refuse to create orphan exec-window without an active
+  // matching lock. Without this, a compromised caller could create a window
+  // that lingers with no lock, a surface the hook would honor.
+  const lock = getActiveLock(pipelineDir);
+  if (!lock || lock.session_id !== sessionId) {
+    throw new Error('no active lock for session ' + sessionId);
+  }
   const ttlMinutes = opts.ttl_minutes ?? 5;
+  if (typeof ttlMinutes !== 'number' || ttlMinutes <= 0) {
+    throw new Error('ttl_minutes must be > 0');
+  }
   const sessionsDir = path.join(pipelineDir, '.pipeline', 'sessions');
   fs.mkdirSync(sessionsDir, { recursive: true });
   const now = Date.now();
@@ -92,8 +102,13 @@ function openExecWindow(pipelineDir, sessionId, opts = {}) {
   };
   const finalPath = path.join(sessionsDir, `${sessionId}.exec-window`);
   const tmpPath = `${finalPath}.${process.pid}.tmp`;
-  fs.writeFileSync(tmpPath, JSON.stringify(window, null, 2));
-  fs.renameSync(tmpPath, finalPath);
+  try {
+    fs.writeFileSync(tmpPath, JSON.stringify(window, null, 2));
+    fs.renameSync(tmpPath, finalPath);
+  } catch (err) {
+    try { fs.unlinkSync(tmpPath); } catch (_) { /* ignore */ }
+    throw err;
+  }
   return window;
 }
 
