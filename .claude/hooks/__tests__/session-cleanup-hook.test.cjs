@@ -118,3 +118,36 @@ test('handleStop: NÃO deleta exec-window de OUTRO session', () => {
 
   fs.rmSync(tmp, { recursive: true });
 });
+
+test('handleStop: ignora symlinks em sessions/ (hardening)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'symlink-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  // Real lock for sess-safe
+  fs.writeFileSync(path.join(sessionsDir, 'sess-safe.lock'),
+    JSON.stringify({ session_id: 'sess-safe', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  // Sensitive target OUTSIDE sessions/
+  const sensitive = path.join(tmp, 'sensitive-file.json');
+  fs.writeFileSync(sensitive, JSON.stringify({ session_id: 'sess-safe', should: 'not-be-touched' }));
+  // Symlink inside sessions/ pointing to sensitive
+  try {
+    fs.symlinkSync(sensitive, path.join(sessionsDir, 'attacker.lock'));
+  } catch (err) {
+    if (err.code === 'EPERM' || err.code === 'UNKNOWN') {
+      console.log('skipping symlink test: platform does not support unprivileged symlinks');
+      fs.rmSync(tmp, { recursive: true, force: true });
+      return;
+    }
+    throw err;
+  }
+
+  handleStop({ session_id: 'sess-safe', cwd: tmp });
+
+  // Real lock marked completed
+  const realLock = JSON.parse(fs.readFileSync(path.join(sessionsDir, 'sess-safe.lock'), 'utf8'));
+  assert.strictEqual(realLock.status, 'completed');
+  // Sensitive file MUST NOT be touched
+  const sensitiveContent = JSON.parse(fs.readFileSync(sensitive, 'utf8'));
+  assert.strictEqual(sensitiveContent.should, 'not-be-touched');
+  fs.rmSync(tmp, { recursive: true, force: true });
+});
