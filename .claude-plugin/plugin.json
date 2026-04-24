@@ -1,6 +1,6 @@
 {
   "name": "pipeline-orchestrator",
-  "version": "4.0.0-draft.2",
+  "version": "4.0.0-rc.1",
   "description": "Automated multi-agent pipeline — v4 moves orchestration to isolated controller agent, eliminating main-LLM bypass.",
   "author": {
     "name": "FX Studio AI",

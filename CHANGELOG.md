@@ -5,6 +5,37 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-rc.1] - 2026-04-24
+
+Promoted from draft.2 — no code changes, docs only.
+
+### Release candidate notes
+
+This RC promotes `4.0.0-draft.2` after the final adversarial review pass. All
+IMPORTANT and HIGH findings are closed; 5 LOW/MEDIUM items are deferred to v4.1
+and documented under **Known limitations (deferred to v4.1)** in the draft.2
+entry below.
+
+### Closed findings summary
+
+- **F-001 (HIGH):** edit-guard now honors exec-window cooperative authorization,
+  allowing N2 executor agents to write production code under the controller.
+- **F-002 (HIGH):** session-lock Stop hook marks locks as completed; stale locks
+  no longer shadow fresh ones; block message no longer suggests `rm` first.
+- **F-003 (MEDIUM):** smoke test anchors to plugin root via `BASH_SOURCE`.
+- **F-004 (MEDIUM):** tighter `session_id` regex rejects leading `.`/`-`.
+- **F-005 (LOW):** renumbered CRITICAL REMINDERS in controller prompt.
+- **F-006 (HIGH):** edit-guard now matches `MultiEdit` tool.
+- **NI-1 (HIGH):** `plugin.json` version reconciled with CHANGELOG (draft.2).
+- **NI-2 (HIGH):** session-cleanup Stop hook now deletes exec-window files,
+  covering crash/forgotten-close cases.
+
+### Deferred items
+
+See the `[4.0.0-draft.2]` Known limitations section for NI-3, NI-4, NI-5, and
+the two LOW pre-existing items (non-atomic `.lock` writes, cleanup symlink
+trust).
+
 ## [4.0.0-draft.2] - 2026-04-24
 
 ### Changed (breaking for scripts that bypassed via MultiEdit)
