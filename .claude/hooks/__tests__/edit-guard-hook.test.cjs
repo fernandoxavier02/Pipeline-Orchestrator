@@ -60,3 +60,51 @@ test('buildBlockMessage: contém instrução de spawn + delete lock', () => {
   assert.match(msg, /sess-xyz\.lock/);
   assert.match(msg, /TTL/);
 });
+
+const { handlePreToolUse } = require('../edit-guard-hook.cjs');
+
+test('handlePreToolUse: permite Edit quando não há lock', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
+  const result = handlePreToolUse({
+    tool_name: 'Edit',
+    tool_input: { file_path: path.join(tmp, 'src/foo.py') },
+    cwd: tmp,
+  });
+  assert.strictEqual(result.decision, 'allow');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('handlePreToolUse: bloqueia Write fora de .pipeline/ com lock ativo', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-x.lock'),
+    JSON.stringify({ session_id: 'sess-x', status: 'active', expires_at: Date.now() + 3600_000 })
+  );
+  const result = handlePreToolUse({
+    tool_name: 'Write',
+    tool_input: { file_path: path.join(tmp, 'src/bar.py') },
+    cwd: tmp,
+  });
+  assert.strictEqual(result.decision, 'block');
+  assert.match(result.reason, /PIPELINE_LOCK_ACTIVE/);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('handlePreToolUse: ignora tools não-Edit (Bash, Read)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-x.lock'),
+    JSON.stringify({ session_id: 'sess-x', status: 'active', expires_at: Date.now() + 3600_000 })
+  );
+  const result = handlePreToolUse({
+    tool_name: 'Bash',
+    tool_input: { command: 'echo foo' },
+    cwd: tmp,
+  });
+  assert.strictEqual(result.decision, 'allow');
+  fs.rmSync(tmp, { recursive: true });
+});
