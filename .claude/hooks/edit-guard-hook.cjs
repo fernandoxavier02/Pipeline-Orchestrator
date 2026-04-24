@@ -47,6 +47,13 @@ function findPairingEntry(pipelineDir, sessionId, openedAt) {
   try {
     preDirs = fs.readdirSync(docsRoot).filter((d) => /^Pre-.*-action$/.test(d));
   } catch (_) { return null; }
+
+  // Collect ALL entries (OPEN and CLOSE) for this session across all gate-decisions.jsonl files.
+  // NI-3 fix pass 1 (concern #3 stale-OPEN reuse): we must be able to tell if an OPEN
+  // was already consumed by a subsequent CLOSE before the window's opened_at. If so,
+  // the OPEN cannot pair with a new window — an attacker could otherwise re-use a
+  // legitimate OPEN timestamp within the +/-60s tolerance after its session was closed.
+  const allEntries = [];
   for (const preDir of preDirs) {
     const preDirPath = path.join(docsRoot, preDir);
     let subdirs;
@@ -67,17 +74,35 @@ function findPairingEntry(pipelineDir, sessionId, openedAt) {
         try { entry = JSON.parse(line); } catch (_) { continue; }
         if (
           entry &&
-          entry.gate === 'EXEC_WINDOW_OPEN' &&
+          (entry.gate === 'EXEC_WINDOW_OPEN' || entry.gate === 'EXEC_WINDOW_CLOSE') &&
           typeof entry.session_id === 'string' &&
           entry.session_id === sessionId &&
           typeof entry.timestamp === 'number' &&
-          Number.isFinite(entry.timestamp) &&
-          Math.abs(entry.timestamp - openedAt) <= PAIRING_TOLERANCE_MS
+          Number.isFinite(entry.timestamp)
         ) {
-          return entry;
+          allEntries.push(entry);
         }
       }
     }
+  }
+
+  if (allEntries.length === 0) return null;
+  allEntries.sort((a, b) => a.timestamp - b.timestamp);
+
+  // Candidates: OPENs within +/-60s of openedAt
+  const candidates = allEntries.filter((e) =>
+    e.gate === 'EXEC_WINDOW_OPEN' &&
+    Math.abs(e.timestamp - openedAt) <= PAIRING_TOLERANCE_MS
+  );
+
+  // Reject OPENs that were consumed by a CLOSE strictly after them and on/before openedAt.
+  for (const open of candidates) {
+    const consumed = allEntries.some((e) =>
+      e.gate === 'EXEC_WINDOW_CLOSE' &&
+      e.timestamp > open.timestamp &&
+      e.timestamp <= openedAt
+    );
+    if (!consumed) return open;
   }
   return null;
 }

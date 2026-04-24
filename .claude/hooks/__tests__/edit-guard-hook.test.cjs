@@ -649,3 +649,64 @@ test('NI-3 closeExecWindow: escreve EXEC_WINDOW_CLOSE em gate-decisions.jsonl', 
     'closeExecWindow must append EXEC_WINDOW_CLOSE to gate-decisions.jsonl');
   fs.rmSync(tmp, { recursive: true });
 });
+
+// --- NI-3 adversarial fix pass 1 (v4.1 Batch 3 fix) ---------------------
+
+test('NI-3 shouldBlock: rejeita window quando OPEN foi consumido por CLOSE intermediario', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'stale-open-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', 'test');
+  fs.mkdirSync(docsDir, { recursive: true });
+  const jsonl = path.join(docsDir, 'gate-decisions.jsonl');
+
+  fs.writeFileSync(path.join(sessionsDir, 'sess-reuse.lock'),
+    JSON.stringify({ session_id: 'sess-reuse', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+
+  const now = Date.now();
+  const legitimateOpenTs = now - 50_000;
+  const closedTs = now - 40_000;
+  const newWindowOpenedAt = now - 5_000;
+
+  const entries = [
+    { gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: 'sess-reuse', timestamp: legitimateOpenTs, detail: 'batch-1' },
+    { gate: 'EXEC_WINDOW_CLOSE', hardness: 'AUDIT', session_id: 'sess-reuse', timestamp: closedTs, detail: 'batch-1 done' },
+  ];
+  fs.writeFileSync(jsonl, entries.map(e => JSON.stringify(e)).join('\n') + '\n');
+
+  fs.writeFileSync(path.join(sessionsDir, 'sess-reuse.exec-window'),
+    JSON.stringify({ session_id: 'sess-reuse', opened_at: newWindowOpenedAt, expires_at: newWindowOpenedAt + 5 * 60_000 }));
+
+  assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, true,
+    'OPEN consumido por CLOSE intermediario NAO deve pairar com nova window');
+
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-3 shouldBlock: apos novo OPEN sem CLOSE intermediario, window emparelha corretamente', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'renew-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', 'test');
+  fs.mkdirSync(docsDir, { recursive: true });
+
+  fs.writeFileSync(path.join(sessionsDir, 'sess-renew.lock'),
+    JSON.stringify({ session_id: 'sess-renew', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+
+  const now = Date.now();
+  const entries = [
+    { gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: 'sess-renew', timestamp: now - 200_000, detail: 'old batch' },
+    { gate: 'EXEC_WINDOW_CLOSE', hardness: 'AUDIT', session_id: 'sess-renew', timestamp: now - 190_000, detail: 'old done' },
+    { gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: 'sess-renew', timestamp: now - 10_000, detail: 'new batch' },
+  ];
+  fs.writeFileSync(path.join(docsDir, 'gate-decisions.jsonl'),
+    entries.map(e => JSON.stringify(e)).join('\n') + '\n');
+
+  fs.writeFileSync(path.join(sessionsDir, 'sess-renew.exec-window'),
+    JSON.stringify({ session_id: 'sess-renew', opened_at: now - 10_000, expires_at: now + 5 * 60_000 }));
+
+  assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, false,
+    'OPEN mais recente sem CLOSE apos deve autorizar');
+
+  fs.rmSync(tmp, { recursive: true });
+});
