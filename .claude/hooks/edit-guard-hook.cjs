@@ -2,6 +2,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+const SESSION_ID_RE = /^[A-Za-z0-9._-]{1,64}$/;
+
 function getActiveLock(pipelineDir) {
   const sessionsDir = path.join(pipelineDir, '.pipeline', 'sessions');
   if (!fs.existsSync(sessionsDir)) return null;
@@ -9,7 +11,13 @@ function getActiveLock(pipelineDir) {
   for (const f of files) {
     try {
       const lock = JSON.parse(fs.readFileSync(path.join(sessionsDir, f), 'utf8'));
-      if (lock.expires_at > Date.now() && lock.status === 'active') {
+      if (
+        typeof lock.session_id === 'string' &&
+        SESSION_ID_RE.test(lock.session_id) &&
+        typeof lock.expires_at === 'number' &&
+        lock.expires_at > Date.now() &&
+        lock.status === 'active'
+      ) {
         return lock;
       }
     } catch (_) { /* skip malformed */ }
@@ -18,12 +26,18 @@ function getActiveLock(pipelineDir) {
 }
 
 function shouldBlock(filePath, pipelineDir) {
+  if (typeof filePath !== 'string' || typeof pipelineDir !== 'string') {
+    return { block: true, reason: 'PIPELINE_LOCK_ACTIVE: invalid payload (failing closed)' };
+  }
   const lock = getActiveLock(pipelineDir);
   if (!lock) return { block: false };
 
-  const normalizedFile = path.resolve(filePath);
+  const normalizedFile = path.resolve(pipelineDir, filePath);
   const pipelinePath = path.resolve(path.join(pipelineDir, '.pipeline'));
-  const isInsidePipeline = normalizedFile.startsWith(pipelinePath + path.sep) || normalizedFile === pipelinePath;
+  const norm = process.platform === 'win32' ? (s) => s.toLowerCase() : (s) => s;
+  const nf = norm(normalizedFile);
+  const np = norm(pipelinePath);
+  const isInsidePipeline = nf === np || nf.startsWith(np + path.sep);
 
   if (isInsidePipeline) return { block: false };
 
@@ -75,7 +89,14 @@ if (require.main === module) {
       process.exit(0);
     } catch (err) {
       process.stderr.write(`edit-guard-hook error: ${err.message}\n`);
-      process.exit(0); // fail-safe
+      process.stdout.write(JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'deny',
+          permissionDecisionReason: 'edit-guard-hook internal error — failing closed',
+        },
+      }));
+      process.exit(0);
     }
   });
 }

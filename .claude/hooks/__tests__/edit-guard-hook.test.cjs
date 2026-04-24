@@ -108,3 +108,81 @@ test('handlePreToolUse: ignora tools não-Edit (Bash, Read)', () => {
   assert.strictEqual(result.decision, 'allow');
   fs.rmSync(tmp, { recursive: true });
 });
+
+// --- Regression tests for adversarial fix pass 1 ---
+
+test('fix#2: handlePreToolUse falha fechado quando payload.cwd ausente', () => {
+  const result = handlePreToolUse({
+    tool_name: 'Edit',
+    tool_input: { file_path: '/tmp/whatever.py' },
+    // cwd ausente propositalmente
+  });
+  assert.strictEqual(result.decision, 'block');
+  assert.match(result.reason, /PIPELINE_LOCK_ACTIVE/);
+});
+
+test('fix#2: handlePreToolUse falha fechado quando payload.cwd não é string', () => {
+  const result = handlePreToolUse({
+    tool_name: 'Edit',
+    tool_input: { file_path: '/tmp/whatever.py' },
+    cwd: 42,
+  });
+  assert.strictEqual(result.decision, 'block');
+});
+
+test('fix#3: CLI emite deny em stdout quando stdin é JSON inválido', () => {
+  const { spawnSync } = require('node:child_process');
+  const hookPath = path.join(__dirname, '..', 'edit-guard-hook.cjs');
+  const res = spawnSync(process.execPath, [hookPath], {
+    input: 'not-valid-json{{',
+    encoding: 'utf8',
+  });
+  assert.strictEqual(res.status, 0);
+  assert.match(res.stdout, /permissionDecision":"deny"/);
+  assert.match(res.stdout, /failing closed/);
+});
+
+test('fix#4: shouldBlock com file_path relativo ancora em pipelineDir', () => {
+  const tmp = setupFixture(true);
+  // 'foo.py' relativo: deve ser resolvido contra tmp, ficar fora de .pipeline/ → bloquear
+  const result = shouldBlock('foo.py', tmp);
+  assert.strictEqual(result.block, true);
+  // '.pipeline/docs/x.md' relativo: resolve para dentro de .pipeline/ → permitir
+  const allowed = shouldBlock('.pipeline/docs/x.md', tmp);
+  assert.strictEqual(allowed.block, false);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('fix#5: Windows trata .PIPELINE e .pipeline como mesmo diretório', () => {
+  if (process.platform !== 'win32') return;
+  const tmp = setupFixture(true);
+  const result = shouldBlock(path.join(tmp, '.PIPELINE', 'docs', 'x.md'), tmp);
+  assert.strictEqual(result.block, false);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('fix#6: lock com session_id inválido (path traversal) é ignorado', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, 'bad.lock'),
+    JSON.stringify({ session_id: '../../etc', status: 'active', expires_at: Date.now() + 3600_000 })
+  );
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, false);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('fix#6: lock com expires_at não-numérico é ignorado', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, 'bad.lock'),
+    JSON.stringify({ session_id: 'sess-ok', status: 'active', expires_at: 'not-a-number' })
+  );
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, false);
+  fs.rmSync(tmp, { recursive: true });
+});
