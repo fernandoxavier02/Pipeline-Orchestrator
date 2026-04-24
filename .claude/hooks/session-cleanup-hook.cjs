@@ -20,6 +20,19 @@ function handleStop(payload) {
     for (const f of files) {
       const filePath = path.join(sessionsDir, f);
       try {
+        let stat;
+        try {
+          stat = fs.lstatSync(filePath);
+        } catch (err) {
+          process.stderr.write(`session-cleanup-hook: lstat failed for ${f}: ${err.message}
+`);
+          continue;
+        }
+        if (!stat.isFile()) {
+          process.stderr.write(`session-cleanup-hook: skipping non-file entry ${f}
+`);
+          continue;
+        }
         if (f.endsWith('.lock')) {
           const raw = fs.readFileSync(filePath, 'utf8');
           const lock = JSON.parse(raw);
