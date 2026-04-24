@@ -365,11 +365,14 @@ test('exec-window: session_id with invalid regex is IGNORED (no filename injecti
 
 const { openExecWindow, closeExecWindow } = require('../edit-guard-hook.cjs');
 
-// Helper for NI-5 tests: create tmp pipelineDir with valid active lock for sessionId
+// Helper for NI-5 tests: create tmp pipelineDir with valid active lock for sessionId.
+// NI-3 fix pass 1 (concern #7): also pre-create a dummy Pre-Media-action folder so
+// openExecWindow's audit-append finds a real pipeline context to write into.
 function setupValidLock(sessionId) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'withlock-'));
   const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
   fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.mkdirSync(path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', 'test-session'), { recursive: true });
   fs.writeFileSync(
     path.join(sessionsDir, `${sessionId}.lock`),
     JSON.stringify({
@@ -387,6 +390,8 @@ test('NI-5 lifecycle: no window -> edit blocked; open -> allowed; close -> block
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lifecycle-'));
   const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
   fs.mkdirSync(sessionsDir, { recursive: true });
+  // NI-3 fix pass 1: Pre-*-action folder required for audit append
+  fs.mkdirSync(path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', 'current'), { recursive: true });
   // Setup: active lock
   fs.writeFileSync(path.join(sessionsDir, 'sess-L.lock'),
     JSON.stringify({ session_id: 'sess-L', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
@@ -708,5 +713,31 @@ test('NI-3 shouldBlock: apos novo OPEN sem CLOSE intermediario, window emparelha
   assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, false,
     'OPEN mais recente sem CLOSE apos deve autorizar');
 
+  fs.rmSync(tmp, { recursive: true });
+});
+
+// Helper variant WITHOUT Pre-*-action folder (for fail-closed test)
+function setupValidLockNoDocs(sessionId) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'withlock-nodocs-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, `${sessionId}.lock`),
+    JSON.stringify({
+      session_id: sessionId,
+      status: 'active',
+      created_at: Date.now(),
+      expires_at: Date.now() + 3600_000,
+    })
+  );
+  return tmp;
+}
+
+test('NI-3 openExecWindow: falha com erro claro quando nao ha Pre-*-action folder', () => {
+  const tmp = setupValidLockNoDocs('sess-no-pipeline-dir');
+  assert.throws(
+    () => openExecWindow(tmp, 'sess-no-pipeline-dir'),
+    /no Pre-\*-action folder found|active pipeline/i
+  );
   fs.rmSync(tmp, { recursive: true });
 });

@@ -109,7 +109,13 @@ function findPairingEntry(pipelineDir, sessionId, openedAt) {
 
 function appendAuditEntry(pipelineDir, gate, sessionId, detail) {
   const docsRoot = path.join(pipelineDir, '.pipeline', 'docs');
-  fs.mkdirSync(docsRoot, { recursive: true });
+  // NI-3 fix pass 1 (concern #7 pollution): fail closed when there is no real
+  // Pre-*-action/*/ folder. Synthesizing a fake "auto-exec-window" folder would
+  // pollute the docs tree and confuse pipeline reporting/validators. Callers
+  // must only open/close exec-windows within an active pipeline context.
+  if (!fs.existsSync(docsRoot)) {
+    throw new Error('no Pre-*-action folder found: .pipeline/docs/ does not exist (not in an active pipeline context)');
+  }
   let bestDir = null;
   let bestMtime = -1;
   let preDirs = [];
@@ -131,12 +137,7 @@ function appendAuditEntry(pipelineDir, gate, sessionId, detail) {
     }
   }
   if (!bestDir) {
-    const now = new Date();
-    const yyyy = now.getUTCFullYear();
-    const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
-    const dd = String(now.getUTCDate()).padStart(2, '0');
-    bestDir = path.join(docsRoot, 'Pre-Media-action', yyyy + '-' + mm + '-' + dd + '-auto-exec-window');
-    fs.mkdirSync(bestDir, { recursive: true });
+    throw new Error('no Pre-*-action folder found (active pipeline must exist before opening exec-window)');
   }
   const jsonlPath = path.join(bestDir, 'gate-decisions.jsonl');
   const safeDetail = String(detail || '').slice(0, 200).replace(/[\r\n]/g, ' ');
@@ -244,7 +245,13 @@ function openExecWindow(pipelineDir, sessionId, opts = {}) {
   try {
     appendAuditEntry(pipelineDir, 'EXEC_WINDOW_OPEN', sessionId, opts.purpose || '');
   } catch (err) {
+    // NI-3 fix pass 1 (concern #7): if audit append fails (e.g. no Pre-*-action
+    // folder), roll back the window write and propagate. An unpaired window
+    // would be rejected by the hook anyway (see findPairingEntry), and leaving
+    // it on disk is confusing. Fail closed instead.
     process.stderr.write('edit-guard: appendAuditEntry(EXEC_WINDOW_OPEN) failed: ' + err.message + '\n');
+    try { fs.unlinkSync(finalPath); } catch (_) { /* ignore */ }
+    throw err;
   }
   return window;
 }
