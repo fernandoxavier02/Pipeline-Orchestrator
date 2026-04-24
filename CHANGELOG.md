@@ -26,6 +26,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Smoke test anchors to plugin root via `BASH_SOURCE` so it passes from any cwd (F-003).
 - `docs/MIGRATION-v3-to-v4.md` gains a "Known cooperative limitation" section.
 
+### Known limitations (deferred to v4.1)
+
+1. **Exec-window pairing check (NI-3, MEDIUM):** The edit-guard does not verify
+   that an `EXEC_WINDOW_OPEN` audit entry exists in `gate-decisions.jsonl`
+   before trusting an exec-window file. Trade-off: cooperative model,
+   documented in MIGRATION. Future work: require matching audit entry for
+   non-cryptographic pairing.
+2. **Exec-window TTL of 30 min (NI-4, LOW):** The TTL is not linked to the
+   spawning N2 agent's actual lifetime. A short task (30s) leaves a 30-min
+   authorization window if the controller forgets to close it. Stop hook now
+   cleans it (d9503d8) so crash cases are handled. Future work: per-batch TTL
+   configuration.
+3. **Controller exec-window protocol is prompt-only (NI-5, LOW):** The
+   `pipeline-controller` agent prompt documents the open-before-spawn /
+   close-after-return contract, but no automated test verifies that a
+   controller instance actually follows it. Future work: BDD scenario that
+   asserts exec-window lifecycle.
+4. **Non-atomic `.lock` writes (LOW, pre-existing):** `session-lock-hook.cjs`
+   and `session-cleanup-hook.cjs` use `fs.writeFileSync` for lock updates,
+   which is not atomic on all platforms. A concurrent reader could observe a
+   truncated/empty file; current edit-guard handles this via `catch (_)`
+   skip-malformed, but mid-write transient "unblocks" are theoretically
+   possible for milliseconds. Future work: write-to-`.tmp`-then-rename pattern.
+5. **Cleanup loop trusts symlinks (LOW, theoretical):**
+   `session-cleanup-hook.cjs` reads and unlinks files by directory-entry name
+   without symlink checks. `.pipeline/sessions/` is plugin-owned so practical
+   risk is minimal. Future work: `fs.lstatSync` guard before `readFileSync` /
+   `unlinkSync`.
+
 ## [4.0.0-draft.1] - 2026-04-23
 
 ### BREAKING
