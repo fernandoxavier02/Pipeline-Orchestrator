@@ -29,11 +29,14 @@ Then controller DEVE atualizar sentinel-state.json com a CLASSIFICATION completa
 
 Given task-orchestrator retorna CLASSIFICATION de 500 linhas
 When controller recebe o retorno
-Then controller DEVE salvar o output completo em .pipeline/artifacts/00-task-orchestrator.json
-  And DEVE ler APENAS o manifest (summary estruturado < 1KB) para decisões subsequentes
-  And NÃO DEVE manter o output completo em seu contexto
+Then controller DEVE salvar o output completo em .pipeline/artifacts/{batch}/{agent}.full.json
+  And DEVE salvar um manifest derivado em .pipeline/artifacts/{batch}/{agent}.manifest.json (< 1024 bytes)
+  And DEVE ler APENAS o manifest para decisões subsequentes (observável via Read logs)
 
-**Validation:** wc -c .pipeline/artifacts/*.json; verificar que contexto do controller não contém texto > 1KB por agent.
+**Validation:**
+  1. `find .pipeline/artifacts/ -name "*.manifest.json" | xargs wc -c` — cada manifest DEVE ter < 1024 bytes.
+  2. `find .pipeline/artifacts/ -name "*.full.json" | xargs wc -c` — outputs completos DEVEM ser > 1024 bytes (prova que há separação).
+  3. Controller reading behavior é não-verificável diretamente; inferimos do Read log: `grep "Read.*\.full\.json" .pipeline/docs/*/sentinel-state.json` DEVE retornar zero matches (controller leu apenas manifests, não fulls).
 
 ## Feature: User gates via AskUserQuestion
 
@@ -56,15 +59,18 @@ Then DEVE invocar AskUserQuestion: "Proceed with adversarial review for Batch {N
 
 ## Feature: Context exhaustion recovery
 
-### Scenario: Controller hits 85% context → emite checkpoint
+### Scenario: Controller receives explicit checkpoint signal from caller
 
 Given controller está em Phase 2c batch 3/5
-When contexto atinge 85% de uso
-Then controller DEVE escrever .pipeline/state/controller-checkpoint.json
-  And DEVE retornar PIPELINE PAUSED block para main LLM
+  And caller envia input `CHECKPOINT_REQUEST` via AskUserQuestion response
+When controller processa o sinal
+Then controller DEVE escrever .pipeline/state/controller-checkpoint.json com batch atual + fase
+  And DEVE retornar PIPELINE PAUSED block para seu caller
   And /pipeline-orchestrator:pipeline continue DEVE retomar de Phase 2c batch 3
 
-**Validation:** simular context heavy com muitos N2 spawns; verificar checkpoint criado.
+**Validation:** criar fixture que envia CHECKPOINT_REQUEST; verificar que `.pipeline/state/controller-checkpoint.json` existe e contém `current_phase: "2c"` + `current_batch: 3`. Depois rodar `/pipeline-orchestrator:pipeline continue` e verificar que controller lê o checkpoint e prossegue.
+
+**Note:** context-usage-triggered checkpointing é aspiracional — LLMs não observam token usage diretamente. Este scenario valida apenas o caminho explícito. Checkpoint automático por heurística é escopo futuro.
 
 ## Feature: Bypass attempt rejection
 
@@ -86,3 +92,17 @@ Then edit-guard-hook DEVE retornar decision: block
 2. Após conclusão, rodar `Validation` commands
 3. Marcar PASS/FAIL em `tests/manual-validation-log.md` (criar se não existe)
 4. Consolidar resultados antes de publicar v4.0.0-rc
+
+---
+
+## Known Limitations (v4.0.0-draft.1)
+
+### REVIEW-ONLY mode requires explicit file list
+
+The v3 `/pipeline review-only` mode used `git diff --name-only` to detect uncommitted changes. The v4 controller agent does NOT have Bash/git access (by design — sandbox). Until a dedicated N2 executor is added for file discovery, REVIEW-ONLY mode requires the caller to pass a file list explicitly:
+
+```
+/pipeline-orchestrator:pipeline review-only src/foo.py src/bar.py
+```
+
+Tracked for future batch. Not a blocker for Bug Fix / Feature / User Story / Audit flows.

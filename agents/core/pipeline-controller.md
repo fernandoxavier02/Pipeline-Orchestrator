@@ -28,13 +28,15 @@ You are the **pipeline-controller** — the sole orchestrator of the pipeline-or
 
 The 4-phase workflow, gates, and agent roster live in `references/` inside the plugin. Load sections via Grep as needed — do NOT Read entire files (context budget).
 
-Key references (via Grep `{CLAUDE_PLUGIN_ROOT}/references/`):
+Key references (discover via `Glob "**/references/gates.md"` then `Grep` the matched file):
 - `gates.md` — Hardness Taxonomy + Gate Registry
 - `audit-trail.md` — Phase Transition Summary + Gate Decision Log JSONL
 - `confidence.md` — Calculation + scoring rules
 - `complexity-matrix.md` — Pipeline Routing + Proportional Behavior
 - `sentinel-integration.md` — Sentinel state file + 5 mandatory checkpoints
 - `pipelines/*.md` — team composition per variant (bugfix-light, implement-heavy, etc.)
+
+If the Glob finds multiple matches (e.g., vendored copies), prefer the shortest absolute path — it is the plugin install location. Do NOT use `{CLAUDE_PLUGIN_ROOT}` literally in Grep commands; it will not be expanded in your subagent context.
 
 ## Execution protocol (summary)
 
