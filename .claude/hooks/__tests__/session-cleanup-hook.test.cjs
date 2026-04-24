@@ -78,3 +78,43 @@ test('handleStop: payload inválido não quebra (fail-safe)', () => {
   assert.doesNotThrow(() => handleStop(null));
   assert.doesNotThrow(() => handleStop({ session_id: 123, cwd: '/tmp' }));
 });
+
+test('handleStop: também deleta arquivo .exec-window do session', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cleanup-exec-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  // Active lock + active exec-window for sess-X
+  fs.writeFileSync(path.join(sessionsDir, 'sess-X.lock'),
+    JSON.stringify({ session_id: 'sess-X', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  fs.writeFileSync(path.join(sessionsDir, 'sess-X.exec-window'),
+    JSON.stringify({ session_id: 'sess-X', opened_at: Date.now(), expires_at: Date.now() + 1800_000 }));
+
+  handleStop({ session_id: 'sess-X', cwd: tmp });
+
+  // Lock marked completed
+  const lock = JSON.parse(fs.readFileSync(path.join(sessionsDir, 'sess-X.lock'), 'utf8'));
+  assert.strictEqual(lock.status, 'completed');
+
+  // Exec-window REMOVED (not just marked)
+  assert.ok(!fs.existsSync(path.join(sessionsDir, 'sess-X.exec-window')),
+    'exec-window file must be deleted on Stop');
+
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('handleStop: NÃO deleta exec-window de OUTRO session', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cleanup-exec-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-A.exec-window'),
+    JSON.stringify({ session_id: 'sess-A', opened_at: Date.now(), expires_at: Date.now() + 1800_000 }));
+  fs.writeFileSync(path.join(sessionsDir, 'sess-B.exec-window'),
+    JSON.stringify({ session_id: 'sess-B', opened_at: Date.now(), expires_at: Date.now() + 1800_000 }));
+
+  handleStop({ session_id: 'sess-A', cwd: tmp });
+
+  assert.ok(!fs.existsSync(path.join(sessionsDir, 'sess-A.exec-window')), 'sess-A exec-window should be deleted');
+  assert.ok(fs.existsSync(path.join(sessionsDir, 'sess-B.exec-window')), 'sess-B exec-window must be preserved');
+
+  fs.rmSync(tmp, { recursive: true });
+});
