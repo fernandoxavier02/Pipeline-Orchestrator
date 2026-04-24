@@ -73,3 +73,33 @@ test('handleUserPromptSubmit: noop quando texto não é /pipeline', () => {
   assert.ok(!fs.existsSync(path.join(tmp, '.pipeline', 'sessions')));
   fs.rmSync(tmp, { recursive: true });
 });
+
+const { isValidSessionId } = require('../session-lock-hook.cjs');
+
+test('isValidSessionId: rejeita path traversal', () => {
+  assert.strictEqual(isValidSessionId('../../etc/passwd'), false);
+  assert.strictEqual(isValidSessionId('..\\..\\win\\evil'), false);
+  assert.strictEqual(isValidSessionId('sess/sub'), false);
+  assert.strictEqual(isValidSessionId(''), false);
+  assert.strictEqual(isValidSessionId(null), false);
+  assert.strictEqual(isValidSessionId('a'.repeat(65)), false);
+});
+
+test('isValidSessionId: aceita IDs válidos', () => {
+  assert.strictEqual(isValidSessionId('sess-abc-123'), true);
+  assert.strictEqual(isValidSessionId('UUID_v4.0'), true);
+  assert.strictEqual(isValidSessionId('a'), true);
+});
+
+test('handleUserPromptSubmit: noop quando payload malformado', () => {
+  assert.deepStrictEqual(handleUserPromptSubmit(null), { action: 'noop', reason: 'invalid_payload' });
+  assert.deepStrictEqual(handleUserPromptSubmit({}), { action: 'noop', reason: 'invalid_payload' });
+  assert.deepStrictEqual(
+    handleUserPromptSubmit({ prompt: '/pipeline-orchestrator:pipeline x', session_id: '../evil', cwd: '/tmp' }),
+    { action: 'noop', reason: 'invalid_session_id' }
+  );
+});
+
+test('createLock: lança erro em session_id inválido', () => {
+  assert.throws(() => createLock('/tmp/x', '../../etc/passwd'), /invalid session_id/);
+});
