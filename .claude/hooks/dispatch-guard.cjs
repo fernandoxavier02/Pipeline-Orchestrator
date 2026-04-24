@@ -29,7 +29,8 @@
 // are added/removed/moved. The hook's regression tests assume the invariants
 // listed in references/glossary.md's "Agent Naming Convention".
 const AGENT_LEAF_TO_FQN = Object.freeze({
-  // core/ (8 agents)
+  // core/ (9 agents)
+  'pipeline-controller': 'pipeline-orchestrator:core:pipeline-controller',
   'task-orchestrator': 'pipeline-orchestrator:core:task-orchestrator',
   'information-gate': 'pipeline-orchestrator:core:information-gate',
   'sentinel': 'pipeline-orchestrator:core:sentinel',
