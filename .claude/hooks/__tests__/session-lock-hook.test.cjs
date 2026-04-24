@@ -47,3 +47,29 @@ test('createLock: sobrescreve lock existente do mesmo session', () => {
   assert.strictEqual(lock2.expires_at - lock2.created_at, 3 * 3600 * 1000);
   fs.rmSync(tmp, { recursive: true });
 });
+
+const { handleUserPromptSubmit } = require('../session-lock-hook.cjs');
+
+test('handleUserPromptSubmit: cria lock quando /pipeline detectado', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hook-'));
+  const result = handleUserPromptSubmit({
+    prompt: '/pipeline-orchestrator:pipeline foo',
+    session_id: 'sess-xyz',
+    cwd: tmp,
+  });
+  assert.strictEqual(result.action, 'lock_created');
+  assert.ok(fs.existsSync(path.join(tmp, '.pipeline', 'sessions', 'sess-xyz.lock')));
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('handleUserPromptSubmit: noop quando texto não é /pipeline', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'hook-'));
+  const result = handleUserPromptSubmit({
+    prompt: 'hello world',
+    session_id: 'sess-xyz',
+    cwd: tmp,
+  });
+  assert.strictEqual(result.action, 'noop');
+  assert.ok(!fs.existsSync(path.join(tmp, '.pipeline', 'sessions')));
+  fs.rmSync(tmp, { recursive: true });
+});

@@ -27,4 +27,29 @@ function createLock(baseDir, sessionId, opts = {}) {
   return lock;
 }
 
-module.exports = { detectPipelineInvocation, createLock };
+function handleUserPromptSubmit(payload) {
+  if (!detectPipelineInvocation(payload.prompt)) {
+    return { action: 'noop' };
+  }
+  const pipelineDir = path.join(payload.cwd, '.pipeline');
+  const lock = createLock(pipelineDir, payload.session_id, { ttl_hours: 2 });
+  return { action: 'lock_created', lock };
+}
+
+// CLI entry point: lê stdin JSON, chama handler, exit 0
+if (require.main === module) {
+  let stdin = '';
+  process.stdin.on('data', (chunk) => { stdin += chunk; });
+  process.stdin.on('end', () => {
+    try {
+      const payload = JSON.parse(stdin);
+      handleUserPromptSubmit(payload);
+      process.exit(0);
+    } catch (err) {
+      process.stderr.write(`session-lock-hook error: ${err.message}\n`);
+      process.exit(0); // fail-safe: não bloquear UserPromptSubmit por bug no hook
+    }
+  });
+}
+
+module.exports = { detectPipelineInvocation, createLock, handleUserPromptSubmit };
