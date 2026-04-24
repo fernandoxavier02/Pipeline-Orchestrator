@@ -26,7 +26,9 @@ function handleStop(payload) {
           if (lock && lock.session_id === sessionId && lock.status !== 'completed') {
             lock.status = 'completed';
             lock.completed_at = Date.now();
-            fs.writeFileSync(filePath, JSON.stringify(lock, null, 2));
+            const tmpPath = `${filePath}.${process.pid}.tmp`;
+            fs.writeFileSync(tmpPath, JSON.stringify(lock, null, 2));
+            fs.renameSync(tmpPath, filePath);
           }
         } else if (f.endsWith('.exec-window')) {
           const raw = fs.readFileSync(filePath, 'utf8');

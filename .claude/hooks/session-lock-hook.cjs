@@ -28,10 +28,10 @@ function createLock(baseDir, sessionId, opts = {}) {
     expires_at: now + ttlHours * 3600 * 1000,
     status: 'active',
   };
-  fs.writeFileSync(
-    path.join(sessionsDir, `${sessionId}.lock`),
-    JSON.stringify(lock, null, 2)
-  );
+  const finalPath = path.join(sessionsDir, `${sessionId}.lock`);
+  const tmpPath = `${finalPath}.${process.pid}.tmp`;
+  fs.writeFileSync(tmpPath, JSON.stringify(lock, null, 2));
+  fs.renameSync(tmpPath, finalPath);
   return lock;
 }
 
