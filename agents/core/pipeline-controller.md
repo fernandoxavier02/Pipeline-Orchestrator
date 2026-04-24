@@ -495,6 +495,39 @@ Test minimums by level:
 
 #### Step 2c: Implementation (Batch Execution)
 
+##### Exec-window protocol (v4.0.0-draft.2)
+
+Before spawning any N2 executor agent that needs to Edit/Write production code OUTSIDE `.pipeline/` (e.g., `executor-implementer-task`, `executor-fix`, `feature-implementer`), the controller MUST open an **exec-window** so the `edit-guard-hook` allows those edits cooperatively.
+
+1. **Open exec-window** — Write `.pipeline/sessions/{session_id}.exec-window` with:
+
+   ```json
+   {
+     "session_id": "{session_id}",
+     "opened_at": <ms epoch>,
+     "expires_at": <ms epoch + 30 minutes>,
+     "purpose": "<batch-N executor-implementer-task>",
+     "spawning_agent": "pipeline-controller"
+   }
+   ```
+
+2. **Spawn the N2 executor** via the Agent tool.
+
+3. **After N2 returns** — delete `.pipeline/sessions/{session_id}.exec-window`.
+
+4. **Log to `gate-decisions.jsonl`**:
+   - `{"gate": "EXEC_WINDOW_OPEN", "hardness": "AUDIT", "detail": "purpose=..., agent=..."}`
+   - `{"gate": "EXEC_WINDOW_CLOSE", "hardness": "AUDIT", "detail": "..."}`
+
+**Security limitation (documented):** exec-window is **cooperative authorization**, NOT cryptographic. A compromised main LLM could technically create this file itself. Mitigations:
+
+- 30-minute TTL auto-closes stale windows.
+- File content is human-readable and visible in `git diff` for user audit.
+- Every open/close is appended to `gate-decisions.jsonl` for audit trail.
+- v4 relies on **user diff review** for integrity, not hook-level enforcement of exec-window creation.
+
+##### Spawn executor-controller
+
 Spawn `executor-controller` (model: opus).
 
 **Pass:**
