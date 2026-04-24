@@ -8,6 +8,11 @@
 # assertions continue to use the POSIX path returned by mktemp.
 set -euo pipefail
 
+# Anchor to the plugin root (3 levels up from __tests__/)
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+PLUGIN_ROOT="$( cd "$SCRIPT_DIR/../../.." && pwd )"
+cd "$PLUGIN_ROOT"
+
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT
 
