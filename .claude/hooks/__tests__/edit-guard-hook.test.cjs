@@ -471,3 +471,36 @@ test('NI-5 openExecWindow: nao deixa .tmp leftover apos sucesso', () => {
   assert.strictEqual(tmps.length, 0, `expected no .tmp files, got: ${tmps.join(',')}`);
   fs.rmSync(tmp, { recursive: true });
 });
+
+// --- NI-4 TTL formalization (v4.1) ---------------------------------
+
+test('NI-4 openExecWindow: rejeita ttl_minutes > MAX_TTL_MINUTES (60)', () => {
+  const tmp = setupValidLock('sess-ttl-max');
+  assert.throws(() => openExecWindow(tmp, 'sess-ttl-max', { ttl_minutes: 61 }),
+    /ttl_minutes must be <= 60/);
+  assert.throws(() => openExecWindow(tmp, 'sess-ttl-max', { ttl_minutes: 1440 }),
+    /ttl_minutes must be <= 60/);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-4 openExecWindow: aceita ttl_minutes exatamente igual a 60', () => {
+  const tmp = setupValidLock('sess-ttl-max-ok');
+  const win = openExecWindow(tmp, 'sess-ttl-max-ok', { ttl_minutes: 60 });
+  assert.strictEqual(win.expires_at - win.opened_at, 60 * 60 * 1000);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-4 getActiveExecWindow: ignora window escrito com expires_at > 60min alem de opened_at', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ttl-raw-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-L.lock'),
+    JSON.stringify({ session_id: 'sess-L', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  const opened = Date.now();
+  fs.writeFileSync(path.join(sessionsDir, 'sess-L.exec-window'),
+    JSON.stringify({ session_id: 'sess-L', opened_at: opened, expires_at: opened + 120 * 60 * 1000 }));
+  const target = path.join(tmp, 'src/foo.py');
+  assert.strictEqual(shouldBlock(target, tmp).block, true,
+    'window with TTL > 60min must not authorize');
+  fs.rmSync(tmp, { recursive: true });
+});
