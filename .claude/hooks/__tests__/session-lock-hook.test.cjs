@@ -106,3 +106,21 @@ test('handleUserPromptSubmit: noop quando payload malformado', () => {
 test('createLock: lança erro em session_id inválido', () => {
   assert.throws(() => createLock('/tmp/x', '../../etc/passwd'), /invalid session_id/);
 });
+
+test('createLock: intermediate .tmp file does not persist after success (atomic write contract)', () => {
+  // NOTE: This is a contract/regression test. Atomic-write correctness (rename
+  // from .tmp) cannot be fully verified from user space without instrumenting fs.
+  // This test pins the observable contract: no leftover .tmp after successful write.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'atomic-'));
+  createLock(tmp, 'sess-atomic', { ttl_hours: 1 });
+  const sessionsDir = path.join(tmp, 'sessions');
+  const files = fs.readdirSync(sessionsDir);
+  assert.ok(files.includes('sess-atomic.lock'), 'final lock file must exist');
+  const leftovers = files.filter((f) => f.endsWith('.tmp'));
+  assert.strictEqual(leftovers.length, 0, `no leftover .tmp files, got: ${files.join(',')}`);
+  // Content must be complete valid JSON (not truncated)
+  const content = fs.readFileSync(path.join(sessionsDir, 'sess-atomic.lock'), 'utf8');
+  const parsed = JSON.parse(content);
+  assert.strictEqual(parsed.session_id, 'sess-atomic');
+  fs.rmSync(tmp, { recursive: true });
+});
