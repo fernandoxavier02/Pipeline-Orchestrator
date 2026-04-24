@@ -5,6 +5,34 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-rc.2] - 2026-04-24
+
+Resolves 2 LOW items from `v4.0.0-rc.1` Known limitations. No behavioral
+changes to the pipeline workflow; hardening only.
+
+### Changed (hardening)
+
+- **session-lock-hook / session-cleanup-hook**: lock writes are now atomic via
+  `.tmp`+`rename`. Eliminates the millisecond window where a concurrent reader
+  could observe a truncated/empty lock file (resolves pre-existing LOW item
+  from v4.0.0-rc.1 Known limitations).
+- **session-cleanup-hook**: refuses to follow symlinks under
+  `.pipeline/sessions/`. Before `readFileSync` / `unlinkSync`, `fs.lstatSync`
+  verifies the entry is a regular file; non-regular entries are skipped with a
+  stderr log (resolves LOW theoretical hardening item from v4.0.0-rc.1 Known
+  limitations).
+
+### Tests
+
+- `session-lock-hook.test.cjs`: 14 → 15 (added `.tmp` leftover contract test).
+- `session-cleanup-hook.test.cjs`: 8 → 9 (added symlink rejection test; self-
+  skips on platforms without unprivileged symlink support).
+- `edit-guard-hook.test.cjs`: 25 (unchanged).
+
+### Remaining known limitations (deferred to v4.1)
+
+NI-3, NI-4, NI-5 — see v4.0.0-rc.1 entry below.
+
 ## [4.0.0-rc.1] - 2026-04-24
 
 Promoted from draft.2 — no code changes, docs only.
@@ -74,17 +102,16 @@ trust).
    close-after-return contract, but no automated test verifies that a
    controller instance actually follows it. Future work: BDD scenario that
    asserts exec-window lifecycle.
-4. **Non-atomic `.lock` writes (LOW, pre-existing):** `session-lock-hook.cjs`
-   and `session-cleanup-hook.cjs` use `fs.writeFileSync` for lock updates,
-   which is not atomic on all platforms. A concurrent reader could observe a
-   truncated/empty file; current edit-guard handles this via `catch (_)`
-   skip-malformed, but mid-write transient "unblocks" are theoretically
-   possible for milliseconds. Future work: write-to-`.tmp`-then-rename pattern.
-5. **Cleanup loop trusts symlinks (LOW, theoretical):**
-   `session-cleanup-hook.cjs` reads and unlinks files by directory-entry name
-   without symlink checks. `.pipeline/sessions/` is plugin-owned so practical
-   risk is minimal. Future work: `fs.lstatSync` guard before `readFileSync` /
-   `unlinkSync`.
+4. **Non-atomic `.lock` writes (LOW, pre-existing) — RESOLVED in v4.0.0-rc.2:**
+   `session-lock-hook.cjs` and `session-cleanup-hook.cjs` now write to a
+   pid-suffixed `.tmp` sibling then `fs.renameSync` to the final path. rename
+   is atomic on the same filesystem, so concurrent readers can no longer
+   observe a truncated/empty lock.
+5. **Cleanup loop trusts symlinks (LOW, theoretical) — RESOLVED in v4.0.0-rc.2:**
+   `session-cleanup-hook.cjs` now calls `fs.lstatSync` before any read/unlink
+   and skips non-regular-file entries with a stderr log. Misplaced symlinks
+   under `.pipeline/sessions/` can no longer redirect I/O outside the
+   sessions directory.
 
 ## [4.0.0-draft.1] - 2026-04-23
 
