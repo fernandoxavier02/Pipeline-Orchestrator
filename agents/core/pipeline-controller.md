@@ -499,33 +499,25 @@ Test minimums by level:
 
 Before spawning any N2 executor agent that needs to Edit/Write production code OUTSIDE `.pipeline/` (e.g., `executor-implementer-task`, `executor-fix`, `feature-implementer`), the controller MUST open an **exec-window** so the `edit-guard-hook` allows those edits cooperatively.
 
-1. **Open exec-window** — Call the `openExecWindow` helper exported by `.claude/hooks/edit-guard-hook.cjs`:
+1. **Write the exec-window file (no JS execution at controller runtime):**
 
-   ```javascript
-   const { openExecWindow } = require("<plugin-root>/.claude/hooks/edit-guard-hook.cjs");
-   openExecWindow(project_cwd, session_id, {
-     purpose: "batch-N executor",
-     spawning_agent: "executor-implementer-task"
-   });
-   ```
-
-   As a controller agent you don't execute JS directly. Instead, instruct your Write tool to produce a `.pipeline/sessions/{session_id}.exec-window` file with the same schema the helper writes:
+   Use the `Write` tool to create `.pipeline/sessions/{session_id}.exec-window` with this EXACT schema (mirrors what the `openExecWindow` helper in `.claude/hooks/edit-guard-hook.cjs` writes — future automation may prefer calling the helper directly from tests/scripts):
 
    ```json
    {
      "session_id": "{session_id}",
-     "opened_at": <ms epoch>,
-     "expires_at": <ms epoch + 5 minutes>,
-     "purpose": "<batch-N executor-implementer-task>",
-     "spawning_agent": "pipeline-controller"
+     "opened_at": <current-ms-epoch>,
+     "expires_at": <opened_at + 5 minutes in ms>,
+     "purpose": "<one-line reason>",
+     "spawning_agent": "<subagent_type of the N2 you're about to spawn>"
    }
    ```
 
-   The helper exists so tests and future tooling can open/close programmatically; the JSON schema is the contract.
+   The helper `openExecWindow(pipelineDir, sessionId, opts)` exists for programmatic callers (tests, scripts); it also validates that an active matching lock exists before creating the window. As a controller agent you write the file directly via `Write`; the JSON schema above is the contract.
 
 2. **Spawn the N2 executor** via the Agent tool.
 
-3. **After N2 returns** — close the exec-window. Programmatic callers use `closeExecWindow(project_cwd, session_id)` from `.claude/hooks/edit-guard-hook.cjs` (idempotent: returns `false` if none existed). As a controller agent, delete `.pipeline/sessions/{session_id}.exec-window` via your tool of choice.
+3. **After N2 returns** — close the exec-window. As a controller agent, remove `.pipeline/sessions/{session_id}.exec-window` using `Write` (empty content to truncate, then delete) or `Bash("rm .pipeline/sessions/{session_id}.exec-window")`. The `closeExecWindow(pipelineDir, sessionId)` helper is the programmatic equivalent for tests and scripts (idempotent: returns `false` if none existed).
 
 4. **Log to `gate-decisions.jsonl`**:
    - `{"gate": "EXEC_WINDOW_OPEN", "hardness": "AUDIT", "detail": "purpose=..., agent=..."}`
