@@ -1,7 +1,7 @@
 {
   "name": "pipeline-orchestrator",
-  "version": "3.8.0",
-  "description": "Single-command multi-agent pipeline for Claude Code. Auto-classifies tasks, executes in adaptive batches with TDD, context-independent adversarial review (user gates), final adversarial team (3 parallel agents), and proportional validation. Works with any project.",
+  "version": "4.0.0-draft.2",
+  "description": "Automated multi-agent pipeline — v4 moves orchestration to isolated controller agent, eliminating main-LLM bypass.",
   "author": {
     "name": "FX Studio AI",
     "url": "https://github.com/fernandoxavier02/Pipeline-Orchestrator"
