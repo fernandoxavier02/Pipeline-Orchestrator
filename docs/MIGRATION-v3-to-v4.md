@@ -41,3 +41,18 @@ Or swap the fork back to the cache version manually.
 ## Compatibility with N2 agents and references
 
 All 37 N2 agents and all `references/*.md` are unchanged. If you've customized any, your edits carry over.
+
+## Known cooperative limitation (v4.0.0-draft.2, F-001)
+
+Starting with `4.0.0-draft.2`, the `edit-guard-hook` supports **exec-window cooperative authorization**: when `pipeline-controller` spawns an N2 executor agent that needs to Edit/Write production code outside `.pipeline/`, it first writes a short-lived `.pipeline/sessions/{session_id}.exec-window` file. The hook then allows those edits for that session while the window is active.
+
+This is **cooperative authorization, not cryptographic protection**:
+
+- A compromised or misaligned main LLM could technically create the exec-window file itself and authorize its own edits — the hook has no way to distinguish "controller-spawned executor" from "main LLM impersonating an executor."
+- Mitigations are user-visible, not hook-enforced:
+  - **Short TTL (30 min)** auto-closes stale windows.
+  - **Human-readable contents** (`purpose`, `spawning_agent`, timestamps) appear in `git diff` during review.
+  - **Audit trail**: every `EXEC_WINDOW_OPEN` / `EXEC_WINDOW_CLOSE` is appended to `.pipeline/gate-decisions.jsonl`.
+- **Integrity relies on user diff review**, not on the hook. If you see an unexpected `*.exec-window` file in a diff, treat it as a red flag.
+
+This is a deliberate v4 trade-off: strict hook-level enforcement would require signing (keys, verification, key management) that Claude Code does not currently expose to plugin hooks. The cooperative model is sufficient for honest-agent workflows; a future version may add signing once the platform supports it.

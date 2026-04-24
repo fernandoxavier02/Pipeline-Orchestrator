@@ -5,6 +5,27 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-draft.2] - 2026-04-24
+
+### Changed (breaking for scripts that bypassed via MultiEdit)
+
+- **edit-guard-hook**: now also matches `MultiEdit` tool (F-006 fix).
+- **edit-guard-hook**: introduces **exec-window cooperative authorization** (F-001 fix) — when `.pipeline/sessions/{session_id}.exec-window` exists, is non-expired, and its `session_id` matches the active lock, Edit/Write OUTSIDE `.pipeline/` is allowed. This enables N2 executor agents (e.g. `executor-implementer-task`, `executor-fix`, `feature-implementer`) to write production code when spawned by `pipeline-controller`. See the controller prompt for the open/close protocol.
+
+### Security (additive)
+
+- **session-lock**: added Stop hook that marks locks as `status: completed` automatically (F-002).
+- **session-lock**: `getActiveLock` now sorts by `created_at` DESC so stale locks don't shadow fresh ones (F-002).
+- **session-lock**: tighter `session_id` regex — no leading `.` or `-` (F-004).
+- **block message**: rewritten to discourage `rm` as first recourse; now surfaces `/pipeline-orchestrator:pipeline continue` and the Stop-hook auto-cleanup before manual deletion (F-002).
+- **exec-window is COOPERATIVE, not cryptographic.** A compromised main LLM could create this file itself. Mitigations: 30-min TTL, human-readable content visible in `git diff`, `gate-decisions.jsonl` audit trail for every open/close. v4 relies on user diff review for integrity, not hook-level enforcement of exec-window creation.
+
+### Documentation
+
+- Renumbered controller prompt CRITICAL REMINDERS section (F-005).
+- Smoke test anchors to plugin root via `BASH_SOURCE` so it passes from any cwd (F-003).
+- `docs/MIGRATION-v3-to-v4.md` gains a "Known cooperative limitation" section.
+
 ## [4.0.0-draft.1] - 2026-04-23
 
 ### BREAKING
