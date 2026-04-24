@@ -58,7 +58,8 @@ test('buildBlockMessage: contém instrução de spawn + delete lock', () => {
   const msg = buildBlockMessage('src/foo.py', 'sess-xyz');
   assert.match(msg, /pipeline-orchestrator:core:pipeline-controller/);
   assert.match(msg, /sess-xyz\.lock/);
-  assert.match(msg, /TTL/);
+  // F-002 (Group C): replaced hard "wait for TTL (2h)" with softer Stop-hook cleanup language
+  assert.match(msg, /Stop hook|Claude Code stops|automatically/i);
 });
 
 const { handlePreToolUse } = require('../edit-guard-hook.cjs');

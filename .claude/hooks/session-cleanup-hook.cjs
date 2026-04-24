@@ -1,7 +1,54 @@
 // .claude/hooks/session-cleanup-hook.cjs
-// STUB — not implemented yet (RED phase)
-function handleStop(_payload) {
-  throw new Error('not implemented');
+// On Claude Code Stop event: mark active locks owned by this session as completed
+// so the edit-guard no longer blocks edits. Users should not learn `rm lock` as habit.
+const fs = require('node:fs');
+const path = require('node:path');
+
+const SESSION_ID_RE = /^[A-Za-z0-9._-]{1,64}$/;
+
+function handleStop(payload) {
+  try {
+    if (!payload || typeof payload !== 'object') return;
+    const { session_id: sessionId, cwd } = payload;
+    if (typeof sessionId !== 'string' || !SESSION_ID_RE.test(sessionId)) return;
+    if (typeof cwd !== 'string' || cwd.length === 0) return;
+
+    const sessionsDir = path.join(cwd, '.pipeline', 'sessions');
+    if (!fs.existsSync(sessionsDir)) return;
+
+    const files = fs.readdirSync(sessionsDir).filter((f) => f.endsWith('.lock'));
+    for (const f of files) {
+      const lockPath = path.join(sessionsDir, f);
+      try {
+        const raw = fs.readFileSync(lockPath, 'utf8');
+        const lock = JSON.parse(raw);
+        if (lock && lock.session_id === sessionId && lock.status !== 'completed') {
+          lock.status = 'completed';
+          lock.completed_at = Date.now();
+          fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2));
+        }
+      } catch (err) {
+        process.stderr.write(`session-cleanup-hook: skip ${f}: ${err.message}\n`);
+      }
+    }
+  } catch (err) {
+    process.stderr.write(`session-cleanup-hook error: ${err.message}\n`);
+  }
+}
+
+// CLI entry point
+if (require.main === module) {
+  let stdin = '';
+  process.stdin.on('data', (chunk) => { stdin += chunk; });
+  process.stdin.on('end', () => {
+    try {
+      const payload = JSON.parse(stdin);
+      handleStop(payload);
+    } catch (err) {
+      process.stderr.write(`session-cleanup-hook error: ${err.message}\n`);
+    }
+    process.exit(0); // fail-safe
+  });
 }
 
 module.exports = { handleStop };

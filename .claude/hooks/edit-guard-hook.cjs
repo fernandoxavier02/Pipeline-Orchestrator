@@ -8,6 +8,8 @@ function getActiveLock(pipelineDir) {
   const sessionsDir = path.join(pipelineDir, '.pipeline', 'sessions');
   if (!fs.existsSync(sessionsDir)) return null;
   const files = fs.readdirSync(sessionsDir).filter((f) => f.endsWith('.lock'));
+  const now = Date.now();
+  const candidates = [];
   for (const f of files) {
     try {
       const lock = JSON.parse(fs.readFileSync(path.join(sessionsDir, f), 'utf8'));
@@ -15,14 +17,21 @@ function getActiveLock(pipelineDir) {
         typeof lock.session_id === 'string' &&
         SESSION_ID_RE.test(lock.session_id) &&
         typeof lock.expires_at === 'number' &&
-        lock.expires_at > Date.now() &&
+        lock.expires_at > now &&
         lock.status === 'active'
       ) {
-        return lock;
+        candidates.push(lock);
       }
     } catch (_) { /* skip malformed */ }
   }
-  return null;
+  if (candidates.length === 0) return null;
+  // Pick newest by created_at DESC; locks without created_at sort as 0 (oldest).
+  candidates.sort((a, b) => {
+    const aC = typeof a.created_at === 'number' ? a.created_at : 0;
+    const bC = typeof b.created_at === 'number' ? b.created_at : 0;
+    return bC - aC;
+  });
+  return candidates[0];
 }
 
 function shouldBlock(filePath, pipelineDir) {
@@ -52,7 +61,9 @@ function buildBlockMessage(filePath, sessionId) {
   return (
     `Pipeline session ${sessionId} is active. Direct edits to ${filePath} are blocked. ` +
     `Spawn Agent(subagent_type: "pipeline-orchestrator:core:pipeline-controller", ...) to orchestrate changes. ` +
-    `To work outside the pipeline, delete .pipeline/sessions/${sessionId}.lock or wait for TTL (2h) to expire.`
+    `To resume this session, run /pipeline-orchestrator:pipeline continue. ` +
+    `The lock is released automatically when Claude Code stops (Stop hook cleanup). ` +
+    `As a last resort only, you may manually delete .pipeline/sessions/${sessionId}.lock.`
   );
 }
 
