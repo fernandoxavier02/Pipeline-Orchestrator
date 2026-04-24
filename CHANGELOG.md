@@ -5,6 +5,35 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.0.0-draft.1] - 2026-04-23
+
+### BREAKING
+
+- **Orchestration moved from SKILL.md to `pipeline-controller` agent.** Main LLM no longer orchestrates; it spawns the controller and waits for the final PIPELINE COMPLETE block.
+- **Main LLM loses Edit/Write permissions during pipeline sessions.** New `edit-guard-hook` blocks direct file edits outside `.pipeline/` when a session lock is active. Intentional — eliminates the bypass observed in v3.8 where main LLM rationalized "this task is too small for pipeline" and edited directly.
+- **SKILL.md shrunk from ~900 lines to ~30 lines.** Full workflow spec moved to `agents/core/pipeline-controller.md`. v3 SKILL preserved as `skills/pipeline/SKILL.v3-reference.md`.
+
+### Added
+
+- `agents/core/pipeline-controller.md` — N1 orchestrator agent, isolated context, tools: Read/Write(.pipeline/**)/Agent/AskUserQuestion
+- `.claude/hooks/session-lock-hook.cjs` — UserPromptSubmit hook; creates `.pipeline/sessions/{id}.lock` on `/pipeline` invocation
+- `.claude/hooks/edit-guard-hook.cjs` — PreToolUse(Edit|Write) hook; blocks edits outside `.pipeline/` when lock active
+- `tests/test_pipeline_controller.md` — BDD scenarios for manual validation
+- `.claude/hooks/__tests__/session-lock-hook.test.cjs` — 16 unit tests (TDD + adversarial fix pass)
+- `.claude/hooks/__tests__/edit-guard-hook.test.cjs` — 15 unit tests (TDD + adversarial fix pass)
+- `.claude/hooks/__tests__/smoke-hooks.sh` — 3 stdin-driven smoke tests for hooks integration
+- `.claude/hooks/dispatch-guard.cjs` updated to register `pipeline-controller` FQN
+
+### Unchanged
+
+- All 37 N2 agents (task-orchestrator, information-gate, executor-controller, review-orchestrator, final-validator, etc.)
+- All `references/*.md` (gates, audit-trail, confidence, complexity-matrix, sentinel-integration)
+- Legacy hooks: `force-pipeline-agents.cjs`, `completion-checklist.cjs`, `sentinel-hook.cjs`, `dispatch-guard.cjs`
+
+### Migration from v3.x
+
+See `docs/MIGRATION-v3-to-v4.md` for upgrade path and rollback instructions.
+
 ## [3.8.0] - 2026-04-17
 
 ### Added
