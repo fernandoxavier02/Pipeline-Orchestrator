@@ -18,8 +18,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `.claude/hooks/__tests__/edit-guard-hook.test.cjs`: 8 new tests covering
-  lifecycle and TTL enforcement.
+- `.claude/hooks/__tests__/edit-guard-hook.test.cjs`: 14 new tests covering lifecycle,
+  TTL enforcement, opened_at future-guard, and NaN/Infinity rejection.
 
 ## [4.0.0-rc.2] - 2026-04-24
 
