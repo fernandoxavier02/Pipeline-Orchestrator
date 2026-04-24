@@ -204,3 +204,82 @@ test('fix#6: lock com expires_at não-numérico é ignorado', () => {
   assert.strictEqual(result.block, false);
   fs.rmSync(tmp, { recursive: true });
 });
+
+// --- Adversarial fix F-002 (Group C) ---
+
+test('getActiveLock: retorna o lock com created_at mais recente', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  const now = Date.now();
+  // Name "aaa-*" sorts first alphabetically but is OLDER — naive readdir order would pick this
+  fs.writeFileSync(
+    path.join(sessionsDir, 'aaa-old.lock'),
+    JSON.stringify({
+      session_id: 'aaa-old',
+      status: 'active',
+      created_at: now - 10_000,
+      expires_at: now + 3600_000,
+    })
+  );
+  // Name "zzz-*" sorts last alphabetically but is NEWER — should be returned
+  fs.writeFileSync(
+    path.join(sessionsDir, 'zzz-new.lock'),
+    JSON.stringify({
+      session_id: 'zzz-new',
+      status: 'active',
+      created_at: now - 1_000,
+      expires_at: now + 3600_000,
+    })
+  );
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true);
+  assert.strictEqual(result.lock.session_id, 'zzz-new');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('getActiveLock: ignora locks expirados mesmo se mais recentes que ativos', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  const now = Date.now();
+  // Expired but newer created_at
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-expired-new.lock'),
+    JSON.stringify({
+      session_id: 'sess-expired-new',
+      status: 'active',
+      created_at: now - 1_000,
+      expires_at: now - 500,
+    })
+  );
+  // Active but older created_at
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-active-old.lock'),
+    JSON.stringify({
+      session_id: 'sess-active-old',
+      status: 'active',
+      created_at: now - 10_000,
+      expires_at: now + 3600_000,
+    })
+  );
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true);
+  assert.strictEqual(result.lock.session_id, 'sess-active-old');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('buildBlockMessage: sugere /pipeline continue antes de delete manual', () => {
+  const msg = buildBlockMessage('src/foo.py', 'sess-xyz');
+  // "/pipeline-orchestrator:pipeline continue" deve aparecer antes de "delete"
+  const idxContinue = msg.indexOf('/pipeline-orchestrator:pipeline continue');
+  const idxDelete = msg.toLowerCase().indexOf('delete');
+  assert.ok(idxContinue >= 0, 'should mention /pipeline-orchestrator:pipeline continue');
+  assert.ok(idxDelete >= 0, 'should still mention manual delete as last resort');
+  assert.ok(idxContinue < idxDelete, '/pipeline continue should appear BEFORE delete');
+});
+
+test('buildBlockMessage: menciona Stop hook como mecanismo de cleanup', () => {
+  const msg = buildBlockMessage('src/foo.py', 'sess-xyz');
+  assert.match(msg, /Stop hook|Claude Code stops|automatically/i);
+});
