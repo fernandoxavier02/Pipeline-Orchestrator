@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `.claude/hooks/session-lock-hook.cjs` — UserPromptSubmit hook; creates `.pipeline/sessions/{id}.lock` on `/pipeline` invocation
 - `.claude/hooks/edit-guard-hook.cjs` — PreToolUse(Edit|Write) hook; blocks edits outside `.pipeline/` when lock active
 - `tests/test_pipeline_controller.md` — BDD scenarios for manual validation
-- `.claude/hooks/__tests__/session-lock-hook.test.cjs` — 16 unit tests (TDD + adversarial fix pass)
+- `.claude/hooks/__tests__/session-lock-hook.test.cjs` — 14 unit tests (TDD + adversarial fix pass)
 - `.claude/hooks/__tests__/edit-guard-hook.test.cjs` — 15 unit tests (TDD + adversarial fix pass)
 - `.claude/hooks/__tests__/smoke-hooks.sh` — 3 stdin-driven smoke tests for hooks integration
 - `.claude/hooks/dispatch-guard.cjs` updated to register `pipeline-controller` FQN
