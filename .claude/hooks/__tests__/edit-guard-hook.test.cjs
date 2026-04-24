@@ -541,3 +541,105 @@ test('NI-4 openExecWindow: rejeita NaN / Infinity em ttl_minutes', () => {
   assert.throws(() => openExecWindow(tmp, 'sess-nan', { ttl_minutes: -Infinity }), /finite number/);
   fs.rmSync(tmp, { recursive: true });
 });
+
+// ─── NI-3 pairing check (v4.1) ───────────────────────────────────
+
+function setupPaired(sessionId, { skipAudit = false, auditSkewMs = 0 } = {}) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pairing-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, `${sessionId}.lock`),
+    JSON.stringify({ session_id: sessionId, status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  const opened = Date.now();
+  fs.writeFileSync(path.join(sessionsDir, `${sessionId}.exec-window`),
+    JSON.stringify({ session_id: sessionId, opened_at: opened, expires_at: opened + 5 * 60_000 }));
+  if (!skipAudit) {
+    const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', '2026-04-24-test');
+    fs.mkdirSync(docsDir, { recursive: true });
+    const jsonl = path.join(docsDir, 'gate-decisions.jsonl');
+    fs.writeFileSync(jsonl,
+      JSON.stringify({ gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: sessionId, timestamp: opened + auditSkewMs, detail: 'test' }) + '\n');
+  }
+  return tmp;
+}
+
+test('NI-3 shouldBlock: permite edit quando window + audit-log estão emparelhados', () => {
+  const tmp = setupPaired('sess-pair-ok');
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, false, 'paired window should authorize');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-3 shouldBlock: BLOQUEIA quando window existe sem entrada EXEC_WINDOW_OPEN no audit log', () => {
+  const tmp = setupPaired('sess-no-audit', { skipAudit: true });
+  assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, true,
+    'window without paired audit entry MUST NOT authorize');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-3 shouldBlock: BLOQUEIA quando audit timestamp está fora do ±60s do opened_at', () => {
+  const tmp = setupPaired('sess-skew', { auditSkewMs: 120_000 });
+  assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, true,
+    'timestamp mismatch (>60s) MUST NOT authorize');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-3 shouldBlock: permite pequena skew (±60s) no audit timestamp', () => {
+  const tmp = setupPaired('sess-small-skew', { auditSkewMs: 30_000 });
+  assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, false,
+    '30s skew dentro da tolerância de 60s deve autorizar');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-3 shouldBlock: audit log de OUTRO session não conta como pairing', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cross-pair-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-A.lock'),
+    JSON.stringify({ session_id: 'sess-A', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  const opened = Date.now();
+  fs.writeFileSync(path.join(sessionsDir, 'sess-A.exec-window'),
+    JSON.stringify({ session_id: 'sess-A', opened_at: opened, expires_at: opened + 5 * 60_000 }));
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', 'x');
+  fs.mkdirSync(docsDir, { recursive: true });
+  fs.writeFileSync(path.join(docsDir, 'gate-decisions.jsonl'),
+    JSON.stringify({ gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: 'sess-B', timestamp: opened, detail: 'other' }) + '\n');
+  assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, true,
+    'cross-session audit pairing must NOT authorize');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-3 shouldBlock: ignora linhas malformadas no gate-decisions.jsonl', () => {
+  const tmp = setupPaired('sess-malformed-jsonl');
+  const jsonlPath = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', '2026-04-24-test', 'gate-decisions.jsonl');
+  const original = fs.readFileSync(jsonlPath, 'utf8');
+  fs.writeFileSync(jsonlPath, 'not json {{{\n' + original);
+  assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, false,
+    'malformed lines should be skipped; valid pairing still recognized');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-3 openExecWindow: escreve EXEC_WINDOW_OPEN em gate-decisions.jsonl', () => {
+  const tmp = setupValidLock('sess-helper-audit');
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', 'current');
+  fs.mkdirSync(docsDir, { recursive: true });
+  openExecWindow(tmp, 'sess-helper-audit', { purpose: 'audit-test' });
+  const jsonl = fs.readFileSync(path.join(docsDir, 'gate-decisions.jsonl'), 'utf8');
+  const entries = jsonl.trim().split('\n').map(l => JSON.parse(l));
+  assert.ok(entries.some(e => e.gate === 'EXEC_WINDOW_OPEN' && e.session_id === 'sess-helper-audit'),
+    'openExecWindow must append EXEC_WINDOW_OPEN to gate-decisions.jsonl');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-3 closeExecWindow: escreve EXEC_WINDOW_CLOSE em gate-decisions.jsonl', () => {
+  const tmp = setupValidLock('sess-helper-close');
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', 'current');
+  fs.mkdirSync(docsDir, { recursive: true });
+  openExecWindow(tmp, 'sess-helper-close');
+  closeExecWindow(tmp, 'sess-helper-close');
+  const jsonl = fs.readFileSync(path.join(docsDir, 'gate-decisions.jsonl'), 'utf8');
+  const entries = jsonl.trim().split('\n').map(l => JSON.parse(l));
+  assert.ok(entries.some(e => e.gate === 'EXEC_WINDOW_CLOSE' && e.session_id === 'sess-helper-close'),
+    'closeExecWindow must append EXEC_WINDOW_CLOSE to gate-decisions.jsonl');
+  fs.rmSync(tmp, { recursive: true });
+});
