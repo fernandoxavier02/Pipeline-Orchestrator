@@ -16,16 +16,24 @@ function handleStop(payload) {
     const sessionsDir = path.join(cwd, '.pipeline', 'sessions');
     if (!fs.existsSync(sessionsDir)) return;
 
-    const files = fs.readdirSync(sessionsDir).filter((f) => f.endsWith('.lock'));
+    const files = fs.readdirSync(sessionsDir);
     for (const f of files) {
-      const lockPath = path.join(sessionsDir, f);
+      const filePath = path.join(sessionsDir, f);
       try {
-        const raw = fs.readFileSync(lockPath, 'utf8');
-        const lock = JSON.parse(raw);
-        if (lock && lock.session_id === sessionId && lock.status !== 'completed') {
-          lock.status = 'completed';
-          lock.completed_at = Date.now();
-          fs.writeFileSync(lockPath, JSON.stringify(lock, null, 2));
+        if (f.endsWith('.lock')) {
+          const raw = fs.readFileSync(filePath, 'utf8');
+          const lock = JSON.parse(raw);
+          if (lock && lock.session_id === sessionId && lock.status !== 'completed') {
+            lock.status = 'completed';
+            lock.completed_at = Date.now();
+            fs.writeFileSync(filePath, JSON.stringify(lock, null, 2));
+          }
+        } else if (f.endsWith('.exec-window')) {
+          const raw = fs.readFileSync(filePath, 'utf8');
+          const win = JSON.parse(raw);
+          if (win && win.session_id === sessionId) {
+            fs.unlinkSync(filePath);
+          }
         }
       } catch (err) {
         process.stderr.write(`session-cleanup-hook: skip ${f}: ${err.message}\n`);
