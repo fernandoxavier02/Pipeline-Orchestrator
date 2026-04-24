@@ -295,8 +295,14 @@ test('exec-window: allows Edit outside .pipeline/ when exec-window file exists a
   fs.writeFileSync(path.join(sessionsDir, 'sess-1.lock'),
     JSON.stringify({ session_id: 'sess-1', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
   // Active exec-window
+  const opened = Date.now();
   fs.writeFileSync(path.join(sessionsDir, 'sess-1.exec-window'),
-    JSON.stringify({ session_id: 'sess-1', opened_at: Date.now(), expires_at: Date.now() + 1800_000, purpose: 'test', spawning_agent: 'pipeline-controller' }));
+    JSON.stringify({ session_id: 'sess-1', opened_at: opened, expires_at: opened + 1800_000, purpose: 'test', spawning_agent: 'pipeline-controller' }));
+  // NI-3 (v4.1): paired audit entry required
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', 'x');
+  fs.mkdirSync(docsDir, { recursive: true });
+  fs.writeFileSync(path.join(docsDir, 'gate-decisions.jsonl'),
+    JSON.stringify({ gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: 'sess-1', timestamp: opened, detail: 'test' }) + '\n');
   const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
   assert.strictEqual(result.block, false);
   fs.rmSync(tmp, { recursive: true });

@@ -5,6 +5,7 @@ const path = require('node:path');
 const SESSION_ID_RE = /^[A-Za-z0-9._-]{1,64}$/;
 const MAX_TTL_MINUTES = 60;
 const OPENED_AT_SKEW_MS = 5000; // tolerate 5s clock skew for opened_at sanity check
+const PAIRING_TOLERANCE_MS = 60000; // NI-3: +/- 60s audit-log timestamp tolerance
 
 function getActiveLock(pipelineDir) {
   const sessionsDir = path.join(pipelineDir, '.pipeline', 'sessions');
@@ -34,6 +35,89 @@ function getActiveLock(pipelineDir) {
     return bC - aC;
   });
   return candidates[0];
+}
+
+
+function findPairingEntry(pipelineDir, sessionId, openedAt) {
+  if (typeof sessionId !== 'string' || !SESSION_ID_RE.test(sessionId)) return null;
+  if (typeof openedAt !== 'number' || !Number.isFinite(openedAt)) return null;
+  const docsRoot = path.join(pipelineDir, '.pipeline', 'docs');
+  if (!fs.existsSync(docsRoot)) return null;
+  let preDirs;
+  try {
+    preDirs = fs.readdirSync(docsRoot).filter((d) => /^Pre-.*-action$/.test(d));
+  } catch (_) { return null; }
+  for (const preDir of preDirs) {
+    const preDirPath = path.join(docsRoot, preDir);
+    let subdirs;
+    try {
+      subdirs = fs.readdirSync(preDirPath, { withFileTypes: true })
+        .filter((e) => e.isDirectory())
+        .map((e) => e.name);
+    } catch (_) { continue; }
+    for (const sub of subdirs) {
+      const jsonlPath = path.join(preDirPath, sub, 'gate-decisions.jsonl');
+      if (!fs.existsSync(jsonlPath)) continue;
+      let fileContent;
+      try { fileContent = fs.readFileSync(jsonlPath, 'utf8'); } catch (_) { continue; }
+      const lines = fileContent.split(/\r?\n/);
+      for (const line of lines) {
+        if (!line.trim()) continue;
+        let entry;
+        try { entry = JSON.parse(line); } catch (_) { continue; }
+        if (
+          entry &&
+          entry.gate === 'EXEC_WINDOW_OPEN' &&
+          typeof entry.session_id === 'string' &&
+          entry.session_id === sessionId &&
+          typeof entry.timestamp === 'number' &&
+          Number.isFinite(entry.timestamp) &&
+          Math.abs(entry.timestamp - openedAt) <= PAIRING_TOLERANCE_MS
+        ) {
+          return entry;
+        }
+      }
+    }
+  }
+  return null;
+}
+
+function appendAuditEntry(pipelineDir, gate, sessionId, detail) {
+  const docsRoot = path.join(pipelineDir, '.pipeline', 'docs');
+  fs.mkdirSync(docsRoot, { recursive: true });
+  let bestDir = null;
+  let bestMtime = -1;
+  let preDirs = [];
+  try {
+    preDirs = fs.readdirSync(docsRoot).filter((d) => /^Pre-.*-action$/.test(d));
+  } catch (_) {}
+  for (const preDir of preDirs) {
+    const preDirPath = path.join(docsRoot, preDir);
+    let subdirs;
+    try {
+      subdirs = fs.readdirSync(preDirPath, { withFileTypes: true }).filter((e) => e.isDirectory());
+    } catch (_) { continue; }
+    for (const sub of subdirs) {
+      const fullPath = path.join(preDirPath, sub.name);
+      try {
+        const st = fs.statSync(fullPath);
+        if (st.mtimeMs > bestMtime) { bestMtime = st.mtimeMs; bestDir = fullPath; }
+      } catch (_) {}
+    }
+  }
+  if (!bestDir) {
+    const now = new Date();
+    const yyyy = now.getUTCFullYear();
+    const mm = String(now.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(now.getUTCDate()).padStart(2, '0');
+    bestDir = path.join(docsRoot, 'Pre-Media-action', yyyy + '-' + mm + '-' + dd + '-auto-exec-window');
+    fs.mkdirSync(bestDir, { recursive: true });
+  }
+  const jsonlPath = path.join(bestDir, 'gate-decisions.jsonl');
+  const safeDetail = String(detail || '').slice(0, 200).replace(/[\r\n]/g, ' ');
+  const entry = { gate, hardness: 'AUDIT', session_id: sessionId, timestamp: Date.now(), detail: safeDetail };
+  fs.appendFileSync(jsonlPath, JSON.stringify(entry) + '\n');
+  return entry;
 }
 
 function getActiveExecWindow(pipelineDir, lockSessionId) {
@@ -67,6 +151,11 @@ function getActiveExecWindow(pipelineDir, lockSessionId) {
         const declaredTtl = win.expires_at - win.opened_at;
         if (declaredTtl > MAX_TTL_MINUTES * 60 * 1000) {
           process.stderr.write('edit-guard: skipping window with declared TTL > ' + MAX_TTL_MINUTES + 'min (file=' + f + ')\n');
+          continue;
+        }
+        const pairing = findPairingEntry(pipelineDir, win.session_id, win.opened_at);
+        if (!pairing) {
+          process.stderr.write('edit-guard: skipping window without paired EXEC_WINDOW_OPEN audit entry (file=' + f + ')\n');
           continue;
         }
         return win;
@@ -127,6 +216,11 @@ function openExecWindow(pipelineDir, sessionId, opts = {}) {
     try { fs.unlinkSync(tmpPath); } catch (_) { /* ignore */ }
     throw err;
   }
+  try {
+    appendAuditEntry(pipelineDir, 'EXEC_WINDOW_OPEN', sessionId, opts.purpose || '');
+  } catch (err) {
+    process.stderr.write('edit-guard: appendAuditEntry(EXEC_WINDOW_OPEN) failed: ' + err.message + '\n');
+  }
   return window;
 }
 
@@ -143,6 +237,15 @@ function closeExecWindow(pipelineDir, sessionId) {
     return false;
   }
   const windowPath = path.join(pipelineDir, '.pipeline', 'sessions', `${sessionId}.exec-window`);
+  let existed = false;
+  try { fs.statSync(windowPath); existed = true; } catch (_) { /* no window */ }
+  if (existed) {
+    try {
+      appendAuditEntry(pipelineDir, 'EXEC_WINDOW_CLOSE', sessionId, '');
+    } catch (err) {
+      process.stderr.write('edit-guard: appendAuditEntry(EXEC_WINDOW_CLOSE) failed: ' + err.message + '\n');
+    }
+  }
   try {
     fs.unlinkSync(windowPath);
     return true;
@@ -241,4 +344,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, openExecWindow, closeExecWindow, MAX_TTL_MINUTES };
+module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, openExecWindow, closeExecWindow, findPairingEntry, appendAuditEntry, MAX_TTL_MINUTES, PAIRING_TOLERANCE_MS };
