@@ -284,3 +284,73 @@ test('buildBlockMessage: menciona Stop hook como mecanismo de cleanup', () => {
   const msg = buildBlockMessage('src/foo.py', 'sess-xyz');
   assert.match(msg, /Stop hook|Claude Code stops|automatically/i);
 });
+
+// --- Adversarial fix F-001 (Group D): exec-window cooperative authorization ---
+
+test('exec-window: allows Edit outside .pipeline/ when exec-window file exists and is active', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'execwin-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  // Active lock
+  fs.writeFileSync(path.join(sessionsDir, 'sess-1.lock'),
+    JSON.stringify({ session_id: 'sess-1', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  // Active exec-window
+  fs.writeFileSync(path.join(sessionsDir, 'sess-1.exec-window'),
+    JSON.stringify({ session_id: 'sess-1', opened_at: Date.now(), expires_at: Date.now() + 1800_000, purpose: 'test', spawning_agent: 'pipeline-controller' }));
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, false);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('exec-window: expired exec-window is IGNORED, edit still blocked', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'execwin-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-1.lock'),
+    JSON.stringify({ session_id: 'sess-1', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  fs.writeFileSync(path.join(sessionsDir, 'sess-1.exec-window'),
+    JSON.stringify({ session_id: 'sess-1', opened_at: Date.now() - 7200_000, expires_at: Date.now() - 1000, purpose: 'test' }));
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('exec-window: malformed exec-window (non-JSON) is IGNORED, edit blocked', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'execwin-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-1.lock'),
+    JSON.stringify({ session_id: 'sess-1', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  fs.writeFileSync(path.join(sessionsDir, 'sess-1.exec-window'), 'not json {{{');
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('exec-window: only allows edit for session_id matching the lock (no cross-session escalation)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'execwin-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  // Lock for sess-A
+  fs.writeFileSync(path.join(sessionsDir, 'sess-A.lock'),
+    JSON.stringify({ session_id: 'sess-A', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  // Exec-window for DIFFERENT session sess-B
+  fs.writeFileSync(path.join(sessionsDir, 'sess-B.exec-window'),
+    JSON.stringify({ session_id: 'sess-B', opened_at: Date.now(), expires_at: Date.now() + 1800_000 }));
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true, 'cross-session exec-window MUST NOT authorize');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('exec-window: session_id with invalid regex is IGNORED (no filename injection)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'execwin-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-1.lock'),
+    JSON.stringify({ session_id: 'sess-1', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  fs.writeFileSync(path.join(sessionsDir, '..traversal.exec-window'),
+    JSON.stringify({ session_id: '..traversal', opened_at: Date.now(), expires_at: Date.now() + 1800_000 }));
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true);
+  fs.rmSync(tmp, { recursive: true });
+});
