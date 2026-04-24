@@ -507,13 +507,15 @@ Before spawning any N2 executor agent that needs to Edit/Write production code O
    {
      "session_id": "{session_id}",
      "opened_at": <current-ms-epoch>,
-     "expires_at": <opened_at + 5 minutes in ms>,
+     "expires_at": <opened_at + 5 minutes in ms — default; hard max 60 minutes>,
      "purpose": "<one-line reason>",
      "spawning_agent": "<subagent_type of the N2 you're about to spawn>"
    }
    ```
 
    The helper `openExecWindow(pipelineDir, sessionId, opts)` exists for programmatic callers (tests, scripts); it also validates that an active matching lock exists before creating the window. As a controller agent you write the file directly via `Write`; the JSON schema above is the contract.
+
+   **TTL bounds (v4.1+):** default is 5 minutes; hard maximum is 60 minutes. The `edit-guard-hook` refuses to honor exec-windows whose declared TTL (`expires_at - opened_at`) exceeds 60 minutes, regardless of how the window was created. `openExecWindow` also throws on `ttl_minutes > 60`.
 
 2. **Spawn the N2 executor** via the Agent tool.
 

@@ -5,6 +5,22 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — v4.1.0 work-in-progress
+
+### Changed (hardening)
+
+- **edit-guard-hook**: TTL bounded. `openExecWindow` default is now 5 minutes
+  (was 30); maximum enforced at 60 minutes both on write (throw) and on read
+  (silently ignore window). Resolves NI-4 from v4.0.0-rc.1 Known Limitations.
+- **edit-guard-hook**: exports new lifecycle helpers
+  `openExecWindow(dir, sid, opts)` and `closeExecWindow(dir, sid)`. Controller
+  prompt now references these for programmatic cases. Resolves NI-5.
+
+### Added
+
+- `.claude/hooks/__tests__/edit-guard-hook.test.cjs`: 8 new tests covering
+  lifecycle and TTL enforcement.
+
 ## [4.0.0-rc.2] - 2026-04-24
 
 Resolves 2 LOW items from `v4.0.0-rc.1` Known limitations. No behavioral
