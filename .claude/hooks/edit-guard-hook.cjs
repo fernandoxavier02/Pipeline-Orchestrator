@@ -4,6 +4,7 @@ const path = require('node:path');
 
 const SESSION_ID_RE = /^[A-Za-z0-9._-]{1,64}$/;
 const MAX_TTL_MINUTES = 60;
+const OPENED_AT_SKEW_MS = 5000; // tolerate 5s clock skew for opened_at sanity check
 
 function getActiveLock(pipelineDir) {
   const sessionsDir = path.join(pipelineDir, '.pipeline', 'sessions');
@@ -57,9 +58,17 @@ function getActiveExecWindow(pipelineDir, lockSessionId) {
       ) {
         // Defense-in-depth: reject windows whose declared TTL (expires_at - opened_at)
         // exceeds MAX_TTL_MINUTES. Legacy windows without opened_at are treated as untrusted.
-        if (typeof win.opened_at !== 'number') continue;
+        // Also reject pre-armed windows (opened_at > now + skew): prevents scheduling a window
+        // to become active in the future without live controller oversight.
+        if (typeof win.opened_at !== 'number' || win.opened_at > now + OPENED_AT_SKEW_MS) {
+          process.stderr.write('edit-guard: skipping window with missing/future opened_at (file=' + f + ')\n');
+          continue;
+        }
         const declaredTtl = win.expires_at - win.opened_at;
-        if (declaredTtl > MAX_TTL_MINUTES * 60 * 1000) continue;
+        if (declaredTtl > MAX_TTL_MINUTES * 60 * 1000) {
+          process.stderr.write('edit-guard: skipping window with declared TTL > ' + MAX_TTL_MINUTES + 'min (file=' + f + ')\n');
+          continue;
+        }
         return win;
       }
     } catch (_) { /* skip malformed */ }
@@ -93,8 +102,8 @@ function openExecWindow(pipelineDir, sessionId, opts = {}) {
     throw new Error('no active lock for session ' + sessionId);
   }
   const ttlMinutes = opts.ttl_minutes ?? 5;
-  if (typeof ttlMinutes !== 'number' || ttlMinutes <= 0) {
-    throw new Error('ttl_minutes must be > 0');
+  if (!Number.isFinite(ttlMinutes) || ttlMinutes <= 0) {
+    throw new Error('ttl_minutes must be a finite number > 0');
   }
   if (ttlMinutes > MAX_TTL_MINUTES) {
     throw new Error(`ttl_minutes must be <= ${MAX_TTL_MINUTES}`);

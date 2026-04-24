@@ -454,11 +454,11 @@ test('NI-5 openExecWindow: rejeita ttl_minutes <= 0', () => {
   const tmp = setupValidLock('sess-ttl-neg');
   assert.throws(
     () => openExecWindow(tmp, 'sess-ttl-neg', { ttl_minutes: 0 }),
-    /ttl_minutes must be > 0/
+    /ttl_minutes must be.*> 0/
   );
   assert.throws(
     () => openExecWindow(tmp, 'sess-ttl-neg', { ttl_minutes: -5 }),
-    /ttl_minutes must be > 0/
+    /ttl_minutes must be.*> 0/
   );
   fs.rmSync(tmp, { recursive: true });
 });
