@@ -3,6 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const SESSION_ID_RE = /^[A-Za-z0-9._-]{1,64}$/;
+const MAX_TTL_MINUTES = 60;
 
 function getActiveLock(pipelineDir) {
   const sessionsDir = path.join(pipelineDir, '.pipeline', 'sessions');
@@ -54,6 +55,11 @@ function getActiveExecWindow(pipelineDir, lockSessionId) {
         typeof win.expires_at === 'number' &&
         win.expires_at > now
       ) {
+        // Defense-in-depth: reject windows whose declared TTL (expires_at - opened_at)
+        // exceeds MAX_TTL_MINUTES. Legacy windows without opened_at are treated as untrusted.
+        if (typeof win.opened_at !== 'number') continue;
+        const declaredTtl = win.expires_at - win.opened_at;
+        if (declaredTtl > MAX_TTL_MINUTES * 60 * 1000) continue;
         return win;
       }
     } catch (_) { /* skip malformed */ }
@@ -89,6 +95,9 @@ function openExecWindow(pipelineDir, sessionId, opts = {}) {
   const ttlMinutes = opts.ttl_minutes ?? 5;
   if (typeof ttlMinutes !== 'number' || ttlMinutes <= 0) {
     throw new Error('ttl_minutes must be > 0');
+  }
+  if (ttlMinutes > MAX_TTL_MINUTES) {
+    throw new Error(`ttl_minutes must be <= ${MAX_TTL_MINUTES}`);
   }
   const sessionsDir = path.join(pipelineDir, '.pipeline', 'sessions');
   fs.mkdirSync(sessionsDir, { recursive: true });
@@ -223,4 +232,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, openExecWindow, closeExecWindow };
+module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, openExecWindow, closeExecWindow, MAX_TTL_MINUTES };
