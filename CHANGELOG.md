@@ -15,6 +15,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **edit-guard-hook**: exports new lifecycle helpers
   `openExecWindow(dir, sid, opts)` and `closeExecWindow(dir, sid)`. Controller
   prompt now references these for programmatic cases. Resolves NI-5.
+- **edit-guard-hook**: pairing check — exec-windows without a matching
+  `EXEC_WINDOW_OPEN` entry in `gate-decisions.jsonl` (timestamp within ±60s
+  of `opened_at`) are ignored. Doubles the surface an attacker must forge.
+  `openExecWindow` and `closeExecWindow` append paired audit lines
+  automatically. Resolves NI-3.
 
 ### Added
 

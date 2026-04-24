@@ -51,6 +51,7 @@ This is **cooperative authorization, not cryptographic protection**:
 - A compromised or misaligned main LLM could technically create the exec-window file itself and authorize its own edits — the hook has no way to distinguish "controller-spawned executor" from "main LLM impersonating an executor."
 - Mitigations are user-visible, not hook-enforced:
   - **Short TTL**: since v4.1.0, default is 5 minutes and hard maximum is 60 minutes (both enforced by the guard — windows claiming longer TTLs are ignored on read and rejected on write). Prior to v4.1 the default was 30 minutes with no cap.
+  - **Pairing check (v4.1.0, NI-3)**: the hook also requires a matching `EXEC_WINDOW_OPEN` audit entry in `gate-decisions.jsonl` with a `timestamp` within ±60s of the window's `opened_at`. Windows without a paired audit line are ignored. `openExecWindow` / `closeExecWindow` append paired entries automatically; controllers that create the window via raw `Write` MUST also append the audit line themselves (one JSON object per line with fields `gate`, `hardness:"AUDIT"`, `session_id`, `timestamp`, `detail`).
   - **Human-readable contents** (`purpose`, `spawning_agent`, timestamps) appear in `git diff` during review.
   - **Audit trail**: every `EXEC_WINDOW_OPEN` / `EXEC_WINDOW_CLOSE` is appended to `.pipeline/gate-decisions.jsonl`.
 - **Integrity relies on user diff review**, not on the hook. If you see an unexpected `*.exec-window` file in a diff, treat it as a red flag.

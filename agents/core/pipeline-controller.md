@@ -517,6 +517,14 @@ Before spawning any N2 executor agent that needs to Edit/Write production code O
 
    **TTL bounds (v4.1+):** default is 5 minutes; hard maximum is 60 minutes. The `edit-guard-hook` refuses to honor exec-windows whose declared TTL (`expires_at - opened_at`) exceeds 60 minutes, regardless of how the window was created. `openExecWindow` also throws on `ttl_minutes > 60`.
 
+   **Pairing requirement (v4.1+, NI-3):** the `edit-guard-hook` additionally requires a paired `EXEC_WINDOW_OPEN` entry in any `gate-decisions.jsonl` under `.pipeline/docs/Pre-*-action/<subdir>/` with a `timestamp` within ±60 seconds of the window's `opened_at`. The `openExecWindow` helper appends this audit line automatically. Controllers that create exec-windows via raw `Write` MUST also append the audit line themselves, using this exact schema (one JSON object per line, append-only):
+
+   ```json
+   {"gate": "EXEC_WINDOW_OPEN", "hardness": "AUDIT", "session_id": "<id>", "timestamp": <ms epoch>, "detail": "<=200 chars, no newlines>"}
+   ```
+
+   An exec-window without a matching pairing entry is treated as forged and ignored by the hook.
+
 2. **Spawn the N2 executor** via the Agent tool.
 
 3. **After N2 returns** — close the exec-window. As a controller agent, remove `.pipeline/sessions/{session_id}.exec-window` using `Write` (empty content to truncate, then delete) or `Bash("rm .pipeline/sessions/{session_id}.exec-window")`. The `closeExecWindow(pipelineDir, sessionId)` helper is the programmatic equivalent for tests and scripts (idempotent: returns `false` if none existed).
