@@ -5,26 +5,35 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] — v4.1.0 work-in-progress
+## [4.1.0-rc.1] - 2026-04-24
 
-### Changed (hardening)
+### Changed (hardening — resolves 3 known limitations from v4.0.0-rc.1)
 
-- **edit-guard-hook**: TTL bounded. `openExecWindow` default is now 5 minutes
-  (was 30); maximum enforced at 60 minutes both on write (throw) and on read
-  (silently ignore window). Resolves NI-4 from v4.0.0-rc.1 Known Limitations.
-- **edit-guard-hook**: exports new lifecycle helpers
-  `openExecWindow(dir, sid, opts)` and `closeExecWindow(dir, sid)`. Controller
-  prompt now references these for programmatic cases. Resolves NI-5.
-- **edit-guard-hook**: pairing check — exec-windows without a matching
-  `EXEC_WINDOW_OPEN` entry in `gate-decisions.jsonl` (timestamp within ±60s
-  of `opened_at`) are ignored. Doubles the surface an attacker must forge.
-  `openExecWindow` and `closeExecWindow` append paired audit lines
-  automatically. Resolves NI-3.
+- **edit-guard-hook — NI-5**: exports `openExecWindow(dir, sessionId, opts)` and `closeExecWindow(dir, sessionId)` as programmatic helpers. Includes tmp+rename atomic write, error-path cleanup, and controller-prompt references. First explicit lifecycle-test covers the full `open → allow → close → block` sequence.
+
+- **edit-guard-hook — NI-4**: TTL bounded on both write and read paths. Default TTL reduced from 30 min to 5 min. Hard maximum of 60 min enforced by `MAX_TTL_MINUTES` constant; windows claiming longer are rejected on `openExecWindow` (throw) and ignored on `getActiveExecWindow` (silent skip with stderr log). Added `Number.isFinite()` guard against NaN/Infinity, future-timestamp rejection (`opened_at > now + 5s skew`), and legacy-window rejection.
+
+- **edit-guard-hook — NI-3**: pairing check — exec-windows now require a matching `EXEC_WINDOW_OPEN` entry in `gate-decisions.jsonl` with `session_id` match and `timestamp` within ±60 s of the window's `opened_at`. `openExecWindow` and `closeExecWindow` helpers automatically append the audit entries. Stale-OPEN-reuse after CLOSE is blocked: a new window cannot pair with an OPEN already followed by an intermediate CLOSE for the same session. `appendAuditEntry` fails closed if no `Pre-*-action/*/` folder exists (no auto-synthesized fake folders).
 
 ### Added
 
-- `.claude/hooks/__tests__/edit-guard-hook.test.cjs`: 14 new tests covering lifecycle,
-  TTL enforcement, opened_at future-guard, and NaN/Infinity rejection.
+- `.claude/hooks/edit-guard-hook.cjs` exports: `openExecWindow`, `closeExecWindow`, `MAX_TTL_MINUTES` (constant).
+- `.claude/hooks/__tests__/edit-guard-hook.test.cjs`: 25 new tests (25 → 50). Breakdown:
+  - 4 NI-5 lifecycle tests
+  - 4 NI-5 fix-pass tests (lock-required, ttl>0, atomic cleanup, TTL contract)
+  - 3 NI-4 MAX_TTL tests
+  - 3 NI-4 fix-pass tests (future opened_at, NaN, legacy window)
+  - 8 NI-3 pairing tests
+  - 3 NI-3 fix-pass tests (stale-OPEN reuse, fail-closed on missing dir)
+
+### Stderr diagnostics
+
+Hooks now emit targeted stderr lines when silently skipping malformed/rejected data (missing opened_at, TTL > 60min, no pairing entry). Aids controller debugging without failing open.
+
+### Known limitations remaining (deferred to v4.2)
+
+- Unbounded growth of `gate-decisions.jsonl` over long project lifespans — no pruning policy yet.
+- `buildBlockMessage` does not hint at pairing requirement; controllers using raw `Write` path get generic block message, must check stderr.
 
 ## [4.0.0-rc.2] - 2026-04-24
 
