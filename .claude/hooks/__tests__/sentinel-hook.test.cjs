@@ -30,6 +30,7 @@ const HOOK_PATH = path.join(__dirname, '..', 'sentinel-hook.cjs');
 // is still a broad refactor — the constants reduce scatter, not coupling depth.
 const AGENTS = Object.freeze({
   TASK_ORCHESTRATOR: 'pipeline-orchestrator:core:task-orchestrator',
+  PIPELINE_CONTROLLER: 'pipeline-orchestrator:core:pipeline-controller',
   SENTINEL: 'pipeline-orchestrator:core:sentinel',
   SECURITY_SCANNER: 'pipeline-orchestrator:executor:type-specific:adversarial-security-scanner',
   ARCHITECTURE_CRITIC: 'pipeline-orchestrator:executor:type-specific:adversarial-architecture-critic',
@@ -159,6 +160,22 @@ function writeState(dir, stateObj) {
   );
   assertEqual(r.exitCode, 0, '[6] task-orchestrator bootstrap returns exit 0');
   assertEqual(r.stdout.trim(), '', '[6] task-orchestrator bootstrap emits no stdout');
+}
+
+// 6b. Bootstrap whitelist: pipeline-controller (v4 entry point) allowed without state file.
+// Regression guard for the cold-start break: skills/pipeline/SKILL.md spawns
+// pipeline-controller as the v4 entry point, which then writes sentinel-state.json
+// before dispatching task-orchestrator. If this test fails, /pipeline-orchestrator:pipeline
+// is broken on cold start in any cwd that has no prior .pipeline/docs/Pre-*-action/.
+{
+  const isolated = tempDir();
+  const r = runHook(
+    { tool_name: 'Agent', tool_input: { subagent_type: AGENTS.PIPELINE_CONTROLLER } },
+    { PIPELINE_DOC_PATH: '' },
+    { cwd: isolated }
+  );
+  assertEqual(r.exitCode, 0, '[6b] pipeline-controller bootstrap returns exit 0');
+  assertEqual(r.stdout.trim(), '', '[6b] pipeline-controller bootstrap emits no stdout');
 }
 
 // 7. Non-bootstrap pipeline-orchestrator agent without state → deny

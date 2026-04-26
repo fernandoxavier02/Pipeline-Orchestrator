@@ -123,8 +123,12 @@ function handleInput(raw) {
 
   // 5. No state file found — hybrid fail
   if (!stateFilePath) {
-    // Bootstrap whitelist: these agents can run before state file exists
-    const BOOTSTRAP_AGENTS = ['task-orchestrator'];
+    // Bootstrap whitelist: these agents can run before state file exists.
+    // v4 entry point is `pipeline-controller` (spawned by skills/pipeline/SKILL.md),
+    // which then writes sentinel-state.json before spawning task-orchestrator.
+    // task-orchestrator remains in the whitelist for v3 backward-compat and for
+    // controllers that delegate state-file creation to the orchestrator.
+    const BOOTSTRAP_AGENTS = ['task-orchestrator', 'pipeline-controller'];
 
     if (BOOTSTRAP_AGENTS.includes(agentName)) {
       return process.exit(0); // fail-open: bootstrap permitted
@@ -139,7 +143,7 @@ function handleInput(raw) {
           'SENTINEL: No sentinel-state.json found.\n' +
           `Agent "${agentName}" requires an active pipeline with state tracking.\n\n` +
           'ACTION REQUIRED: Create sentinel-state.json before spawning pipeline agents.\n' +
-          'If this is a new pipeline, spawn task-orchestrator first (it bootstraps the state file).\n' +
+          'If this is a new pipeline, invoke /pipeline-orchestrator:pipeline (spawns pipeline-controller, which bootstraps the state file).\n' +
           'If resuming, use /pipeline continue to restore state.'
       }
     };
