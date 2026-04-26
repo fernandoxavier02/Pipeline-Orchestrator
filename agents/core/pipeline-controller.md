@@ -495,7 +495,7 @@ Test minimums by level:
 
 #### Step 2c: Implementation (Batch Execution)
 
-##### Exec-window protocol (v4.0.0-draft.2)
+##### Exec-window protocol (v4.1+)
 
 Before spawning any N2 executor agent that needs to Edit/Write production code OUTSIDE `.pipeline/` (e.g., `executor-implementer-task`, `executor-fix`, `feature-implementer`), the controller MUST open an **exec-window** so the `edit-guard-hook` allows those edits cooperatively.
 
@@ -535,7 +535,7 @@ Before spawning any N2 executor agent that needs to Edit/Write production code O
 
 **Security limitation (documented):** exec-window is **cooperative authorization**, NOT cryptographic. A compromised main LLM could technically create this file itself. Mitigations:
 
-- 30-minute TTL auto-closes stale windows.
+- 5-minute default TTL (60-minute hard cap, enforced by `MAX_TTL_MINUTES` in `edit-guard-hook.cjs`) auto-closes stale windows.
 - File content is human-readable and visible in `git diff` for user audit.
 - Every open/close is appended to `gate-decisions.jsonl` for audit trail.
 - v4 relies on **user diff review** for integrity, not hook-level enforcement of exec-window creation.

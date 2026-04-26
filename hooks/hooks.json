@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Pipeline Orchestrator v4.0.0-draft.1 loaded. Try: /pipeline [task] for full execution. v4 changes: orchestration moved to isolated controller agent; direct Edit/Write blocked during pipeline sessions (session lock in .pipeline/sessions/)."
+            "prompt": "Pipeline Orchestrator v4.1.0-rc.1 loaded. Try: /pipeline [task] for full execution. v4 changes: orchestration moved to isolated controller agent; direct Edit/Write blocked during pipeline sessions (session lock in .pipeline/sessions/)."
           }
         ]
       }
