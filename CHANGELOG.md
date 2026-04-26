@@ -5,6 +5,49 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.0] - 2026-04-26
+
+Promotes `4.1.0-rc.1` to stable. Includes the cold-start fix and version-drift
+reconciliation merged in #3 — the pipeline-controller (v4 entry point) is now
+in `BOOTSTRAP_AGENTS`, so `/pipeline-orchestrator:pipeline` works in any cwd
+without prior `.pipeline/docs/Pre-*-action/`. No other behavioral changes
+since `4.1.0-rc.1`.
+
+### Fixed (from #3)
+
+- **Cold-start break (HIGH):** `.claude/hooks/sentinel-hook.cjs` `BOOTSTRAP_AGENTS`
+  whitelist now includes `pipeline-controller`. Previously the v4 entry point
+  was blocked on cold start because the whitelist still only contained the v3
+  entry point (`task-orchestrator`), contradicting `skills/pipeline/SKILL.md`.
+- **Sentinel deny-message:** updated to point to the v4 invocation path
+  (`/pipeline-orchestrator:pipeline`), not direct `task-orchestrator` spawn.
+- **Version drift:**
+  - `README.md` badge `version-3.8.0` → `version-4.1.0`.
+  - `hooks/hooks.json` SessionStart prompt `v4.0.0-draft.1` → `v4.1.0`.
+  - `agents/core/pipeline-controller.md` exec-window protocol header
+    `(v4.0.0-draft.2)` → `(v4.1+)`.
+  - `agents/core/pipeline-controller.md` security-limitations docstring
+    `30-minute TTL` → `5-minute default TTL (60-minute hard cap)` to match
+    the actual `MAX_TTL_MINUTES` constant introduced in v4.1.
+
+### Added (from #3)
+
+- Regression test `[6b]` in `.claude/hooks/__tests__/sentinel-hook.test.cjs`
+  asserting cold-start dispatch of `pipeline-controller` is permitted.
+  Sentinel-hook test count: 71 → 73.
+
+### Marketplace
+
+- `marketplace.json` pipeline-orchestrator entry: `version` and `ref` both
+  bumped from `v4.1.0-rc.1` → `v4.1.0` (supply-chain pin updated).
+
+### Discovery context
+
+The cold-start bug existed since v4.0.0-rc.1 (when the controller was
+introduced) but was masked because integration tests ran in a directory with
+prior pipeline state. Found by dogfooding the pipeline against the plugin's
+own audit findings.
+
 ## [4.1.0-rc.1] - 2026-04-24
 
 ### Changed (hardening — resolves 3 known limitations from v4.0.0-rc.1)
