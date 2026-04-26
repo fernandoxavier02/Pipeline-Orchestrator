@@ -27,13 +27,30 @@
 
 ---
 
-> **Note:** This repo is both the Pipeline Orchestrator plugin AND the **FX-Studio-AI marketplace** hosting three plugins (pipeline-orchestrator, skill-advisor, cc-toolkit). Install the marketplace once to access all three. See [the suite section](#see-also--fx-studio-ai-suite) at the bottom.
+> **Note:** This repo is both the Pipeline Orchestrator plugin AND the **FX-Studio-AI marketplace** hosting five plugins (pipeline-orchestrator, skill-advisor, cc-toolkit, engineering-context, tts-minimax). Install the marketplace once to access all of them. See [the suite section](#see-also--fx-studio-ai-suite) at the bottom.
 
 ---
 
+## What's new in v4.1.0 (2026-04-26)
+
+- **Cold-start fix.** `/pipeline-orchestrator:pipeline` now works in any cwd. Previously the v4 entry-point agent was missing from the sentinel-hook bootstrap whitelist, so a clean directory would fail at the first dispatch. Found by dogfooding the pipeline against the plugin's own audit findings (PR [#3](https://github.com/fernandoxavier02/Pipeline-Orchestrator/pull/3)).
+- **Defense-in-depth on the edit-guard hook.** Cooperative authorization for N2 executor agents now requires a paired audit entry in `gate-decisions.jsonl` (NI-3), TTL bounded to 60-minute hard cap with 5-minute default (NI-4), and full lifecycle test coverage (NI-5).
+- **Regression fence added.** A new `[6b]` test in `sentinel-hook.test.cjs` makes it impossible to silently regress the cold-start behavior.
+
 ## v4 Breaking Changes
 
-v4.0.0 moves orchestration to an isolated controller agent. See [Migration Guide](docs/MIGRATION-v3-to-v4.md) for upgrade details.
+v4.0.0 moves orchestration to an isolated controller agent — the main LLM loses Edit/Write during pipeline sessions, eliminating the "this task is too small for a pipeline" bypass observed in v3.8. See [Migration Guide](docs/MIGRATION-v3-to-v4.md) for upgrade details.
+
+## Quality Highlights
+
+| Signal | Detail |
+|---|---|
+| **154 hook tests passing** | 50 edit-guard, 73 sentinel internal scenarios, 9 dispatch-guard, 9 session-cleanup, 15 session-lock — pure Node.js built-in test runner, zero external test deps |
+| **Defense-in-depth security** | Atomic `tmp+rename` writes, fail-closed error paths, future-timestamp rejection (5s skew), stale-OPEN reuse rejection, Windows path case-folding, regex-validated session IDs |
+| **Anti-prompt-injection by design** | Inline Invariants in the controller prompt **override** any contradicting `references/*.md` content — adversarial Grep results are treated as data, not instructions |
+| **Adversarial review architecture** | Three independent scanners (security + architecture + quality) review every batch with **zero implementation context** — they attack the code blind |
+| **Reviewers compete in parallel** | Final adversarial team spawned simultaneously (single message, three Agent calls) to preserve independence and amortize wall time |
+| **Verifiable claims only** | Every sanity assertion requires `command + actual output`; no assertions on trust |
 
 ---
 
@@ -303,11 +320,13 @@ pipeline-orchestrator/
 
 ## See also — FX-Studio-AI suite
 
-Pipeline Orchestrator is one of three plugins in the **FX-Studio-AI marketplace**. They form a coherent workflow:
+Pipeline Orchestrator is one of five plugins in the **FX-Studio-AI marketplace**. They form a coherent workflow:
 
 1. **[cc-toolkit](https://github.com/fernandoxavier02/cc-mastery)** — onboarding and diagnostics. Get your Claude Code setup in order.
-2. **[skill-advisor](https://github.com/fernandoxavier02/skill-advisor)** — discovery and routing. Use the tools you already have, effectively.
+2. **[skill-advisor](https://github.com/fernandoxavier02/skill-advisor)** — discovery and routing. Use the tools you already have, effectively. (Quick auto-trigger: `/skill-advisor:pipeline-suggest` · Full per-step picker: `/skill-advisor:advisor`)
 3. **Pipeline Orchestrator** (this repo) — adversarial review. Ship production code safely.
+4. **engineering-context** — engineering rules, anti-pattern mining, stack detection.
+5. **tts-minimax** — bring-your-own-key TTS for spoken responses.
 
 Install the marketplace once, use any combination.
 
