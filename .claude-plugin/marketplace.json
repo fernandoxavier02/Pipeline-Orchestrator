@@ -24,8 +24,8 @@
     },
     {
       "name": "skill-advisor",
-      "description": "Intelligent toolchain orchestrator for Claude Code — recommends skills, plugins, MCPs, and agents for any task with dependency-aware ordering. Per-step loadout picker with arrow-key menus, pipeline-owner isolation across orchestrated plugins, task-complexity-aware sizing, first-run setup wizard, and extensible user-curated pipeline-owner registry.",
-      "version": "0.4.1",
+      "description": "Intelligent toolchain orchestrator for Claude Code — recommends skills, plugins, MCPs, and agents for any task with dependency-aware ordering. Per-step loadout picker with arrow-key menus, pipeline-owner isolation across orchestrated plugins, task-complexity-aware sizing, first-run setup wizard, and extensible user-curated pipeline-owner registry. Lightweight auto-trigger renamed to /skill-advisor:pipeline-suggest in v0.4.2.",
+      "version": "0.4.2",
       "author": {
         "name": "FX Studio AI",
         "url": "https://github.com/fernandoxavier02/skill-advisor"
@@ -33,7 +33,7 @@
       "source": {
         "source": "url",
         "url": "https://github.com/fernandoxavier02/skill-advisor.git",
-        "ref": "v0.4.1"
+        "ref": "v0.4.2"
       },
       "category": "development"
     },
