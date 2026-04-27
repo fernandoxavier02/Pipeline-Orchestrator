@@ -1,5 +1,8 @@
 <div align="center">
-  <img src="assets/fx-studio-ai-logo.png" alt="FX Studio AI" width="600"/>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/branding/01-horizontal-dark.png">
+    <img src="assets/branding/02-horizontal-light.png" alt="FX Studio AI" width="600"/>
+  </picture>
 </div>
 
 <h1 align="center">Pipeline Orchestrator</h1>
