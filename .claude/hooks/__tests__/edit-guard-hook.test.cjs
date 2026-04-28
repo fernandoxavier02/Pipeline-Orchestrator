@@ -741,3 +741,70 @@ test('NI-3 openExecWindow: falha com erro claro quando nao ha Pre-*-action folde
   );
   fs.rmSync(tmp, { recursive: true });
 });
+
+// ============================================================================
+// STALE_HEARTBEAT defense-in-depth: edit-guard ignores locks whose heartbeat
+// is older than threshold even if session-lock-hook GC has not yet run
+// ============================================================================
+
+const { STALE_HEARTBEAT_MS } = require('../edit-guard-hook.cjs');
+
+test('shouldBlock: ignores active lock with stale last_seen_at heartbeat', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-hb-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  const staleStamp = Date.now() - (STALE_HEARTBEAT_MS + 60_000);
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-stale.lock'),
+    JSON.stringify({
+      session_id: 'sess-stale',
+      created_at: staleStamp,
+      last_seen_at: staleStamp,
+      expires_at: staleStamp + 2 * 3600 * 1000, // still well within TTL
+      status: 'active',
+    })
+  );
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, false, 'stale-heartbeat lock must not block edits');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('shouldBlock: still blocks when last_seen_at is fresh', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-hb-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  const freshStamp = Date.now() - 60_000;
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-live.lock'),
+    JSON.stringify({
+      session_id: 'sess-live',
+      created_at: freshStamp,
+      last_seen_at: freshStamp,
+      expires_at: freshStamp + 2 * 3600 * 1000,
+      status: 'active',
+    })
+  );
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('shouldBlock: legacy lock without last_seen_at still blocks (backwards compat)', () => {
+  // Pre-patch locks predate the heartbeat field — they must continue to be
+  // honored so an upgrade does not silently invalidate active pipeline sessions.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-hb-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-legacy.lock'),
+    JSON.stringify({
+      session_id: 'sess-legacy',
+      status: 'active',
+      expires_at: Date.now() + 3600_000,
+      // no created_at, no last_seen_at — original v4.0 format
+    })
+  );
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true, 'legacy locks must still block until expires_at');
+  fs.rmSync(tmp, { recursive: true });
+});

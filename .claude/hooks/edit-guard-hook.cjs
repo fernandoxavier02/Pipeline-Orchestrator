@@ -6,6 +6,11 @@ const SESSION_ID_RE = /^[A-Za-z0-9._-]{1,64}$/;
 const MAX_TTL_MINUTES = 60;
 const OPENED_AT_SKEW_MS = 5000; // tolerate 5s clock skew for opened_at sanity check
 const PAIRING_TOLERANCE_MS = 60000; // NI-3: +/- 60s audit-log timestamp tolerance
+// Defense-in-depth: even if session-lock-hook's GC pass has not yet run,
+// reject locks whose last_seen_at heartbeat is older than this. Locks lacking
+// last_seen_at (legacy/pre-patch format) bypass this check and continue to
+// rely on expires_at + Stop-hook cleanup, preserving backwards compatibility.
+const STALE_HEARTBEAT_MS = 10 * 60 * 1000;
 
 function getActiveLock(pipelineDir) {
   const sessionsDir = path.join(pipelineDir, '.pipeline', 'sessions');
@@ -23,6 +28,12 @@ function getActiveLock(pipelineDir) {
         lock.expires_at > now &&
         lock.status === 'active'
       ) {
+        // Stale-heartbeat skip: if the lock advertises last_seen_at, enforce it.
+        // Missing last_seen_at means pre-patch lock — fall through to legacy path.
+        if (typeof lock.last_seen_at === 'number' &&
+            now - lock.last_seen_at > STALE_HEARTBEAT_MS) {
+          continue;
+        }
         candidates.push(lock);
       }
     } catch (_) { /* skip malformed */ }
@@ -376,4 +387,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, openExecWindow, closeExecWindow, findPairingEntry, appendAuditEntry, MAX_TTL_MINUTES, PAIRING_TOLERANCE_MS };
+module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, openExecWindow, closeExecWindow, findPairingEntry, appendAuditEntry, MAX_TTL_MINUTES, PAIRING_TOLERANCE_MS, STALE_HEARTBEAT_MS };

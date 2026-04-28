@@ -5,6 +5,72 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.1] - 2026-04-27
+
+Patch release fixing a long-standing failure mode where a session lock could
+be orphaned across Claude Code crashes/force-quits and continue blocking
+direct `Edit`/`Write` outside `.pipeline/` for up to 2 hours (the lock TTL).
+The Stop-hook cleanup path is keyed on `lock.session_id === sessionId`, so
+locks belonging to a crashed session were never reclaimed by subsequent
+sessions and the only escape hatches were waiting out the 2h TTL or
+manually deleting the `.lock` file.
+
+### Fixed
+
+- **Orphan-lock self-heal (HIGH).** Session locks now carry a `last_seen_at`
+  heartbeat field. On every `UserPromptSubmit`, `session-lock-hook.cjs`
+  refreshes the heartbeat for the calling session's own lock and marks any
+  foreign lock whose `last_seen_at` is older than `STALE_THRESHOLD_MS`
+  (10 minutes) as `status: "completed"` with `completed_reason: "stale_heartbeat"`.
+  Crashed-session locks are reclaimed within ~10 minutes of the next prompt
+  in any Claude Code session sharing the same `.pipeline/sessions/`, instead
+  of surviving the full 2h TTL.
+
+### Added
+
+- **Defense-in-depth in `edit-guard-hook.cjs`.** `getActiveLock()` now skips
+  active locks whose `last_seen_at` is older than `STALE_HEARTBEAT_MS`
+  (10 minutes), even when the GC pass has not yet run. Exposed as
+  `STALE_HEARTBEAT_MS` in the module exports.
+- **`refreshHeartbeatAndGC(baseDir, currentSessionId)`** in
+  `session-lock-hook.cjs`. Pure helper that scans `sessions/`, refreshes
+  the calling session's lock and reaps stale foreign locks. Returns
+  `{ refreshed, stale_marked }`. Never creates the sessions directory —
+  that remains the responsibility of `createLock()` under a real pipeline
+  invocation.
+
+### Backwards compatibility
+
+- Locks created before 4.1.1 (no `last_seen_at` field) are treated as
+  "fresh" by both `refreshHeartbeatAndGC` and `getActiveLock`. The legacy
+  `expires_at` + Stop-hook contract continues to govern them so an upgrade
+  cannot silently invalidate a pipeline that was already in flight.
+- No public API or schema removed. The lock JSON gained `last_seen_at` and
+  optionally `completed_reason`; both are additive.
+
+### Tests
+
+- `.claude/hooks/__tests__/session-lock-hook.test.cjs`: +12 tests covering
+  heartbeat presence on `createLock`, sessions-dir-not-created invariant,
+  own-session refresh, foreign-stale GC, fresh-foreign no-op, legacy
+  no-`last_seen_at` no-op, completed-lock no-op, malformed-JSON tolerance,
+  and the two `handleUserPromptSubmit` call sites that now run heartbeat/GC
+  even on non-pipeline prompts.
+- `.claude/hooks/__tests__/edit-guard-hook.test.cjs`: +3 tests pinning
+  the `STALE_HEARTBEAT_MS` skip behavior and the legacy-lock fallback.
+- Suite total: 89 tests (was 74) across `session-lock-hook` + `edit-guard-hook`.
+
+### Files changed
+
+- `.claude/hooks/session-lock-hook.cjs` (+98 / -10)
+- `.claude/hooks/edit-guard-hook.cjs` (+13 / -1)
+- `.claude/hooks/__tests__/session-lock-hook.test.cjs` (+198 / -1)
+- `.claude/hooks/__tests__/edit-guard-hook.test.cjs` (+67 / 0)
+
+### Marketplace
+
+- `.claude-plugin/marketplace.json`: pipeline-orchestrator pinned to `v4.1.1`.
+
 ## [4.1.0] - 2026-04-26
 
 Promotes `4.1.0-rc.1` to stable. Includes the cold-start fix and version-drift
