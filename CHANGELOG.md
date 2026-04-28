@@ -5,6 +5,22 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.2] - 2026-04-28
+
+Cosmetic-only release that catches up the user-visible version strings to
+reflect the 4.1.1 fix. No behavioral changes, no test additions.
+
+### Changed
+
+- `hooks/hooks.json` `SessionStart` banner: `v4.1.0 loaded` → `v4.1.2 loaded`
+  and includes a one-liner about the 4.1.1 stale-lock self-heal so users
+  who upgrade can see the relevant change at a glance.
+- `README.md` shields.io version badge: `version-4.1.0` → `version-4.1.2`.
+
+### Marketplace
+
+- `.claude-plugin/marketplace.json`: pipeline-orchestrator pinned to `v4.1.2`.
+
 ## [4.1.1] - 2026-04-27
 
 Patch release fixing a long-standing failure mode where a session lock could
