@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Pipeline Orchestrator v4.1.2 loaded. Try: /pipeline [task] for full execution. v4 changes: orchestration moved to isolated controller agent; direct Edit/Write blocked during pipeline sessions (session lock in .pipeline/sessions/). v4.1.1 added stale-lock self-heal — abandoned locks from crashed sessions clear within ~10min instead of the 2h TTL."
+            "prompt": "Pipeline Orchestrator v4.1.3 loaded. Try: /pipeline [task] for full execution. v4 changes: orchestration moved to isolated controller agent; direct Edit/Write blocked during pipeline sessions (session lock in .pipeline/sessions/). v4.1.1 added stale-lock self-heal. v4.1.3: exec-window opened_at now derived from fs.statSync().mtimeMs (filesystem authoritative) — eliminates spurious-expiration when controller LLM writes a stale-clock JSON timestamp."
           }
         ]
       }

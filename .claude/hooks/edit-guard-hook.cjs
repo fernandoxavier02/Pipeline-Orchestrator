@@ -162,41 +162,85 @@ function getActiveExecWindow(pipelineDir, lockSessionId) {
   // it writes .pipeline/sessions/{session_id}.exec-window to temporarily authorize
   // Edit/Write outside .pipeline/. This is NOT cryptographic protection — see
   // CHANGELOG/MIGRATION security disclaimer.
+  //
+  // v4.1.3: opened_at is derived from fs.statSync(file).mtimeMs, the filesystem's
+  // authoritative timestamp. JSON.opened_at and JSON.expires_at are IGNORED for
+  // validation (LLM-fabricated, unreliable). This removes the failure mode where
+  // a controller LLM with a stale internal clock would write opened_at far in the
+  // past or future, making the window appear permanently expired or pre-armed.
+  // Effective TTL is derived from JSON.ttl_minutes (preferred), or back-derived
+  // from JSON.expires_at - JSON.opened_at (legacy compat), or defaults to 5.
   if (typeof lockSessionId !== 'string' || !SESSION_ID_RE.test(lockSessionId)) return null;
   const sessionsDir = path.join(pipelineDir, '.pipeline', 'sessions');
   if (!fs.existsSync(sessionsDir)) return null;
   const files = fs.readdirSync(sessionsDir).filter((f) => f.endsWith('.exec-window'));
   const now = Date.now();
   for (const f of files) {
+    const filePath = path.join(sessionsDir, f);
     try {
-      const win = JSON.parse(fs.readFileSync(path.join(sessionsDir, f), 'utf8'));
+      const win = JSON.parse(fs.readFileSync(filePath, 'utf8'));
       if (
-        typeof win.session_id === 'string' &&
-        SESSION_ID_RE.test(win.session_id) &&
-        win.session_id === lockSessionId &&
-        typeof win.expires_at === 'number' &&
-        win.expires_at > now
-      ) {
-        // Defense-in-depth: reject windows whose declared TTL (expires_at - opened_at)
-        // exceeds MAX_TTL_MINUTES. Legacy windows without opened_at are treated as untrusted.
-        // Also reject pre-armed windows (opened_at > now + skew): prevents scheduling a window
-        // to become active in the future without live controller oversight.
-        if (typeof win.opened_at !== 'number' || win.opened_at > now + OPENED_AT_SKEW_MS) {
-          process.stderr.write('edit-guard: skipping window with missing/future opened_at (file=' + f + ')\n');
-          continue;
-        }
-        const declaredTtl = win.expires_at - win.opened_at;
-        if (declaredTtl > MAX_TTL_MINUTES * 60 * 1000) {
-          process.stderr.write('edit-guard: skipping window with declared TTL > ' + MAX_TTL_MINUTES + 'min (file=' + f + ')\n');
-          continue;
-        }
-        const pairing = findPairingEntry(pipelineDir, win.session_id, win.opened_at);
-        if (!pairing) {
-          process.stderr.write('edit-guard: skipping window without paired EXEC_WINDOW_OPEN audit entry (file=' + f + ')\n');
-          continue;
-        }
-        return win;
+        typeof win.session_id !== 'string' ||
+        !SESSION_ID_RE.test(win.session_id) ||
+        win.session_id !== lockSessionId
+      ) continue;
+
+      // Authoritative opened_at: filesystem mtime (not the LLM-supplied JSON field).
+      let openedAt;
+      try {
+        openedAt = fs.statSync(filePath).mtimeMs;
+      } catch (_) {
+        continue;
       }
+
+      // Effective TTL minutes: prefer ttl_minutes; else back-derive from legacy
+      // expires_at - opened_at; else default 5.
+      let ttlMinutes;
+      if (typeof win.ttl_minutes === 'number' && Number.isFinite(win.ttl_minutes) && win.ttl_minutes > 0) {
+        ttlMinutes = win.ttl_minutes;
+      } else if (
+        typeof win.expires_at === 'number' &&
+        typeof win.opened_at === 'number' &&
+        win.expires_at > win.opened_at
+      ) {
+        ttlMinutes = (win.expires_at - win.opened_at) / 60000;
+      } else {
+        ttlMinutes = 5;
+      }
+      if (ttlMinutes > MAX_TTL_MINUTES) {
+        process.stderr.write('edit-guard: skipping window with effective TTL > ' + MAX_TTL_MINUTES + 'min (file=' + f + ')\n');
+        continue;
+      }
+
+      const effectiveExpiresAt = openedAt + ttlMinutes * 60 * 1000;
+      if (effectiveExpiresAt <= now) {
+        // Window expired by filesystem clock; ignore.
+        continue;
+      }
+
+      // Pairing accepts a match against either the filesystem mtime (authoritative)
+      // OR the JSON.opened_at field (LLM-fabricated, may be skewed). Accepting both
+      // covers the common case where the controller LLM writes a stale-clock
+      // timestamp consistently into BOTH the exec-window and the audit-log entry —
+      // they pair against each other even though both disagree with the wall clock.
+      // Defense-in-depth (forging only ONE of the two) remains: forging just the
+      // window without a matching audit entry still fails.
+      let pairing = findPairingEntry(pipelineDir, win.session_id, openedAt);
+      if (!pairing && typeof win.opened_at === 'number' && Number.isFinite(win.opened_at)) {
+        pairing = findPairingEntry(pipelineDir, win.session_id, win.opened_at);
+      }
+      if (!pairing) {
+        process.stderr.write('edit-guard: skipping window without paired EXEC_WINDOW_OPEN audit entry (file=' + f + ')\n');
+        continue;
+      }
+
+      // Return the window object with normalized timestamps so callers see the
+      // values the hook actually used for the authorization decision.
+      return Object.assign({}, win, {
+        opened_at: openedAt,
+        expires_at: effectiveExpiresAt,
+        ttl_minutes: ttlMinutes,
+      });
     } catch (_) { /* skip malformed */ }
   }
   return null;
@@ -237,8 +281,12 @@ function openExecWindow(pipelineDir, sessionId, opts = {}) {
   const sessionsDir = path.join(pipelineDir, '.pipeline', 'sessions');
   fs.mkdirSync(sessionsDir, { recursive: true });
   const now = Date.now();
+  // v4.1.3: ttl_minutes is the authoritative TTL field consumed by the hook.
+  // opened_at/expires_at are kept for backward-compat with legacy readers but
+  // are IGNORED by getActiveExecWindow (which uses mtime + ttl_minutes).
   const window = {
     session_id: sessionId,
+    ttl_minutes: ttlMinutes,
     opened_at: now,
     expires_at: now + ttlMinutes * 60 * 1000,
     purpose: opts.purpose || '',

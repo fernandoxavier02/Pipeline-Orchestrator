@@ -5,6 +5,47 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.1.3] - 2026-04-29
+
+Patch release fixing a class of bugs where the `edit-guard-hook` would refuse
+to honor a freshly-written exec-window because the controller LLM authoring
+the JSON had a stale internal clock and wrote `opened_at` in the wrong year.
+The hook compared `expires_at` (also LLM-fabricated) against the real
+`Date.now()` and treated the window as expired, forcing the user to manually
+refresh the exec-window or delete the session lock to make progress.
+
+### Fixed
+
+- `edit-guard-hook.cjs` `getActiveExecWindow` now derives `opened_at` from
+  `fs.statSync(path).mtimeMs` (filesystem authoritative). The JSON
+  `opened_at`/`expires_at` fields are accepted for backward-compat with
+  legacy windows but are IGNORED for liveness/expiration decisions. The
+  effective TTL is taken from a new `ttl_minutes` field (preferred), or
+  back-derived from legacy `expires_at - opened_at`, or defaults to 5.
+- Pairing check in `getActiveExecWindow` accepts a match against either the
+  filesystem mtime OR `JSON.opened_at`. This covers the common case where a
+  controller LLM writes the same stale-clock timestamp into BOTH the
+  exec-window and the audit-log entry — they pair against each other even
+  though both disagree with the wall clock. Defense-in-depth (forging only
+  one of the two) remains intact.
+
+### Changed
+
+- `agents/core/pipeline-controller.md` exec-window protocol section: the
+  canonical schema written by controllers is now `{ session_id, ttl_minutes,
+  purpose, spawning_agent }`. `opened_at`/`expires_at` are deprecated for
+  controller-authored windows (still emitted by `openExecWindow` helper for
+  backward-compat).
+- `openExecWindow` helper now writes `ttl_minutes` alongside the legacy
+  timestamp fields.
+
+### Tests
+
+- 4 new tests covering: LLM-fabricated past `opened_at` (1 year stale), LLM-
+  fabricated future `opened_at` (1 year ahead), minimal-schema window (just
+  `ttl_minutes`), and `ttl_minutes > MAX_TTL_MINUTES` rejection. Existing 53
+  tests continue to pass — total: 57/57.
+
 ## [4.1.2] - 2026-04-28
 
 Cosmetic-only release that catches up the user-visible version strings to

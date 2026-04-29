@@ -501,21 +501,24 @@ Before spawning any N2 executor agent that needs to Edit/Write production code O
 
 1. **Write the exec-window file (no JS execution at controller runtime):**
 
-   Use the `Write` tool to create `.pipeline/sessions/{session_id}.exec-window` with this EXACT schema (mirrors what the `openExecWindow` helper in `.claude/hooks/edit-guard-hook.cjs` writes — future automation may prefer calling the helper directly from tests/scripts):
+   Use the `Write` tool to create `.pipeline/sessions/{session_id}.exec-window` with this schema:
 
    ```json
    {
      "session_id": "{session_id}",
-     "opened_at": <current-ms-epoch>,
-     "expires_at": <opened_at + 5 minutes in ms — default; hard max 60 minutes>,
+     "ttl_minutes": 5,
      "purpose": "<one-line reason>",
      "spawning_agent": "<subagent_type of the N2 you're about to spawn>"
    }
    ```
 
+   **v4.1.3 timestamp model — IMPORTANT:** the `edit-guard-hook` derives `opened_at` from `fs.statSync(path).mtimeMs` (the filesystem's authoritative mtime on the file you just wrote). It IGNORES any `opened_at`/`expires_at` fields in the JSON when deciding whether the window is active. You SHOULD write only `ttl_minutes` (default 5, hard max 60). The legacy `opened_at`/`expires_at` fields are still accepted and used for back-deriving `ttl_minutes` when not provided, but they are otherwise advisory only.
+
+   This change exists because controller LLMs do not have access to a real clock. Pre-v4.1.3 the spec asked the controller to write `opened_at: <current-ms-epoch>`, but a controller with a stale internal clock would fabricate the wrong year, making the window appear permanently expired and forcing manual exec-window refresh.
+
    The helper `openExecWindow(pipelineDir, sessionId, opts)` exists for programmatic callers (tests, scripts); it also validates that an active matching lock exists before creating the window. As a controller agent you write the file directly via `Write`; the JSON schema above is the contract.
 
-   **TTL bounds (v4.1+):** default is 5 minutes; hard maximum is 60 minutes. The `edit-guard-hook` refuses to honor exec-windows whose declared TTL (`expires_at - opened_at`) exceeds 60 minutes, regardless of how the window was created. `openExecWindow` also throws on `ttl_minutes > 60`.
+   **TTL bounds (v4.1+):** default is 5 minutes; hard maximum is 60 minutes. The `edit-guard-hook` refuses to honor exec-windows whose effective TTL exceeds 60 minutes, regardless of how the window was created. `openExecWindow` also throws on `ttl_minutes > 60`.
 
    **Pairing requirement (v4.1+, NI-3):** the `edit-guard-hook` additionally requires a paired `EXEC_WINDOW_OPEN` entry in any `gate-decisions.jsonl` under `.pipeline/docs/Pre-*-action/<subdir>/` with a `timestamp` within ±60 seconds of the window's `opened_at`. The `openExecWindow` helper appends this audit line automatically. Controllers that create exec-windows via raw `Write` MUST also append the audit line themselves, using this exact schema (one JSON object per line, append-only):
 

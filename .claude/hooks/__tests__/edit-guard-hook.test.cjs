@@ -808,3 +808,106 @@ test('shouldBlock: legacy lock without last_seen_at still blocks (backwards comp
   assert.strictEqual(result.block, true, 'legacy locks must still block until expires_at');
   fs.rmSync(tmp, { recursive: true });
 });
+
+// ─── v4.1.3 mtime-as-authoritative regression tests ──────────────
+
+test('v4.1.3: window with LLM-fabricated past opened_at is still honored (mtime authoritative)', () => {
+  // Repro of incident: pipeline-controller LLM with a stale internal clock
+  // wrote opened_at one year in the past. Pre-v4.1.3 this made expires_at fall
+  // in the past and the hook treated the window as expired, forcing manual
+  // refresh. v4.1.3: hook uses fs.statSync().mtimeMs as authoritative.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mtime-past-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-past.lock'),
+    JSON.stringify({ session_id: 'sess-past', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+
+  const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+  const fakeOpened = Date.now() - ONE_YEAR_MS;          // LLM-fabricated stale clock
+  const fakeExpires = fakeOpened + 5 * 60 * 1000;       // 5 min later in fabricated time
+
+  // Window file: written NOW (mtime ≈ now), but JSON timestamps are 1 year old.
+  fs.writeFileSync(path.join(sessionsDir, 'sess-past.exec-window'),
+    JSON.stringify({ session_id: 'sess-past', opened_at: fakeOpened, expires_at: fakeExpires }));
+
+  // Audit log: same fabricated timestamp (LLM consistent in being wrong).
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', '2026-04-29-test');
+  fs.mkdirSync(docsDir, { recursive: true });
+  fs.writeFileSync(path.join(docsDir, 'gate-decisions.jsonl'),
+    JSON.stringify({ gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: 'sess-past', timestamp: fakeOpened, detail: 'test' }) + '\n');
+
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, false,
+    'window with mtime in the present must authorize, even if JSON.opened_at is 1 year stale');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('v4.1.3: window with LLM-fabricated FUTURE opened_at is still honored (mtime authoritative)', () => {
+  // Symmetric case: LLM with future-shifted clock. mtime is now, JSON says +1 year.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mtime-future-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-fut.lock'),
+    JSON.stringify({ session_id: 'sess-fut', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+
+  const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+  const fakeOpened = Date.now() + ONE_YEAR_MS;
+  const fakeExpires = fakeOpened + 5 * 60 * 1000;
+
+  fs.writeFileSync(path.join(sessionsDir, 'sess-fut.exec-window'),
+    JSON.stringify({ session_id: 'sess-fut', opened_at: fakeOpened, expires_at: fakeExpires }));
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', '2026-04-29-test');
+  fs.mkdirSync(docsDir, { recursive: true });
+  fs.writeFileSync(path.join(docsDir, 'gate-decisions.jsonl'),
+    JSON.stringify({ gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: 'sess-fut', timestamp: fakeOpened, detail: 'test' }) + '\n');
+
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, false,
+    'pre-v4.1.3 rejected pre-armed windows; v4.1.3 trusts mtime so future JSON.opened_at is irrelevant');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('v4.1.3: window with ttl_minutes field (and no expires_at) is honored', () => {
+  // New canonical schema: callers may write only ttl_minutes; opened_at/expires_at optional.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mtime-ttl-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-ttl.lock'),
+    JSON.stringify({ session_id: 'sess-ttl', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+
+  fs.writeFileSync(path.join(sessionsDir, 'sess-ttl.exec-window'),
+    JSON.stringify({ session_id: 'sess-ttl', ttl_minutes: 5, purpose: 'test', spawning_agent: 'foo' }));
+
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', '2026-04-29-test');
+  fs.mkdirSync(docsDir, { recursive: true });
+  // Audit-log timestamp = Date.now() (the ts the appendAuditEntry helper would use).
+  fs.writeFileSync(path.join(docsDir, 'gate-decisions.jsonl'),
+    JSON.stringify({ gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: 'sess-ttl', timestamp: Date.now(), detail: 'test' }) + '\n');
+
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, false,
+    'minimal-schema window (ttl_minutes only) must authorize when paired');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('v4.1.3: ttl_minutes > MAX_TTL_MINUTES is rejected even when mtime is fresh', () => {
+  // Defense-in-depth: TTL ceiling still enforced via the effective TTL path.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mtime-ttlmax-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-ttlmax.lock'),
+    JSON.stringify({ session_id: 'sess-ttlmax', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+
+  fs.writeFileSync(path.join(sessionsDir, 'sess-ttlmax.exec-window'),
+    JSON.stringify({ session_id: 'sess-ttlmax', ttl_minutes: 120 }));   // 120 > 60 max
+
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', '2026-04-29-test');
+  fs.mkdirSync(docsDir, { recursive: true });
+  fs.writeFileSync(path.join(docsDir, 'gate-decisions.jsonl'),
+    JSON.stringify({ gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: 'sess-ttlmax', timestamp: Date.now(), detail: 'test' }) + '\n');
+
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true,
+    'ttl_minutes above MAX_TTL_MINUTES must be rejected regardless of mtime');
+  fs.rmSync(tmp, { recursive: true });
+});
