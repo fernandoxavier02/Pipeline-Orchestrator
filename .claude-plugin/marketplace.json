@@ -24,8 +24,8 @@
     },
     {
       "name": "skill-advisor",
-      "description": "Intelligent toolchain orchestrator for Claude Code — recommends skills, plugins, MCPs, and agents for any task with dependency-aware ordering. v0.5.0: architectural overhaul closing 10-finding audit. Hot-path hook 387→85 lines via lib/advisor-nudge-core extraction; 4 architectural guards CI-enforced (DI-1 module-load purity, DI-2 layered dependency direction, DI-3 manifest version coherence, vault env single source); module-scoped mtime+size cache for embeddings/graph; unified filesystem walker; 812 tests (+24% from 654). BREAKING (restorable): default prompt-length threshold 5→12 chars; restore via ADVISOR_PROMPT_LENGTH=5. Deprecation runway through 0.6.0 for SKILL_ADVISOR_VAULT (use SKILL_ADVISOR_VAULT_PATH) and build-index.inferCategory re-export.",
-      "version": "0.5.0",
+      "description": "Intelligent toolchain orchestrator for Claude Code — recommends skills, plugins, MCPs, and agents for any task with dependency-aware ordering. v0.5.1: dependency bump (@huggingface/transformers ^4.0.1 → ^4.1.0) + README polish. v0.5.0: architectural overhaul closing 10-finding audit. Hot-path hook 387→85 lines via lib/advisor-nudge-core extraction; 4 architectural guards CI-enforced (DI-1 module-load purity, DI-2 layered dependency direction, DI-3 manifest version coherence, vault env single source); module-scoped mtime+size cache for embeddings/graph; unified filesystem walker; 812 tests (+24% from 654). BREAKING (restorable): default prompt-length threshold 5→12 chars; restore via ADVISOR_PROMPT_LENGTH=5. Deprecation runway through 0.6.0 for SKILL_ADVISOR_VAULT (use SKILL_ADVISOR_VAULT_PATH) and build-index.inferCategory re-export.",
+      "version": "0.5.1",
       "author": {
         "name": "FX Studio AI",
         "url": "https://github.com/fernandoxavier02/skill-advisor"
@@ -33,7 +33,7 @@
       "source": {
         "source": "url",
         "url": "https://github.com/fernandoxavier02/skill-advisor.git",
-        "ref": "v0.5.0"
+        "ref": "v0.5.1"
       },
       "category": "development"
     },
