@@ -1,0 +1,1491 @@
+# Pipeline-Orchestrator v5.0 — Design Consolidado (SSOT)
+
+## 0. Metadados
+
+- **Data:** 2026-04-29
+- **Status:** DRAFT consolidado — aguarda aprovação do dono
+- **Supersedes:** D1 (`pipeline-orchestrator-v5-pipeline-as-code.md`), D2 (`pipeline-orchestrator-v5-execution-vertical-slices.md`), D3 (`pipeline-orchestrator-v5-addendum-context-and-policies.md`)
+- **SSOT:** este documento. Em caso de divergência com D1/D2/D3, ESTE prevalece.
+- **Reality-check baseline:** verificado em 2026-04-29 contra repositório canonical em `D:\Pipeline Orchestrator Claude\Pipeline-Orchestrator`.
+- **Branch atual:** `feat/v5-addendum-context-policies` a partir de main local 3.0.2.
+- **Repositório:** github.com/fernandoxavier02/Pipeline-Orchestrator
+- **Modo de redação:** Builder + consolidação adversarial.
+- **Esforço total v5.0 (pós Slice 0.5):** 4.5–7.5 semanas solo, sequencial.
+- **Esforço v5.1 (Slice 5):** +6–8 semanas adicionais; janela ≤ Q+2 após v5.0.
+
+### Convenções deste documento
+
+- `[VERIFICADO]` — afirmação validada contra repo real em 2026-04-29.
+- `[HIPOTESE]` — afirmação plausível, não confirmada empiricamente.
+- `[DESIGN]` — decisão de design, não fato observável ainda.
+- `[A SER DEFINIDO]` — gap conhecido, não inventar.
+- Citações de origem usam `D1:linha`, `D2:linha`, `D3:linha`.
+
+---
+
+## 1. Problem Statement
+
+Origem: D1:10–20.
+
+O plugin `pipeline-orchestrator` é tecnicamente sólido — vários agentes em camadas, hooks de guard, Sentinel, classificação automática, gates de qualidade. Mas é caixa-preta opaca pra quem usa. Cinco sintomas catalogados:
+
+1. **Mono-skill condensada** — único entry point (`/pipeline-orchestrator:pipeline`) esconde diversidade de comportamentos atrás de classificação implícita.
+2. **Classificador opaco** — `task-orchestrator` decide tipo+complexidade sem trilha de raciocínio visível.
+3. **Falta de observabilidade live** — durante execução não há visualização de fase em curso, gates passados/falhados.
+4. **Ausência de slash commands específicos** — não é possível forçar `bugfix`, `feature`, `audit`, `ux` diretamente.
+5. **Auditoria do auditor inexistente** — nenhum mecanismo confirma que cada pipeline interno ainda segue as boas práticas que promete.
+
+Raiz comum: **opacidade arquitetural**.
+
+### 1.1 Reality-check de baseline (corrigido inline)
+
+D1 declarava (D1:12 e D1:262) números que estão errados contra o repo real. Correções:
+
+| Afirmação D1 | Realidade 2026-04-29 | Fonte |
+|---|---|---|
+| 38 agentes | **19 agentes** [VERIFICADO] | `agents/**/*.md` |
+| `commands/pipeline.md` ~1100 linhas | **957 linhas** [VERIFICADO] | `wc -l commands/pipeline.md` |
+| 7 hooks | **2 hooks reais** (`completion-checklist.cjs`, `force-pipeline-agents.cjs`) [VERIFICADO]; 5 referenciados são teóricos | `.claude/hooks/` |
+| 12 pipelines `.md` | **10 pipelines `.md`** [VERIFICADO] | `references/pipelines/*.md` |
+| Plugin v4.1.0 / v4.1.x | **plugin.json declara 3.0.2; README badge 3.1.0** [VERIFICADO] | `.claude-plugin/plugin.json`, `README.md` |
+| `pipeline-controller` agent existe | **NÃO existe** em `agents/core/` [VERIFICADO] | gap CRITICAL — ver §15 e §16 |
+
+Implicação: design docs foram empilhados em cima de baseline assumido, não verificado. Slice 0 deve auditar e atualizar todos os números antes de qualquer execução.
+
+---
+
+## 2. What Makes This Cool
+
+Origem: D1:22–32.
+
+A versão sensacional do plugin não é "mais agentes". É a inversão filosófica: pipeline-orchestrator vira o primeiro plugin Claude Code construído como **caixa de vidro por design**.
+
+Três propriedades que nenhum plugin Claude Code entrega bem hoje:
+
+- **Pipeline declarativo, versionado, lido pelo usuário antes de rodar.** (Plenamente em v5.1; em v5.0 shapes são markdown — ver §7.2 e §11.)
+- **Trilha de auditoria persistida em git, anexável a PR.**
+- **Auditoria do auditor via golden runs** — testes que validam que cada pipeline ainda faz o que promete.
+
+Posicionamento defensável porque é estrutural, não cosmético. Tipo de coisa que vira referência arquitetural na comunidade.
+
+---
+
+## 3. Constraints
+
+Origem: D1:34–41.
+
+- Plugin pessoal, OSS, MIT, FX Studio AI; sem time grande.
+- Pré-1.0 mainstream — janela de breaking changes ainda gerenciável.
+- Stack: Markdown com YAML frontmatter pra agentes/skills, JS CommonJS pra hooks, Claude Code 2.x.
+- Compatibilidade obrigatória: `/pipeline-orchestrator:pipeline` precisa continuar funcionando idêntico em v5.
+- Persona alvo: arquiteto B2B senior. Previsibilidade > magia, trilha persistida > visualização animada, conformidade > experiência ágil, controle explícito > defaults inteligentes.
+- Janela realista: dono solo, sprints curtos. Boil the lake é viável; boil the ocean não é.
+
+---
+
+## 4. Premises
+
+Origem: D1:43–51 (validadas em office-hours 2026-04-26).
+
+1. Persona alvo é arquiteto B2B senior; previsibilidade, auditoria persistida, conformidade e controle explícito ranqueiam acima de magia, animação, agilidade e defaults.
+2. Tema unificador é caixa de vidro: explicável, navegável, auditável por design.
+3. Arquitetura consolida no nível plugin (um plugin cobre audit, feature, bugfix, UX) e modulariza no nível skill+slash command.
+4. "Aprendizado das execuções passadas" é documentação acumulada e consultável (artefato somente-leitura), não aprendizado adaptativo do classificador. Determinismo preservado.
+5. Os cinco problemas têm raiz comum (opacidade) e devem ser resolvidos por redesign coerente, não cinco fixes desconectados.
+
+---
+
+## 5. Glossário & Linguagem Ubíqua
+
+### 5.1 Termos cunhados na consolidação
+
+D1 e D2 usam "slice" ambiguamente. Resolução:
+
+- **Release Slice** — unidade de entrega vertical do plano de execução. Cada Release Slice atravessa todas as camadas necessárias, é shippeável (`v5.0.0-rc.N`) e independente das anteriores. Slices 0, 0.5, 1, 2, 3, 4, 5 deste documento são todos Release Slices.
+- **Vertical Feature Slice** — conceito DDD interno do pipeline `feature`: um corte vertical da feature (UI + domain + persistence + tests) entregando 1 user story end-to-end. Aparece dentro do shape do pipeline `feature`, não do plano de execução do plugin.
+
+Sempre que aparecer "slice" sem qualificação neste doc, ler como **Release Slice** salvo se contexto for o pipeline `feature`.
+
+### 5.2 Bounded contexts
+
+Cada um dos 4 pipelines é um bounded context com glossário próprio (10–15 termos cada), localizado em `references/glossary/{pipeline}.md`:
+
+- `bugfix.md` — vocabulário: hipótese ranqueada, root cause, terrain recon, regression, sanity, pa de cal.
+- `feature.md` — vocabulário: user story, acceptance criteria, vertical slice, intent, slice plan.
+- `audit.md` — vocabulário: finding, severity, surface area, threat model, matriz de risco, intake.
+- `ux.md` — vocabulário: persona, journey walk, friction point, severity, improvement proposal.
+
+Bugfix nunca diz "user story"; feature nunca diz "root cause hypothesis". Cross-talk entre pipelines acontece via tradução explícita, registrada no TRACE.md (ver §13).
+
+### 5.3 Termos compartilhados
+
+- **Evidência cirúrgica** — asserção com `file:line:column` ou trecho exato de log (≤200 chars) ou parágrafo de spec citado.
+- **Composição emergente** — invocação de agente B por agente A sem o usuário pedir; cap 2 níveis de aninhamento, 5 invocações por execução.
+- **TRACE.md / Run Record** — artefato versionável escrito ao final de toda execução; schema_version=1.
+- **Domain-native agent** — agente Layer 1 que só fala vocabulário de um bounded context.
+- **Cross-cutting agent** — agente Layer 3 invocável de qualquer pipeline (adversarial-reviewer, security-scanner, quality-gate, context-injector).
+
+---
+
+## 6. Approaches Considered & Recommended
+
+### 6.1 Approaches considerados
+
+Origem: D1:54–66.
+
+- **Approach A — Pipeline Trace (mínimo viável):** slash commands explícitos por tipo + TRACE.md por execução, mantendo arquitetura interna como está. Esforço S–M, risco baixo, cobre 3 dos 5 problemas. Não resolve mono-skill nem opacidade durante execução.
+- **Approach B — Pipeline as Code (recomendada):** refatoração estrutural; cada tipo vira sua própria skill+command, definição declarativa em YAML (em v5.1), golden runs como auditoria do auditor, TRACE.md persistido. Esforço L, risco M, cobre os 5 problemas com escopo honesto.
+- **Approach C — Pipeline Inspector (lateral):** `/inspect` e `/explain` em cima da arquitetura atual. Esforço M, risco baixo–médio. Solução parcial.
+
+### 6.2 Recommended
+
+**B — Pipeline as Code, fasada em três marcos (v5.0, v5.1, v5.2), com C absorvido em v5.1.**
+
+- **v5.0:** multi-skill + multi-command + TRACE.md + compat regression suite + 9 agentes domain-native + caps Light/Heavy + COMPLEXITY_GATE + context & policies (Slice 0.5). Núcleo do redesign.
+- **v5.1:** golden runs (auditoria do auditor) + parte do Inspector (`/explain` sobre TRACE passado) + **YAML interpreter (Slice 5, COMMITTED ≤ Q+2)**.
+- **v5.2:** Inspector completo (`/inspect` pré-execução com diagrama ASCII).
+
+### 6.3 Componentes C-1..C-6 originais (D1:96–266) — OBSOLETOS
+
+D1 propunha decomposição horizontal (C-1 multi-command, C-2 YAML interpreter, C-3 hooks, C-4 TRACE.md, C-5 compat suite, C-6 histórico) com total 11–16 semanas. **Substituído por Slices 0–5** (D2:285–293) com total 4–7 semanas para v5.0 + 6–8 para v5.1.
+
+C-1..C-6 ficam preservados em §19 (Apêndice A) como histórico de iterações; **não são executáveis**.
+
+---
+
+## 7. Arquitetura V5
+
+Origem: D2:64–233.
+
+### 7.1 Layer 1 — Agentes domain-native
+
+**Escopo v5.0: 9 agentes** (D2:68–82). Diferidos pra v5.1: 10 (D2:84–92).
+
+#### 7.1.1 Inventário v5.0 (9 agentes)
+
+| Pipeline | Agente | Arquétipo Pulsar | Justificativa BDD |
+|---|---|---|---|
+| bugfix | `bugfix-diagnostician` | `diagnostic.md` (1:1) | Slice 1 BDD: controller pula classificação e executa diagnostic→root-cause→implementation→verification |
+| bugfix | `bugfix-fix-proposer` | `executor.md` | Slice 1 BDD: fase de implementation precisa de agente que propõe diff mínimo |
+| feature | `feature-slice-architect` | `plan.md` | Slice 3 BDD: feature pipeline precisa modelar slice antes de implementar |
+| feature | `feature-slice-implementer` | `executor.md` | Slice 3 BDD: implementação do slice |
+| audit | `audit-intake-mapper` | (novo) | Slice 3 BDD: audit pipeline precisa fase de intake |
+| audit | `audit-finding-classifier` | `plan.md` + `adversarial.md` | Slice 3 BDD: audit produz findings classificados |
+| ux | `ux-journey-walker` | `ux-qa.md` (1:1) | Slice 3 BDD: ux pipeline precisa simular jornada |
+| ux | `ux-improvement-proposer` | (novo) | Slice 3 BDD: ux produz sugestões priorizadas |
+| cross | `adversarial-reviewer` | `adversarial.md` | Cross-pipeline com checklist dinâmico por domínio |
+
+**Estimativa:** 0.5 dia/agent = 4–5 dias somando.
+
+**Resolução de naming (D1 vs D2):** D1:146 dizia `bugfix-diagnostic-agent`. D2:73 diz `bugfix-diagnostician`. Consolidado adota **`bugfix-diagnostician`** porque D2 é a espinha dorsal e o nome é mais conciso.
+
+#### 7.1.2 Inventário v5.1 (10 agentes diferidos)
+
+- bugfix: `bugfix-domain-guardian`, `bugfix-evidence-collector` (split do diagnostician se evidência ficar pesada), `bugfix-rootcause-confirmer`
+- feature: `feature-domain-modeler`, `feature-userstory-decomposer`, `feature-acceptance-criteria-author`
+- audit: `audit-domain-mapper`, `audit-severity-rater`, `audit-mitigation-proposer`
+- ux: `ux-persona-synthesizer`, `ux-domain-persona-keeper`, `ux-friction-cataloger`
+- cross (v5.1): `reliability-reviewer`
+
+Cada um só ganha spec quando emergir cenário BDD concreto.
+
+#### 7.1.3 Bounded context — translation-explicit, não hard boundary
+
+Agente domain-native pode invocar agente cross-pipeline ou de outro pipeline **se a tradução de vocabulário for explícita e logada no TRACE.md**. Não é hard boundary purista; é DDD pragmático para projeto solo. Exemplo (D2:96): bugfix precisa entender feature recém-modelada → chama `feature-slice-architect` registrando `tradução: "área afetada" (bugfix) ↔ "slice escopo" (feature)` no TRACE.
+
+#### 7.1.4 Spec template
+
+Toda spec de agente domain-native segue template em `references/agent-spec-template.md`. Criado como parte do **Slice 0** (D2:99). Mínimo: frontmatter (`name, model, tools, memory`) + Papel + Inputs + Outputs + Critérios PASS/FAIL + Composição emergente permitida.
+
+### 7.2 Layer 2 — Pipeline shapes
+
+Origem: D2:104–198.
+
+Em v5.0, shapes são `.md` herdados do Pulsar com tabela de ownership embutida. Em v5.1 (Slice 5), viram YAML declarativo com schema validável (D2:194).
+
+Localização: `references/pipelines/{tipo}-{light|heavy}.md`.
+
+#### 7.2.1 bugfix — shape investigativo
+
+**Heavy (11 passos):** absorve `PIPELINE_BUGFIX_HEAVY.md` do Pulsar.
+
+1. Terrain Recon Diagnostic
+2. Root Cause Consolidation
+3. Domain Truth Model
+4. Controlled Change Proposal (gate APROVAÇÃO)
+5. TDD Pre-Impl (RED)
+6. Execute Minimal Diff (GREEN)
+7. Post-Change Sanity + Regression
+8. Adversarial UX/Tech Review
+9. UX User Journey Simulation
+10. Pa de Cal (Go/No-Go)
+11. Final Validation Post-After-All
+
+**Light (8 passos):** shape próprio, não diluição. Cap "max 2 arquivos / 50 linhas / 1 hipótese". Auto-escalation no passo 7 (COMPLEXITY_GATE).
+
+**Tabela de ownership Heavy:**
+
+| Passo | Owner | Tipo |
+|---|---|---|
+| 1 Terrain Recon Diagnostic | `bugfix-diagnostician` | agente |
+| 2 Root Cause Consolidation | `bugfix-diagnostician` | agente |
+| 3 Domain Truth Model | `pipeline-controller` | procedimental |
+| 4 Controlled Change Proposal | `bugfix-fix-proposer` (dry-run) → `pipeline-controller` (gate) | agente + gate |
+| 5 TDD Pre-Impl (RED) | `pipeline-controller` | procedimental |
+| 6 Execute Minimal Diff (GREEN) | `bugfix-fix-proposer` | agente |
+| 7 Post-Change Sanity + Regression | `pipeline-controller` | procedimental |
+| 8 Adversarial UX/Tech Review | `adversarial-reviewer` | agente cross |
+| 9 UX User Journey Simulation | `ux-journey-walker` (cross-pipeline com tradução) | agente |
+| 10 Pa de Cal | `pipeline-controller` | gate |
+| 11 Final Validation Post-After-All | `pipeline-controller` | procedimental |
+
+#### 7.2.2 audit — shape forense, read-only
+
+**Heavy/Light: 9 passos cada** (D2:120). Único pipeline onde Light = Heavy em estrutura — pular fases compromete cobertura.
+
+1. Intake Completo + Inventário
+2. Arquitetura/Limites/Módulos
+3. Domínio/Regras de Negócio/SSOT
+4. Contratos/APIs/Endpoints
+5. Dados/Migrações/Integridade
+6. Frontend (estado/acessibilidade)
+7. Backend (auth/observabilidade)
+8. Governança/Testes/CI-CD
+9. Pa de Cal + Matriz de Risco
+
+TDD não se aplica (read-only). Outputs incluem matriz de risco.
+
+**Ownership:** passo 1 = `audit-intake-mapper`; passos 2–8 = `audit-finding-classifier` (parametrizado por área); passo 9 = `pipeline-controller` com `adversarial-reviewer` invocado emergentemente se findings críticos detectados.
+
+#### 7.2.3 feature — shape construtivo via Vertical Feature Slice
+
+**Heavy (13 passos):** absorve `PIPELINE_IMPLEMENT_HEAVY.md`.
+
+1. Intent Scope
+2. Terrain Recon
+3. User Flow UX
+4. Domain Rules
+5. Source of Truth
+6. Data Model
+7. Architecture Design Options
+8. Risk Controls
+9. Implementation Plan
+9b. TDD Pre-Impl (RED)
+10. Execution Minimal Diff (GREEN)
+11. Testing Validation
+12. Release Observability
+13. Done
+
+**Light (6 passos, redesenhar do zero):** cap "1 user story de no máx 5 acceptance criteria, 1 vertical slice".
+
+1. Intent
+2. Domain rules mínimo
+3. TDD pre-impl
+4. Execução minimal diff
+5. Validation
+6. Done
+
+**Ownership:** passos 1–5 = `pipeline-controller`; passos 6–9 = `feature-slice-architect`; passo 9b = `pipeline-controller`; passos 10–11 = `feature-slice-implementer`; passos 12–13 = `pipeline-controller`.
+
+#### 7.2.4 ux — shape simulado-exploratório
+
+Sem precedente Pulsar — desenho original v5.
+
+**Heavy (6 passos):**
+
+1. Persona Intake
+2. Journey Walk
+3. Friction Catalog
+4. Severity & Impact
+5. Improvement Proposals
+6. Pa de Cal
+
+**Light (4 passos):** cap "1 persona, 1 jornada, top-3 frictions".
+
+1. Persona
+2. Walk
+3. Friction Top-3
+4. Proposals
+
+TDD não se aplica (exploratório). Output: catálogo de fricção + sugestões priorizadas, anexáveis a issue/PR.
+
+**Ownership:** passo 1 = `pipeline-controller` (intake via AskUserQuestion); passos 2–3 = `ux-journey-walker`; passo 4 = `pipeline-controller`; passo 5 = `ux-improvement-proposer`; passo 6 = `pipeline-controller`.
+
+#### 7.2.5 Mecânica de orquestração
+
+`pipeline-controller` lê o shape `.md`, identifica owner por passo via tabela embutida, e faz **dispatch sequencial** — agente recebe APENAS seu passo + outputs dos passos prévios, NÃO o shape inteiro. Preserva contexto enxuto.
+
+Composição emergente acontece quando agente decide invocar outro durante seu passo — cap 2 níveis, 5 invocações totais (Invariante #3).
+
+### 7.3 Layer 3 — Cross-cutting infra (ai-dev-team absorvido)
+
+Origem: D2:202–232. Pós-review: 3 absorvidos em v5.0 + 1 v5.1.
+
+| Agente ai-dev-team | Status | Role |
+|---|---|---|
+| `ai-dev-security-scanner` | **v5.0 — absorvido** | Opus. Invocado por agentes Layer 1 quando evidência aponta arquivo sensível (auth/crypto/data). Único Opus na composição. |
+| `ai-dev-quality-gate` | **v5.0 — executor de checks** | Sonnet. `pipeline-controller` faz dispatch quando passo de sanity/quality precisa rodar (bugfix passo 7, feature passo 11). Sem sobreposição — controller orquestra, quality-gate executa. |
+| `ai-dev-context-injector` | **v5.0 — absorvido** | Sonnet. Detecção de stack, commits recentes, padrões. Invocado pelo controller no início de cada execução. |
+| `ai-dev-test-generator` | **v5.0 — opcional** | Sonnet. Controller PODE invocar em fase TDD (bugfix passo 5, feature passo 9b) para gerar testes a partir de BDD scenarios aprovados. Decisão por execução. |
+| `ai-dev-docs-writer` | **v5.1 — diferido** | Não cobre nenhum dos 5 critérios de DoD. |
+| `ai-dev-code-reviewer` | **NÃO absorvido** | Sobreposição com `adversarial-reviewer`. |
+| `ai-dev-team-coordinator` | **NÃO absorvido** | Sobreposição direta com `pipeline-controller`. |
+
+#### 7.3.1 Composição Layer 1 → Layer 3 (mapeada a slices)
+
+- **Exemplo 1 — bugfix → security-scanner (Slice 1):** `bugfix-fix-proposer` termina patch tocando `auth/session.js:42` → invoca `ai-dev-security-scanner`. Acceptance criteria do Slice 1: TRACE.md registra invocação emergente de security-scanner quando patch toca path em `auth/|crypto/|payment/`.
+- **Exemplo 2 — audit → security-scanner (Slice 3):** `audit-finding-classifier` detecta padrão suspeito → invoca security-scanner. Acceptance criteria: findings com tag `security-validated`.
+- **Exemplo 3 — feature → docs-writer (v5.1, Slice 5+):** diferido.
+
+#### 7.3.2 Princípio de invocação cross-cutting
+
+Layer 3 é invocada por agentes Layer 1 ou pelo `pipeline-controller`, NUNCA por outro agente Layer 3 (evita cascata). Respeita caps da Invariante #3.
+
+### 7.4 Cherry of the Cake — composição emergente
+
+Origem: D2:25–34.
+
+A versão sensacional do v5 não vende — ela **acontece** quando o usuário roda. Duas mecânicas combinadas:
+
+1. **Composição emergente entre agentes especializados.** Cap 2 níveis, 5 invocações por execução. Toda invocação registrada no TRACE.md como "composição emergente" com a evidência que motivou.
+2. **Evidência cirúrgica obrigatória.** `file:line:column`, trecho de log até 200 chars, parágrafo de spec citado. Sem evidência = não conta como output. Gate automático em todos os modos.
+
+**Exemplo concreto:** usuário roda `/pipeline-orchestrator:bugfix --investigate login broken`. Um agente domain-native enumera 3 hipóteses; outro valida cada uma com `file:line`; quando a hipótese vencedora aponta `auth/session.js:42`, um terceiro invoca emergentemente o `ai-dev-security-scanner` — sem o usuário pedir. Tudo registrado com evidência cirúrgica no TRACE.md. **Quem roda diz "não pedi pra ele chamar segurança, mas faz total sentido que tenha chamado".**
+
+### 7.5 pipeline-controller (agente central — A SER CRIADO)
+
+**Status crítico:** `agents/core/pipeline-controller.md` **NÃO EXISTE** no repo [VERIFICADO]. Toda v5 depende dele. **Pré-requisito P0 do Slice 0** (ver §15 e §16).
+
+**Role:** orquestrador central. Lê shape do pipeline, faz dispatch sequencial, aplica gates, escreve `gate-decisions.jsonl`, invoca `trace-generator` ao final.
+
+**Tools obrigatórias** (frontmatter): `[Agent, Task, Read, Write, Bash, Glob, Grep, AskUserQuestion]`. Sem isso, não consegue spawnar subagentes — ver §15.
+
+**Modelo:** Sonnet.
+
+---
+
+## 8. Definition of v5.0 Done
+
+Origem: D2:11–22 (5 critérios) + D3:88–94 (Critério #6) + §15 deste doc (Critério #7 novo).
+
+v5.0 só pode ser tagueada quando TODOS os 7 critérios estiverem PASS, verificáveis por terceiro:
+
+1. **5 commands em `/help`** — `/pipeline-orchestrator:{pipeline,bugfix,feature,audit,ux}` listados, cada um com descrição de uma linha distinta. Verificação: `claude /help | grep pipeline-orchestrator` retorna 5 linhas.
+2. **TRACE.md no repo do usuário por default** — sem opt-in. Aparece em `git status` após qualquer pipeline completar. Verificação: rodar `/pipeline-orchestrator:bugfix [task-fixture]` em repo limpo deixa `.pipeline-orchestrator/runs/*/TRACE.md` em `git status`.
+3. **TRACE.md anexável a PR sem edição manual** — `schema_version=1` presente, todos os campos populados. Verificação: validador standalone contra TRACE gerado em fixture.
+4. **Comando legacy `/pipeline-orchestrator:pipeline` produz mesmo verdict para 5 cenários canônicos do v4.1.0** — compat suite verde em CI. Verificação: `npm run test:compat`.
+5. **Compromisso firmado para v5.1 com YAML interpreter** — issue tracker tem milestone "v5.1 — Pipeline Declarativo (Slice 5)" com data alvo ≤ Q+2. Verificação: link da milestone no CHANGELOG do v5.0.
+6. **Plan-mode-enforcer (NOVO, de D3:90–94):** Tasks classificadas como MEDIA ou COMPLEXA acionam EnterPlanMode automaticamente antes de qualquer Edit/Write. Bypass exige flag `--no-plan` explícita + entrada no TRACE.md justificando. Trigger: classe ∈ {MEDIA, COMPLEXA}. Reusa `references/complexity-matrix.md` como SSOT. Verificação: rodar `/pipeline-orchestrator:bugfix [task com domains_touched=2]` em fixture; log mostra `EnterPlanMode` invocado antes da fase de implementation.
+7. **pipeline-controller declara tools de spawn explicitamente (NOVO, ver §15):** frontmatter de `agents/core/pipeline-controller.md` declara `tools: [Agent, Task, Read, Write, Bash, Glob, Grep, AskUserQuestion]`. Slice 0 valida com smoke test que spawn aninhado funciona end-to-end (controller spawna `task-orchestrator` que spawna `information-gate`).
+
+Sem todos os 7, v5.0 é "v4.5 com TRACE.md", não a versão sensacional. Marketing e release notes refletem isso ou cancelam o release.
+
+### 8.1 Resolução de contradição — Critério #2 (TRACE.md default)
+
+D1:282 declarava "repo do usuário por default, com config permitindo override pra `~/.claude/data/`" mas D1 também flertava com privado por default. **D2:508 fechou: REPO por default, opt-out para privado** com `pipeline-orchestrator.persist_runs: 'private'` em settings. Iter 2 do review reverteu o default privado da iter 1 para honrar a tese "anexável a PR" sem opt-in.
+
+Consolidado adota **REPO por default**.
+
+---
+
+## 9. Invariantes Compartilhados
+
+Origem: D2:48–60 (5) + D3:98–102 (#6) + §15 deste doc (atualização do #6).
+
+Apesar de cada pipeline ter shape próprio (esse é o valor), 6 coisas valem cross-pipeline:
+
+1. **Linguagem ubíqua por bounded context.** Cada pipeline tem glossário curto de 10–15 termos. Documentado em `references/glossary/{pipeline}.md`. Criação faz parte do DoD dos slices que introduzem cada pipeline (Slice 1 cria `bugfix.md`; Slice 3 cria os outros 3).
+2. **Evidência cirúrgica obrigatória.** Toda asserção vem com `file:line:column`, trecho de log ≤200 chars, ou parágrafo de spec citado. Sem evidência = não conta como output. Gate automático.
+3. **Composição emergente permitida e logada.** Cap máx 2 níveis de aninhamento, máx 5 invocações emergentes por execução. Cada invocação registrada no TRACE.md com motivo.
+4. **Outputs são artefatos versionáveis, não prosa.** Cada pipeline produz arquivos estruturados (Markdown com seções fixas + YAML frontmatter). Usuário commita, abre PR, compara entre execuções.
+5. **AIDD em todos os 4 pipelines.** Cada agente domain-native tem spec executável (prompt + inputs + outputs + critérios PASS/FAIL) consumível por outro Claude. Humano aprova gates.
+6. **Dispatch paralelo quando independente, serial quando dependente (NOVO, de D3:100–102, atualizado por §15).** Agentes cujos inputs não dependem de outputs entre si DEVEM ser dispatchados via 1 chamada `Agent` múltipla (paralelo). Agentes com dependência ficam seriais. Decisão registrada no TRACE.md como `dispatch_mode: parallel|serial` por fase. Cap 5 dispatches paralelos simultâneos para evitar context explosion no main LLM. **ATUALIZAÇÃO §15:** validar antes de cada execução que o controller herda Agent/Task tools — sem isso, dispatch falha silenciosamente.
+
+---
+
+## 10. Light/Heavy & COMPLEXITY_GATE
+
+Origem: D2:236–280.
+
+### 10.1 Caps por pipeline (Light)
+
+| Pipeline | Cap Light | Verificação | Quando estoura → COMPLEXITY_GATE oferece |
+|---|---|---|---|
+| **bugfix-light** | Max 2 arquivos modificados, 50 linhas total, 1 hipótese ranqueada | Hook PreToolUse conta tool_calls Edit/Write; passo 7 audita `git diff --stat` | Migrar pra `bugfix-heavy`. Workflow: (1) diff atual descartado via `git checkout -- .`; (2) RED tests do passo 3b preservados (mesmo formato); (3) restart de bugfix-heavy passo 1 carregando hipótese ranqueada como contexto; (4) heavy passo 5 reusa tests RED. |
+| **feature-light** | 1 user story, max 5 acceptance criteria, 1 vertical slice | `pipeline-controller` (checklist procedimental) conta criteria derivadas do Intent (passo 1) e valida no passo 6. Em v5.0, validação é checklist do controller (`feature-acceptance-criteria-author` é v5.1). | Migrar pra `feature-heavy` (slice plan completo) |
+| **audit-light** | 1 área (ex: só `auth`, só `data layer`), 1 nível de profundidade | Slice scope declarado no intake; `audit-intake-mapper` valida | Migrar pra `audit-heavy` (cobertura completa 9 áreas) |
+| **ux-light** | 1 persona, 1 jornada, top-3 frictions | Definição no intake | Migrar pra `ux-heavy` (multi-persona, multi-jornada) |
+
+### 10.2 Heavy = sem caps, com gates de aprovação
+
+Heavy é o shape completo descrito na Layer 2 (11/9/13/6 passos). Sem caps de tamanho, mas com gates de aprovação humana em pontos críticos (ex: bugfix-heavy passo 4 "Controlled Change Proposal").
+
+### 10.3 COMPLEXITY_GATE — workflow
+
+1. Hook PreToolUse ou pós-step audit detecta cap estourado.
+2. `pipeline-controller` registra `COMPLEXITY_GATE` no `sentinel-state.json` com dimensão estourada.
+3. Pipeline pausa, invoca `AskUserQuestion`:
+   - "Migrar pra `{pipeline}-heavy` (Recomendado)" — descarta diff atual, reentra com Heavy.
+   - "Continuar Light registrando exceção" — segue com warning no TRACE.md (`complexity_exception: true`).
+   - "Abortar" — reverte tudo.
+4. Decisão logada em `gate-decisions.jsonl`.
+
+Hardness: **SOFT** (usuário pode override Light com warning).
+
+`sentinel-state.json` schema: `complexity_cap_status: { exceeded: bool, dimension: "files|lines|hypotheses", value: int, cap: int }`.
+
+### 10.4 Escolha de modo no entry point
+
+- `/pipeline-orchestrator:bugfix [task]` — controller infere modo via task-orchestrator + apresenta proposta no Phase 1.
+- `/pipeline-orchestrator:bugfix --light [task]` — força Light (com risco de COMPLEXITY_GATE).
+- `/pipeline-orchestrator:bugfix --heavy [task]` — força Heavy.
+
+Modos `--simples`, `--media`, `--complexa` do v4 permanecem suportados em `/pipeline` legacy por compat (DoD #4); `--light` / `--heavy` recomendados pra novos commands.
+
+### 10.5 Não-aplicabilidade de Light
+
+- **bugfix em domínio sensível** (auth/crypto/data-model/payment): Light é BLOQUEADO. Heavy obrigatório.
+- **audit de compliance** (GDPR/HIPAA/SOC2): Light BLOQUEADO. Cobertura completa exigida.
+- **HOTFIX**: usa Light por default (escopo cirúrgico). Se cap estourar, COMPLEXITY_GATE oferece SOMENTE 2 opções: (b) continuar com warning elevado registrando `hotfix_complexity_exception=true`, ou (c) abortar. Opção (a) "migrar pra Heavy" é suprimida — HOTFIX por definição não pode rodar workflow completo.
+
+---
+
+## 11. Gates Registry
+
+### 11.1 15 gates herdados do v4 (de D1:86)
+
+`SSOT_CONFLICT`, `ADVERSARIAL_GATE_MANDATORY`, `INFO_GATE_BLOCKED`, `TDD_APPROVAL`, `PLAN_REJECTED`, `MICRO_GATE_GAP`, `CHECKPOINT_FAIL`, `ADVERSARIAL_BLOCK`, `FINAL_ADVERSARIAL_REWORK`, `STOP_RULE`, `FIX_LOOP_EXHAUSTED`, `STALE_CONTEXT`, `ADVERSARIAL_GATE`, `FINAL_ADVERSARIAL_GATE`, `CLOSEOUT_CONFIRM`.
+
+### 11.2 Novo: COMPLEXITY_GATE (v5.0)
+
+Adicionado entre `STOP_RULE` e `STALE_CONTEXT`. Spec em §10.3.
+
+### 11.3 SSOT formal — `references/gates/registry.md`
+
+**Status:** [A SER DEFINIDO] no Slice 0.5. Arquivo não existe atualmente [VERIFICADO]. Slice 0.5 cria com:
+
+- Lista canônica dos 16 gates (15 herdados + COMPLEXITY_GATE).
+- Hardness Taxonomy: cada gate marcado como `MANDATORY | HARD | CIRCUIT_BREAKER | SOFT`.
+- Trigger, recovery, sentinel-state schema por gate.
+- Allow-list de gate names (security model — ver §14).
+
+### 11.4 Hardness Taxonomy (formalizar no Slice 0.5)
+
+| Hardness | Significado | Override possível |
+|---|---|---|
+| MANDATORY | Bloqueia execução se falha; sem override | NÃO |
+| HARD | Bloqueia, mas usuário com flag explícita pode override | Flag específica |
+| CIRCUIT_BREAKER | Para tudo, exige diagnóstico humano antes de retomar | Manual após análise |
+| SOFT | Warning + AskUserQuestion oferece continuar/abortar | AskUserQuestion |
+
+COMPLEXITY_GATE = SOFT. Adversarial gates = MANDATORY ou HARD conforme contexto.
+
+---
+
+## 12. Plano de Execução em Release Slices
+
+### 12.1 Por que slices verticais (e não C-1..C-6 horizontal)
+
+Origem: D2:284–293.
+
+C-1..C-6 (D1) é horizontal: nenhuma camada sozinha entrega valor, integração só acontece no fim. Risco: 11–16 semanas sem release intermediário, com C-2 (interpreter, 4–6 sem) como ponto único de falha.
+
+Slices verticais invertem: cada slice atravessa todas as camadas necessárias para entregar uma capacidade observável pelo usuário, end-to-end, e é liberável independentemente.
+
+**Range honesto pós-Slice-0.5:** v5.0 (Slices 0–4 + 0.5) = **4.5–7.5 semanas solo, sequencial.** v5.1 (Slice 5) = +6–8 semanas, ≤ Q+2.
+
+### 12.2 Sequência
+
+```
+Slice 0     Spike formato + agent-spec-template            (2-3 dias) BLOQUEANTE
+Slice 0.5   Context & Policies                              (2-3 dias)
+Slice 1     /bugfix command + 2 agentes domain-native       (1 sem)
+Slice 2     TRACE.md (Run Record)                           (1 sem)
+Slice 3     /feature, /audit, /ux + 5 agentes restantes     (0.5-1 sem)
+Slice 4     Compat regression suite                         (1.5-2 sem)
+v5.0.0 (release)
+Slice 5     YAML interpreter (COMMITTED v5.1, ≤ Q+2)        (6-8 sem)
+v5.1.0
+```
+
+**Resolução de contradição — ordem Slice 1 vs Slice 2:** D2:799–826 reordenou goal-backward — TRACE.md primeiro porque materializa "caixa de vidro" desde rc.1 e baseline para Slice 4. **Consolidado adota ordem D2:** Slice 0 → 0.5 → 2 → 1 → 3 → 4 → 5. (D3:24–30 lista 0 → 0.5 → 1 → 2 → 3 → 4 mas é inventário, não ordem de execução.)
+
+**Nota sobre numeração de release candidates:** numeração `rc` segue ordem de ship (Slice 2 = `rc.1`; Slice 1 = `rc.2`; Slice 3 = `rc.3`; etc.), independente do número do Slice. Isso garante que `rc.N+1` sempre suceda `rc.N` no tempo, mesmo quando a sequência de execução não casa com o número ordinal do slice.
+
+### 12.3 Slice 0 — Reality Check (Spike, não-shippeável)
+
+**Por que existe:** auditoria identificou bloqueador CRITICAL — design assumia 1100 linhas em `commands/pipeline.md` (real: 957), 7 hooks (real: 2), 12 .md (real: 10), 38 agentes (real: 19). Antes de qualquer slice de produção, verificar premissas sobre o harness do Claude Code.
+
+**Duração:** 2–3 dias. Output decisional, não código de produção.
+
+#### 12.3.1 BDD — Cenários de validação
+
+```gherkin
+Feature: Reality check do baseline e do harness Claude Code
+
+Scenario: Inventário verificado do baseline atual
+  Given o repositório canonical em D:\Pipeline Orchestrator Claude\Pipeline-Orchestrator
+  When eu executo wc -l em commands/pipeline.md, agents/**/*.md
+       e find references/pipelines -name "*.md"
+       e find hooks -name "*.cjs"
+  Then INVENTORY.md lista a contagem real
+       e o esforço estimado de cada slice é recalculado contra baseline real
+
+Scenario: Subagent_type dinâmico funciona via Agent tool
+  Given um agent slice0-probe-controller em .claude/agents/
+  When o controller faz Agent(subagent_type=$dynamicName) onde $dynamicName vem de YAML em runtime
+  Then spawn completa para nomes válidos
+   And falha previsivelmente para nomes não registrados
+   And resultado escrito em SPIKE-DYNAMIC-DISPATCH.md
+
+Scenario: Latência aceitável de hook lendo YAML
+  Given um hook PreToolUse:Agent que lê e parseia references/pipelines/bugfix.yaml
+  When invocado 50 vezes consecutivas
+  Then latência mediana < 200ms, p99 < 1000ms
+   And SPIKE-HOOK-LATENCY.md documenta cache strategy
+
+Scenario: Claude Code roda headless em CI
+  Given GitHub Action invocando claude --headless
+  When pipeline tenta /pipeline-orchestrator:pipeline test-task sem TTY
+  Then completa e retorna output capturável (PASS — define snapshot strategy)
+   Or falha previsível (FAIL — design alternativo via mocks em SPIKE-CI-HARNESS.md)
+
+Scenario: Spawn aninhado funciona end-to-end (NOVO §15)
+  Given pipeline-controller agent criado com tools [Agent, Task, ...]
+  When controller spawna task-orchestrator que spawna information-gate
+  Then cascata completa sem InputValidationError
+   And SPIKE-NESTED-SPAWN.md documenta resultado
+```
+
+#### 12.3.2 Definition of Done
+
+- `INVENTORY.md` com contagem real de linhas/hooks/pipelines/agentes.
+- `SPIKE-DYNAMIC-DISPATCH.md` com PASS/FAIL e evidência reproduzível.
+- `SPIKE-HOOK-LATENCY.md` com benchmark e cache strategy decidida.
+- `SPIKE-CI-HARNESS.md` com decisão sobre como testar plugin em CI.
+- `SPIKE-NESTED-SPAWN.md` (NOVO §15) — valida que `pipeline-controller` spawna subagentes corretamente.
+- `references/agent-spec-template.md` criado.
+- **`agents/core/pipeline-controller.md` criado** (pré-requisito P0 — ver §15).
+- Estimativas de Slices 1–5 recalculadas.
+
+#### 12.3.3 Refinamentos LOW pendentes (D2:358–370)
+
+Resolver dentro da janela do Spike:
+
+- **R-1.** Consolidar duplicação de Metodologias (header vs seção dedicada). Verificação: `grep -c "TDD" doc.md` retorna 1 ocorrência inicial autoritativa.
+- **R-2.** Reduzir repetição de "dogfooding" (manter ocorrência expandida em "Como AIDD funciona"; condensar as outras).
+- **R-3.** Definir "1 nível de profundidade" do audit-light em `references/audit-depth-levels.md`. Exemplo: nível-1 (cobertura básica), nível-2 (configuração detalhada), nível-3 (edge cases + threat model).
+- **R-4.** Especificar contrato `task-orchestrator` v4 → modos Light/Heavy v5: (a) adapter heurístico (SIMPLES→Light, COMPLEXA→Heavy, MEDIA→inferência via análise de affected_files) ou (b) reescrever task-orchestrator. Documentar em `INVENTORY.md`.
+- **R-5.** Documentar ownership de validação de acceptance criteria em feature-light v5.0 em `references/feature-light-criteria-checklist.md`.
+
+#### 12.3.4 Decision Gate
+
+Se Slice 0 revelar que subagent_type dinâmico **não** é suportado, Slice 5 muda fundamentalmente — passa a "cada type tem seu controller agent estático". Decisão tomada AQUI antes de escrever specs do Slice 5.
+
+### 12.4 Slice 0.5 — Context & Policies
+
+Origem: D3 (todo). Inserido entre Slice 0 e Slice 1.
+
+**Duração:** ~22h (~3 dias dono solo). Cada entregável vira commit isolado.
+
+#### 12.4.1 Camada A — Contexto Claude Code (P0)
+
+**A1. `CLAUDE.md` raiz do projeto** (≤200 linhas):
+
+- Identidade: nome, propósito (caixa de vidro), persona (arquiteto B2B senior).
+- SSOT do design: aponta para `designs/pipeline-orchestrator-v5-consolidated.md` (ESTE doc).
+- Política de edits: "todas as alterações nascem em `D:\Pipeline Orchestrator Claude\Pipeline-Orchestrator`; cache `C:\.claude\plugins\cache` é runtime, NÃO mexer".
+- Versão canônica: SSOT em `.claude-plugin/plugin.json`.
+- Invariantes resumidos com link para `references/glossary/` e §9 deste doc.
+- Política operacional: "edits via Agent tool durante execução de pipeline; nunca inline".
+- Ponteiro para `MIGRATION-v4-to-v5.md` quando existir.
+
+**Verificação:** abrir o repo em agent Claude novo, perguntar "qual é o source-of-truth do design v5?". Resposta deve apontar para este consolidated.
+
+**A2. `AGENTS.md` raiz com roster + namespacing:**
+
+- Tabela única: `name | namespace fully-qualified | layer (1/2/3) | model | tools | pipeline owner | invocável emergentemente por`.
+- Seção "Bounded Contexts" com glossário curto cada.
+- Seção "Cross-Cutting" listando Layer 3.
+- Convenção de nomenclatura (`<pipeline>-<role>`).
+- Ponteiro para `references/agent-spec-template.md`.
+
+**Versão inicial:** cobre os 19 agentes existentes [VERIFICADO]. Slice 1 e Slice 3 atualizam.
+
+**Verificação:** `grep -c "^|" AGENTS.md` (excluindo headers) iguala contagem real.
+
+**A3. `.claude/rules/` com globs path-specific:**
+
+| Arquivo | Globs | Resumo |
+|---|---|---|
+| `10-bounded-context.md` | `agents/**`, `skills/**` | Linguagem ubíqua por pipeline; tradução explícita logada no TRACE.md ao cruzar bounded contexts |
+| `20-evidencia-cirurgica.md` | `agents/**` | Toda asserção precisa de `file:line:column` ou trecho ≤200 chars |
+| `30-composicao-emergente-caps.md` | `agents/**` | Cap 2 níveis, 5 invocações; cada invocação registrada no TRACE.md |
+| `40-adversarial-zero-context.md` | `agents/executor/type-specific/adversarial-*.md` | Adversarial agents proibidos de ler `.pipeline-orchestrator/runs/<id>/artifacts/implementer-*.{json,md}` durante o mesmo run |
+| `50-non-invention.md` | `**/*.md` | Antes de criar agent/skill/command novo, grepear se algo equivalente existe; rejeição se overlap >80% |
+
+**Verificação:** abrir um arquivo em `agents/quality/`, confirmar que rules 10/20/30 são auto-carregadas.
+
+#### 12.4.2 Camada B — Definition of Done expandida (P1)
+
+**B1. Critério #6 — plan-mode-enforcer:** ver §8 deste doc.
+
+**B2. Invariante #6 — Paralelização de dispatch:** ver §9 deste doc.
+
+**B3. Skill `pipeline` description — exclusões explícitas.** Mudança em `skills/pipeline/SKILL.md:3`:
+
+```yaml
+description: |
+  Use when task type is genuinely ambiguous and needs auto-classification.
+  This skill activates ONLY via the /pipeline-orchestrator:pipeline slash command.
+  Do NOT use for: single-file edits, doc-only changes, trivial typos, or when
+  task fits clearly in /bugfix, /feature, /audit, /ux — those have specific commands.
+```
+
+**B4. Skill `non-invention-guard`:** novo arquivo `skills/non-invention-guard/SKILL.md`. Description: "Use ANTES de adicionar novo agent, skill ou command. Bloqueia adição se grep encontra overlap funcional ≥80%. Força documentação da busca." Invocado pelo `pipeline-controller` antes de aprovar registro de novo agent na allow-list.
+
+#### 12.4.3 Camada C — Enforcement mecânico (P0/P1)
+
+**C1. Estender `dispatch-guard.cjs` com adversarial zero-context.** Pseudocódigo:
+
+```js
+if (toolName === 'Read' && agentName?.match(/^adversarial-/)) {
+  const path = toolArgs.file_path;
+  const runId = currentRunIdFromSentinelState();
+  if (path.includes(`.pipeline-orchestrator/runs/${runId}/artifacts/implementer-`)) {
+    return {
+      decision: 'block',
+      reason: 'Adversarial agent cannot read implementer artifacts of same run (rule 40)',
+    };
+  }
+}
+```
+
+Tests: `__tests__/dispatch-guard-adversarial.test.cjs` cobrindo (a) bloqueio quando match, (b) permissão para outros agents, (c) permissão para Read em artifacts de runs diferentes.
+
+**Nota crítica de baseline:** `dispatch-guard.cjs` **NÃO existe** [VERIFICADO]. Slice 0.5 deve **criá-lo** ou Slice 0 documentar onde lógica equivalente vive — ver §16 erro #2.
+
+**C2. Estender `force-pipeline-agents.cjs` com plan-mode trigger.** Quando `task-orchestrator` classifica MEDIA+ e fase atual é `implementation`, hook intercepta primeiro Edit/Write se `EnterPlanMode` não foi chamado. Bypass via env var `PIPELINE_NO_PLAN=1`.
+
+Tests: cobrir 3 caminhos (auto-trigger, bypass com flag, sem effect em SIMPLES).
+
+#### 12.4.4 Camada D — Cosméticos & Dívida (P2)
+
+**D1. Cores fora da paleta.** 5 agents com `color: orange` em `agents/executor/type-specific/`:
+
+- `audit-compliance-checker.md:5`
+- `audit-domain-analyzer.md:5`
+- `bugfix-diagnostic-agent.md:5`
+- `bugfix-root-cause-analyzer.md:5`
+- `ux-accessibility-auditor.md:5`
+
+Trocar para `yellow`.
+
+**Nota crítica de baseline:** subdiretório `agents/executor/type-specific/` **NÃO existe** [VERIFICADO]. Esses 5 agents são fantasmas — ver §16 erro #8. Slice 0 deve auditar e atualizar D3 lista.
+
+**D2. Padronização `tools:` vs `allowed-tools:`.**
+
+- `agents/core/sentinel.md:6` usa `allowed-tools:` — **MAS `agents/core/sentinel.md` NÃO existe** [VERIFICADO]. Ver §16 erro #7.
+- `agents/core/pipeline-controller.md:6` usa `tools:` — **MAS pipeline-controller.md TAMBÉM não existe** [VERIFICADO]. Ver §15.
+
+Padronizar para `tools:` em todos os agents que efetivamente existirem após Slice 0 / 0.5.
+
+**D3. Versões divergentes.**
+
+- `.claude-plugin/plugin.json` declara **3.0.2** [VERIFICADO] (D3:181 dizia 4.1.3 — desatualizado).
+- `README.md` badge declara **3.1.0** [VERIFICADO] (D3:182 dizia 4.1.2).
+- `commands/pipeline.md` cabeçalho declara `v3.8` (D3:183).
+- `skills/pipeline/SKILL.md` declara "v4 thin skill" (D3:184).
+
+**Política:** `plugin.json` é SSOT da versão. Slice 0.5 NÃO bumpa para 5.0.0 (release do Slice 4 faz isso); apenas alinha 3.0.2/3.1.0/v3.8/v4 para um número coerente da v3 atual.
+
+**D4. `autoDiscover: true` em plugin.json.** Campo não-padrão. Confirmar com dono se algum loader proprietário consome; se não, remover. (Open Question residual — ver §17.)
+
+**D5. Arquivar `SKILL.v3-reference.md`.** Mover `skills/pipeline/SKILL.v3-reference.md` → `docs/legacy/SKILL.v3-reference.md`.
+
+**D6. `.githubcopilot/knowledge-base/` órfãos.** `00-index.md` referencia 14 docs (01-14, 30); só 00 e 30 existem. Recomendação: podar `00-index.md` para refletir realidade. (Open Question residual — ver §17.)
+
+#### 12.4.5 Sequência de execução do Slice 0.5
+
+| # | Entregável | Risco | Tempo | Depende |
+|---|---|---|---|---|
+| 1 | A1 CLAUDE.md raiz | nulo | 2h | — |
+| 2 | A2 AGENTS.md raiz | nulo | 3h | inventário Slice 0 |
+| 3 | A3 5 rules em .claude/rules/ | nulo | 4h | A1, A2 |
+| 4 | D1+D2+D5 cosméticos consolidados | nulo | 1h | Slice 0 (saber o que existe) |
+| 5 | D3+D4 versões + autoDiscover | nulo | 1h | decisão D4 |
+| 6 | D6 podar knowledge-base index | nulo | 30min | decisão D6 |
+| 7 | B3 skill pipeline description | nulo | 30min | — |
+| 8 | B4 skill non-invention-guard | baixo | 2h | — |
+| 9 | B1+B2 atualizar DoD + Invariantes (este doc) | nulo | 1h | — |
+| 10 | C1 dispatch-guard adversarial + tests | médio | 4h | A3 (rule 40), criação do hook se ausente |
+| 11 | C2 force-pipeline-agents plan-mode + tests | médio | 4h | B1 |
+
+#### 12.4.6 Verificação do Slice 0.5
+
+1. Contexto carregado: `/cc-toolkit:cc-audit` em repo aberto. Lacunas P0 fechadas.
+2. Rules path-specific: editar arquivo em `agents/quality/`, confirmar rules 10/20/30 entram via globs.
+3. Hook adversarial: spawnar `adversarial-security-scanner`, tentar Read em `.pipeline-orchestrator/runs/test-fixture/artifacts/implementer-1.json`. Bloqueio com mensagem rule 40.
+4. Hook plan-mode: rodar `/pipeline-orchestrator:bugfix [task MEDIA]` sem `--no-plan`; primeiro Edit precedido de EnterPlanMode automático.
+5. Cosméticos: `plugin-dev:plugin-validator` sem warnings.
+
+### 12.5 Slice 1 — `/pipeline-orchestrator:bugfix` end-to-end
+
+**Valor:** usuário digita `/pipeline-orchestrator:bugfix [task]` e pipeline correto roda diretamente. TRACE básico gerado. Comando legacy `/pipeline` continua idêntico.
+
+**Duração:** ~1 sem solo. Cobre Problemas #1 e #4 parcialmente.
+
+**Prerequisite slices:** [0, 0.5, 2] (ordem D2 — TRACE.md já existe quando Slice 1 emite type_source).
+
+#### 12.5.1 BDD
+
+```gherkin
+Feature: Comando explícito /pipeline-orchestrator:bugfix
+
+Scenario: Usuário invoca bugfix command e pipeline correto roda
+  Given plugin pipeline-orchestrator v5.0-rc.1 instalado
+   And repositório com bug conhecido em src/auth.js
+  When usuário digita "/pipeline-orchestrator:bugfix login está quebrado"
+  Then controller pula classificação
+   And carrega references/pipelines/bugfix-light.md (ou heavy)
+   And executa diagnostic → root-cause → implementation → verification
+   And emite PIPELINE COMPLETE com type="bugfix" e type_source="manual"
+
+Scenario: Compat — comando legado idêntico
+  Given mesmo repositório
+  When usuário digita "/pipeline-orchestrator:pipeline login está quebrado"
+  Then classificador roda (task-orchestrator)
+   And classifica como type=bugfix
+   And restante idêntica ao v4.1.0
+
+Scenario: Modos ortogonais
+  Given plugin v5.0-rc.1
+  When usuário digita "/pipeline-orchestrator:bugfix --hotfix [task]"
+  Then pipeline em modo HOTFIX
+   And HOTFIX registrado no TRACE.md como mode="hotfix"
+   And type permanece "bugfix"
+
+Scenario: Discovery — /help mostra os 5 commands
+  Given plugin instalado
+  When usuário digita /help
+  Then lista inclui: pipeline, bugfix, e outros nos slices 3
+```
+
+#### 12.5.2 TDD — Testes RED primeiro
+
+```
+tests/slice1/
+├── unit/
+│   ├── command-bugfix.test.js
+│   │   - "carrega bugfix-light.md quando complexity=SIMPLES" → FAIL
+│   │   - "carrega bugfix-heavy.md quando complexity=COMPLEXA" → FAIL
+│   │   - "skipa task-orchestrator (classification)" → FAIL
+│   │   - "respeita --hotfix sem alterar type" → FAIL
+│   └── controller-type-injection.test.js
+│       - "passa type='bugfix' como parâmetro fixo" → FAIL
+└── integration/
+    └── e2e-bugfix-command.test.js
+        - "command em fixture-repo gera artefatos esperados" → FAIL
+        - "comando legado /pipeline em mesmo input gera mesmo verdict" → FAIL
+```
+
+#### 12.5.3 AIDD — Spec executável
+
+```yaml
+slice_id: 1
+title: "Command /pipeline-orchestrator:bugfix end-to-end"
+prerequisite_slices: [0, 0.5, 2]
+prerequisite_decisions:
+  - "Slice 0 confirmou: hooks PreToolUse podem inspecionar argumentos do Agent call"
+  - "Slice 0 inventário confirmou onde lógica de classificação reside"
+  - "Slice 2 estabeleceu schema do TRACE.md e quem escreve o quê"
+  - "Slice 0 criou agents/core/pipeline-controller.md com tools corretas (DoD #7)"
+
+files_to_create:
+  - path: "commands/bugfix.md"
+    purpose: "Slash command entry point. Frontmatter define description; body é prompt curto que invoca pipeline-controller passando pipeline_type='bugfix'."
+    constraints:
+      - "Não duplica lógica do controller — só passa o tipo fixo"
+      - "Aceita mesmos modos do /pipeline (--hotfix, --plan, --grill, --simples, --media, --complexa)"
+      - "type_source emitido segue enum fixo: 'manual via /pipeline-orchestrator:{bugfix|feature|audit|ux}' | 'auto via /pipeline'. Setado AQUI, NUNCA mutado por slices posteriores."
+      - "pipeline-controller é o ÚNICO escritor de gate-decisions.jsonl. Slice 2 (trace-generator) lê este arquivo."
+
+  - path: "skills/bugfix/SKILL.md"
+    purpose: "Skill auxiliar para auto-discovery. Thin — delega ao controller."
+
+files_to_modify:
+  - path: "agents/core/pipeline-controller.md"
+    change: "Aceitar parâmetro pipeline_type opcional. Se presente, skipa task-orchestrator."
+    backwards_compat: "Quando ausente, comportamento idêntico ao v4.1.0"
+
+  - path: ".claude/hooks/sentinel-hook.cjs"
+    change: "Reconhecer expected_next='information-gate' quando pipeline_type pré-definido"
+    note: "sentinel-hook.cjs é HOOK TEÓRICO — não existe atualmente [VERIFICADO]. Slice 0 deve criar ou Slice 0.5 documentar substituto."
+
+verification:
+  red_phase: "todos tests/slice1/ falham"
+  green_phase: "todos passam"
+  refactor_phase: "code-simplifier sem CRITICAL findings"
+  golden_snapshot: "Slice 4 captura output como baseline"
+```
+
+#### 12.5.4 Definition of Done
+
+- `commands/bugfix.md` existe e é descoberto via `/help`.
+- `skills/bugfix/SKILL.md` existe e auto-trigga em descrições de bug.
+- `pipeline-controller` aceita `pipeline_type` sem quebrar caminho legado.
+- Todos os testes do Slice 1 GREEN.
+- 1 PR atomico, mergeável independente.
+- Tag `v5.0.0-rc.2` (ou continua acumulando).
+
+### 12.6 Slice 2 — TRACE.md universal
+
+**Valor:** toda execução gera Run Record. **Default = repo do usuário** (`.pipeline-orchestrator/runs/`), opt-out para privado em `~/.claude/data/` via setting.
+
+**Duração:** ~1 sem solo. Cobre Problema #3 e parte de #2.
+
+**Prerequisite slices:** [0, 0.5].
+
+#### 12.6.1 BDD
+
+```gherkin
+Feature: Run Record persistido por execução
+
+Scenario: Run Record versionado por default
+  Given plugin v5.0-rc.2 sem customização
+  When pipeline (pipeline ou bugfix) completa
+  Then arquivo .pipeline-orchestrator/runs/{timestamp}-{6char}-{slug}/TRACE.md criado no repo
+   And contém todos campos do schema_version=1
+   And aparece em git status
+   And, se 1ª execução no repo, prompt one-time explica default + sugere .gitignore template
+
+Scenario: Opt-out para path privado
+  Given usuário adicionou pipeline-orchestrator.persist_runs: private em .claude/settings.json
+  When execução completa
+  Then TRACE.md em ~/.claude/data/pipeline-orchestrator/runs/{timestamp}-{6char}-{slug}/TRACE.md
+   And NÃO aparece em git status
+
+Scenario: TRACE.md captura trilha do classificador
+  Given classificador rodou em /pipeline
+  When TRACE.md é gerado
+  Then type_source = "auto via /pipeline"
+   And justification tem 2-3 frases explicando POR QUE classificado como bugfix
+   And complexity_source explica domains_touched
+
+Scenario: TRACE.md sobrevive update de plugin
+  Given TRACE.md em ~/.claude/data/
+  When plugin atualizado v5.0 → v5.1
+  Then TRACE.md acessível
+   And leitor v5.1 reconhece schema_version=1 como compatível
+```
+
+#### 12.6.2 TDD
+
+```
+tests/slice2/
+├── unit/
+│   ├── trace-generator.test.js
+│   │   - "path em .pipeline-orchestrator/runs/ por default" → FAIL
+│   │   - "path em ~/.claude/data/ quando persist_runs=private" → FAIL
+│   │   - "fallback é 'repo' quando setting ausente" → FAIL
+│   │   - "schema_version=1 sempre presente" → FAIL
+│   │   - "duration_seconds calculado corretamente" → FAIL
+│   │   - "user_identity fallback quando não em git repo" → FAIL
+│   └── trace-schema-validator.test.js
+│       - "rejeita TRACE com campo desconhecido" → FAIL
+│       - "rejeita TRACE com schema_version inválido" → FAIL
+└── integration/
+    └── trace-end-to-end.test.js
+        - "pipeline real gera TRACE válido" → FAIL
+        - "TRACE inclui Pipeline Definition snapshot" → FAIL
+```
+
+#### 12.6.3 AIDD — Spec
+
+```yaml
+slice_id: 2
+title: "Run Record (TRACE.md) universal"
+prerequisite_slices: [0, 0.5]
+
+decisions_locked:
+  - "Default = repo (.pipeline-orchestrator/runs/) — honra tese 'anexável a PR'"
+  - "Setting: pipeline-orchestrator.persist_runs: 'repo' (default) | 'private' (opt-out)"
+  - "Prompt one-time na 1ª execução por repo"
+  - "Schema versionado (schema_version: 1) desde dia 1"
+  - "trace_schema_version separado de plugin_version"
+
+files_to_create:
+  - path: "agents/core/trace-generator.md"
+    purpose: "Sub-agent invocado no final para escrever TRACE.md"
+    inputs:
+      - all phase outputs from PIPELINE_DOC_PATH
+      - sentinel-state.json (final)
+      - gate-decisions.jsonl (full)
+      - PROJECT_CONFIG.persist_runs setting
+    output: "TRACE.md no path determinado pela config"
+
+  - path: "references/trace-schema/v1.md"
+    purpose: "Schema canônico do TRACE.md v1"
+
+files_to_modify:
+  - path: "commands/pipeline.md e commands/bugfix.md"
+    change: "Adicionar etapa final que invoca trace-generator antes de PIPELINE COMPLETE"
+
+  - path: "settings.json schema (documentação)"
+    change: "Documentar pipeline-orchestrator.persist_runs"
+
+verification:
+  red_phase: "tests/slice2/ falham"
+  green_phase: "passam + manual smoke (rodar bugfix em fixture e abrir TRACE.md)"
+  user_validation_required: "PERGUNTAR ao primeiro adopter beta se TRACE.md em PR é útil ou ruído"
+```
+
+#### 12.6.4 Definition of Done
+
+- TRACE.md gerado em toda execução.
+- Default repo, opt-out privado documentado.
+- Schema validável por script standalone.
+- 2 entradas reais geradas em fixture-repo (uma /pipeline, uma /bugfix).
+- Tag `v5.0.0-rc.1`.
+
+### 12.7 Slice 3 — `/feature`, `/audit`, `/ux`
+
+**Valor:** 4 tipos têm comando explícito. Documentação `commands × modes` matrix publicada.
+
+**Duração:** ~0.5–1 sem.
+
+**Prerequisite slices:** [0, 0.5, 2, 1].
+
+#### 12.7.1 BDD paramétrico
+
+```gherkin
+Feature: Comandos explícitos para feature, audit, ux
+
+Scenario Outline: Cada command força seu tipo
+  Given plugin v5.0-rc.3
+  When usuário digita "/pipeline-orchestrator:<command> <task>"
+  Then pipeline correto carrega sem classificador
+   And TRACE.md registra type=<type> e type_source="manual via /pipeline-orchestrator:<command>"
+
+  Examples:
+    | command  | type    |
+    | feature  | feature |
+    | audit    | audit   |
+    | ux       | ux      |
+
+Scenario: Matrix commands × modes documentada
+  Given release v5.0
+  When usuário consulta docs/commands-modes-matrix.md
+  Then encontra tabela 5×8 marcando válidos/inválidos/sem-efeito
+   And exemplos para cada combinação não-trivial
+```
+
+#### 12.7.2 AIDD compacta
+
+```yaml
+slice_id: 3
+title: "Commands restantes (feature, audit, ux)"
+prerequisite_slices: [0, 0.5, 2, 1]
+pattern: "Idêntico ao Slice 1, repetido 3x"
+
+files_to_create:
+  - "commands/feature.md, commands/audit.md, commands/ux.md (3 thin)"
+  - "skills/feature/SKILL.md, skills/audit/SKILL.md, skills/ux/SKILL.md"
+  - "docs/commands-modes-matrix.md"
+  - "references/glossary/{feature,audit,ux}.md (3 glossários)"
+
+verification:
+  - "/help mostra 5 commands"
+  - "Cada um carrega seu pipeline"
+  - "Matrix doc cobre 40 cells"
+```
+
+#### 12.7.3 Definition of Done
+
+- 5 commands em `/help`.
+- Matriz documentada.
+- Tests Slice 3 GREEN.
+- 5 agentes domain-native restantes implementados (feature-slice-architect, feature-slice-implementer, audit-intake-mapper, audit-finding-classifier, ux-journey-walker, ux-improvement-proposer — total 6 sumando, 2 já feitos no Slice 1 = 7 dos 9 [erro: re-checar]). Nota: §7.1.1 lista 9 agentes; Slice 1 cobre 2 (bugfix-*); Slice 3 cobre 7 restantes.
+- Tag `v5.0.0-rc.3`.
+
+### 12.8 Slice 4 — Compat regression suite
+
+**Valor:** CI valida que `/pipeline-orchestrator:pipeline` continua produzindo o mesmo **contrato observável** em N cenários canônicos. Quebra trava merge.
+
+**Duração:** ~1.5–2 sem. Cobre Problema #5 parcialmente.
+
+**Prerequisite slices:** [0] (spike CI harness).
+
+#### 12.8.1 BDD
+
+```gherkin
+Feature: Compat regression suite
+
+Scenario: Snapshot de contrato observável (não prosa)
+  Given cenário canônico "fix-login-bug" em tests/compat/v4-baseline/scenarios/
+   And expected.yaml gerado a partir de execução em v4.1.0 contendo:
+       - classification: { type, complexity }
+       - gates_triggered: [lista ordenada com hardness]
+       - agents_invoked: [lista ordenada]
+       - artifacts_produced: [filenames apenas]
+       - verdict: GO | CONDITIONAL | NO-GO
+  When cenário executado em v5.0
+  Then todos campos batem
+   And texto literal de prompts/outputs intermediários é IGNORADO
+
+Scenario: Quebra de compat trava merge
+  Given PR que muda comportamento de classificação
+  When CI roda compat-suite e detecta divergência
+  Then merge bloqueado
+   And PR template pede justificativa explícita
+
+Scenario: Suite executável localmente em < 5 min
+  Given dev solo
+  When roda npm run test:compat
+  Then todos N cenários completam em < 5 min
+   And output mostra clearly quais passaram/divergiram
+```
+
+#### 12.8.2 AIDD — Spec
+
+```yaml
+slice_id: 4
+title: "Compat regression suite (escopo honesto)"
+prerequisite_slices: [0]
+critical_dependency: "SPIKE-CI-HARNESS.md PASS — sem isso, slice é redesenhado"
+
+decisions_locked:
+  - "Granularidade: contrato observável (4 campos), não prosa"
+  - "Cenários canônicos: 5 inicialmente (1 por type + 1 hotfix)"
+  - "CI runtime budget: < 5 min total"
+
+files_to_create:
+  - "tests/compat/v4-baseline/scenarios/{name}/input.md"
+  - "tests/compat/v4-baseline/scenarios/{name}/expected.yaml"
+  - "tests/compat/runner.cjs"
+  - ".github/workflows/compat-regression.yml"
+
+branch_on_spike_result:
+  PASS:
+    description: "claude headless funciona em GitHub Actions"
+    implementation: "runner.cjs invoca claude --headless e captura output real"
+    fidelity: "alta"
+  FAIL:
+    description: "CLI não roda headless ou é instável"
+    implementation: "runner.cjs usa mock harness — interceptador de Agent calls retornando fixtures"
+    fidelity: "média (testa controller, não LLM behavior)"
+    not_blocking: "Slice 4 prossegue com mock; documentar limitação"
+```
+
+#### 12.8.3 Definition of Done
+
+- 5 cenários canônicos rodando em CI.
+- Quebra de compat trava merge.
+- Suite < 5 min.
+- `tests/compat/README.md` explica como adicionar cenários.
+- Tag `v5.0.0` (release final).
+
+### 12.9 Slice 5 — YAML interpreter (COMMITTED v5.1, ≤ Q+2)
+
+**Status pós-iter 2 (D2:776–793):** **Compromisso firmado**, não condicional. Pilar (a) da tese ("pipeline declarativo") só fecha com este slice.
+
+**Janela:** ≤ 2 quarters após v5.0.
+
+**Resolução de contradição — YAML interpreter:** D1:262 colocava em v5.0 como C-2 (4–6 semanas, "coração do redesign"). D2 difere para v5.1 (Slice 5). **Consolidado adota D2:** em v5.0 shapes são markdown; YAML em v5.1 com bifurcação obrigatória.
+
+**Sinais de re-priorização (não cancelamento):** se durante v5.0 emergir evidência forte de que YAML é desnecessário (0 issues + autor não sentiu dor), reabrir decisão com novo design doc — não silenciosamente abandonar.
+
+#### 12.9.1 Bifurcação obrigatória se construído
+
+Auditoria identificou risco HIGH em "agent interpretando YAML LLM-style". Se Slice 5 acontecer, deve ser bifurcado:
+
+- **Camada determinística (hook JS + parser):** lê YAML, valida contra schema + allow-list, produz JSON estruturado. Agent **nunca** vê YAML cru.
+- **Camada LLM (agent):** recebe JSON pré-validado. Raciocina apenas dentro de constraints declaradas.
+
+#### 12.9.2 Esboço schema YAML (de D1:128–174)
+
+```yaml
+schema_version: 1
+name: bugfix
+description: Bug fix pipeline with diagnostic, root-cause analysis, fix, regression test
+
+complexity_branches:
+  SIMPLES:
+    phases: [diagnostic, implementation, verification]
+  MEDIA:
+    phases: [diagnostic, root-cause, implementation, verification]
+  COMPLEXA:
+    phases: [diagnostic, root-cause, implementation, verification, adversarial]
+
+phases:
+  diagnostic:
+    purpose: Reconnaissance and ranked hypothesis
+    agents: [bugfix-diagnostician]
+    gates_before: [INFO_GATE_BLOCKED]
+    artifacts: [DIAGNOSTIC_REPORT]
+
+  root-cause:
+    purpose: Confirm root cause with evidence chain
+    agents: [bugfix-rootcause-confirmer]  # nota: v5.1 agent
+    inputs: [DIAGNOSTIC_REPORT]
+    artifacts: [ROOT_CAUSE_RESULT]
+
+  implementation:
+    purpose: Apply minimal fix
+    agents: [executor-implementer-task]
+    inputs: [ROOT_CAUSE_RESULT]
+    gates_during: [TDD_APPROVAL]
+
+  verification:
+    purpose: Regression and adjacent-breakage check
+    agents: [bugfix-regression-tester]  # v5.1
+    gates_after: [CHECKPOINT_FAIL, FINAL_ADVERSARIAL_GATE]
+
+  adversarial:
+    purpose: Adversarial review on COMPLEXA tasks only
+    agents: [adversarial-reviewer]
+    gates_after: [ADVERSARIAL_GATE_MANDATORY]
+
+success_criteria:
+  - root_cause_documented
+  - regression_tests_pass
+  - sanity_check_passed
+```
+
+Esquema completo do Slice 5 fica fora deste documento (não é v5.0 scope).
+
+---
+
+## 13. TRACE.md Schema (schema_version=1)
+
+Origem: D1:200–243 + D2:506–608.
+
+Localização default: `.pipeline-orchestrator/runs/{YYYYMMDD-HHMMSS}-{6char-random}-{slug}/TRACE.md`. Sufixo aleatório evita colisão entre worktrees ou usuários simultâneos.
+
+Localização opt-out (privado): `~/.claude/data/pipeline-orchestrator/runs/{...}/TRACE.md` quando `pipeline-orchestrator.persist_runs: 'private'` em `.claude/settings.json`.
+
+### 13.1 Schema canônico
+
+```markdown
+# Pipeline Run: {slug}
+
+- trace_schema_version: 1                       # int
+- timestamp_utc: 2026-04-26T15:30:00Z          # ISO 8601 UTC
+- started_at: 2026-04-26T15:30:00Z
+- ended_at: 2026-04-26T15:42:31Z
+- duration_seconds: 751                         # int
+- plugin_version: 5.0.0                         # semver
+- user_identity: fernandoxavier02@github       # fonte: git config user.email se em repo, OS user fallback
+- branch: feature/v5-rc1                       # git branch atual ou "(no-git)"
+- repo: github.com/fernandoxavier02/Pipeline-Orchestrator   # git remote ou "(local)"
+- task: {task description}
+
+## Classification
+- type: bugfix
+- type_source: manual via /pipeline-orchestrator:bugfix    # OR auto via /pipeline
+- complexity: COMPLEXA
+- complexity_source: auto (rationale: domains_touched=3)
+- justification: {prose, 2-3 sentences}
+
+## Pipeline Definition (snapshot)
+{cópia integral do shape .md (v5.0) ou YAML (v5.1) carregado}
+
+## Execution Log
+### Phase: diagnostic
+- started_at: 2026-04-26T15:30:00Z
+- ended_at: 2026-04-26T15:32:14Z
+- agents: [bugfix-diagnostician]
+- gate_before: INFO_GATE_BLOCKED → PASS
+- artifacts_produced: [DIAGNOSTIC_REPORT]
+- status: SUCCESS
+- dispatch_mode: parallel | serial                          # NOVO Invariante #6 (por fase)
+- dispatch_decision_reason: {prose curta — por que paralelo ou serial nesta fase}
+- emergent_invocations: []                                  # ou lista com {agent, motivo, evidência}
+
+### Phase: root-cause
+... (idem, com dispatch_mode e dispatch_decision_reason próprios)
+
+## Final Verdict
+- status: SUCCESS | DONE_WITH_CONCERNS | BLOCKED
+- artifacts: [list of files modified, tests added]
+- open_issues: [...]
+- recommended_next: {prose}
+```
+
+**Nota:** cada fase registra seu próprio `dispatch_mode` — Invariante #6 exige granularidade por-fase, não top-level por execução. Pipelines reais alternam entre paralelo (fases com agentes independentes) e serial (fases com dependência entre agentes), e o TRACE.md precisa preservar essa distinção fase-a-fase para auditoria e debugging.
+
+### 13.2 Versionamento e retenção
+
+`trace_schema_version` permite que TRACEs gerados em v5 sejam lidos por v5.1+. Política de retenção: TRACEs ficam indefinidos (são pequenos, são versionados em git); usuário decide com `.gitignore` ou cleanup manual. v5.0 não implementa rotation.
+
+---
+
+## 14. Security Model
+
+Origem: D1:316–326 + D3:130–146 (rule 40).
+
+### 14.1 Allow-list
+
+YAML/markdown loader (e seus equivalentes em v5.0 markdown shapes) é nova superfície de ataque. Se atacante corrompe `references/pipelines/feature.md`, ele muda o fluxo de execução.
+
+Mitigações em v5.0:
+
+- **Allow-list de phase ids, agent names, gate names** — loader rejeita qualquer valor fora do conjunto registrado em `references/gates/registry.md` (Slice 0.5) e `AGENTS.md` (Slice 0.5 A2).
+- **Schema validation** com `schema_version` checagem (v5.1 quando YAML).
+- **YAML loader em modo seguro** (sem `!!python/object` ou tags equivalentes) — v5.1.
+- **Anti-injection invariant atualizado**: shapes em `references/pipelines/` continuam sendo DATA, não authoritative — controller interpreta, não executa código embutido.
+- **PR review obrigatório em mudanças de `references/pipelines/`** via CODEOWNERS.
+
+### 14.2 Adversarial zero-context (rule 40, de D3)
+
+Adversarial agents proibidos de ler `.pipeline-orchestrator/runs/<id>/artifacts/implementer-*.{json,md}` durante o mesmo run.
+
+Enforcement: hook `dispatch-guard.cjs` (Slice 0.5 C1). Documentado em `.claude/rules/40-adversarial-zero-context.md` com glob `agents/executor/type-specific/adversarial-*.md`.
+
+### 14.3 Threat model formal
+
+Para plugin solo OSS pré-1.0, mitigações inline (allow-list, schema validation, hook de bloqueio) bastam. Documento formal `docs/security-model-v5.md` só se usuário corporativo aparecer.
+
+---
+
+## 15. Bug Arquitetural Conhecido — pipeline-controller sem tool Agent quando subagentado
+
+**Status nos 3 docs:** NÃO MENCIONADO em D1, D2 nem D3.
+
+**Origem:** descoberto durante dogfooding em 2026-04-29.
+
+### 15.1 Sintoma & evidência
+
+`pipeline-controller`, quando spawnado como subagente via `subagent_type=pipeline-orchestrator:core:pipeline-controller`, **NÃO recebe a tool `Agent`/`Task` automaticamente** — então não consegue spawnar os N2 (`task-orchestrator`, `information-gate`, etc.). Quebra toda cascata v4.
+
+Evidência cirúrgica: tentativa de spawn aninhado em sessão de dogfooding 2026-04-29 retornou InputValidationError — controller não tinha permissão para invocar Agent tool.
+
+### 15.2 Hipótese de causa-raiz
+
+[HIPOTESE] Claude Code harness não propaga `Agent`/`Task` para subagente a menos que esteja explicitamente declarada em `tools:` no frontmatter do agent `.md`. v5 introduz `pipeline-controller` como agente N1 que dispatch os N2. O agente ainda não foi criado na codebase (ver §16 erro #1). Quando for criado, se o frontmatter `tools:` não declarar explicitamente `Agent` (ou `Task`), o harness não propagará a tool para o subagente — e o controller ficará sem capacidade de spawnar N2. O bug se manifesta na criação do agent v5, não no v4 atual (que usa `task-orchestrator` direto via slash command).
+
+### 15.3 Critério #7 de Definition of Done (NOVO)
+
+`pipeline-controller` declara `tools: [Agent, Task, Read, Write, Bash, Glob, Grep, AskUserQuestion]` em frontmatter, e Slice 0 valida com smoke test que spawn aninhado funciona end-to-end.
+
+Adicionado a §8 como Critério #7.
+
+### 15.4 Validação obrigatória no Slice 0 smoke test
+
+Cenário BDD adicionado a §12.3.1:
+
+```gherkin
+Scenario: Spawn aninhado funciona end-to-end (NOVO §15)
+  Given pipeline-controller agent criado com tools [Agent, Task, ...]
+  When controller spawna task-orchestrator que spawna information-gate
+  Then cascata completa sem InputValidationError
+   And SPIKE-NESTED-SPAWN.md documenta resultado
+```
+
+Output: `SPIKE-NESTED-SPAWN.md` adicionado ao Slice 0 DoD.
+
+### 15.5 Atualização da Invariante #6
+
+Acrescentado em §9: "validar antes de cada execução que o controller herda Agent/Task tools — sem isso, dispatch falha silenciosamente".
+
+---
+
+## 16. Erros de Baseline a Corrigir no Slice 0
+
+Auditoria 2026-04-29 contra repo canonical revelou 10 itens. Todos devem ser endereçados no Slice 0 (criação) ou Slice 0.5 (ajuste de docs/policies).
+
+| # | Erro | Origem nos docs | Real | Slice owner |
+|---|---|---|---|---|
+| 1 | `pipeline-controller` agent não existe em `agents/core/` | D1, D2, D3 assumem existência (D1:176, D2:148, D3:175) | **Ausente** [VERIFICADO] | **Slice 0 P0** — criar com tools corretas (§15) |
+| 2 | 5 dos 7 hooks referenciados não existem (`sentinel-hook`, `dispatch-guard`, `session-lock-hook`, `edit-guard-hook`, `session-cleanup-hook`) | D1:184–188, D3:132 | Existem apenas `completion-checklist.cjs` e `force-pipeline-agents.cjs` [VERIFICADO] | **Slice 0** auditar; **Slice 0.5 C1/C2** criar `dispatch-guard.cjs` e estender `force-pipeline-agents.cjs` |
+| 3 | Versão do plugin = 4.1.x assumida | D1:5, D1:264, D2 (toda referência), D3:181 | **plugin.json declara 3.0.2; README 3.1.0** [VERIFICADO] | **Slice 0.5 D3** alinhar |
+| 4 | Contagem de agentes = 38 | D1:12 | **19 agentes** [VERIFICADO] | **Slice 0** auditar e atualizar AGENTS.md (Slice 0.5 A2) |
+| 5 | `commands/pipeline.md` ~1100 linhas | D1:262 | **957 linhas** [VERIFICADO]; D2 reality-check também errado ao dizer 38 | **Slice 0** atualizar INVENTORY.md |
+| 6 | Pipelines `.md` = 12 | D2 (reality-check seção, implícito) | **10 pipelines `.md`** [VERIFICADO] | **Slice 0** atualizar INVENTORY.md |
+| 7 | `agents/core/sentinel.md` referenciado em D3:173 | D3:173 (D2 padronização tools) | **Não existe** [VERIFICADO] | **Slice 0** auditar; remover referência D3 ou criar agent |
+| 8 | `agents/executor/type-specific/` subdiretório referenciado em D3:160 (5 agents `color: orange`) | D3:160–168 | **Subdiretório não existe** [VERIFICADO]; os 5 agents listados são fantasmas | **Slice 0** auditar e atualizar D3 lista; Slice 0.5 D1 só roda em arquivos que efetivamente existem |
+| 9 | 15 gates implícitos em D1 sem SSOT em `references/gates/registry.md` | D1:86 (lista) | **registry.md não existe** [VERIFICADO] | **Slice 0.5** criar registry com hardness taxonomy (§11.3) |
+| 10 | COMPLEXITY_GATE proposto em D2 sem taxonomia formal de hardness | D2:185–192 | **`references/gates/` ausente** [VERIFICADO] | **Slice 0.5** formalizar taxonomy (§11.4) |
+
+### 16.1 Implicação macro
+
+Os 10 erros sugerem que design docs foram empilhados em cima de baseline assumido (provavelmente cópia mental de plugin similar ou versão antiga não-mainline) sem nunca terem sido validados contra `D:\Pipeline Orchestrator Claude\Pipeline-Orchestrator` real. Slice 0 + Slice 0.5 fazem reconciliação. Sem isso, qualquer Slice 1+ vai bater em paredes.
+
+---
+
+## 17. Open Questions Residuais
+
+Origem: D2:850–856 (Q1–Q5 originais decididos) + D3:259–264 (4 residuais).
+
+### 17.1 Decididas (registradas para histórico)
+
+| Q original | Status |
+|---|---|
+| Q1 (D1): `/pipeline` continua entry point principal ou fallback? | **Decidido (status quo, com risco aceito)**: ambos válidos como peers. Re-avaliar pós-release. |
+| Q2 (D1): Modos preservados em todos os 5 commands? | **Decidido**: sim, todos preservados; matriz Slice 3 marca os sem-efeito. |
+| Q3 (D1): YAML loader estrito ou permissivo? | **Adiada para Slice 5 (v5.1)**. |
+| Q4 (D1): TRACE.md repo ou privado? | **Decidido iter 2**: REPO por default, opt-out privado via setting. |
+| Q5 (D1): Comportamento em downgrade v5→v4? | **Decidido**: TRACE.md é só markdown que v4 ignora. Documentar em migration guide. |
+
+### 17.2 Residuais (de D3)
+
+1. **D4 — manter `autoDiscover: true` ou remover?** Inclinação: remover se nenhum loader proprietário consome.
+2. **D6 — podar knowledge-base ou completar?** Inclinação: podar (falsa completude é pior).
+3. **Slice 0.5 paraleliza com Slice 0?** Possível, zero overlap de arquivos. Decisão do dono.
+4. **MEMORY.md raiz — descartado mesmo?** Confirmação: TRACE.md per-run cobre. Decisões arquiteturais persistentes vivem em `designs/` (apropriado).
+
+### 17.3 Novas (surgidas na consolidação)
+
+5. **§16 erro #7/#8 — recriar agents fantasmas ou apagar referências?** Os 5 agents `color: orange` em D3:160 e o `sentinel.md` em D3:181 podem ser (a) fantasmas que precisam ser criados, (b) referências erradas que devem ser removidas dos docs. Slice 0 audita e decide.
+6. **Critério #7 (§15) — pipeline-controller é o ÚNICO agente com bug de tools propagation, ou outros agentes core também?** Slice 0 SPIKE-NESTED-SPAWN deve testar `task-orchestrator`, `information-gate`, `trace-generator` também.
+
+---
+
+## 18. Distribution Plan
+
+Origem: D1:304–312, ajustado para incluir Slice 0.5.
+
+- **Release:** tag `v5.0.0` no GitHub, precedido por `v5.0.0-rc.1` (após Slice 1) com 1–2 semanas de feedback antes de cada rc subsequente. Final `v5.0.0` após Slice 4 com todos 7 critérios DoD verdes.
+- **Migration guide:** `docs/migration-v4-to-v5.md` cobrindo: quando usar `/pipeline` vs commands específicos, formato do TRACE.md, mudanças em hooks (incluindo novos C1/C2 do Slice 0.5), onde TRACEs ficam, como o Slice 0.5 ajustou cosméticos D1–D6.
+- **CHANGELOG:** entrada por Slice (0, 0.5, 1, 2, 3, 4). Inclui menção da milestone v5.1 (DoD #5).
+- **Anúncio:** Discord do Claude Code, comunidades de plugin, fóruns DevOps/SRE.
+- **Blog post técnico:** "Como o pipeline-orchestrator virou caixa de vidro" — diagrama antes/depois, exemplo de TRACE.md anexado a PR. Idealmente publicado simultâneo com release.
+- **Issue templates:** `bug`, `pipeline-feedback`, `audit-trail-request`.
+- **CI/CD:** GitHub Actions roda compat regression suite (Slice 4) em PR; merge bloqueado se algum snapshot diverge.
+
+### 18.1 Beta interno
+
+- Rodar `/pipeline-orchestrator:audit` em projeto próprio.
+- Validar TRACE.md anexável a PR.
+- Confirmar que Slice 0.5 hooks (dispatch-guard adversarial, plan-mode-enforcer) bloqueiam corretamente.
+
+---
+
+## 19. Apêndice A — Histórico de iterações
+
+### 19.1 Componentes C-1..C-6 originais (OBSOLETOS)
+
+D1:96–266 propunha decomposição horizontal:
+
+- **C-1.** Refactor multi-command + multi-skill (1 sem)
+- **C-2.** Pipeline-as-YAML interpreter (4–6 sem) — coração do redesign
+- **C-3.** Refactor dos 7 hooks (1–2 sem)
+- **C-4.** TRACE.md generator (1 sem)
+- **C-5.** Compat regression suite CI integration (0.5 sem)
+- **C-6.** Histórico consultável (`audit --use-history`, 0.5 sem)
+
+**Total D1:** 11–16 semanas (D1:268).
+
+**Substituído por** Slices 0–5 (este doc §12) com total 4.5–7.5 semanas para v5.0 + 6–8 semanas para v5.1. Razão da substituição: D2 mostrou que organização horizontal é boil the ocean para dev solo; vertical é incremental e shippeável independentemente.
+
+C-1..C-6 não são executáveis. Preservados aqui para rastreabilidade.
+
+### 19.2 Decisões revertidas
+
+- **TRACE.md default:** D1:282 inclinava para repo do usuário; iter 1 do review proposto privado; iter 2 reverteu para repo (default sem opt-in) — ver §8.1.
+- **Esforço total v5.0:** D1:268 dizia 11–16 sem; D2:293 reduziu para 4–7 sem; consolidado pós-Slice-0.5 = 4.5–7.5 sem.
+- **YAML interpreter em v5.0 vs v5.1:** D1 o colocava em v5.0; D2 deferiu para v5.1; consolidado adota D2.
+- **Naming agente bugfix-diagnostician:** D1 dizia `bugfix-diagnostic-agent`; D2 dizia `bugfix-diagnostician`; consolidado adota D2.
+
+### 19.3 Reviewer Concerns residuais (D1:358–365)
+
+Itens MEDIUM/LOW intencionalmente fora do escopo do v5.0:
+
+- **Observabilidade live (Problema #3)** — endereçada parcialmente por TRACE.md *post hoc*. Visualização durante execução em v5.2 (Inspector).
+- **Plugin update sobrescrevendo cache** — mitigado pelo TRACE.md morar no repo do usuário, fora de `~/.claude/plugins/cache/`.
+- **Auto-discovery em `/help`** — verificar UX após release.
+- **Migração assistida dos 12 .md para YAML** — manual em v5.0; ferramentas em v5.1 se necessário.
+
+### 19.4 Review Metrics (D1:368–373)
+
+- Iteração 1 do design original: 5/10 (baseline) → revisão substancial aplicada.
+- Issues HIGH originais: 12. Endereçados: 12. Residuais: 0.
+- Issues MEDIUM originais: 11. Endereçados: 7. Movidos pra Reviewer Concerns: 4.
+- Issues LOW: 2. Endereçados: 2.
+- Quality score esperado pós-iteração: 7–8/10.
+
+### 19.5 What I noticed about how you think (D1:346–356)
+
+Observações da sessão original preservadas para contexto autoral. Não afetam decisões técnicas. (Resumo: builder revisita o próprio trabalho com olho de fora; descreve caos próprio antes de fantasia; segue argumento sem casamento; escolhe persona difícil porque sabe que ela importa.)
+
+### 19.6 What fica fora deste plano (D2:860–866)
+
+- Detalhamento de Slice 5 — depende do gatilho pós-release.
+- Distribution plan técnico em `docs/release-plan-v5.md` separado.
+- Threat model formal — só se usuário corporativo aparecer.
+- Inspector pré-execução — v5.2.
+- Golden runs completas — Slice 4 é minimal disso; versão completa em v5.1.
+
+---
+
+## 20. Apêndice B — Cross-reference D1/D2/D3 → seções consolidadas
+
+| Seção original | Linhas | Absorvida em |
+|---|---|---|
+| **D1** Problem Statement | 10–20 | §1 |
+| **D1** What Makes This Cool | 22–32 | §2 |
+| **D1** Constraints | 34–41 | §3 |
+| **D1** Premises | 43–51 | §4 |
+| **D1** Approaches Considered | 54–66 | §6.1 |
+| **D1** Recommended Approach (alto nível) | 68–77 | §6.2 |
+| **D1** Pré-requisitos P-1/P-2/P-3 | 79–94 | §12.3 (Slice 0) absorve P-2/P-3; P-1 schema vai pra Slice 5 |
+| **D1** Componentes C-1..C-6 | 96–266 | §19.1 (OBSOLETO) |
+| **D1** Effort Estimate (11–16 sem) | 256–272 | §0 (4.5–7.5 sem) + §19.2 (revertida) |
+| **D1** Open Questions Q1–Q5 | 274–284 | §17.1 (todas decididas) |
+| **D1** Success Criteria | 286–302 | §8 (DoD 7 critérios) |
+| **D1** Distribution Plan | 304–312 | §18 |
+| **D1** Security Model | 314–326 | §14 |
+| **D1** Next Steps | 328–344 | §12 (sequência Slices) |
+| **D1** What I noticed | 346–356 | §19.5 |
+| **D1** Reviewer Concerns | 358–366 | §19.3 |
+| **D1** Review Metrics | 368–373 | §19.4 |
+| **D2** Definition of v5.0 Done (5 critérios) | 11–22 | §8 (5 originais + #6 D3 + #7 §15) |
+| **D2** Cherry of the Cake | 25–34 | §7.4 |
+| **D2** Metodologias TDD+BDD+DDD+AIDD | 37–45 | §7 (mencionado em invariantes), §12 (BDD em cada slice) |
+| **D2** Invariantes (5) | 48–60 | §9 (5 + #6 D3) |
+| **D2** Layer 1 — agentes domain-native | 64–101 | §7.1 |
+| **D2** Layer 2 — pipeline shapes | 104–198 | §7.2 |
+| **D2** Layer 3 — ai-dev-team cross-cutting | 202–232 | §7.3 |
+| **D2** Light/Heavy & COMPLEXITY_GATE | 236–280 | §10 + §11.2 |
+| **D2** Por que slices verticais | 284–293 | §12.1 |
+| **D2** Slice 0 (spike) | 297–374 | §12.3 |
+| **D2** Slice 1 (/bugfix) | 378–502 | §12.5 |
+| **D2** Slice 2 (TRACE.md) | 506–616 | §12.6 |
+| **D2** Slice 3 (/feature, /audit, /ux) | 620–682 | §12.7 |
+| **D2** Slice 4 (compat suite) | 686–772 | §12.8 |
+| **D2** Slice 5 (YAML interpreter) | 776–793 | §12.9 |
+| **D2** Sequência recomendada | 795–826 | §12.2 |
+| **D2** Como AIDD funciona | 830–844 | §7.4 e §12 (BDD specs) — mencionado contextual |
+| **D2** Open Questions endereçadas | 850–856 | §17.1 |
+| **D2** O que fica fora | 860–866 | §19.6 |
+| **D2** Próximos passos imediatos | 870–882 | §18 + §12 |
+| **D3** Por que existe / Posicionamento | 11–32 | §12.4 (Slice 0.5 introdução) |
+| **D3** A1 CLAUDE.md raiz | 40–54 | §12.4.1 |
+| **D3** A2 AGENTS.md raiz | 56–70 | §12.4.1 |
+| **D3** A3 .claude/rules/ | 72–86 | §12.4.1 |
+| **D3** B1 Critério #6 plan-mode | 88–94 | §8 (Critério #6) + §12.4.2 |
+| **D3** B2 Invariante #6 paralelização | 98–102 | §9 (Invariante #6) + §12.4.2 |
+| **D3** B3 Skill pipeline description | 104–116 | §12.4.2 |
+| **D3** B4 Skill non-invention-guard | 118–124 | §12.4.2 |
+| **D3** C1 dispatch-guard adversarial | 130–148 | §12.4.3 + §14.2 |
+| **D3** C2 force-pipeline-agents plan-mode | 150–156 | §12.4.3 |
+| **D3** D1–D6 cosméticos & dívida | 158–201 | §12.4.4 (com correções de baseline) |
+| **D3** Mudanças nos docs V5 existentes | 205–213 | §12.4 (Slice 0.5 escopo) |
+| **D3** Sequência execução Slice 0.5 | 217–237 | §12.4.5 |
+| **D3** Verificação Slice 0.5 | 241–256 | §12.4.6 |
+| **D3** Open Questions residuais | 259–264 | §17.2 |
+| **D3** Status | 268–275 | (não migra — meta-status do D3) |
+| **NOVO §15** Bug arquitetural pipeline-controller | — | §15 (descoberto 2026-04-29, não em D1/D2/D3) |
+| **NOVO §16** Erros de baseline | — | §16 (10 itens reconciliados contra repo real 2026-04-29) |
+
+---
+
+## Status final
+
+DRAFT consolidado pronto para revisão do dono. Após aprovação:
+
+1. Este documento substitui D1/D2/D3 como SSOT do design v5.0.
+2. D1/D2/D3 NÃO são deletados — ficam em `designs/` como histórico.
+3. Iniciar **Slice 0** com foco em criar `pipeline-controller.md` com tools corretas (§15) + auditar baseline real (§16).
+4. **Slice 0.5** começa após Slice 0 fechar (ou em paralelo se dono optar — Open Question §17.2 #3).
+5. Cada Slice subsequente segue a ordem 0 → 0.5 → 2 → 1 → 3 → 4 → tag v5.0.0 → 5 → tag v5.1.0.
