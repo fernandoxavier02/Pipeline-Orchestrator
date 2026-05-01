@@ -17,8 +17,9 @@
 // ============================================================
 
 // Padrões de SKILLS - usa skill, não precisa de orchestrator externo
+// v4.2: bugfix/feature/userstory/audit/ux added — thin entry-points to pipeline-controller.
 const SKILL_PATTERNS = [
-  /^\/(context|commit|code-review|fix|verify|deploy|qa|test|pipeline)/i,
+  /^\/(context|commit|code-review|fix|verify|deploy|qa|test|pipeline|bugfix|feature|userstory|audit|ux)/i,
   /^\/kiro:/i,
   /^\/prompts:/i,
   /^\/vertical/i,
@@ -210,7 +211,8 @@ process.stdin.on('end', () => {
 
     // 2. Se é skill → passa direto (skill tem seu próprio fluxo)
     if (isSkillCommand(prompt)) {
-      const isPipelineSkill = /^\/(pipeline-orchestrator:pipeline|pipeline)\b/i.test(prompt.trim());
+      // v4.2: thin entry-points (bugfix/feature/userstory/audit/ux) trigger same PIPELINE_SKILL_MESSAGE
+      const isPipelineSkill = /^\/(pipeline-orchestrator:(pipeline|bugfix|feature|userstory|audit|ux)|pipeline|bugfix|feature|userstory|audit|ux)\b/i.test(prompt.trim());
       console.log(JSON.stringify({
         continue: true,
         systemMessage: isPipelineSkill ? PIPELINE_SKILL_MESSAGE : SKILL_MESSAGE
