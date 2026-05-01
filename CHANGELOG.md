@@ -5,6 +5,38 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.4.0] - 2026-05-01
+
+Minor release implementing **Slice 1.5**: imports the prescriptive 11-step Heavy and 8-step Light bugfix workflows from Pulsar (`D:\Projeto Pulsar\.claude\commands\Prompts\Bug_fix\`) as Claude Code skills, closing 6 audit gaps identified in v4.3.1 review. Design: `designs/pipeline-orchestrator-v5-consolidated.md` §21.
+
+### Added
+
+- `skills/bugfix-light/` — 8-step prescriptive workflow for SIMPLES/MEDIA bugs (`SKILL.md` + 8 `steps/0X-*.md` + `tests/`)
+- `skills/bugfix-heavy/` — 11-step prescriptive workflow for COMPLEXA bugs (`SKILL.md` + 11 `steps/0X-*.md` + `tests/`)
+- 6 audit gaps closed:
+  - Heavy 3 (Domain Truth Model — invariants/property/transactional)
+  - Heavy 9 (UX Journey post-fix E2E)
+  - Heavy 11 (Final Validation distinct from Pa de Cal)
+  - Light 3 (invariants BEFORE change)
+  - Light 5 (RED→regression promotion)
+  - Light 6 (Persistence Quick Check)
+- 8 enforcement rules baked into skill+step frontmatter (`sequence_lock`, `execution_mode` lock, `agent_type` whitelist, output schema, AskUserQuestion gates, STOP RULE, audit log, sentinel checkpoints)
+
+### Changed
+
+- `skills/bugfix/SKILL.md`: detects `--light`/`--heavy` flags + delegates to backing skill
+- `agents/core/pipeline-controller.md`: variant override + skill dispatch after Phase 1
+- `agents/core/task-orchestrator.md` Step 1a: `force_variant` parallel to `force_type`
+- `commands/pipeline.md`: `--light`/`--heavy` rows in Modes table
+- `references/pipelines/bugfix-{light,heavy}.md`: pointer-header note to new skills
+- `.claude-plugin/plugin.json`, `marketplace.json`, `hooks/hooks.json`: bumped to 4.4.0
+
+### Backward compat
+
+- `/pipeline-orchestrator:bugfix [task]` (no flag) keeps auto-classify behavior
+- `/pipeline-orchestrator:pipeline [task]` keeps existing flags (`--simples`/`--media`/`--complexa`)
+- 3 type-specific bugfix-* agents (`bugfix-diagnostic-agent`, `bugfix-root-cause-analyzer`, `bugfix-regression-tester`) remain invocable in `pipeline-orchestrator:executor:type-specific:` namespace
+
 ## [4.3.1] - 2026-05-01
 
 Patch release driven by adversarial review of v4.3.0 skill migration.

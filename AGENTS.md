@@ -111,8 +111,8 @@ Plugin v4.3.1 has **2 skills**; v4.4.0 will add 2 more (Slice 1.5):
 |---|---|---|---|
 | `pipeline` | Shipped v4.3.1 | `skills/pipeline/SKILL.md` | Full pipeline classifier; entry for /pipeline-orchestrator:pipeline |
 | `bugfix` | Shipped v4.3.0+v4.3.1 | `skills/bugfix/SKILL.md` | Thin entry pre-fixes task_type=Bug Fix |
-| `bugfix-light` | **Planned v4.4.0** | `skills/bugfix-light/` | 8 prescriptive steps from Pulsar workflow (consolidated §21) |
-| `bugfix-heavy` | **Planned v4.4.0** | `skills/bugfix-heavy/` | 11 prescriptive steps from Pulsar workflow (consolidated §21) |
+| `bugfix-light` | 🟢 Shipped v4.4.0 | `skills/bugfix-light/` | 8 prescriptive steps from Pulsar workflow (consolidated §21) |
+| `bugfix-heavy` | 🟢 Shipped v4.4.0 | `skills/bugfix-heavy/` | 11 prescriptive steps from Pulsar workflow (consolidated §21) |
 
 ## Versão deste arquivo
 
@@ -120,3 +120,4 @@ Plugin v4.3.1 has **2 skills**; v4.4.0 will add 2 more (Slice 1.5):
 |---|---|---|
 | v1.0 | 2026-04-30 | Inicial — pós-sync 4.1.3 (Slice 0.5 A2). 38 agents catalogados. |
 | v1.1 | 2026-05-01 | Skills inventory section adicionada (2 shipped + 2 planned for Slice 1.5/v4.4.0). |
+| v1.2 | 2026-05-01 | Slice 1.5 skills shipped (`bugfix-light` + `bugfix-heavy` 🟢 Shipped v4.4.0). |

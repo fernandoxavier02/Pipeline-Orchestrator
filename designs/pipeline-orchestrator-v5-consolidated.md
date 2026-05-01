@@ -4,11 +4,11 @@
 
 - **Data inicial:** 2026-04-29
 - **Última revisão:** 2026-05-01 (Slice 1.5 design adicionado §21)
-- **Status:** DRAFT consolidado — Slices 0+0.5+1 ENTREGUES (v4.3.1); Slice 1.5 DESIGN APROVADO (§21); Slices 2-4 PENDENTES
+- **Status:** DRAFT consolidado — Slices 0+0.5+1+1.5 ENTREGUES (v4.4.0); Slices 2-4 PENDENTES
 - **Supersedes:** D1 (`pipeline-orchestrator-v5-pipeline-as-code.md`), D2 (`pipeline-orchestrator-v5-execution-vertical-slices.md`), D3 (`pipeline-orchestrator-v5-addendum-context-and-policies.md`) — todos arquivados em `designs/legacy/`.
 - **SSOT:** este documento. Em caso de divergência com D1/D2/D3, ESTE prevalece.
 - **Reality-check baseline:** verificado em 2026-04-29 contra repositório canonical. Em 2026-04-30, canonical foi sincronizado de v3.0.2 para v4.1.3 e em seguida bumpado para v4.2.0 (Slice 1) + v4.2.1 (SEC patch) + v4.3.0 (skill migration) + v4.3.1 (review polish). Em 2026-05-01, design Slice 1.5 fechado em §21 (Pulsar bugfix workflow import). Ver `designs/slice-0/INVENTORY.md` para baseline pós-execução.
-- **Versão atual no marketplace:** **v4.3.1** (`/pipeline-orchestrator:pipeline` + `/pipeline-orchestrator:bugfix` shipados como skills). Próximo release planejado: **v4.4.0** (Slice 1.5 — workflows prescritivos importados do Pulsar; design §21).
+- **Versão atual no marketplace:** **v4.4.0** (Slice 1.5 entregue 2026-05-01 — Pulsar bugfix workflow import; ver §21).
 - **Repositório:** github.com/fernandoxavier02/Pipeline-Orchestrator
 - **Modo de redação:** Builder + consolidação adversarial.
 - **Esforço já consumido:** ~1 dia solo (2026-04-30) — sync 4.1.3 + Slice 0.5 + Slice 1 + patch SEC.
@@ -502,7 +502,7 @@ Slices verticais invertem: cada slice atravessa todas as camadas necessárias pa
 Slice 0     Spike formato + agent-spec-template            🟢 ENTREGUE (sync 4.1.3)
 Slice 0.5   Context & Policies                              🟢 ENTREGUE (v4.2.0)
 Slice 1     /bugfix command + thin entry-point pattern      🟢 ENTREGUE (v4.2.0 + v4.2.1 + v4.3.0 + v4.3.1)
-Slice 1.5   Pulsar bugfix workflow import (§21)             🟡 DESIGN APROVADO 2026-05-01 (target v4.4.0)
+Slice 1.5   Pulsar bugfix workflow import (§21)             🟢 ENTREGUE (v4.4.0)
 Slice 2     TRACE.md (Run Record)                           🔴 PENDENTE (1 sem)
 Slice 3     /feature, /userstory, /audit, /ux + ARCH-2 fix  🔴 PENDENTE (0.5-1 sem)
 Slice 4     Compat regression suite + CI test runner        🟡 PARCIAL (1.5-2 sem)
