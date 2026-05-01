@@ -1,6 +1,6 @@
 # Gate System Reference
 
-> **SSOT** for gate definitions — hardness taxonomy and the 15-gate registry. `commands/pipeline.md` Grep-redirects here when it needs the full table with trigger conditions and recovery actions. Operational audit mechanics (Phase Transition Summary block template, Gate Decision Log JSONL format + parse/sanitization rules) live in `references/audit-trail.md` — they evolve independently from gate definitions. If you change gate hardness levels or registry rows, update this file; downstream tooling parses it.
+> **SSOT** for gate definitions — hardness taxonomy and the 16-gate registry. `commands/pipeline.md` Grep-redirects here when it needs the full table with trigger conditions and recovery actions. Operational audit mechanics (Phase Transition Summary block template, Gate Decision Log JSONL format + parse/sanitization rules) live in `references/audit-trail.md` — they evolve independently from gate definitions. If you change gate hardness levels or registry rows, update this file; downstream tooling parses it.
 
 ---
 
@@ -26,6 +26,7 @@ Each gate has a formal **hardness** level that determines enforcement behavior:
 | INFO_GATE_BLOCKED | **HARD** | Critical information gap | **BLOCK** Phase 0 | Answer questions |
 | TDD_APPROVAL | **HARD** | Tests need approval | **BLOCK** until approved | User approves |
 | PLAN_REJECTED | **HARD** | User rejects implementation plan | **RETURN** to Phase 1 | Re-classify or exit |
+| COMPLEXITY_GATE | **SOFT** | User overrides classifier (`--simples` on COMPLEXA task, etc.) OR classifier confidence below threshold | **ASK** — confirm override or accept classifier | User confirms override (logged) or accepts classification |
 | STOP_RULE | **CIRCUIT_BREAKER** | 2 consecutive failures | **STOP pipeline** | Escalate to user |
 | FIX_LOOP_EXHAUSTED | **CIRCUIT_BREAKER** | 3 fix attempts failed | **STOP pipeline** | Propose alternatives |
 | STALE_CONTEXT | **SOFT** | `/pipeline continue` with context > 24h | **ASK** — revalidate? | Re-run Phase 0 or proceed |
