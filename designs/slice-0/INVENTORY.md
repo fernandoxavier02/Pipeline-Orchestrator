@@ -8,15 +8,16 @@
 
 ---
 
-## 1. Contagem REAL pós-sync (4.1.3)
+## 1. Contagem REAL pós-sync + Slice 1 (4.2.1)
 
-| Métrica | D1/D2/D3 alegavam | INVENTORY v1 (3.0.2) | **Real pós-sync (4.1.3)** | Verificado em |
+| Métrica | D1/D2/D3 alegavam | INVENTORY v1 (3.0.2) | **Real atual (4.2.1)** | Verificado em |
 |---|---|---|---|---|
 | `commands/pipeline.md` linhas | ~1100 | 957 | **1112** | `wc -l commands/pipeline.md` |
+| `commands/*.md` count (entry-points) | 1 (assumido) | 1 | **2** (pipeline + bugfix) | `ls commands/` |
 | `agents/**/*.md` arquivos | 38 | 19 | **38** ✅ | `find agents -name "*.md"` |
 | Hooks `.cjs` em `.claude/hooks/` | 7 | 2 | **7** ✅ | dispatch-guard, edit-guard, sentinel, session-cleanup, session-lock, completion-checklist, force-pipeline-agents |
 | `references/pipelines/*.md` | 12 | 10 | **12** ✅ | 6 light + 6 heavy: audit, bugfix, implement, user-story, ux-sim, **adversarial** |
-| Plugin version | v4.1.x | 3.0.2 / 3.1.0 | **4.1.3** ✅ | `.claude-plugin/plugin.json` |
+| Plugin version | v4.1.x | 3.0.2 / 3.1.0 | **4.2.1** ✅ | `.claude-plugin/plugin.json` (v4.2.0 = Slice 1; v4.2.1 = patch SEC-1+SEC-2) |
 | `agents/core/pipeline-controller.md` | assumido existir | NÃO EXISTE | **EXISTE (1049 linhas)** ✅ | Slice 0 P0 atendido |
 | `agents/core/sentinel.md` | referenciado | NÃO EXISTE | **EXISTE (194 linhas)** ✅ | §16 #7 resolvido |
 | `agents/executor/type-specific/` | referenciado | NÃO EXISTE | **EXISTE (17 agents)** ✅ | §16 #8 resolvido |
@@ -82,14 +83,14 @@ model: sonnet
 | Slice | Original | INVENTORY v1 | **Pós-sync** |
 |---|---|---|---|
 | **0 — P0 baseline** | 2-3 dias | 2 dias | 🟢 **RESOLVIDO via sync 4.1.3** (controller existe, hooks existem, sentinel existe) |
-| **0.5 — Context & Policies** | 22h | 3 dias | 🟢 **MAJORITARIAMENTE RESOLVIDO** (gates.md, audit-trail, confidence, sentinel-integration ✅; CLAUDE.md raiz e AGENTS.md raiz **AINDA PENDENTES**) |
-| **1 — `/bugfix` + 2 agentes** | ~1 sem | 3-5 dias | 🔴 **PENDENTE** — só `/pipeline` existe; falta criar 5 commands específicos |
+| **0.5 — Context & Policies** | 22h | 3 dias | 🟢 **CONCLUÍDO** (gates.md, audit-trail, confidence, sentinel-integration, CLAUDE.md raiz, AGENTS.md raiz, COMPLEXITY_GATE — todos shipados) |
+| **1 — `/bugfix` + 2 agentes** | ~1 sem | 3-5 dias | 🟢 **CONCLUÍDO em v4.2.0 (2026-04-30)** + patch v4.2.1 (SEC-1+SEC-2). `commands/bugfix.md` thin wrapper. `task-orchestrator` Step 1a aceita prefix `PRE_CLASSIFIED_TYPE`. Hooks `session-lock-hook` + `force-pipeline-agents` reconhecem entry-point. ARCH-2 (trust boundary) deferido pra Slice 3. |
 | **2 — TRACE.md** | ~1 sem | 3-5 dias | 🔴 **PENDENTE** — `agents/core/trace-generator.md` ausente |
-| **3 — `/feature`, `/audit`, `/ux`** | ~0.5-1 sem | 2-3 dias | 🔴 **PENDENTE** — depende de Slice 1 padrão |
-| **4 — compat suite** | (não estimado) | 5-7 dias | 🟡 **PARCIAL** — `tests/` existe com fixtures + manual-validation-log; falta CI test runner |
+| **3 — `/feature`, `/audit`, `/ux`** | ~0.5-1 sem | 2-3 dias | 🔴 **PENDENTE** — depende de Slice 1 padrão (✅ provado em 4.2.0); 4 commands restantes seguem o mesmo template de `commands/bugfix.md`. ARCH-2 deve ser endereçada nesse slice. |
+| **4 — compat suite** | (não estimado) | 5-7 dias | 🟡 **PARCIAL** — `tests/` existe com fixtures + manual-validation-log; smoke-test 10/10 cases para hooks já existe; falta CI test runner formal |
 | **5 — YAML interpreter** | 4-6 sem | 3-5 sem | 🔴 **PENDENTE** — pipeline.md ainda 1112 linhas inline; v5.1 |
 
-**Esforço restante v5.0:** Slice 0.5 finale (CLAUDE.md, AGENTS.md, COMPLEXITY_GATE) + Slices 1+2+3+4 = **~2-3 semanas solo**
+**Esforço restante v5.0:** Slices 2+3+4 = **~1.5-2 semanas solo** (Slice 1 e 0.5 já entregues).
 **Esforço v5.1:** Slice 5 = +3-5 semanas
 
 ---
@@ -133,41 +134,44 @@ Implementação: ~10 linhas dentro do `pipeline-controller` agent. Sem reescrita
 
 ---
 
-## 6. Improvements V5 ainda pendentes (não estavam em §16)
+## 6. Improvements V5 — status atual (pós Slice 1)
 
-Itens do consolidated que ainda NÃO estão na 4.1.3:
+Tabela atualizada após v4.2.0 (Slice 1) e v4.2.1 (patch SEC-1+SEC-2):
 
-| Item | Slice | Effort | Risk |
-|---|---|---|---|
-| `CLAUDE.md` raiz do projeto (≤200 linhas, identidade + SSOT pointer) | 0.5 A1 | 1h | LOW |
-| `AGENTS.md` raiz com roster + namespacing | 0.5 A2 | 2h | LOW |
-| Adicionar COMPLEXITY_GATE ao registry (16º gate, SOFT) | 0.5 | 30min | LOW |
-| Pipeline-controller frontmatter v5 (`tools` adicionar `Task,Bash`; revisar `model`) | 0 P0 | 1h + decisão custo | MEDIUM (custo Opus→Sonnet) |
-| `/bugfix` command + skill thin | 1 | 1 dia | LOW |
-| 4 commands restantes (`/feature`, `/audit`, `/ux`, `/user-story`) | 3 | 2-3 dias | LOW |
-| `agents/core/trace-generator.md` + `references/trace-schema/v1.md` | 2 | 3-5 dias | MEDIUM (define schema permanente) |
-| Adapter heurístico SIMPLES/MEDIA/COMPLEXA → Light/Heavy | 1 dep | 10 linhas | LOW |
-| CI test runner (vitest/jest config + GitHub Actions) | 4 | 5-7 dias | MEDIUM (define padrão) |
-| YAML interpreter para pipelines/* | 5 / v5.1 | 3-5 sem | HIGH |
+| Item | Slice | Effort | Risk | Status |
+|---|---|---|---|---|
+| `CLAUDE.md` raiz do projeto | 0.5 A1 | 1h | LOW | 🟢 v4.2.0 |
+| `AGENTS.md` raiz com roster + namespacing | 0.5 A2 | 2h | LOW | 🟢 v4.2.0 |
+| Adicionar COMPLEXITY_GATE ao registry (16º gate, SOFT) | 0.5 | 30min | LOW | 🟢 v4.2.0 |
+| Pipeline-controller frontmatter (revisar `tools`/`model`) | 0 P0 | 1h + decisão | MEDIUM | 🟡 mantido em opus + 6 tools (decisão consciente: least-privilege; revisar com dados reais de custo) |
+| `/bugfix` command + thin wrapper | 1 | 1 dia | LOW | 🟢 v4.2.0 + patch v4.2.1 |
+| 4 commands restantes (`/feature`, `/userstory`, `/audit`, `/ux`) | 3 | 2-3 dias | LOW | 🔴 PENDENTE — template já comprovado em /bugfix |
+| ARCH-2: trust boundary do `PRE_CLASSIFIED_TYPE` prefix | 3 | 4-8h | MEDIUM (design) | 🔴 PENDENTE — abordar junto com Slice 3 holisticamente |
+| `agents/core/trace-generator.md` + `references/trace-schema/v1.md` | 2 | 3-5 dias | MEDIUM | 🔴 PENDENTE |
+| Adapter heurístico SIMPLES/MEDIA/COMPLEXA → Light/Heavy | 1 dep | 10 linhas | LOW | 🟡 não implementado explícito (R-4 ainda gate pendente — task-orchestrator continua usando complexity 3-tier) |
+| CI test runner (vitest/jest config + GitHub Actions) | 4 | 5-7 dias | MEDIUM | 🟡 PARCIAL — `tests/` + 10/10 smoke unit cases existem; falta CI runner formal |
+| YAML interpreter para pipelines/* | 5 / v5.1 | 3-5 sem | HIGH | 🔴 PENDENTE (v5.1) |
 
 ---
 
-## 7. Veredicto pós-sync
+## 7. Veredicto atual (pós Slice 0 + 0.5 + 1)
 
-🟢 **Slice 0 P0 efetivamente concluído** via sync 4.1.3 (não via execução do plano original) — pipeline-controller, sentinel, hooks, type-specific adversarials, gates registry, audit-trail, confidence, sentinel-integration, team-registry **TODOS EXISTEM**.
+🟢 **Slice 0 P0** concluído via sync 4.1.3 — pipeline-controller, sentinel, hooks, type-specific adversarials, gates registry, audit-trail, confidence, sentinel-integration, team-registry **TODOS EXISTEM**.
 
-🟡 Próximos passos imediatos (Slice 0.5 finale):
-1. Criar `CLAUDE.md` raiz
-2. Criar `AGENTS.md` raiz com roster
-3. Adicionar COMPLEXITY_GATE ao gates.md
-4. Decidir frontmatter pipeline-controller (Opus vs Sonnet, +Task/Bash?)
+🟢 **Slice 0.5** concluído em v4.2.0 — `CLAUDE.md` raiz, `AGENTS.md` raiz, COMPLEXITY_GATE no registry.
 
-🔴 Próximos passos médios (Slices 1-3):
-1. `/bugfix` + multi-command split
-2. TRACE.md generator
-3. CI test runner
+🟢 **Slice 1** concluído em v4.2.0 + patch v4.2.1 — `/pipeline-orchestrator:bugfix` thin wrapper, `PRE_CLASSIFIED_TYPE` contract, hook patches (`PIPELINE_REGEX` + `SKILL_PATTERNS`), security fixes SEC-1+SEC-2 com adversarial review confirmando CLOSED. ARCH-2 (HIGH, trust boundary do prefix) deferida pra Slice 3 conscientemente.
 
-**Esforço total restante v5.0:** ~2-3 semanas.
+🔴 Próximos passos (Slices 2-4 + ARCH-2):
+1. **Slice 2** — `agents/core/trace-generator.md` + `references/trace-schema/v1.md` (TRACE.md per-run)
+2. **Slice 3** — 4 commands restantes (`/feature`, `/userstory`, `/audit`, `/ux`) + endereçar ARCH-2 holisticamente (talvez mover prefix string → metadata field do Agent call)
+3. **Slice 4** — CI test runner formal + compat regression suite
+
+🟡 Pendências menores (não-bloqueantes):
+- R-4 adapter heurístico ainda não foi implementado explícito; task-orchestrator usa as 3 complexities sem mapeamento 3→2 visível — funciona porque pipeline references já têm `intensity:` declarado
+- Decisão custo Opus vs Sonnet para pipeline-controller — adiada até dados reais de uso
+
+**Esforço total restante v5.0:** ~1.5-2 semanas (Slices 2+3+4).
 **v5.1 (YAML):** +3-5 semanas.
 
-R-1, R-2 (consolidação metodologias e dogfooding) seguem CLOSED — estruturalmente atendidos.
+R-1, R-2 (consolidação metodologias e dogfooding) seguem CLOSED.

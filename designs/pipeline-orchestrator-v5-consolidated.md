@@ -2,16 +2,18 @@
 
 ## 0. Metadados
 
-- **Data:** 2026-04-29
-- **Status:** DRAFT consolidado — aguarda aprovação do dono
-- **Supersedes:** D1 (`pipeline-orchestrator-v5-pipeline-as-code.md`), D2 (`pipeline-orchestrator-v5-execution-vertical-slices.md`), D3 (`pipeline-orchestrator-v5-addendum-context-and-policies.md`)
+- **Data inicial:** 2026-04-29
+- **Última revisão:** 2026-04-30 (pós-execução Slice 0+0.5+1)
+- **Status:** DRAFT consolidado — Slices 0+0.5+1 ENTREGUES; Slices 2-4 PENDENTES
+- **Supersedes:** D1 (`pipeline-orchestrator-v5-pipeline-as-code.md`), D2 (`pipeline-orchestrator-v5-execution-vertical-slices.md`), D3 (`pipeline-orchestrator-v5-addendum-context-and-policies.md`) — todos arquivados em `designs/legacy/`.
 - **SSOT:** este documento. Em caso de divergência com D1/D2/D3, ESTE prevalece.
-- **Reality-check baseline:** verificado em 2026-04-29 contra repositório canonical em `D:\Pipeline Orchestrator Claude\Pipeline-Orchestrator`.
-- **Branch atual:** `feat/v5-addendum-context-policies` a partir de main local 3.0.2.
+- **Reality-check baseline:** verificado em 2026-04-29 contra repositório canonical. Em 2026-04-30, canonical foi sincronizado de v3.0.2 para v4.1.3 e em seguida bumpado para v4.2.0 (Slice 1) + v4.2.1 (patch SEC). Ver `designs/slice-0/INVENTORY.md` para baseline pós-execução.
+- **Versão atual no marketplace:** **v4.2.1** (`/pipeline-orchestrator:pipeline` + `/pipeline-orchestrator:bugfix` shipados).
 - **Repositório:** github.com/fernandoxavier02/Pipeline-Orchestrator
 - **Modo de redação:** Builder + consolidação adversarial.
-- **Esforço total v5.0 (pós Slice 0.5):** 4.5–7.5 semanas solo, sequencial.
-- **Esforço v5.1 (Slice 5):** +6–8 semanas adicionais; janela ≤ Q+2 após v5.0.
+- **Esforço já consumido:** ~1 dia solo (2026-04-30) — sync 4.1.3 + Slice 0.5 + Slice 1 + patch SEC.
+- **Esforço restante v5.0 (Slices 2+3+4):** 1.5–2 semanas solo.
+- **Esforço v5.1 (Slice 5):** +3–5 semanas adicionais; janela ≤ Q+2 após v5.0.
 
 ### Convenções deste documento
 
@@ -497,16 +499,28 @@ Slices verticais invertem: cada slice atravessa todas as camadas necessárias pa
 ### 12.2 Sequência
 
 ```
-Slice 0     Spike formato + agent-spec-template            (2-3 dias) BLOQUEANTE
-Slice 0.5   Context & Policies                              (2-3 dias)
-Slice 1     /bugfix command + 2 agentes domain-native       (1 sem)
-Slice 2     TRACE.md (Run Record)                           (1 sem)
-Slice 3     /feature, /audit, /ux + 5 agentes restantes     (0.5-1 sem)
-Slice 4     Compat regression suite                         (1.5-2 sem)
+Slice 0     Spike formato + agent-spec-template            🟢 ENTREGUE (sync 4.1.3)
+Slice 0.5   Context & Policies                              🟢 ENTREGUE (v4.2.0)
+Slice 1     /bugfix command + thin entry-point pattern      🟢 ENTREGUE (v4.2.0 + patch v4.2.1 SEC-1+SEC-2)
+Slice 2     TRACE.md (Run Record)                           🔴 PENDENTE (1 sem)
+Slice 3     /feature, /userstory, /audit, /ux + ARCH-2 fix  🔴 PENDENTE (0.5-1 sem)
+Slice 4     Compat regression suite + CI test runner        🟡 PARCIAL (1.5-2 sem)
 v5.0.0 (release)
-Slice 5     YAML interpreter (COMMITTED v5.1, ≤ Q+2)        (6-8 sem)
+Slice 5     YAML interpreter (COMMITTED v5.1, ≤ Q+2)        🔴 PENDENTE (3-5 sem)
 v5.1.0
 ```
+
+### Status pós-execução 2026-04-30
+
+| Slice | Status | Versão | Observação |
+|---|---|---|---|
+| 0 | 🟢 | sync 4.1.3 | pipeline-controller, sentinel, type-specific, gates.md já existiam na cache 4.1.3 — sincronizados pro canonical |
+| 0.5 | 🟢 | v4.2.0 | CLAUDE.md raiz, AGENTS.md raiz, COMPLEXITY_GATE no registry |
+| 1 | 🟢 | v4.2.0 + v4.2.1 | `/bugfix` thin wrapper, `PRE_CLASSIFIED_TYPE` contract, hook patches; SEC-1+SEC-2 fechados em adversarial review |
+| 2 | 🔴 | — | trace-generator + trace-schema/v1.md |
+| 3 | 🔴 | — | 4 commands + ARCH-2 (trust boundary do prefix — ver §17.3 #7) |
+| 4 | 🟡 | — | 10/10 smoke unit cases existem; CI runner formal pendente |
+| 5 | 🔴 | — | v5.1, defer |
 
 **Resolução de contradição — ordem Slice 1 vs Slice 2:** D2:799–826 reordenou goal-backward — TRACE.md primeiro porque materializa "caixa de vidro" desde rc.1 e baseline para Slice 4. **Consolidado adota ordem D2:** Slice 0 → 0.5 → 2 → 1 → 3 → 4 → 5. (D3:24–30 lista 0 → 0.5 → 1 → 2 → 3 → 4 mas é inventário, não ordem de execução.)
 
@@ -1336,8 +1350,12 @@ Origem: D2:850–856 (Q1–Q5 originais decididos) + D3:259–264 (4 residuais).
 
 ### 17.3 Novas (surgidas na consolidação)
 
-5. **§16 erro #7/#8 — recriar agents fantasmas ou apagar referências?** Os 5 agents `color: orange` em D3:160 e o `sentinel.md` em D3:181 podem ser (a) fantasmas que precisam ser criados, (b) referências erradas que devem ser removidas dos docs. Slice 0 audita e decide.
-6. **Critério #7 (§15) — pipeline-controller é o ÚNICO agente com bug de tools propagation, ou outros agentes core também?** Slice 0 SPIKE-NESTED-SPAWN deve testar `task-orchestrator`, `information-gate`, `trace-generator` também.
+5. **§16 erro #7/#8 — recriar agents fantasmas ou apagar referências?** ✅ **RESOLVIDO em 2026-04-30**: descoberta no sync que ambos JÁ EXISTIAM na cache 4.1.3 (não eram fantasmas — só não estavam no canonical D:\). Sincronizado.
+6. **Critério #7 (§15) — pipeline-controller é o ÚNICO agente com bug de tools propagation, ou outros agentes core também?** ✅ **RESOLVIDO via SPIKE-NESTED-SPAWN.md v2** (2026-04-30): auditoria empírica do baseline 4.1.3 mostrou que pipeline-controller é o único N0 que declara `tools:` (least-privilege); demais N1/N2 omitem o campo (= full default tools). Convenção CC 2.x identificada e documentada.
+
+### 17.4 Aberta — para Slice 3
+
+7. **ARCH-2 (HIGH) — Trust boundary do `PRE_CLASSIFIED_TYPE` prefix.** Identificada em adversarial review do Slice 1 (2026-04-30): o prefix `PRE_CLASSIFIED_TYPE=<Type>` é uma string injetável pelo usuário se ele invocar `/pipeline-orchestrator:pipeline` direto e digitar o prefix manualmente. O `task-orchestrator` Step 1a obedece sem checar origem. Decisão: **deferida pra Slice 3** quando os 4 entry-points restantes (`/feature`, `/userstory`, `/audit`, `/ux`) forem desenhados juntos. Naquele momento, avaliar se o contrato deve mover de string-prefix para um campo de metadata fora do prompt-string (e.g., Agent.metadata ou frontmatter args).
 
 ---
 

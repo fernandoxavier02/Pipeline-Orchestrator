@@ -17,9 +17,9 @@ Linguagem leiga, completa e curta. Veredicto primeiro, detalhe depois. Sem jarga
 | Camada | SSOT | Notas |
 |---|---|---|
 | **Design v5** | `designs/pipeline-orchestrator-v5-consolidated.md` | 1491 linhas, sucessor único dos 3 docs em `designs/legacy/` |
-| **Design v5 Slice 0** | `designs/slice-0/INVENTORY.md` + 4 SPIKEs | Reality-check pós-sync 4.1.3 — INVENTORY revisado em 2026-04-30 |
-| **Versão canônica** | `.claude-plugin/plugin.json` `"version"` | Atualmente: **4.1.3**. Marketplace lê este arquivo. |
-| **Pipeline flow** | `commands/pipeline.md` | 1112 linhas. **Inline Invariants** sobrepõem Grep-loaded refs em caso de conflito |
+| **Design v5 Slice 0** | `designs/slice-0/INVENTORY.md` + 4 SPIKEs | Reality-check pós-sync 4.1.3 — INVENTORY atualizado em 2026-04-30 (Slices 0+0.5+1 marcados como concluídos) |
+| **Versão canônica** | `.claude-plugin/plugin.json` `"version"` | Atualmente: **4.2.1**. v4.2.0 entregou Slice 1 (`/bugfix` thin entry-point); v4.2.1 patch fechou SEC-1 (uppercase bypass) + SEC-2 (namespace collision). Marketplace lê este arquivo. |
+| **Pipeline flow** | `commands/pipeline.md` (full classifier) + `commands/bugfix.md` (thin shortcut) | 1112 linhas no full + 40 no thin. **Inline Invariants** em `pipeline.md` sobrepõem Grep-loaded refs em caso de conflito |
 | **Agent orchestrator** | `agents/core/pipeline-controller.md` | N1, dispatched pela skill, coordena 4 fases |
 | **Gates** | `references/gates.md` | Hardness Taxonomy + 16-gate Registry |
 | **Audit Trail** | `references/audit-trail.md` | Phase Transition Summary + JSONL log format |
@@ -33,7 +33,7 @@ Linguagem leiga, completa e curta. Veredicto primeiro, detalhe depois. Sem jarga
 
 🔴 **REGRA #2:** O cache `C:\.claude\plugins\cache\FX-studio-AI\pipeline-orchestrator\<version>\` é **runtime read-only** — NUNCA editar lá. Ele é populado pelo marketplace ao instalar/atualizar.
 
-🟡 **HISTÓRICO:** Antes de 2026-04-30, releases 3.8.0 → 4.1.3 foram publicadas no marketplace SEM passar pelo git canonical (deriva de 97 commits). Em 2026-04-30, canonical foi sincronizado com cache 4.1.3 via 5 commits temáticos (`59e0984..c5c9477` em `feat/v5-addendum-context-policies`). Daqui em diante, **todo release passa pelo git** antes de virar marketplace package.
+🟡 **HISTÓRICO:** Antes de 2026-04-30, releases 3.8.0 → 4.1.3 foram publicadas no marketplace SEM passar pelo git canonical (deriva de 97 commits). Em 2026-04-30, canonical foi sincronizado com cache 4.1.3 via 5 commits temáticos (`59e0984..c5c9477` em `feat/v5-addendum-context-policies`). Mesmo dia: Slice 0.5 + Slice 1 (`/bugfix` entry-point) entregues como v4.2.0 + patch v4.2.1 (SEC-1+SEC-2). Daqui em diante, **todo release passa pelo git** antes de virar marketplace package.
 
 ## Política operacional para Claude (este agent)
 
