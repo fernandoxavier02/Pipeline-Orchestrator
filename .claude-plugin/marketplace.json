@@ -9,8 +9,8 @@
   "plugins": [
     {
       "name": "pipeline-orchestrator",
-      "description": "Single-command multi-agent pipeline for Claude Code. v4.2.1 patch closes 2 security issues found in v4.2.0 adversarial review: SEC-1 case-mismatch bypass (uppercase entry-points like /BUGFIX would skip session lock) — fixed by case-insensitive PIPELINE_REGEX. SEC-2 namespace collision (bare /audit, /ux, /feature could be hijacked from other plugins) — fixed by requiring fully-qualified pipeline-orchestrator: prefix in SKILL_PATTERNS. v4.2.0 base: thin entry-points pre-fix task_type, saving classification round-trip. v4.1.x: edit-guard fs.statSync().mtimeMs authoritative opened_at; stale-lock self-heal.",
-      "version": "4.2.1",
+      "description": "Single-command multi-agent pipeline for Claude Code. v4.3.0: /bugfix migrated from commands/ to skills/ format with disable-model-invocation: true — idiomatic per official Claude Code 2026 docs (skills recommended over commands for new plugins). Same /pipeline-orchestrator:bugfix invocation, manual-only triggering, opens room for skill supporting files in future slices. v4.2.1: SEC-1+SEC-2 patches. v4.2.0: thin entry-points pre-fix task_type. v4.1.x: edit-guard fs.statSync().mtimeMs authoritative opened_at; stale-lock self-heal.",
+      "version": "4.3.0",
       "author": {
         "name": "FX Studio AI",
         "url": "https://github.com/fernandoxavier02/Pipeline-Orchestrator"
@@ -18,7 +18,7 @@
       "source": {
         "source": "url",
         "url": "https://github.com/fernandoxavier02/Pipeline-Orchestrator.git",
-        "ref": "v4.2.1"
+        "ref": "v4.3.0"
       },
       "category": "development"
     },

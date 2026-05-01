@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Pipeline Orchestrator v4.2.1 loaded. Entry points (case-insensitive): /pipeline-orchestrator:pipeline (full classifier) and /pipeline-orchestrator:bugfix [task] (thin shortcut, type pre-fixed). v4.2.1 patch closes SEC-1 (uppercase bypass) and SEC-2 (namespace collision) found in adversarial review. v4.1.x base: orchestration in isolated controller; direct Edit/Write blocked during pipeline sessions; stale-lock self-heal; fs.statSync().mtimeMs authoritative opened_at."
+            "prompt": "Pipeline Orchestrator v4.3.0 loaded. Entry points (case-insensitive, manual-only): /pipeline-orchestrator:pipeline (full classifier, command) and /pipeline-orchestrator:bugfix [task] (thin shortcut, skill format). v4.3.0: /bugfix migrated commands/ → skills/ for idiomatic plugin structure per official Claude Code 2026 docs. v4.2.1: SEC-1+SEC-2 patches. v4.1.x: stale-lock self-heal; fs.statSync().mtimeMs authoritative opened_at."
           }
         ]
       }

@@ -5,6 +5,70 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.0] - 2026-05-01
+
+Minor release migrating `/bugfix` from the legacy `commands/` flat-file format
+to the idiomatic `skills/<name>/SKILL.md` directory format with
+`disable-model-invocation: true`. Driven by re-reading the official Claude Code
+documentation: *"Files in `.claude/commands/` still work and support the same
+frontmatter. Skills are recommended since they support additional features like
+supporting files."* — and the plugin structure table in
+[/en/plugins](https://code.claude.com/docs/en/plugins) explicitly states
+*"Use `skills/` for new plugins"*.
+
+The user-facing invocation (`/pipeline-orchestrator:bugfix [task]`) is
+**identical**. Only the file structure changed.
+
+### Changed
+
+- **Migrated** `commands/bugfix.md` → `skills/bugfix/SKILL.md`. The new
+  SKILL.md adds:
+  - `disable-model-invocation: true` — Claude can never auto-invoke the
+    skill. Manual `/pipeline-orchestrator:bugfix` only. Same effect as the
+    previous command but enforced declaratively in frontmatter rather than
+    relying on hook-level filtering.
+  - `argument-hint: [bug description with repro details]` — autocomplete
+    hint when typing the slash command.
+  - `allowed-tools: Task` — narrowest possible tool set; the skill only
+    spawns the `pipeline-controller` agent and does nothing else.
+- Deleted `commands/bugfix.md` (skill replaces it; no behavior change for
+  the user).
+
+### Why a skill (not a command)
+
+Per the official docs, custom commands have been merged into skills in 2026.
+A `commands/<name>.md` flat file and a `skills/<name>/SKILL.md` directory both
+produce the same `/<name>` invocation. Skills are the recommended format for
+new plugins because they:
+
+1. Support a directory layout with supporting files (templates, examples,
+   scripts) that can be loaded only when the skill runs — keeps SKILL.md focused
+   on essentials. The 4 entry-points planned for Slice 3 (`/feature`,
+   `/userstory`, `/audit`, `/ux`) will benefit from this when they need
+   type-specific scaffolds.
+2. Expose `disable-model-invocation: true` declaratively, removing the need
+   for the hook-level "is this skill auto-invocable?" filter that v4.2 added.
+3. Are listed alongside built-in skills like `/debug`, `/simplify`, `/loop`
+   in `/help` output, matching the discovery experience of bundled skills.
+
+The previous v4.2.x decision to ship `/bugfix` as a command was based on a
+misreading of the doc — corrected here.
+
+### Notes for downstream consumers
+
+- `commands/` directory still contains `pipeline.md`. The full classifier
+  remains a command for now (it has special inline-invariants behavior and
+  is the v4 architectural anchor). It may migrate in a future release if
+  there's a clear benefit; no plan to do so urgently.
+- Plugin structure now shows both `commands/` (1 entry) and `skills/`
+  (2 entries) coexisting — fully supported by the official Claude Code
+  loader.
+
+### Marketplace
+
+- `.claude-plugin/marketplace.json`: pipeline-orchestrator pinned to
+  `v4.3.0` with description summarizing the migration.
+
 ## [4.2.1] - 2026-04-30
 
 Patch release closing 2 security findings identified by adversarial review of
