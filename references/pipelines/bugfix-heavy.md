@@ -1,5 +1,7 @@
 # Bug Fix Pipeline — Heavy
 
+> **As of v4.4.0 (Slice 1.5):** the prescriptive 11-step procedure now lives in `skills/bugfix-heavy/SKILL.md` and its supporting files (`steps/0X-*.md`). This file remains as the team-composition reference (which agent runs at which phase). When `pipeline-controller` detects `pipeline_variant: bugfix-heavy`, it dispatches the skill via `Skill(pipeline-orchestrator:bugfix-heavy)` for Phase 2 execution. See `designs/pipeline-orchestrator-v5-consolidated.md` §21 for the full design.
+
 ## When Selected
 - Type: Bug Fix
 - Complexity: COMPLEXA (6+ files, >100 lines, 3+ domains)

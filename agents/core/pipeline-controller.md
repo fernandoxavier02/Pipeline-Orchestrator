@@ -139,6 +139,30 @@ Analyze `<arguments>` to determine mode:
 | `/pipeline --plan [task]` | FULL + plan mode | Force plan-architect for any complexity |
 | `/pipeline review-only` | **REVIEW-ONLY** | Runs final adversarial review on current uncommitted changes |
 
+### Variant override (Slice 1.5 v4.4.0+)
+
+The flags `--light` and `--heavy` force `pipeline_variant` directly without re-inference, parallel to how `--simples/--media/--complexa` force complexity.
+
+**Detection rule:**
+- If `$ARGUMENTS` contains `--light` or `--heavy` AND the task type (pre-classified via `PRE_CLASSIFIED_TYPE=Bug Fix` OR inferred by `task-orchestrator`) is `Bug Fix`, set `pipeline_variant` directly:
+  - `--light` → `pipeline_variant: bugfix-light`
+  - `--heavy` → `pipeline_variant: bugfix-heavy`
+- Pass the flag through to `task-orchestrator` as `FORCE_VARIANT=light` or `FORCE_VARIANT=heavy` (see `task-orchestrator.md` Step 1a — `force_variant`). Strip the `--light/--heavy` token from the task text before forwarding.
+- If the task type is NOT `Bug Fix`, emit a warning in the proposal and proceed with normal variant inference (the flag is ignored for non-Bug-Fix types).
+
+**Dispatch rule (Phase 2 delegation to skill):**
+
+After the Phase 1 user confirmation gate, instead of running the inline Phase 2 (executor-controller + per-batch adversarial loops), invoke the corresponding skill:
+
+- `pipeline_variant == bugfix-light` → `Skill(skill: "pipeline-orchestrator:bugfix-light")` with the request and accumulated context (CLASSIFICATION, INFORMATION_GATE, IMPLEMENTATION_PLAN if present).
+- `pipeline_variant == bugfix-heavy` → `Skill(skill: "pipeline-orchestrator:bugfix-heavy")` similarly.
+
+The skill returns a structured Phase 2 result (files modified, tests passing, batch reviews, etc.). Phases 0 and 3 still run normally:
+- **Phase 0** (information-gate, design-interrogator if COMPLEXA) runs BEFORE the skill dispatch.
+- **Phase 3** (sentinel `phase_2_to_3`, sanity-checker, final-adversarial-orchestrator opt-in, final-validator/Pa de Cal, finishing-branch) runs AFTER the skill returns.
+
+This delegation is additive: when `pipeline_variant` is anything other than `bugfix-light/bugfix-heavy`, Phase 2 runs inline as before (no behavior change for `implement-light/heavy`, `user-story-light/heavy`, `audit-*`, `ux-sim-*`, or `DIRETO`).
+
 ### Pre-classified type prefix (v4.2+)
 
 If the prompt starts with `PRE_CLASSIFIED_TYPE=<Type>` (passed by entry commands like `/pipeline-orchestrator:bugfix`, `/pipeline-orchestrator:feature`, etc.), pass that prefix unchanged to the `task-orchestrator` agent in Phase 0a — the orchestrator strips and consumes it (see `task-orchestrator.md` Step 1a).

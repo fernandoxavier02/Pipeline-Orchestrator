@@ -10,6 +10,16 @@ argument-hint: [bug description with repro details]
 
 You are invoking `/pipeline-orchestrator:bugfix` — a thin shortcut that delegates to the same `pipeline-controller` agent as `/pipeline-orchestrator:pipeline`, but with `task_type` pre-fixed to `Bug Fix`.
 
+## Variant override via flag (Slice 1.5 v4.4.0+)
+
+Before delegating to the controller, inspect `$ARGUMENTS` for a leading variant-override flag. The check is purely additive — invocations without a flag keep the existing auto-classify behavior.
+
+- If `$ARGUMENTS` starts with `--light ` (with trailing space) OR `$ARGUMENTS` is exactly `--light`: strip the `--light` prefix and invoke `Skill(skill: "pipeline-orchestrator:bugfix-light")` with the remaining `$ARGUMENTS` (may be empty).
+- If `$ARGUMENTS` starts with `--heavy ` (with trailing space) OR `$ARGUMENTS` is exactly `--heavy`: strip the `--heavy` prefix and invoke `Skill(skill: "pipeline-orchestrator:bugfix-heavy")` with the remaining `$ARGUMENTS`.
+- Otherwise (no recognized flag): proceed with the controller dispatch below — auto-classification is unchanged.
+
+The `bugfix-light` and `bugfix-heavy` skills carry the prescriptive 8-step / 11-step procedures, respectively. Phase 0 (information-gate) and Phase 3 (sanity / final-validator / finishing-branch) still wrap them via `pipeline-controller`.
+
 ## What this skill does
 
 Spawn the `pipeline-controller` agent with the user's request prefixed by `PRE_CLASSIFIED_TYPE=Bug Fix`:

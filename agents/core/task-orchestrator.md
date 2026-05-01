@@ -148,6 +148,20 @@ This is analogous to the `--simples/--media/--complexa` flags that pre-fix compl
 
 **Rationale:** entry commands (`/bugfix`, `/feature`, etc.) are thin shortcuts. The user already declared the type by choosing the command. Re-classifying wastes tokens and risks mismatch.
 
+**Pre-fixed pipeline variant (Slice 1.5 v4.4.0+):** parallel to `PRE_CLASSIFIED_TYPE`, the input may contain a prefix line `FORCE_VARIANT=light` or `FORCE_VARIANT=heavy` (passed by `pipeline-controller` when the user invoked `--light/--heavy` or `/pipeline-orchestrator:bugfix --light/--heavy`).
+
+When `FORCE_VARIANT` is present:
+
+1. Strip the `FORCE_VARIANT=<value>` line from the request before analysis.
+2. Set `pipeline_variant` directly:
+   - `light` → `bugfix-light` (when type=Bug Fix), or the corresponding `*-light` variant for the resolved type.
+   - `heavy` → `bugfix-heavy` (when type=Bug Fix), or the corresponding `*-heavy` variant for the resolved type.
+3. Still compute `affected_files`, `business_rules`, `ssot_status`, and `severity` normally — those are NEVER pre-fixed.
+4. Validate consistency. If `force_variant=light` was passed but the inferred complexity would be COMPLEXA (heavy territory), or vice versa, emit a warning in the ORCHESTRATOR_DECISION's `notes` field but proceed with the forced variant (entry-point authority).
+5. If `force_variant` arrives with a type other than `Bug Fix`, emit a warning that the flag is currently scoped to Bug Fix variants and proceed with normal variant routing.
+
+The same authority hierarchy applies: explicit `FORCE_VARIANT` from the entry command overrides inferred routing, identical to how `--simples/--media/--complexa` overrides inferred complexity.
+
 ### Step 2: Spawn Information-Gate
 
 After classification, IMMEDIATELY spawn the `information-gate` agent:

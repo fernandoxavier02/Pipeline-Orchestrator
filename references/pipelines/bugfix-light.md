@@ -1,5 +1,7 @@
 # Bug Fix Pipeline — Light
 
+> **As of v4.4.0 (Slice 1.5):** the prescriptive 8-step procedure now lives in `skills/bugfix-light/SKILL.md` and its supporting files (`steps/0X-*.md`). This file remains as the team-composition reference (which agent runs at which phase). When `pipeline-controller` detects `pipeline_variant: bugfix-light`, it dispatches the skill via `Skill(pipeline-orchestrator:bugfix-light)` for Phase 2 execution. See `designs/pipeline-orchestrator-v5-consolidated.md` §21 for the full design.
+
 ## When Selected
 - Type: Bug Fix
 - Complexity: MEDIA (3-5 files, 30-100 lines, 2 domains)

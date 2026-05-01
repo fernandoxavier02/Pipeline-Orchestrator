@@ -247,6 +247,8 @@ Analyze `<arguments>` to determine mode:
 | `/pipeline --simples [task]` | FULL + force SIMPLES | Override classification |
 | `/pipeline --media [task]` | FULL + force MEDIA | Override classification |
 | `/pipeline --complexa [task]` | FULL + force COMPLEXA | Override classification |
+| `/pipeline --light [task]` | FULL + force pipeline_variant=light | Force variant override (Slice 1.5+, valid for type=Bug Fix) |
+| `/pipeline --heavy [task]` | FULL + force pipeline_variant=heavy | Force variant override (Slice 1.5+, valid for type=Bug Fix) |
 | `/pipeline --hotfix [task]` | **HOTFIX** | Emergency bypass for production incidents |
 | `/pipeline --grill [task]` | FULL + design interrogation | Force design-interrogator for any complexity |
 | `/pipeline --plan [task]` | FULL + plan mode | Force plan-architect for any complexity |
