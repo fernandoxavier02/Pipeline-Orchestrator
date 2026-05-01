@@ -5,6 +5,38 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.3.1] - 2026-05-01
+
+Patch release driven by adversarial review of v4.3.0 skill migration.
+Two reviewers (`plugin-dev:skill-reviewer` + `plugin-dev:plugin-validator`)
+returned READY-TO-SHIP / PASS verdicts with 1 MEDIUM and 1 WARNING for
+polish. Both addressed here.
+
+### Changed
+
+- **`skills/bugfix/SKILL.md`** — removed the "Why this is a skill (not a
+  command)" section (lines 38-46 in v4.3.0). The reviewer flagged it as
+  design-decision/changelog content that belongs in CHANGELOG.md, not in
+  execution guidance. SKILL.md should tell Claude what to do, not why
+  the file structure was chosen. CHANGELOG.md [4.3.0] entry retains the
+  full rationale.
+- **`skills/pipeline/SKILL.md`** — added `disable-model-invocation: true`
+  + `allowed-tools: Task` + `argument-hint: [task description]` to match
+  the bugfix skill's manual-only posture. Same justification: every
+  pipeline run has side effects (TDD-RED tests, code edits, commits) and
+  must be consciously triggered. Previously v4.x relied on hook-level
+  filtering; v4.3.1 makes it declarative, consistent across both skills.
+
+### Notes
+
+- Both changes are user-invisible. Same `/pipeline-orchestrator:pipeline`
+  and `/pipeline-orchestrator:bugfix` UX.
+- `commands/pipeline.md` deliberately kept (NOT deleted) — it serves as
+  the inline-invariants reference. The plugin-validator suggested
+  consolidating to skill-only in v4.4.0 alongside Slice 3. Decision:
+  keep both for now; revisit when the 4 remaining entry-points
+  (`/feature`, `/userstory`, `/audit`, `/ux`) are designed.
+
 ## [4.3.0] - 2026-05-01
 
 Minor release migrating `/bugfix` from the legacy `commands/` flat-file format

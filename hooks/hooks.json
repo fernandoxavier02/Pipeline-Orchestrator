@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Pipeline Orchestrator v4.3.0 loaded. Entry points (case-insensitive, manual-only): /pipeline-orchestrator:pipeline (full classifier, command) and /pipeline-orchestrator:bugfix [task] (thin shortcut, skill format). v4.3.0: /bugfix migrated commands/ → skills/ for idiomatic plugin structure per official Claude Code 2026 docs. v4.2.1: SEC-1+SEC-2 patches. v4.1.x: stale-lock self-heal; fs.statSync().mtimeMs authoritative opened_at."
+            "prompt": "Pipeline Orchestrator v4.3.1 loaded. Entry points (case-insensitive, manual-only via disable-model-invocation:true): /pipeline-orchestrator:pipeline (full classifier) and /pipeline-orchestrator:bugfix [task] (thin shortcut). v4.3.1: review-driven polish on v4.3.0 skill migration — /pipeline skill now also declares manual-only flag for parity. v4.2.1: SEC-1+SEC-2 patches. v4.1.x: stale-lock self-heal; fs.statSync().mtimeMs authoritative opened_at."
           }
         ]
       }

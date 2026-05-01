@@ -9,8 +9,8 @@
   "plugins": [
     {
       "name": "pipeline-orchestrator",
-      "description": "Single-command multi-agent pipeline for Claude Code. v4.3.0: /bugfix migrated from commands/ to skills/ format with disable-model-invocation: true — idiomatic per official Claude Code 2026 docs (skills recommended over commands for new plugins). Same /pipeline-orchestrator:bugfix invocation, manual-only triggering, opens room for skill supporting files in future slices. v4.2.1: SEC-1+SEC-2 patches. v4.2.0: thin entry-points pre-fix task_type. v4.1.x: edit-guard fs.statSync().mtimeMs authoritative opened_at; stale-lock self-heal.",
-      "version": "4.3.0",
+      "description": "Single-command multi-agent pipeline for Claude Code. v4.3.1 polish: review-driven cleanup of v4.3.0 skill migration — /bugfix SKILL.md trimmed to execution-essential content; /pipeline skill gains disable-model-invocation:true + allowed-tools + argument-hint for parity. v4.3.0: /bugfix migrated commands/ → skills/ per official docs. v4.2.1: SEC-1+SEC-2 patches. v4.2.0: thin entry-points pre-fix task_type. v4.1.x: edit-guard fs.statSync().mtimeMs authoritative opened_at; stale-lock self-heal.",
+      "version": "4.3.1",
       "author": {
         "name": "FX Studio AI",
         "url": "https://github.com/fernandoxavier02/Pipeline-Orchestrator"
@@ -18,7 +18,7 @@
       "source": {
         "source": "url",
         "url": "https://github.com/fernandoxavier02/Pipeline-Orchestrator.git",
-        "ref": "v4.3.0"
+        "ref": "v4.3.1"
       },
       "category": "development"
     },
