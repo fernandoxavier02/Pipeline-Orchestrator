@@ -2,7 +2,10 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
-const PIPELINE_REGEX = /^\/pipeline-orchestrator:pipeline(\s|$)/;
+// v4.2: accepts /pipeline-orchestrator:pipeline OR thin entry-points
+// (bugfix, feature, userstory, audit, ux). All entry-points open the same
+// session lock contract — without this, /bugfix etc. would bypass v4 protection.
+const PIPELINE_REGEX = /^\/pipeline-orchestrator:(pipeline|bugfix|feature|userstory|audit|ux)(\s|$)/;
 const SESSION_ID_REGEX = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 // A live session updates last_seen_at on every UserPromptSubmit. If a foreign
 // lock has not been seen for this long, the owning Claude Code process is
