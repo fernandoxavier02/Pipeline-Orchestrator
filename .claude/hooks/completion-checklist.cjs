@@ -1,17 +1,16 @@
 #!/usr/bin/env node
 /**
- * Hook 6: completion-checklist.cjs
+ * Hook: completion-checklist.cjs
  * Event: Stop
  *
- * Quando o agente tenta parar, verifica se os requisitos minimos
- * foram atendidos conforme as regras do projeto:
- *   - .kiro/steering/golden-rule.md (17 regras inegociaveis — PRIMARIO)
- *   - .kiro/steering/authority-map.md (SSOT por dominio)
- *   - .claude/rules/00-core.md (ORCHESTRATOR_DECISION)
- *   - .claude/rules/20-quality.md (build obrigatorio)
- *   - .claude/rules/37-impl-flow.md (TDD)
+ * When the agent attempts to stop, verifies that minimum requirements
+ * were met according to pipeline orchestrator rules:
+ *   - ORCHESTRATOR_DECISION emitted
+ *   - Build/tests passed
+ *   - Pipeline phases completed (if /pipeline was invoked)
  *
- * v2.0 (2026-02-12): Adiciona verificacao de Coverage Gate para specs de auditoria
+ * Generic — works with any project. Project-specific commands should
+ * be configured in .claude/pipeline.local.md
  */
 
 const fs = require('fs');
@@ -54,30 +53,38 @@ process.stdin.on('end', () => {
   try {
     const contextParts = [
       '## Checklist de Conclusao (auto-injetado)',
-      'Fontes: .kiro/steering/golden-rule.md + authority-map.md + .claude/rules/00-core.md + 20-quality.md + 37-impl-flow.md',
       '',
-      '### Regras Inegociaveis (.kiro/steering/golden-rule.md)',
-      '- [ ] Regra 1: Spec → Design → Tasks antes de codigo?',
-      '- [ ] Regra 2: Evidencia acima de suposicao?',
-      '- [ ] Regra 3: Mudanca minima, diff minimo?',
-      '- [ ] Regra 5: SSOT — regras criticas no backend?',
-      '- [ ] Regra 10: Build obrigatorio, max 2 tentativas?',
-      '- [ ] Regra 15: Nao-Invencao — lacunas preenchidas sem perguntar?',
-      '- [ ] Regra 16: Execucao Nao-Assumptiva — so o que foi pedido?',
-      '',
-      '### Pipeline (.claude/rules/00-core.md)',
+    ];
+
+    // Kiro-specific rules — only include if .kiro directory exists
+    const kiroDir = path.join(process.cwd(), '.kiro');
+    if (fs.existsSync(kiroDir)) {
+      contextParts.push(
+        '### Regras Inegociaveis (.kiro/steering/golden-rule.md)',
+        '- [ ] Regra 1: Spec → Design → Tasks antes de codigo?',
+        '- [ ] Regra 2: Evidencia acima de suposicao?',
+        '- [ ] Regra 3: Mudanca minima, diff minimo?',
+        '- [ ] Regra 5: SSOT — regras criticas no backend?',
+        '- [ ] Regra 10: Build obrigatorio, max 2 tentativas?',
+        '- [ ] Regra 15: Nao-Invencao — lacunas preenchidas sem perguntar?',
+        '- [ ] Regra 16: Execucao Nao-Assumptiva — so o que foi pedido?',
+        '',
+        '### SSOT (.kiro/steering/authority-map.md)',
+        '- [ ] Dominio tocado tem SSOT unica? (recusa se 2 fontes detectadas)',
+        '',
+      );
+    }
+
+    contextParts.push(
+      '### Pipeline',
       '- [ ] ORCHESTRATOR_DECISION emitido no inicio?',
-      '- [ ] Persona correta seguida? (.kiro/agent-roles/AGENT_*.md)',
       '',
-      '### Qualidade (.claude/rules/20-quality.md + 37-impl-flow.md)',
-      '- [ ] Validacao executada? `python -m compileall OBZ/bpo-pricing-platform/app`',
-      '- [ ] Testes executados (se existirem)? `python -m unittest discover OBZ/bpo-pricing-platform/tests`',
+      '### Qualidade',
+      '- [ ] Build/validacao executada? (use o comando de build do projeto)',
+      '- [ ] Testes executados (se existirem)? (use o comando de test do projeto)',
       '- [ ] Testes passaram? TDD RED->GREEN se implementou codigo',
       '- [ ] Sem regressoes? Suite de regressao do CHECKPOINT passa',
-      '',
-      '### SSOT (.kiro/steering/authority-map.md)',
-      '- [ ] Dominio tocado tem SSOT unica? (recusa se 2 fontes detectadas)',
-    ];
+    );
 
     // v2.0: Check for audit-sourced specs
     const auditSpecs = findAuditSourcedSpecs();

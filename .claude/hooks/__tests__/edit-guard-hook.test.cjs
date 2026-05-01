@@ -1,0 +1,913 @@
+// .claude/hooks/__tests__/edit-guard-hook.test.cjs
+const test = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+const os = require('node:os');
+const { shouldBlock, buildBlockMessage } = require('../edit-guard-hook.cjs');
+
+function setupFixture(withLock) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
+  if (withLock) {
+    const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+    fs.mkdirSync(sessionsDir, { recursive: true });
+    fs.writeFileSync(
+      path.join(sessionsDir, 'sess-active.lock'),
+      JSON.stringify({ session_id: 'sess-active', status: 'active', expires_at: Date.now() + 3600_000 })
+    );
+  }
+  return tmp;
+}
+
+test('shouldBlock: bloqueia Edit fora de .pipeline/ quando lock ativo', () => {
+  const tmp = setupFixture(true);
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true);
+  assert.match(result.reason, /PIPELINE_LOCK_ACTIVE/);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('shouldBlock: permite Edit em .pipeline/ mesmo com lock ativo', () => {
+  const tmp = setupFixture(true);
+  const result = shouldBlock(path.join(tmp, '.pipeline/docs/report.md'), tmp);
+  assert.strictEqual(result.block, false);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('shouldBlock: permite Edit em qualquer path quando NÃO há lock', () => {
+  const tmp = setupFixture(false);
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, false);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('shouldBlock: ignora lock expirado', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-old.lock'),
+    JSON.stringify({ session_id: 'sess-old', status: 'active', expires_at: Date.now() - 1000 })
+  );
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, false);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('buildBlockMessage: contém instrução de spawn + delete lock', () => {
+  const msg = buildBlockMessage('src/foo.py', 'sess-xyz');
+  assert.match(msg, /pipeline-orchestrator:core:pipeline-controller/);
+  assert.match(msg, /sess-xyz\.lock/);
+  // F-002 (Group C): replaced hard "wait for TTL (2h)" with softer Stop-hook cleanup language
+  assert.match(msg, /Stop hook|Claude Code stops|automatically/i);
+});
+
+const { handlePreToolUse } = require('../edit-guard-hook.cjs');
+
+test('handlePreToolUse: permite Edit quando não há lock', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
+  const result = handlePreToolUse({
+    tool_name: 'Edit',
+    tool_input: { file_path: path.join(tmp, 'src/foo.py') },
+    cwd: tmp,
+  });
+  assert.strictEqual(result.decision, 'allow');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('handlePreToolUse: bloqueia Write fora de .pipeline/ com lock ativo', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-x.lock'),
+    JSON.stringify({ session_id: 'sess-x', status: 'active', expires_at: Date.now() + 3600_000 })
+  );
+  const result = handlePreToolUse({
+    tool_name: 'Write',
+    tool_input: { file_path: path.join(tmp, 'src/bar.py') },
+    cwd: tmp,
+  });
+  assert.strictEqual(result.decision, 'block');
+  assert.match(result.reason, /PIPELINE_LOCK_ACTIVE/);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('handlePreToolUse: bloqueia MultiEdit fora de .pipeline/ com lock ativo', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-m.lock'),
+    JSON.stringify({ session_id: 'sess-m', status: 'active', expires_at: Date.now() + 3600_000 })
+  );
+  const result = handlePreToolUse({
+    tool_name: 'MultiEdit',
+    tool_input: { file_path: path.join(tmp, 'src/baz.py') },
+    cwd: tmp,
+  });
+  assert.strictEqual(result.decision, 'block');
+  assert.match(result.reason, /PIPELINE_LOCK_ACTIVE/);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('handlePreToolUse: ignora tools não-Edit (Bash, Read)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-x.lock'),
+    JSON.stringify({ session_id: 'sess-x', status: 'active', expires_at: Date.now() + 3600_000 })
+  );
+  const result = handlePreToolUse({
+    tool_name: 'Bash',
+    tool_input: { command: 'echo foo' },
+    cwd: tmp,
+  });
+  assert.strictEqual(result.decision, 'allow');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+// --- Regression tests for adversarial fix pass 1 ---
+
+test('fix#2: handlePreToolUse falha fechado quando payload.cwd ausente', () => {
+  const result = handlePreToolUse({
+    tool_name: 'Edit',
+    tool_input: { file_path: '/tmp/whatever.py' },
+    // cwd ausente propositalmente
+  });
+  assert.strictEqual(result.decision, 'block');
+  assert.match(result.reason, /PIPELINE_LOCK_ACTIVE/);
+});
+
+test('fix#2: handlePreToolUse falha fechado quando payload.cwd não é string', () => {
+  const result = handlePreToolUse({
+    tool_name: 'Edit',
+    tool_input: { file_path: '/tmp/whatever.py' },
+    cwd: 42,
+  });
+  assert.strictEqual(result.decision, 'block');
+});
+
+test('fix#3: CLI emite deny em stdout quando stdin é JSON inválido', () => {
+  const { spawnSync } = require('node:child_process');
+  const hookPath = path.join(__dirname, '..', 'edit-guard-hook.cjs');
+  const res = spawnSync(process.execPath, [hookPath], {
+    input: 'not-valid-json{{',
+    encoding: 'utf8',
+  });
+  assert.strictEqual(res.status, 0);
+  assert.match(res.stdout, /permissionDecision":"deny"/);
+  assert.match(res.stdout, /failing closed/);
+});
+
+test('fix#4: shouldBlock com file_path relativo ancora em pipelineDir', () => {
+  const tmp = setupFixture(true);
+  // 'foo.py' relativo: deve ser resolvido contra tmp, ficar fora de .pipeline/ → bloquear
+  const result = shouldBlock('foo.py', tmp);
+  assert.strictEqual(result.block, true);
+  // '.pipeline/docs/x.md' relativo: resolve para dentro de .pipeline/ → permitir
+  const allowed = shouldBlock('.pipeline/docs/x.md', tmp);
+  assert.strictEqual(allowed.block, false);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('fix#5: Windows trata .PIPELINE e .pipeline como mesmo diretório', () => {
+  if (process.platform !== 'win32') return;
+  const tmp = setupFixture(true);
+  const result = shouldBlock(path.join(tmp, '.PIPELINE', 'docs', 'x.md'), tmp);
+  assert.strictEqual(result.block, false);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('fix#6: lock com session_id inválido (path traversal) é ignorado', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, 'bad.lock'),
+    JSON.stringify({ session_id: '../../etc', status: 'active', expires_at: Date.now() + 3600_000 })
+  );
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, false);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('fix#6: lock com expires_at não-numérico é ignorado', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, 'bad.lock'),
+    JSON.stringify({ session_id: 'sess-ok', status: 'active', expires_at: 'not-a-number' })
+  );
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, false);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+// --- Adversarial fix F-002 (Group C) ---
+
+test('getActiveLock: retorna o lock com created_at mais recente', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  const now = Date.now();
+  // Name "aaa-*" sorts first alphabetically but is OLDER — naive readdir order would pick this
+  fs.writeFileSync(
+    path.join(sessionsDir, 'aaa-old.lock'),
+    JSON.stringify({
+      session_id: 'aaa-old',
+      status: 'active',
+      created_at: now - 10_000,
+      expires_at: now + 3600_000,
+    })
+  );
+  // Name "zzz-*" sorts last alphabetically but is NEWER — should be returned
+  fs.writeFileSync(
+    path.join(sessionsDir, 'zzz-new.lock'),
+    JSON.stringify({
+      session_id: 'zzz-new',
+      status: 'active',
+      created_at: now - 1_000,
+      expires_at: now + 3600_000,
+    })
+  );
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true);
+  assert.strictEqual(result.lock.session_id, 'zzz-new');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('getActiveLock: ignora locks expirados mesmo se mais recentes que ativos', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  const now = Date.now();
+  // Expired but newer created_at
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-expired-new.lock'),
+    JSON.stringify({
+      session_id: 'sess-expired-new',
+      status: 'active',
+      created_at: now - 1_000,
+      expires_at: now - 500,
+    })
+  );
+  // Active but older created_at
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-active-old.lock'),
+    JSON.stringify({
+      session_id: 'sess-active-old',
+      status: 'active',
+      created_at: now - 10_000,
+      expires_at: now + 3600_000,
+    })
+  );
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true);
+  assert.strictEqual(result.lock.session_id, 'sess-active-old');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('buildBlockMessage: sugere /pipeline continue antes de delete manual', () => {
+  const msg = buildBlockMessage('src/foo.py', 'sess-xyz');
+  // "/pipeline-orchestrator:pipeline continue" deve aparecer antes de "delete"
+  const idxContinue = msg.indexOf('/pipeline-orchestrator:pipeline continue');
+  const idxDelete = msg.toLowerCase().indexOf('delete');
+  assert.ok(idxContinue >= 0, 'should mention /pipeline-orchestrator:pipeline continue');
+  assert.ok(idxDelete >= 0, 'should still mention manual delete as last resort');
+  assert.ok(idxContinue < idxDelete, '/pipeline continue should appear BEFORE delete');
+});
+
+test('buildBlockMessage: menciona Stop hook como mecanismo de cleanup', () => {
+  const msg = buildBlockMessage('src/foo.py', 'sess-xyz');
+  assert.match(msg, /Stop hook|Claude Code stops|automatically/i);
+});
+
+// --- Adversarial fix F-001 (Group D): exec-window cooperative authorization ---
+
+test('exec-window: allows Edit outside .pipeline/ when exec-window file exists and is active', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'execwin-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  // Active lock
+  fs.writeFileSync(path.join(sessionsDir, 'sess-1.lock'),
+    JSON.stringify({ session_id: 'sess-1', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  // Active exec-window
+  const opened = Date.now();
+  fs.writeFileSync(path.join(sessionsDir, 'sess-1.exec-window'),
+    JSON.stringify({ session_id: 'sess-1', opened_at: opened, expires_at: opened + 1800_000, purpose: 'test', spawning_agent: 'pipeline-controller' }));
+  // NI-3 (v4.1): paired audit entry required
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', 'x');
+  fs.mkdirSync(docsDir, { recursive: true });
+  fs.writeFileSync(path.join(docsDir, 'gate-decisions.jsonl'),
+    JSON.stringify({ gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: 'sess-1', timestamp: opened, detail: 'test' }) + '\n');
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, false);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('exec-window: expired exec-window is IGNORED, edit still blocked', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'execwin-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-1.lock'),
+    JSON.stringify({ session_id: 'sess-1', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  fs.writeFileSync(path.join(sessionsDir, 'sess-1.exec-window'),
+    JSON.stringify({ session_id: 'sess-1', opened_at: Date.now() - 7200_000, expires_at: Date.now() - 1000, purpose: 'test' }));
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('exec-window: malformed exec-window (non-JSON) is IGNORED, edit blocked', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'execwin-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-1.lock'),
+    JSON.stringify({ session_id: 'sess-1', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  fs.writeFileSync(path.join(sessionsDir, 'sess-1.exec-window'), 'not json {{{');
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('exec-window: only allows edit for session_id matching the lock (no cross-session escalation)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'execwin-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  // Lock for sess-A
+  fs.writeFileSync(path.join(sessionsDir, 'sess-A.lock'),
+    JSON.stringify({ session_id: 'sess-A', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  // Exec-window for DIFFERENT session sess-B
+  fs.writeFileSync(path.join(sessionsDir, 'sess-B.exec-window'),
+    JSON.stringify({ session_id: 'sess-B', opened_at: Date.now(), expires_at: Date.now() + 1800_000 }));
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true, 'cross-session exec-window MUST NOT authorize');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('exec-window: session_id with invalid regex is IGNORED (no filename injection)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'execwin-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-1.lock'),
+    JSON.stringify({ session_id: 'sess-1', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  fs.writeFileSync(path.join(sessionsDir, '..traversal.exec-window'),
+    JSON.stringify({ session_id: '..traversal', opened_at: Date.now(), expires_at: Date.now() + 1800_000 }));
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+// --- NI-5 lifecycle tests (v4.1) ---
+
+const { openExecWindow, closeExecWindow } = require('../edit-guard-hook.cjs');
+
+// Helper for NI-5 tests: create tmp pipelineDir with valid active lock for sessionId.
+// NI-3 fix pass 1 (concern #7): also pre-create a dummy Pre-Media-action folder so
+// openExecWindow's audit-append finds a real pipeline context to write into.
+function setupValidLock(sessionId) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'withlock-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.mkdirSync(path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', 'test-session'), { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, `${sessionId}.lock`),
+    JSON.stringify({
+      session_id: sessionId,
+      status: 'active',
+      created_at: Date.now(),
+      expires_at: Date.now() + 3600_000,
+    })
+  );
+  return tmp;
+}
+
+
+test('NI-5 lifecycle: no window -> edit blocked; open -> allowed; close -> blocked again', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lifecycle-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  // NI-3 fix pass 1: Pre-*-action folder required for audit append
+  fs.mkdirSync(path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', 'current'), { recursive: true });
+  // Setup: active lock
+  fs.writeFileSync(path.join(sessionsDir, 'sess-L.lock'),
+    JSON.stringify({ session_id: 'sess-L', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  const target = path.join(tmp, 'src', 'foo.py');
+
+  // Stage 1: no window -> blocked
+  assert.strictEqual(shouldBlock(target, tmp).block, true, 'stage 1: no window, expect blocked');
+
+  // Stage 2: open -> allowed
+  openExecWindow(tmp, 'sess-L', { purpose: 'test-n2', spawning_agent: 'executor-implementer-task' });
+  assert.ok(fs.existsSync(path.join(sessionsDir, 'sess-L.exec-window')), 'window file created');
+  assert.strictEqual(shouldBlock(target, tmp).block, false, 'stage 2: window open, expect allowed');
+
+  // Stage 3: close -> blocked again
+  const deleted = closeExecWindow(tmp, 'sess-L');
+  assert.strictEqual(deleted, true, 'close returned true');
+  assert.ok(!fs.existsSync(path.join(sessionsDir, 'sess-L.exec-window')), 'window file removed');
+  assert.strictEqual(shouldBlock(target, tmp).block, true, 'stage 3: window closed, expect blocked');
+
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-5 openExecWindow: rejeita session_id invalido', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lifecycle-'));
+  assert.throws(() => openExecWindow(tmp, '../../../etc/passwd'), /invalid session_id/);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-5 closeExecWindow: idempotente (retorna false quando window nao existe)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'lifecycle-'));
+  assert.strictEqual(closeExecWindow(tmp, 'sess-none'), false);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-5 openExecWindow: TTL e positivo e honra ttl_minutes quando passado', () => {
+  const tmp = setupValidLock('sess-ttl-check');
+  const win1 = openExecWindow(tmp, 'sess-ttl-check', { ttl_minutes: 7 });
+  assert.strictEqual(win1.expires_at - win1.opened_at, 7 * 60 * 1000, 'explicit 7min honored');
+  closeExecWindow(tmp, 'sess-ttl-check');
+  const win2 = openExecWindow(tmp, 'sess-ttl-check');
+  assert.ok(win2.expires_at > win2.opened_at, 'default TTL is positive');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+// --- NI-5 adversarial fix pass 1 (v4.1 Batch 1 fix) RED tests ---
+
+test('NI-5 openExecWindow: rejeita se nao ha lock ativo para o sessionId', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nolock-'));
+  assert.throws(() => openExecWindow(tmp, 'sess-orphan'), /no active lock/);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-5 openExecWindow: rejeita se lock existe mas e de OUTRO sessionId', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'wronglock-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-A.lock'),
+    JSON.stringify({
+      session_id: 'sess-A',
+      status: 'active',
+      created_at: Date.now(),
+      expires_at: Date.now() + 3600_000,
+    })
+  );
+  assert.throws(() => openExecWindow(tmp, 'sess-B'), /no active lock/);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-5 openExecWindow: rejeita ttl_minutes <= 0', () => {
+  const tmp = setupValidLock('sess-ttl-neg');
+  assert.throws(
+    () => openExecWindow(tmp, 'sess-ttl-neg', { ttl_minutes: 0 }),
+    /ttl_minutes must be.*> 0/
+  );
+  assert.throws(
+    () => openExecWindow(tmp, 'sess-ttl-neg', { ttl_minutes: -5 }),
+    /ttl_minutes must be.*> 0/
+  );
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-5 openExecWindow: nao deixa .tmp leftover apos sucesso', () => {
+  const tmp = setupValidLock('sess-atomic');
+  openExecWindow(tmp, 'sess-atomic');
+  const files = fs.readdirSync(path.join(tmp, '.pipeline', 'sessions'));
+  const tmps = files.filter((f) => f.endsWith('.tmp'));
+  assert.strictEqual(tmps.length, 0, `expected no .tmp files, got: ${tmps.join(',')}`);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+// --- NI-4 TTL formalization (v4.1) ---------------------------------
+
+test('NI-4 openExecWindow: rejeita ttl_minutes > MAX_TTL_MINUTES (60)', () => {
+  const tmp = setupValidLock('sess-ttl-max');
+  assert.throws(() => openExecWindow(tmp, 'sess-ttl-max', { ttl_minutes: 61 }),
+    /ttl_minutes must be <= 60/);
+  assert.throws(() => openExecWindow(tmp, 'sess-ttl-max', { ttl_minutes: 1440 }),
+    /ttl_minutes must be <= 60/);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-4 openExecWindow: aceita ttl_minutes exatamente igual a 60', () => {
+  const tmp = setupValidLock('sess-ttl-max-ok');
+  const win = openExecWindow(tmp, 'sess-ttl-max-ok', { ttl_minutes: 60 });
+  assert.strictEqual(win.expires_at - win.opened_at, 60 * 60 * 1000);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-4 getActiveExecWindow: ignora window escrito com expires_at > 60min alem de opened_at', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'ttl-raw-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-L.lock'),
+    JSON.stringify({ session_id: 'sess-L', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  const opened = Date.now();
+  fs.writeFileSync(path.join(sessionsDir, 'sess-L.exec-window'),
+    JSON.stringify({ session_id: 'sess-L', opened_at: opened, expires_at: opened + 120 * 60 * 1000 }));
+  const target = path.join(tmp, 'src/foo.py');
+  assert.strictEqual(shouldBlock(target, tmp).block, true,
+    'window with TTL > 60min must not authorize');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-4 getActiveExecWindow: ignora window com opened_at no futuro (pre-armed)', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'future-open-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-F.lock'),
+    JSON.stringify({ session_id: 'sess-F', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  const now = Date.now();
+  // TTL = 20min (valid), but opened_at is 30min in the future (pre-armed window)
+  fs.writeFileSync(path.join(sessionsDir, 'sess-F.exec-window'),
+    JSON.stringify({ session_id: 'sess-F', opened_at: now + 30 * 60_000, expires_at: now + 50 * 60_000 }));
+  assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, true,
+    'pre-armed window (opened_at > now) must not authorize');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-4 getActiveExecWindow: ignora window legacy sem opened_at', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'legacy-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-L2.lock'),
+    JSON.stringify({ session_id: 'sess-L2', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  // Window missing opened_at entirely
+  fs.writeFileSync(path.join(sessionsDir, 'sess-L2.exec-window'),
+    JSON.stringify({ session_id: 'sess-L2', expires_at: Date.now() + 10 * 60_000 }));
+  assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, true,
+    'legacy window without opened_at must not authorize');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-4 openExecWindow: rejeita NaN / Infinity em ttl_minutes', () => {
+  const tmp = setupValidLock('sess-nan');
+  assert.throws(() => openExecWindow(tmp, 'sess-nan', { ttl_minutes: NaN }), /finite number/);
+  assert.throws(() => openExecWindow(tmp, 'sess-nan', { ttl_minutes: Infinity }), /finite number/);
+  assert.throws(() => openExecWindow(tmp, 'sess-nan', { ttl_minutes: -Infinity }), /finite number/);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+// ─── NI-3 pairing check (v4.1) ───────────────────────────────────
+
+function setupPaired(sessionId, { skipAudit = false, auditSkewMs = 0 } = {}) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pairing-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, `${sessionId}.lock`),
+    JSON.stringify({ session_id: sessionId, status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  const opened = Date.now();
+  fs.writeFileSync(path.join(sessionsDir, `${sessionId}.exec-window`),
+    JSON.stringify({ session_id: sessionId, opened_at: opened, expires_at: opened + 5 * 60_000 }));
+  if (!skipAudit) {
+    const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', '2026-04-24-test');
+    fs.mkdirSync(docsDir, { recursive: true });
+    const jsonl = path.join(docsDir, 'gate-decisions.jsonl');
+    fs.writeFileSync(jsonl,
+      JSON.stringify({ gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: sessionId, timestamp: opened + auditSkewMs, detail: 'test' }) + '\n');
+  }
+  return tmp;
+}
+
+test('NI-3 shouldBlock: permite edit quando window + audit-log estão emparelhados', () => {
+  const tmp = setupPaired('sess-pair-ok');
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, false, 'paired window should authorize');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-3 shouldBlock: BLOQUEIA quando window existe sem entrada EXEC_WINDOW_OPEN no audit log', () => {
+  const tmp = setupPaired('sess-no-audit', { skipAudit: true });
+  assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, true,
+    'window without paired audit entry MUST NOT authorize');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-3 shouldBlock: BLOQUEIA quando audit timestamp está fora do ±60s do opened_at', () => {
+  const tmp = setupPaired('sess-skew', { auditSkewMs: 120_000 });
+  assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, true,
+    'timestamp mismatch (>60s) MUST NOT authorize');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-3 shouldBlock: permite pequena skew (±60s) no audit timestamp', () => {
+  const tmp = setupPaired('sess-small-skew', { auditSkewMs: 30_000 });
+  assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, false,
+    '30s skew dentro da tolerância de 60s deve autorizar');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-3 shouldBlock: audit log de OUTRO session não conta como pairing', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cross-pair-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-A.lock'),
+    JSON.stringify({ session_id: 'sess-A', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+  const opened = Date.now();
+  fs.writeFileSync(path.join(sessionsDir, 'sess-A.exec-window'),
+    JSON.stringify({ session_id: 'sess-A', opened_at: opened, expires_at: opened + 5 * 60_000 }));
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', 'x');
+  fs.mkdirSync(docsDir, { recursive: true });
+  fs.writeFileSync(path.join(docsDir, 'gate-decisions.jsonl'),
+    JSON.stringify({ gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: 'sess-B', timestamp: opened, detail: 'other' }) + '\n');
+  assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, true,
+    'cross-session audit pairing must NOT authorize');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-3 shouldBlock: ignora linhas malformadas no gate-decisions.jsonl', () => {
+  const tmp = setupPaired('sess-malformed-jsonl');
+  const jsonlPath = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', '2026-04-24-test', 'gate-decisions.jsonl');
+  const original = fs.readFileSync(jsonlPath, 'utf8');
+  fs.writeFileSync(jsonlPath, 'not json {{{\n' + original);
+  assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, false,
+    'malformed lines should be skipped; valid pairing still recognized');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-3 openExecWindow: escreve EXEC_WINDOW_OPEN em gate-decisions.jsonl', () => {
+  const tmp = setupValidLock('sess-helper-audit');
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', 'current');
+  fs.mkdirSync(docsDir, { recursive: true });
+  openExecWindow(tmp, 'sess-helper-audit', { purpose: 'audit-test' });
+  const jsonl = fs.readFileSync(path.join(docsDir, 'gate-decisions.jsonl'), 'utf8');
+  const entries = jsonl.trim().split('\n').map(l => JSON.parse(l));
+  assert.ok(entries.some(e => e.gate === 'EXEC_WINDOW_OPEN' && e.session_id === 'sess-helper-audit'),
+    'openExecWindow must append EXEC_WINDOW_OPEN to gate-decisions.jsonl');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-3 closeExecWindow: escreve EXEC_WINDOW_CLOSE em gate-decisions.jsonl', () => {
+  const tmp = setupValidLock('sess-helper-close');
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', 'current');
+  fs.mkdirSync(docsDir, { recursive: true });
+  openExecWindow(tmp, 'sess-helper-close');
+  closeExecWindow(tmp, 'sess-helper-close');
+  const jsonl = fs.readFileSync(path.join(docsDir, 'gate-decisions.jsonl'), 'utf8');
+  const entries = jsonl.trim().split('\n').map(l => JSON.parse(l));
+  assert.ok(entries.some(e => e.gate === 'EXEC_WINDOW_CLOSE' && e.session_id === 'sess-helper-close'),
+    'closeExecWindow must append EXEC_WINDOW_CLOSE to gate-decisions.jsonl');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+// --- NI-3 adversarial fix pass 1 (v4.1 Batch 3 fix) ---------------------
+
+test('NI-3 shouldBlock: rejeita window quando OPEN foi consumido por CLOSE intermediario', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'stale-open-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', 'test');
+  fs.mkdirSync(docsDir, { recursive: true });
+  const jsonl = path.join(docsDir, 'gate-decisions.jsonl');
+
+  fs.writeFileSync(path.join(sessionsDir, 'sess-reuse.lock'),
+    JSON.stringify({ session_id: 'sess-reuse', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+
+  const now = Date.now();
+  const legitimateOpenTs = now - 50_000;
+  const closedTs = now - 40_000;
+  const newWindowOpenedAt = now - 5_000;
+
+  const entries = [
+    { gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: 'sess-reuse', timestamp: legitimateOpenTs, detail: 'batch-1' },
+    { gate: 'EXEC_WINDOW_CLOSE', hardness: 'AUDIT', session_id: 'sess-reuse', timestamp: closedTs, detail: 'batch-1 done' },
+  ];
+  fs.writeFileSync(jsonl, entries.map(e => JSON.stringify(e)).join('\n') + '\n');
+
+  fs.writeFileSync(path.join(sessionsDir, 'sess-reuse.exec-window'),
+    JSON.stringify({ session_id: 'sess-reuse', opened_at: newWindowOpenedAt, expires_at: newWindowOpenedAt + 5 * 60_000 }));
+
+  assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, true,
+    'OPEN consumido por CLOSE intermediario NAO deve pairar com nova window');
+
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('NI-3 shouldBlock: apos novo OPEN sem CLOSE intermediario, window emparelha corretamente', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'renew-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', 'test');
+  fs.mkdirSync(docsDir, { recursive: true });
+
+  fs.writeFileSync(path.join(sessionsDir, 'sess-renew.lock'),
+    JSON.stringify({ session_id: 'sess-renew', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+
+  const now = Date.now();
+  const entries = [
+    { gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: 'sess-renew', timestamp: now - 200_000, detail: 'old batch' },
+    { gate: 'EXEC_WINDOW_CLOSE', hardness: 'AUDIT', session_id: 'sess-renew', timestamp: now - 190_000, detail: 'old done' },
+    { gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: 'sess-renew', timestamp: now - 10_000, detail: 'new batch' },
+  ];
+  fs.writeFileSync(path.join(docsDir, 'gate-decisions.jsonl'),
+    entries.map(e => JSON.stringify(e)).join('\n') + '\n');
+
+  fs.writeFileSync(path.join(sessionsDir, 'sess-renew.exec-window'),
+    JSON.stringify({ session_id: 'sess-renew', opened_at: now - 10_000, expires_at: now + 5 * 60_000 }));
+
+  assert.strictEqual(shouldBlock(path.join(tmp, 'src/foo.py'), tmp).block, false,
+    'OPEN mais recente sem CLOSE apos deve autorizar');
+
+  fs.rmSync(tmp, { recursive: true });
+});
+
+// Helper variant WITHOUT Pre-*-action folder (for fail-closed test)
+function setupValidLockNoDocs(sessionId) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'withlock-nodocs-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, `${sessionId}.lock`),
+    JSON.stringify({
+      session_id: sessionId,
+      status: 'active',
+      created_at: Date.now(),
+      expires_at: Date.now() + 3600_000,
+    })
+  );
+  return tmp;
+}
+
+test('NI-3 openExecWindow: falha com erro claro quando nao ha Pre-*-action folder', () => {
+  const tmp = setupValidLockNoDocs('sess-no-pipeline-dir');
+  assert.throws(
+    () => openExecWindow(tmp, 'sess-no-pipeline-dir'),
+    /no Pre-\*-action folder found|active pipeline/i
+  );
+  fs.rmSync(tmp, { recursive: true });
+});
+
+// ============================================================================
+// STALE_HEARTBEAT defense-in-depth: edit-guard ignores locks whose heartbeat
+// is older than threshold even if session-lock-hook GC has not yet run
+// ============================================================================
+
+const { STALE_HEARTBEAT_MS } = require('../edit-guard-hook.cjs');
+
+test('shouldBlock: ignores active lock with stale last_seen_at heartbeat', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-hb-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  const staleStamp = Date.now() - (STALE_HEARTBEAT_MS + 60_000);
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-stale.lock'),
+    JSON.stringify({
+      session_id: 'sess-stale',
+      created_at: staleStamp,
+      last_seen_at: staleStamp,
+      expires_at: staleStamp + 2 * 3600 * 1000, // still well within TTL
+      status: 'active',
+    })
+  );
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, false, 'stale-heartbeat lock must not block edits');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('shouldBlock: still blocks when last_seen_at is fresh', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-hb-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  const freshStamp = Date.now() - 60_000;
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-live.lock'),
+    JSON.stringify({
+      session_id: 'sess-live',
+      created_at: freshStamp,
+      last_seen_at: freshStamp,
+      expires_at: freshStamp + 2 * 3600 * 1000,
+      status: 'active',
+    })
+  );
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('shouldBlock: legacy lock without last_seen_at still blocks (backwards compat)', () => {
+  // Pre-patch locks predate the heartbeat field — they must continue to be
+  // honored so an upgrade does not silently invalidate active pipeline sessions.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'guard-hb-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(sessionsDir, 'sess-legacy.lock'),
+    JSON.stringify({
+      session_id: 'sess-legacy',
+      status: 'active',
+      expires_at: Date.now() + 3600_000,
+      // no created_at, no last_seen_at — original v4.0 format
+    })
+  );
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true, 'legacy locks must still block until expires_at');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+// ─── v4.1.3 mtime-as-authoritative regression tests ──────────────
+
+test('v4.1.3: window with LLM-fabricated past opened_at is still honored (mtime authoritative)', () => {
+  // Repro of incident: pipeline-controller LLM with a stale internal clock
+  // wrote opened_at one year in the past. Pre-v4.1.3 this made expires_at fall
+  // in the past and the hook treated the window as expired, forcing manual
+  // refresh. v4.1.3: hook uses fs.statSync().mtimeMs as authoritative.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mtime-past-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-past.lock'),
+    JSON.stringify({ session_id: 'sess-past', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+
+  const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+  const fakeOpened = Date.now() - ONE_YEAR_MS;          // LLM-fabricated stale clock
+  const fakeExpires = fakeOpened + 5 * 60 * 1000;       // 5 min later in fabricated time
+
+  // Window file: written NOW (mtime ≈ now), but JSON timestamps are 1 year old.
+  fs.writeFileSync(path.join(sessionsDir, 'sess-past.exec-window'),
+    JSON.stringify({ session_id: 'sess-past', opened_at: fakeOpened, expires_at: fakeExpires }));
+
+  // Audit log: same fabricated timestamp (LLM consistent in being wrong).
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', '2026-04-29-test');
+  fs.mkdirSync(docsDir, { recursive: true });
+  fs.writeFileSync(path.join(docsDir, 'gate-decisions.jsonl'),
+    JSON.stringify({ gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: 'sess-past', timestamp: fakeOpened, detail: 'test' }) + '\n');
+
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, false,
+    'window with mtime in the present must authorize, even if JSON.opened_at is 1 year stale');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('v4.1.3: window with LLM-fabricated FUTURE opened_at is still honored (mtime authoritative)', () => {
+  // Symmetric case: LLM with future-shifted clock. mtime is now, JSON says +1 year.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mtime-future-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-fut.lock'),
+    JSON.stringify({ session_id: 'sess-fut', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+
+  const ONE_YEAR_MS = 365 * 24 * 60 * 60 * 1000;
+  const fakeOpened = Date.now() + ONE_YEAR_MS;
+  const fakeExpires = fakeOpened + 5 * 60 * 1000;
+
+  fs.writeFileSync(path.join(sessionsDir, 'sess-fut.exec-window'),
+    JSON.stringify({ session_id: 'sess-fut', opened_at: fakeOpened, expires_at: fakeExpires }));
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', '2026-04-29-test');
+  fs.mkdirSync(docsDir, { recursive: true });
+  fs.writeFileSync(path.join(docsDir, 'gate-decisions.jsonl'),
+    JSON.stringify({ gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: 'sess-fut', timestamp: fakeOpened, detail: 'test' }) + '\n');
+
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, false,
+    'pre-v4.1.3 rejected pre-armed windows; v4.1.3 trusts mtime so future JSON.opened_at is irrelevant');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('v4.1.3: window with ttl_minutes field (and no expires_at) is honored', () => {
+  // New canonical schema: callers may write only ttl_minutes; opened_at/expires_at optional.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mtime-ttl-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-ttl.lock'),
+    JSON.stringify({ session_id: 'sess-ttl', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+
+  fs.writeFileSync(path.join(sessionsDir, 'sess-ttl.exec-window'),
+    JSON.stringify({ session_id: 'sess-ttl', ttl_minutes: 5, purpose: 'test', spawning_agent: 'foo' }));
+
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', '2026-04-29-test');
+  fs.mkdirSync(docsDir, { recursive: true });
+  // Audit-log timestamp = Date.now() (the ts the appendAuditEntry helper would use).
+  fs.writeFileSync(path.join(docsDir, 'gate-decisions.jsonl'),
+    JSON.stringify({ gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: 'sess-ttl', timestamp: Date.now(), detail: 'test' }) + '\n');
+
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, false,
+    'minimal-schema window (ttl_minutes only) must authorize when paired');
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('v4.1.3: ttl_minutes > MAX_TTL_MINUTES is rejected even when mtime is fresh', () => {
+  // Defense-in-depth: TTL ceiling still enforced via the effective TTL path.
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mtime-ttlmax-'));
+  const sessionsDir = path.join(tmp, '.pipeline', 'sessions');
+  fs.mkdirSync(sessionsDir, { recursive: true });
+  fs.writeFileSync(path.join(sessionsDir, 'sess-ttlmax.lock'),
+    JSON.stringify({ session_id: 'sess-ttlmax', status: 'active', created_at: Date.now(), expires_at: Date.now() + 3600_000 }));
+
+  fs.writeFileSync(path.join(sessionsDir, 'sess-ttlmax.exec-window'),
+    JSON.stringify({ session_id: 'sess-ttlmax', ttl_minutes: 120 }));   // 120 > 60 max
+
+  const docsDir = path.join(tmp, '.pipeline', 'docs', 'Pre-Media-action', '2026-04-29-test');
+  fs.mkdirSync(docsDir, { recursive: true });
+  fs.writeFileSync(path.join(docsDir, 'gate-decisions.jsonl'),
+    JSON.stringify({ gate: 'EXEC_WINDOW_OPEN', hardness: 'AUDIT', session_id: 'sess-ttlmax', timestamp: Date.now(), detail: 'test' }) + '\n');
+
+  const result = shouldBlock(path.join(tmp, 'src/foo.py'), tmp);
+  assert.strictEqual(result.block, true,
+    'ttl_minutes above MAX_TTL_MINUTES must be rejected regardless of mtime');
+  fs.rmSync(tmp, { recursive: true });
+});

@@ -6,7 +6,66 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Pipeline Orchestrator v3.0.2 loaded. Try: /pipeline [task] for full execution, /pipeline diagnostic [task] to preview without executing, /pipeline --grill [task] for design interrogation. Config: create .claude/pipeline.local.md to set build/test commands (optional — auto-detection available)."
+            "prompt": "Pipeline Orchestrator v4.1.3 loaded. Try: /pipeline [task] for full execution. v4 changes: orchestration moved to isolated controller agent; direct Edit/Write blocked during pipeline sessions (session lock in .pipeline/sessions/). v4.1.1 added stale-lock self-heal. v4.1.3: exec-window opened_at now derived from fs.statSync().mtimeMs (filesystem authoritative) — eliminates spurious-expiration when controller LLM writes a stale-clock JSON timestamp."
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/force-pipeline-agents.cjs\""
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/session-lock-hook.cjs\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/completion-checklist.cjs\""
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/session-cleanup-hook.cjs\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/sentinel-hook.cjs\""
+          }
+        ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/dispatch-guard.cjs\""
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/edit-guard-hook.cjs\""
           }
         ]
       }
