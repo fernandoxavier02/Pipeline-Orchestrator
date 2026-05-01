@@ -18,7 +18,7 @@ Linguagem leiga, completa e curta. Veredicto primeiro, detalhe depois. Sem jarga
 |---|---|---|
 | **Design v5** | `designs/pipeline-orchestrator-v5-consolidated.md` | 1491 linhas, sucessor único dos 3 docs em `designs/legacy/` |
 | **Design v5 Slice 0** | `designs/slice-0/INVENTORY.md` + 4 SPIKEs | Reality-check pós-sync 4.1.3 — INVENTORY atualizado em 2026-04-30 (Slices 0+0.5+1 marcados como concluídos) |
-| **Versão canônica** | `.claude-plugin/plugin.json` `"version"` | Atualmente: **4.2.1**. v4.2.0 entregou Slice 1 (`/bugfix` thin entry-point); v4.2.1 patch fechou SEC-1 (uppercase bypass) + SEC-2 (namespace collision). Marketplace lê este arquivo. |
+| **Versão canônica** | `.claude-plugin/plugin.json` `"version"` | Atualmente: **4.3.1**. Lineage: v4.2.0 (Slice 1 `/bugfix`) → v4.2.1 (SEC-1+SEC-2 patch) → v4.3.0 (command-to-skill migration per docs oficial) → v4.3.1 (review polish). Próximo planejado: **v4.4.0** (Slice 1.5 — Pulsar bugfix workflow import; design em consolidated.md §21). Marketplace lê este arquivo. |
 | **Pipeline flow** | `commands/pipeline.md` (full classifier) + `commands/bugfix.md` (thin shortcut) | 1112 linhas no full + 40 no thin. **Inline Invariants** em `pipeline.md` sobrepõem Grep-loaded refs em caso de conflito |
 | **Agent orchestrator** | `agents/core/pipeline-controller.md` | N1, dispatched pela skill, coordena 4 fases |
 | **Gates** | `references/gates.md` | Hardness Taxonomy + 16-gate Registry |

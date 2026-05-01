@@ -17,7 +17,7 @@
 | `agents/**/*.md` arquivos | 38 | 19 | **38** ✅ | `find agents -name "*.md"` |
 | Hooks `.cjs` em `.claude/hooks/` | 7 | 2 | **7** ✅ | dispatch-guard, edit-guard, sentinel, session-cleanup, session-lock, completion-checklist, force-pipeline-agents |
 | `references/pipelines/*.md` | 12 | 10 | **12** ✅ | 6 light + 6 heavy: audit, bugfix, implement, user-story, ux-sim, **adversarial** |
-| Plugin version | v4.1.x | 3.0.2 / 3.1.0 | **4.2.1** ✅ | `.claude-plugin/plugin.json` (v4.2.0 = Slice 1; v4.2.1 = patch SEC-1+SEC-2) |
+| Plugin version | v4.1.x | 3.0.2 / 3.1.0 | **4.3.1** ✅ | `.claude-plugin/plugin.json` (v4.2.0 Slice 1 → v4.2.1 SEC patch → v4.3.0 skill migration → v4.3.1 review polish; próximo: v4.4.0 = Slice 1.5 §21) |
 | `agents/core/pipeline-controller.md` | assumido existir | NÃO EXISTE | **EXISTE (1049 linhas)** ✅ | Slice 0 P0 atendido |
 | `agents/core/sentinel.md` | referenciado | NÃO EXISTE | **EXISTE (194 linhas)** ✅ | §16 #7 resolvido |
 | `agents/executor/type-specific/` | referenciado | NÃO EXISTE | **EXISTE (17 agents)** ✅ | §16 #8 resolvido |
@@ -84,7 +84,8 @@ model: sonnet
 |---|---|---|---|
 | **0 — P0 baseline** | 2-3 dias | 2 dias | 🟢 **RESOLVIDO via sync 4.1.3** (controller existe, hooks existem, sentinel existe) |
 | **0.5 — Context & Policies** | 22h | 3 dias | 🟢 **CONCLUÍDO** (gates.md, audit-trail, confidence, sentinel-integration, CLAUDE.md raiz, AGENTS.md raiz, COMPLEXITY_GATE — todos shipados) |
-| **1 — `/bugfix` + 2 agentes** | ~1 sem | 3-5 dias | 🟢 **CONCLUÍDO em v4.2.0 (2026-04-30)** + patch v4.2.1 (SEC-1+SEC-2). `commands/bugfix.md` thin wrapper. `task-orchestrator` Step 1a aceita prefix `PRE_CLASSIFIED_TYPE`. Hooks `session-lock-hook` + `force-pipeline-agents` reconhecem entry-point. ARCH-2 (trust boundary) deferido pra Slice 3. |
+| **1 — `/bugfix` + 2 agentes** | ~1 sem | 3-5 dias | 🟢 **CONCLUÍDO em v4.2.0+v4.2.1+v4.3.0+v4.3.1 (2026-04-30/05-01)**. Skill `/bugfix` (migrada de command em v4.3.0). `task-orchestrator` Step 1a aceita prefix `PRE_CLASSIFIED_TYPE`. Hooks `session-lock-hook` + `force-pipeline-agents` reconhecem entry-point. ARCH-2 (trust boundary) deferido pra Slice 3. |
+| **1.5 — Pulsar bugfix workflow import** | (não previsto) | — | 🟡 **DESIGN APROVADO em 2026-05-01** — ver consolidated §21. Target v4.4.0. 23 arquivos novos (2 skills + 19 steps + 2 tests) + 8 regras enforcement + 6 gaps fechados (Heavy 3+9+11, Light 3+5+6). Próximo: writing-plans → executing-plans. |
 | **2 — TRACE.md** | ~1 sem | 3-5 dias | 🔴 **PENDENTE** — `agents/core/trace-generator.md` ausente |
 | **3 — `/feature`, `/audit`, `/ux`** | ~0.5-1 sem | 2-3 dias | 🔴 **PENDENTE** — depende de Slice 1 padrão (✅ provado em 4.2.0); 4 commands restantes seguem o mesmo template de `commands/bugfix.md`. ARCH-2 deve ser endereçada nesse slice. |
 | **4 — compat suite** | (não estimado) | 5-7 dias | 🟡 **PARCIAL** — `tests/` existe com fixtures + manual-validation-log; smoke-test 10/10 cases para hooks já existe; falta CI test runner formal |

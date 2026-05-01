@@ -3,12 +3,12 @@
 ## 0. Metadados
 
 - **Data inicial:** 2026-04-29
-- **Última revisão:** 2026-04-30 (pós-execução Slice 0+0.5+1)
-- **Status:** DRAFT consolidado — Slices 0+0.5+1 ENTREGUES; Slices 2-4 PENDENTES
+- **Última revisão:** 2026-05-01 (Slice 1.5 design adicionado §21)
+- **Status:** DRAFT consolidado — Slices 0+0.5+1 ENTREGUES (v4.3.1); Slice 1.5 DESIGN APROVADO (§21); Slices 2-4 PENDENTES
 - **Supersedes:** D1 (`pipeline-orchestrator-v5-pipeline-as-code.md`), D2 (`pipeline-orchestrator-v5-execution-vertical-slices.md`), D3 (`pipeline-orchestrator-v5-addendum-context-and-policies.md`) — todos arquivados em `designs/legacy/`.
 - **SSOT:** este documento. Em caso de divergência com D1/D2/D3, ESTE prevalece.
-- **Reality-check baseline:** verificado em 2026-04-29 contra repositório canonical. Em 2026-04-30, canonical foi sincronizado de v3.0.2 para v4.1.3 e em seguida bumpado para v4.2.0 (Slice 1) + v4.2.1 (patch SEC). Ver `designs/slice-0/INVENTORY.md` para baseline pós-execução.
-- **Versão atual no marketplace:** **v4.2.1** (`/pipeline-orchestrator:pipeline` + `/pipeline-orchestrator:bugfix` shipados).
+- **Reality-check baseline:** verificado em 2026-04-29 contra repositório canonical. Em 2026-04-30, canonical foi sincronizado de v3.0.2 para v4.1.3 e em seguida bumpado para v4.2.0 (Slice 1) + v4.2.1 (SEC patch) + v4.3.0 (skill migration) + v4.3.1 (review polish). Em 2026-05-01, design Slice 1.5 fechado em §21 (Pulsar bugfix workflow import). Ver `designs/slice-0/INVENTORY.md` para baseline pós-execução.
+- **Versão atual no marketplace:** **v4.3.1** (`/pipeline-orchestrator:pipeline` + `/pipeline-orchestrator:bugfix` shipados como skills). Próximo release planejado: **v4.4.0** (Slice 1.5 — workflows prescritivos importados do Pulsar; design §21).
 - **Repositório:** github.com/fernandoxavier02/Pipeline-Orchestrator
 - **Modo de redação:** Builder + consolidação adversarial.
 - **Esforço já consumido:** ~1 dia solo (2026-04-30) — sync 4.1.3 + Slice 0.5 + Slice 1 + patch SEC.
@@ -501,7 +501,8 @@ Slices verticais invertem: cada slice atravessa todas as camadas necessárias pa
 ```
 Slice 0     Spike formato + agent-spec-template            🟢 ENTREGUE (sync 4.1.3)
 Slice 0.5   Context & Policies                              🟢 ENTREGUE (v4.2.0)
-Slice 1     /bugfix command + thin entry-point pattern      🟢 ENTREGUE (v4.2.0 + patch v4.2.1 SEC-1+SEC-2)
+Slice 1     /bugfix command + thin entry-point pattern      🟢 ENTREGUE (v4.2.0 + v4.2.1 + v4.3.0 + v4.3.1)
+Slice 1.5   Pulsar bugfix workflow import (§21)             🟡 DESIGN APROVADO 2026-05-01 (target v4.4.0)
 Slice 2     TRACE.md (Run Record)                           🔴 PENDENTE (1 sem)
 Slice 3     /feature, /userstory, /audit, /ux + ARCH-2 fix  🔴 PENDENTE (0.5-1 sem)
 Slice 4     Compat regression suite + CI test runner        🟡 PARCIAL (1.5-2 sem)
@@ -1498,12 +1499,213 @@ Observações da sessão original preservadas para contexto autoral. Não afetam
 
 ---
 
+## 21. Slice 1.5 — Pulsar bugfix workflow import (NOVO 2026-05-01)
+
+### 21.1 Origem e justificativa
+
+Em 2026-05-01, durante validação do Slice 1 entregue (v4.2.0 + v4.3.0 + v4.3.1 — `/bugfix` thin entry-point), o dono apontou que o trabalho não seguiu dois modelos prescritivos detalhados que já existiam em `D:\Projeto Pulsar\.claude\commands\Prompts\Bug_fix\heavy\` (11 passos) e `\light\` (8 passos). Esses modelos contêm prompts prescritivos cobrindo o ciclo completo de bug fix — diagnóstico, root cause, modelagem de invariantes, mudança controlada, TDD, sanity, adversarial review, UX journey, Pa de Cal, validação final.
+
+Auditoria pós Slice 1: **6 dos 19 passos têm gap real no plugin** (3 ausentes, 3 parciais):
+
+| Passo Pulsar | Plugin v4.3.1 | Status |
+|---|---|---|
+| Heavy 3: Domain Truth Model | sem agent ou prompt | 🔴 AUSENTE |
+| Heavy 9: UX User Journey E2E pós-fix | `ux-simulator` cobre type "UX Sim", não step pós-bug | 🟡 PARCIAL |
+| Heavy 11: Final Validation Post-After-All | não modelado como step distinto | 🔴 AUSENTE |
+| Light 3: Impact Check (invariantes ANTES) | `information-gate` parcial | 🟡 PARCIAL |
+| Light 5: promover RED→regression explicitamente | promoção não modelada | 🟡 PARCIAL |
+| Light 6: Persistence Quick Check | sem agent | 🔴 AUSENTE |
+
+### 21.2 Decisão de design (após brainstorm 2026-05-01)
+
+**Approach A (markdown prescritivo) + Approach C (execução híbrida seletiva)** — ambos endossados pela doc oficial de Claude Code 2026 (skills page + sub-agents page).
+
+#### 21.2.1 Localização e formato (Approach A)
+
+Per doc oficial: *"Create a skill when you keep pasting the same playbook, checklist, or **multi-step procedure** into chat"* + *"Skills can include multiple files in their directory ... templates for Claude to fill in, example outputs ... or detailed reference documentation"* + *"Keep `SKILL.md` under 500 lines. Move detailed reference material to separate files."*
+
+```
+skills/
+├── bugfix-light/                  # SIMPLES/MEDIA — 8 steps
+│   ├── SKILL.md                   # overview + navigation, <500 linhas
+│   ├── steps/
+│   │   ├── 01-understand-behavior.md
+│   │   ├── 02-simple-bug-analysis.md      # RED test
+│   │   ├── 03-impact-check.md             # GAP FECHADO
+│   │   ├── 04-point-fix.md
+│   │   ├── 05-post-fix-validation.md      # GAP FECHADO (RED→regression)
+│   │   ├── 06-persistence-quick-check.md  # GAP FECHADO (novo)
+│   │   ├── 07-complexity-gate.md
+│   │   └── 08-pa-de-cal.md
+│   └── tests/tests-bugfix-light.md
+└── bugfix-heavy/                  # COMPLEXA — 11 steps
+    ├── SKILL.md                   # overview + navigation, <500 linhas
+    ├── steps/
+    │   ├── 01-terrain-recon-diagnostic.md
+    │   ├── 02-root-cause-consolidation.md
+    │   ├── 03-domain-truth-model.md       # GAP FECHADO (novo)
+    │   ├── 04-controlled-change-proposal.md  # AskUserQuestion gate
+    │   ├── 05-test-pre-impl.md
+    │   ├── 06-execute-minimal-diff.md
+    │   ├── 07-post-change-sanity-regression.md
+    │   ├── 08-adversarial-ux-tech-review.md  # AskUserQuestion gate
+    │   ├── 09-ux-user-journey-e2e.md      # GAP FECHADO (parcial→completo)
+    │   ├── 10-pa-de-cal.md                # AskUserQuestion gate (GO/NO-GO)
+    │   └── 11-final-validation-after-all.md  # GAP FECHADO (novo step)
+    └── tests/tests-bugfix-heavy.md
+```
+
+**Total novo:** 2 skills + 19 steps + 2 tests = 23 supporting files.
+
+#### 21.2.2 Entry-points (4 modos de invocação)
+
+| Comando | Comportamento |
+|---|---|
+| `/pipeline-orchestrator:bugfix [task]` | Auto-classifica via `task-orchestrator` → AskUserQuestion gate de aprovação → carrega `bugfix-light` ou `bugfix-heavy` skill |
+| `/pipeline-orchestrator:bugfix --light [task]` | Força light, sem auto-classify |
+| `/pipeline-orchestrator:bugfix --heavy [task]` | Força heavy, sem auto-classify |
+| `/pipeline-orchestrator:bugfix-light [task]` | Atalho direto para a skill light (sem passar pelo `/bugfix`) |
+| `/pipeline-orchestrator:bugfix-heavy [task]` | Atalho direto para a skill heavy |
+
+Plus retrocompat: `/pipeline-orchestrator:pipeline [task]` ganha flags `--light`/`--heavy` análogas a `--simples/--media/--complexa` existentes.
+
+#### 21.2.3 Padrão de execução (Approach C — híbrido seletivo)
+
+Cada step declara seu `execution_mode` no frontmatter. Mapeamento canônico:
+
+**Bugfix Heavy:**
+| # | Step | Mode | Agent type (se subagent) |
+|---|------|------|--------------------------|
+| 1 | Terrain Recon | `subagent` | `bugfix-diagnostic-agent` |
+| 2 | Root Cause | `subagent` | `bugfix-root-cause-analyzer` |
+| 3 | Domain Truth Model | `subagent` | `Explore` (built-in) |
+| 4 | Controlled Change Proposal | `inline` | — (AskUserQuestion gate) |
+| 5 | TDD Pre-Impl | `inline` | — |
+| 6 | Execute Minimal Diff | `inline` | — |
+| 7 | Sanity + Regression | `subagent` | `general-purpose` (Bash heavy) |
+| 8 | Adversarial Review | `subagent` × 3 paralelos | `adversarial-{security,architecture,quality}-scanner` (existentes, zero-context) |
+| 9 | UX Journey E2E | `subagent` | `ux-simulator` (existente) |
+| 10 | Pa de Cal | `inline` | — (AskUserQuestion gate) |
+| 11 | Final Validation | `subagent` | `general-purpose` (read-only) |
+
+**Bugfix Light** (mais inline porque steps são menores):
+| # | Step | Mode |
+|---|------|------|
+| 1-3 | Understand / Analysis / Impact | inline |
+| 4 | Point Fix | inline |
+| 5 | Post-Fix Validation | subagent (validation) |
+| 6 | Persistence Quick Check | subagent |
+| 7-8 | Complexity Gate / Pa de Cal | inline |
+
+#### 21.2.4 Os 3 agents existentes (decisão)
+
+`bugfix-diagnostic-agent`, `bugfix-root-cause-analyzer`, `bugfix-regression-tester` — **mantidos + referenciados pelos steps** quando faz sentido. Zero quebra de retrocompat para quem invoca os agents diretamente. O playbook prescritivo dos 11/8 passos vive na **skill** (per doc oficial); os agents continuam como workers especializados invocáveis pela skill quando o passo precisar.
+
+### 21.3 Regras de execução (enforcement determinístico — 8 regras não-negociáveis)
+
+Per requisito explícito do dono: *"regras de execucao que funcionem, e que nao permitam ao agente fazer o que ele quer"*. As 8 regras abaixo formam o **contrato de execução** das skills `bugfix-{heavy,light}`:
+
+| # | Regra | Mecanismo | Falha → ação |
+|---|-------|-----------|--------------|
+| 1 | **Sequência rígida** — steps executam em ordem (1→2→...→N), sem skip, sem reorder | `SKILL.md` declara `sequence:` + `sequence_lock: true`; sentinel-hook valida `expected_next` em cada Agent spawn | Block + sentinel deny |
+| 2 | **Execution mode bloqueado** — cada step declara `execution_mode` no frontmatter; Claude **NÃO PODE** trocar inline ↔ subagent | dispatch-guard hook valida modo declarado vs spawn real | Block + audit log |
+| 3 | **Agent type whitelist** — quando `execution_mode: subagent`, o step declara `agent_type:` específico; Claude só pode spawnar EXATAMENTE esse agent | dispatch-guard hook (existente v4) com whitelist por step | Block + sentinel deny |
+| 4 | **Output schema validado** — cada step declara `expected_outputs:` (estrutura YAML); próximo step valida que recebeu antes de prosseguir | Schema check no header de cada step.md (fail-closed) | STOP step + report |
+| 5 | **AskUserQuestion gates obrigatórios** — pontos de decisão (Heavy steps 4, 8, 10; Light steps 7, 8) — nunca skipados, nunca substituídos por prosa | Step.md declara `gate_required: true`; SKILL.md força invocação | Block + audit log |
+| 6 | **STOP RULE** — 2 falhas consecutivas (build, test, validation) param o pipeline | sanity-checker + checkpoint-validator (existentes v4) registram contagem; SKILL.md força stop | STOP + escalate to user |
+| 7 | **Audit log append-only** — toda decisão (gate, AskUserQuestion, step transition, STOP) é registrada em `.pipeline/gate-decisions.jsonl` | Mecanismo já existe v4; SKILL.md força uso explícito | Auditável post-hoc |
+| 8 | **Sentinel checkpoints** em transições críticas (Heavy: pré-step-4, pré-step-8, pré-step-10; Light: pré-step-7) — fora delas, sentinel bloqueia | sentinel-hook (existente v4) com checkpoints declarados na SKILL.md | Block + sentinel verdict |
+
+### 21.4 Frontmatter contrato canônico
+
+**`SKILL.md` (skills/bugfix-{light,heavy}/SKILL.md):**
+```yaml
+---
+name: bugfix-light                # ou bugfix-heavy
+description: <prescriptive workflow description, <1536 chars>
+disable-model-invocation: true    # manual-only invocation
+allowed-tools: [Task, Read, Grep, Glob, AskUserQuestion]
+argument-hint: [bug description with repro details]
+sequence: [1, 2, 3, 4, 5, 6, 7, 8]              # imutável
+sequence_lock: true                              # impede reorder/skip
+gates_at: [7, 8]                                # ou [4, 8, 10] for heavy
+sentinel_checkpoints: [pre_7]                   # ou [pre_4, pre_8, pre_10]
+stop_rule_max_failures: 2
+---
+```
+
+**`steps/0X-*.md`:**
+```yaml
+---
+step_number: 7
+step_name: "post-change-sanity-regression"
+execution_mode: subagent          # ou "inline" — IMUTÁVEL
+agent_type: "general-purpose"     # whitelist; só se subagent
+expected_inputs:
+  - root_cause_hypothesis: from_step_2
+  - fix_diff: from_step_6
+expected_outputs:
+  - test_results: { passed: int, failed: int, regression_introduced: bool }
+expected_next: 8
+gate_required: false
+allowed_tools: [Bash, Read]
+---
+[prescriptive step content imported/adapted from Pulsar]
+```
+
+### 21.5 Migration plan (target: v4.4.0 minor release)
+
+1. **Criar** `skills/bugfix-{heavy,light}/SKILL.md` + steps + tests (23 arquivos novos)
+2. **Atualizar** `skills/bugfix/SKILL.md` — detectar flags `--light`/`--heavy` + delegar à skill backing
+3. **Atualizar** `agents/core/pipeline-controller.md` — Step 1 IDENTIFY EXECUTION MODE aceitar variant override
+4. **Atualizar** `agents/core/task-orchestrator.md` Step 1a — aceitar `force_variant` análogo a `force_type` (Slice 1)
+5. **Atualizar** `commands/pipeline.md` — adicionar flags `--light`/`--heavy` na tabela de modes
+6. **Atualizar** `references/pipelines/bugfix-{light,heavy}.md` — apontar pra skills novas
+7. **Propagar para docs de spec** (instrução do dono "alterar todos os arquivos da spec para adequacao"):
+   - `CLAUDE.md` raiz: bump versão, mencionar 2 novas skills
+   - `AGENTS.md`: adicionar 2 entries no roster
+   - `designs/slice-0/INVENTORY.md`: marcar §3 Slice 1.5 como done quando entregue
+   - **ESTE arquivo (consolidated.md)**: §0 metadata bump + §12.2 sequência atualiza com Slice 1.5
+   - `CHANGELOG.md`: entry 4.4.0 detalhada
+8. **Bump** `plugin.json`/`marketplace.json`/`hooks/hooks.json` SessionStart prompt → v4.4.0
+9. **Tests** — 23 arquivos novos + smoke test do enforcement (sequence_lock, execution_mode lock, gate enforcement)
+10. **Release flow padrão**: commit temático, push main, tag v4.4.0, cache update
+
+### 21.6 Backward compatibility
+
+- ✅ `/pipeline-orchestrator:bugfix [task]` continua funcionando idêntico (auto-classifica + carrega skill apropriada — usuário não nota diferença)
+- ✅ `/pipeline-orchestrator:pipeline [task]` continua idêntico; flags `--light/--heavy` são aditivas
+- ✅ 3 agents type-specific bugfix-* permanecem invocáveis isoladamente (CC pattern: agent.md ainda gera `pipeline-orchestrator:executor:type-specific:bugfix-*` namespace)
+- ✅ `references/pipelines/bugfix-*.md` continuam acessíveis (apenas atualizam a apontar pra skills)
+
+### 21.7 Riscos identificados
+
+| Risco | Severidade | Mitigação |
+|---|---|---|
+| Conflito de merge com Slice 2 (TRACE.md generator pendente) | Média | TRACE.md vai precisar registrar transições de step da skill — coordenar contrato de evento |
+| Conflito de merge com Slice 3 (4 entry-points restantes) | Baixa | Padrão estabelecido aqui (skill + steps + enforcement rules) é diretamente reutilizável pra `/feature`, `/userstory`, `/audit`, `/ux` |
+| Hook `dispatch-guard` precisa estender whitelist por step | Média | Patch determinístico; lógica de leitura do `agent_type` no step.md frontmatter |
+| Performance — heavy executa 11 steps, alguns com subagent spawn | Baixa | Doc oficial endossa o pattern; subagents preservam contexto principal |
+| ARCH-2 (trust boundary do `PRE_CLASSIFIED_TYPE` prefix — Slice 1) ainda em aberto | Média | Endereçar junto com Slice 3; mover de string-prefix pra Agent.metadata field |
+
+### 21.8 Critérios de done (DoD do Slice 1.5)
+
+- [ ] 23 arquivos novos criados (2 SKILL.md + 19 steps + 2 tests)
+- [ ] 6 arquivos existentes atualizados (skills/bugfix/SKILL.md, pipeline-controller, task-orchestrator, commands/pipeline.md, 2 references/pipelines/bugfix-*.md)
+- [ ] 5 docs de spec atualizados (CLAUDE.md, AGENTS.md, INVENTORY.md, ESTE consolidated.md §0+§12, CHANGELOG.md)
+- [ ] Os 6 gaps mapeados em §21.1 estão fechados (Heavy 3, 9, 11 + Light 3, 5, 6)
+- [ ] As 8 regras de enforcement (§21.3) declarativas em frontmatter de cada step + SKILL.md
+- [ ] Smoke test: invocar `/pipeline-orchestrator:bugfix-light test` e `/pipeline-orchestrator:bugfix-heavy test` numa fixture confirma execução determinística (sem skip, sem reorder, AskUserQuestion gates dispararam)
+- [ ] Release: tag v4.4.0 + cache update + marketplace.json com v4.4.0
+- [ ] Backward compat verificada: `/pipeline-orchestrator:bugfix existing-task-format` ainda funciona
+
+### 21.9 Próximos passos
+
+1. **Imediato (este advisor flow):** transição pra `/superpowers:writing-plans` (Step 9 do checklist do brainstorming) que vai gerar a spec executável (já temos o design — falta o plano de execução com tasks e ordering)
+2. **Slice 1.5 execution:** invocar `/superpowers:executing-plans` (após writing-plans) com a spec em mãos
+3. **Slice 1.5 verification:** invocar `/superpowers:verification-before-completion` ao final
+4. **Pós-Slice 1.5:** Slice 2 (TRACE.md) ou Slice 3 (`/feature`, `/userstory`, `/audit`, `/ux` — reusam o padrão estabelecido aqui)
+
+---
+
 ## Status final
-
-DRAFT consolidado pronto para revisão do dono. Após aprovação:
-
-1. Este documento substitui D1/D2/D3 como SSOT do design v5.0.
-2. D1/D2/D3 NÃO são deletados — ficam em `designs/` como histórico.
-3. Iniciar **Slice 0** com foco em criar `pipeline-controller.md` com tools corretas (§15) + auditar baseline real (§16).
-4. **Slice 0.5** começa após Slice 0 fechar (ou em paralelo se dono optar — Open Question §17.2 #3).
-5. Cada Slice subsequente segue a ordem 0 → 0.5 → 2 → 1 → 3 → 4 → tag v5.0.0 → 5 → tag v5.1.0.
