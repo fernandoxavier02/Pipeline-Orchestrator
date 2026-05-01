@@ -6,16 +6,29 @@
 
 ## Team Composition
 
-| Step | Agent | Responsibility |
-|------|-------|---------------|
-| 1 | task-orchestrator | Classify as User Story + MEDIA |
-| 2 | information-gate | Verify: persona, trigger, acceptance criteria |
-| 3 | executor-controller | Translate story -> tasks, execute in batches of 2-3 |
-| 4 | checkpoint-validator | Build + tests after each batch |
-| 5 | review-orchestrator | Independent batch review (adversarial + architecture in parallel) |
-| 6 | sanity-checker | Build + tests + user journey verification |
-| 7 | final-validator | Go/No-Go decision |
-| 8 | final-adversarial-orchestrator | Independent final review (recommended, opt-in) |
+| Step | Agent | Phase | Responsibility |
+|------|-------|-------|---------------|
+| 1 | task-orchestrator | 0a | Classify as User Story + MEDIA |
+| 2 | sentinel (ORCHESTRATOR_VALIDATION) | 0 | Validate classification correctness |
+| 3 | information-gate | 0b | Verify: persona, trigger, acceptance criteria |
+| 4 | quality-gate-router | 2 (TDD) | Generate test scenarios from acceptance criteria |
+| 5 | pre-tester | 2 (TDD) | Convert approved scenarios to automated tests (RED phase) |
+| 6 | executor-controller | 2 | Translate story → tasks, execute in batches of 2-3 |
+| 7 | checkpoint-validator | 2 | Build + tests after each batch |
+| 8 | review-orchestrator | 2 | Independent batch review (adversarial + architecture in parallel) |
+| 9 | sentinel (phase_2_to_3) | 2→3 | Validate phase transition coherence |
+| 10 | sanity-checker | 3 | Build + tests + user journey verification |
+| 11 | final-adversarial-orchestrator | 3 | Independent final review (recommended, opt-in) |
+| 12 | final-validator (Pa de Cal) | 3 | Go/No-Go decision |
+| 13 | finishing-branch | 3 | Present closeout options (commit/PR/keep/discard) |
+
+### Pipeline Discipline (MANDATORY)
+
+- **Sentinel checkpoints:** #1 (post_orchestrator) and #4 (phase_2_to_3) are MANDATORY. #2, #3, #5 are recommended.
+- **TDD:** quality-gate-router + pre-tester are MANDATORY before executor-controller.
+- **Phase transitions:** Emit Phase Transition Summary block BEFORE every phase change.
+- **Gate decisions:** Log EVERY gate trigger to `{PIPELINE_DOC_PATH}/gate-decisions.jsonl`.
+- **State file:** Update `sentinel-state.json` via Write tool BEFORE every Agent spawn.
 
 ## Step-by-Step Flow
 
@@ -75,3 +88,15 @@
 - Story too large (6+ tasks) -> escalate to user-story-heavy
 - Acceptance criteria ambiguous -> ASK user for clarification
 - Crosses 3+ domains -> re-assess complexity
+
+---
+
+### Type-Specific Agent Team
+
+**Team:** Feature Light (referenced from implement-light)
+**Mode:** code-changing
+**Agents (execution order):**
+1. feature-vertical-slice-planner — story decomposition into implementable tasks, acceptance criteria mapping
+2. feature-implementer — per-task TDD implementation, batches of 2-3
+
+**Note:** feature-integration-validator is SKIPPED in Light. User Story Light uses the same agent team as Feature Light. The difference is upstream: user-story pipeline includes story intake and decomposition steps before reaching executor-controller.

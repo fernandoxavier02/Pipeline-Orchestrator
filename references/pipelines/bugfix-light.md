@@ -6,16 +6,29 @@
 
 ## Team Composition
 
-| Step | Agent | Responsibility |
-|------|-------|---------------|
-| 1 | task-orchestrator | Classify as Bug Fix + MEDIA |
-| 2 | information-gate | Verify: reproduction steps, expected vs actual, recent changes |
-| 3 | executor-controller | Dispatch per-task subagents in batches of 2-3 |
-| 4 | checkpoint-validator | Build + tests after each batch |
-| 5 | review-orchestrator | Independent batch review (adversarial + architecture in parallel) |
-| 6 | sanity-checker | Build + tests + symptom verification |
-| 7 | final-validator | Go/No-Go decision |
-| 8 | final-adversarial-orchestrator | Independent final review (recommended, opt-in) |
+| Step | Agent | Phase | Responsibility |
+|------|-------|-------|---------------|
+| 1 | task-orchestrator | 0a | Classify as Bug Fix + MEDIA |
+| 2 | sentinel (ORCHESTRATOR_VALIDATION) | 0 | Validate classification correctness |
+| 3 | information-gate | 0b | Verify: reproduction steps, expected vs actual, recent changes |
+| 4 | quality-gate-router | 2 (TDD) | Generate test scenarios — regression + edge cases |
+| 5 | pre-tester | 2 (TDD) | Convert approved scenarios to automated tests (RED phase) |
+| 6 | executor-controller | 2 | Dispatch per-task subagents in batches of 2-3 |
+| 7 | checkpoint-validator | 2 | Build + tests after each batch |
+| 8 | review-orchestrator | 2 | Independent batch review (adversarial + architecture in parallel) |
+| 9 | sentinel (phase_2_to_3) | 2→3 | Validate phase transition coherence |
+| 10 | sanity-checker | 3 | Build + tests + symptom verification |
+| 11 | final-adversarial-orchestrator | 3 | Independent final review (recommended, opt-in) |
+| 12 | final-validator (Pa de Cal) | 3 | Go/No-Go decision |
+| 13 | finishing-branch | 3 | Present closeout options (commit/PR/keep/discard) |
+
+### Pipeline Discipline (MANDATORY)
+
+- **Sentinel checkpoints:** #1 (post_orchestrator) and #4 (phase_2_to_3) are MANDATORY. #2, #3, #5 are recommended.
+- **TDD:** quality-gate-router + pre-tester are MANDATORY before executor-controller.
+- **Phase transitions:** Emit Phase Transition Summary block BEFORE every phase change.
+- **Gate decisions:** Log EVERY gate trigger to `{PIPELINE_DOC_PATH}/gate-decisions.jsonl`.
+- **State file:** Update `sentinel-state.json` via Write tool BEFORE every Agent spawn.
 
 ## Step-by-Step Flow
 
@@ -75,3 +88,16 @@
 - If root cause spans 6+ files -> escalate to bugfix-heavy
 - If fix introduces regression -> STOP RULE
 - If 3 adversarial fix attempts fail -> propose alternatives to user
+
+---
+
+### Type-Specific Agent Team
+
+**Team:** Bug Fix Light
+**Mode:** code-changing
+**Agents (execution order):**
+1. bugfix-diagnostic-agent — diagnosis, root cause hypothesis, file:line evidence
+2. executor-implementer-task — fix implementation (TDD, batches of 2-3) *(shared executor agent, not type-specific — lives at `agents/executor/executor-implementer-task.md`)*
+3. bugfix-regression-tester — post-fix validation, symptom verification
+
+**Note:** bugfix-root-cause-analyzer is SKIPPED in Light (root cause consolidation handled inline by bugfix-diagnostic-agent).

@@ -7,16 +7,36 @@
 
 ## Team Composition
 
-| Step | Agent | Responsibility |
-|------|-------|---------------|
-| 1 | task-orchestrator | Classify as Bug Fix + COMPLEXA |
-| 2 | information-gate | Deep verification: reproduction, environment, frequency, data state |
-| 3 | executor-controller | Dispatch per-task subagents, 1 task per batch |
-| 4 | checkpoint-validator | Build + tests + regression suite after each batch |
-| 5 | review-orchestrator | Independent batch review (adversarial + architecture in parallel) |
-| 6 | sanity-checker | Full validation + regression + symptom verification |
-| 7 | final-validator | Go/No-Go decision with full evidence |
-| 8 | final-adversarial-orchestrator | Independent final review (recommended, opt-in) |
+| Step | Agent | Phase | Responsibility |
+|------|-------|-------|---------------|
+| 1 | task-orchestrator | 0a | Classify as Bug Fix + COMPLEXA |
+| 2 | sentinel (ORCHESTRATOR_VALIDATION) | 0 | Validate classification correctness |
+| 3 | information-gate | 0b | Deep verification: reproduction, environment, frequency, data state |
+| 4 | design-interrogator | 0c | Walk design decision tree (automatic for COMPLEXA) |
+| 5 | sentinel (phase_0_to_1) | 0→1 | Validate Phase 0 coherence |
+| 6 | plan-architect | 1.5 | Enter Plan Mode, research root cause, generate fix plan |
+| 7 | sentinel (phase_1_to_2) | 1→2 | Validate Phase 1 coherence |
+| 8 | quality-gate-router | 2 (TDD) | Generate test scenarios — regression + reproduction + edge cases |
+| 9 | pre-tester | 2 (TDD) | Convert approved scenarios to automated tests (RED phase) |
+| 10 | executor-controller | 2 | Dispatch per-task subagents, 1 task per batch |
+| 11 | checkpoint-validator | 2 | Build + tests + regression suite after each batch |
+| 12 | review-orchestrator | 2 | Independent batch review (adversarial + architecture in parallel) |
+| 13 | sentinel (phase_2_to_3) | 2→3 | Validate phase transition coherence |
+| 14 | sanity-checker | 3 | Full validation + regression + symptom verification |
+| 15 | final-adversarial-orchestrator | 3 | Independent final review (strongly recommended, opt-in) |
+| 16 | final-validator (Pa de Cal) | 3 | Go/No-Go decision with full evidence |
+| 17 | sentinel (post_final_validator) | 3 | Final coherence validation |
+| 18 | finishing-branch | 3 | Present closeout options (commit/PR/keep/discard) |
+
+### Pipeline Discipline (MANDATORY — ALL checkpoints for COMPLEXA)
+
+- **Sentinel checkpoints:** ALL 5 checkpoints (#1-#5) are MANDATORY for COMPLEXA.
+- **Design interrogation:** Automatic for COMPLEXA — design-interrogator walks decision tree.
+- **Plan mode:** Automatic for COMPLEXA — plan-architect enters read-only Plan Mode.
+- **TDD:** quality-gate-router + pre-tester are MANDATORY before executor-controller.
+- **Phase transitions:** Emit Phase Transition Summary block BEFORE every phase change.
+- **Gate decisions:** Log EVERY gate trigger to `{PIPELINE_DOC_PATH}/gate-decisions.jsonl`.
+- **State file:** Update `sentinel-state.json` via Write tool BEFORE every Agent spawn.
 
 ## Step-by-Step Flow
 
@@ -91,3 +111,15 @@
 - 2 consecutive checkpoint failures -> STOP RULE
 - 3 adversarial fix attempts fail -> propose 2 alternatives + discard
 - Root cause unclear after investigation -> user decision required
+
+---
+
+### Type-Specific Agent Team
+
+**Team:** Bug Fix Heavy
+**Mode:** code-changing
+**Agents (execution order):**
+1. bugfix-diagnostic-agent — terrain reconnaissance, full execution path trace, evidence chain
+2. bugfix-root-cause-analyzer — root cause consolidation, multi-point evidence verification, confidence assessment
+3. executor-implementer-task — controlled fix implementation (TDD, per-task batches) *(shared executor agent, not type-specific — lives at `agents/executor/executor-implementer-task.md`)*
+4. bugfix-regression-tester — post-fix regression suite, symptom verification, edge case coverage

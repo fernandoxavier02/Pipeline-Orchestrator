@@ -8,15 +8,34 @@
 
 ## Team Composition
 
-| Step | Agent | Responsibility |
-|------|-------|---------------|
-| 1 | task-orchestrator | Classify as Audit + COMPLEXA |
-| 2 | information-gate | Deep verification: scope, baseline, stakeholder, axes |
-| 3 | executor-controller | Dispatch analysis tasks across all axes (READ-ONLY) |
-| 4 | review-orchestrator | Independent batch review (adversarial + architecture in parallel) |
-| 5 | sanity-checker | Verify report completeness and evidence quality |
-| 6 | final-validator | Report quality + risk matrix assessment |
-| 7 | final-adversarial-orchestrator | Independent final review (recommended, opt-in) |
+| Step | Agent | Phase | Responsibility |
+|------|-------|-------|---------------|
+| 1 | task-orchestrator | 0a | Classify as Audit + COMPLEXA |
+| 2 | sentinel (ORCHESTRATOR_VALIDATION) | 0 | Validate classification correctness |
+| 3 | information-gate | 0b | Deep verification: scope, baseline, stakeholder, axes |
+| 4 | design-interrogator | 0c | Walk audit scope decision tree (automatic for COMPLEXA) |
+| 5 | sentinel (phase_0_to_1) | 0→1 | Validate Phase 0 coherence |
+| 6 | plan-architect | 1.5 | Enter Plan Mode, plan audit execution order |
+| 7 | sentinel (phase_1_to_2) | 1→2 | Validate Phase 1 coherence |
+| 8 | executor-controller | 2 | Dispatch analysis tasks across all axes (READ-ONLY) |
+| 9 | review-orchestrator | 2 | Independent batch review (adversarial + architecture in parallel) |
+| 10 | sentinel (phase_2_to_3) | 2→3 | Validate phase transition coherence |
+| 11 | sanity-checker | 3 | Verify report completeness and evidence quality |
+| 12 | final-adversarial-orchestrator | 3 | Independent final review (strongly recommended, opt-in) |
+| 13 | final-validator (Pa de Cal) | 3 | Report quality + risk matrix assessment |
+| 14 | sentinel (post_final_validator) | 3 | Final coherence validation |
+| 15 | finishing-branch | 3 | Present closeout options |
+
+**Note:** Audit pipelines produce REPORTS ONLY — no TDD (quality-gate-router/pre-tester not applicable).
+
+### Pipeline Discipline (MANDATORY — ALL checkpoints for COMPLEXA)
+
+- **Sentinel checkpoints:** ALL 5 checkpoints (#1-#5) are MANDATORY for COMPLEXA.
+- **Design interrogation:** Automatic for COMPLEXA — defines audit scope decisions.
+- **Plan mode:** Automatic for COMPLEXA — plans audit execution order.
+- **Phase transitions:** Emit Phase Transition Summary block BEFORE every phase change.
+- **Gate decisions:** Log EVERY gate trigger to `{PIPELINE_DOC_PATH}/gate-decisions.jsonl`.
+- **State file:** Update `sentinel-state.json` via Write tool BEFORE every Agent spawn.
 
 ## Step-by-Step Flow
 
@@ -110,3 +129,18 @@ AUDIT_REPORT:
 - Critical security findings -> recommend immediate remediation
 - SSOT conflicts -> flag as P0
 - Scope too large for single audit -> propose phased approach
+
+---
+
+### Type-Specific Agent Team
+
+**Team:** Audit Heavy
+**Mode:** report-only
+**Agents (execution order):**
+1. audit-intake — scope definition, axis selection, baseline establishment, audit plan with user approval
+2. audit-domain-analyzer — architecture mapping, SSOT verification, business rule consistency, dependency graph
+3. audit-compliance-checker — contracts audit, API validation, data integrity, security compliance checks
+4. audit-risk-matrix-generator — finding consolidation, risk matrix assembly, priority ordering, AUDIT_REPORT generation
+
+**Phase 3 Note:**
+This is a report-only pipeline. final-adversarial-orchestrator is SKIPPED (zero code review surface). Pipeline proceeds directly to final-validator.

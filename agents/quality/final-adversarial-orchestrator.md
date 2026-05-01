@@ -44,8 +44,10 @@ This agent reviews the COMPLETE diff as a whole, with zero contamination from an
 |  Complexity: [SIMPLES | MEDIA | COMPLEXA]                         |
 |  Total files modified: [N]                                         |
 |  Total batches executed: [N]                                       |
-|  Reviewers: security + architecture + quality (PARALLEL)           |
-|  Mode: FULL INDEPENDENT (zero prior context)                       |
+|  Reviewers: adversarial-security-scanner ‖                         |
+|             adversarial-architecture-critic ‖                      |
+|             adversarial-quality-reviewer                           |
+|  Mode: ALL 3 context-independent (ZERO prior context)              |
 +==================================================================+
 ```
 
@@ -71,42 +73,35 @@ FINAL_REVIEW_CONTEXT:
 
 ---
 
-## REVIEW TEAM (3 Parallel Subagents)
+## REVIEW TEAM (3 Parallel Subagents — ZERO CONTEXT)
+
+All three reviewers are **context-independent**: they receive ONLY the file list, form their own understanding from code, and never read the implementation summary, per-batch findings, or design rationale. This is what distinguishes the final review from per-batch/per-task reviewers that run WITH context.
 
 ### Reviewer 1: Security Adversarial
 
-Spawn `adversarial-batch` with:
+Spawn `adversarial-security-scanner` (subagent_type: `pipeline-orchestrator:executor:type-specific:adversarial-security-scanner`) with:
 ```yaml
-ADVERSARIAL_INPUT:
-  batch: "FINAL"
-  files_modified: [ALL files from FINAL_REVIEW_CONTEXT]
-  complexity: "COMPLEXA"  # always COMPLEXA intensity for final review
-  domains_touched: [ALL domains]
-  mode: "FINAL_REVIEW"  # signals to load ALL 7 checklists regardless
+SECURITY_SCAN_INPUT:
+  file_list: [ALL files from FINAL_REVIEW_CONTEXT — union of created + modified]
 ```
 
 ### Reviewer 2: Architecture Adversarial
 
-Spawn `architecture-reviewer` with:
+Spawn `adversarial-architecture-critic` (subagent_type: `pipeline-orchestrator:executor:type-specific:adversarial-architecture-critic`) with:
 ```yaml
-ARCHITECTURE_INPUT:
-  batch: "FINAL"
-  files_modified: [ALL files]
-  project_config: [from FINAL_REVIEW_CONTEXT]
-  mode: "FINAL_REVIEW"  # signals deep review regardless of complexity
+ARCHITECTURE_REVIEW_INPUT:
+  file_list: [ALL files — union of created + modified]
 ```
 
 ### Reviewer 3: Quality Adversarial
 
-Spawn `executor-quality-reviewer` with:
+Spawn `adversarial-quality-reviewer` (subagent_type: `pipeline-orchestrator:executor:type-specific:adversarial-quality-reviewer`) with:
 ```yaml
-QUALITY_INPUT:
-  batch: "FINAL"
-  files_modified: [ALL files]
-  mode: "FINAL_REVIEW"
+QUALITY_REVIEW_INPUT:
+  file_list: [ALL files — union of created + modified]
 ```
 
-**CRITICAL:** All 3 MUST be spawned in a SINGLE message with 3 parallel Agent tool calls.
+**CRITICAL:** All 3 MUST be spawned in a SINGLE message with 3 parallel Agent tool calls. Do NOT use `adversarial-batch`, `architecture-reviewer`, or `executor-quality-reviewer` here — those agents run WITH context and are reserved for per-batch / per-task reviews. The final adversarial review is the only place the three `adversarial-*` context-independent scanners run together.
 
 ---
 
@@ -119,9 +114,9 @@ Use Agent tool with 3 concurrent calls. Each reviewer has independent context.
 ### Step 2: Wait for All Results
 
 Collect:
-- ADVERSARIAL_BATCH_REVIEW from security reviewer
-- ARCHITECTURE_REVIEW from architecture reviewer
-- QUALITY_REVIEW from quality reviewer
+- SECURITY_FINDINGS from `adversarial-security-scanner`
+- ARCHITECTURE_FINDINGS from `adversarial-architecture-critic`
+- QUALITY_FINDINGS from `adversarial-quality-reviewer`
 
 ### Step 3: Cross-Reference Findings
 
@@ -171,13 +166,13 @@ FINAL_ADVERSARIAL_REPORT:
 
 ## INTENSITY BY PIPELINE LEVEL
 
-| Pipeline Level | Disponível | Recomendação | Intensidade |
-|---------------|------------|--------------|-------------|
-| SIMPLES (DIRETO) | Sim | Recomendado se tocou auth/data | 1 reviewer (security only) |
-| MEDIA (Light) | Sim | Recomendado | 2 reviewers (security + architecture) |
-| COMPLEXA (Heavy) | Sim | Fortemente recomendado | 3 reviewers (security + architecture + quality) |
+| Pipeline Level | Available | Recommendation | Intensity |
+|---------------|-----------|----------------|-----------|
+| SIMPLES (DIRETO) | Yes | Recommended if auth/data was touched | 1 reviewer: adversarial-security-scanner |
+| MEDIA (Light) | Yes | Recommended | 2 reviewers: adversarial-security-scanner ‖ adversarial-architecture-critic |
+| COMPLEXA (Heavy) | Yes | Strongly recommended | 3 reviewers: adversarial-security-scanner ‖ adversarial-architecture-critic ‖ adversarial-quality-reviewer |
 
-**Regra:** Mesmo para SIMPLES, se o pipeline tocou auth/crypto/data-model, a recomendação sobe para "Fortemente recomendado" e a intensidade para 2 reviewers.
+**Rule:** Even for SIMPLES, if the pipeline touched auth/crypto/data-model, the recommendation escalates to "Strongly recommended" and the intensity to 2 reviewers.
 
 ---
 
@@ -185,7 +180,7 @@ FINAL_ADVERSARIAL_REPORT:
 
 1. **Zero contamination** — You receive NO implementation context, NO per-batch review details
 2. **Parallel only** — All reviewers MUST be spawned simultaneously
-3. **Always COMPLEXA intensity** — Final review uses full intensity regardless of original classification
+3. **Intensity follows the table above** — SIMPLES gets 1 reviewer, MEDIA gets 2, COMPLEXA gets 3. When `domains_touched` includes `auth`/`crypto`/`data-model`/`payment`, the minimum intensity escalates per the rule below the table. When the user explicitly requests FULL intensity regardless of level, spawn all 3 reviewers
 4. **Cross-reference required** — You MUST cross-reference findings between reviewers
 5. **No fixes** — Report only. If findings exist, final-validator handles the decision
 6. **Opt-in** — User MUST authorize this review via the FINAL_ADVERSARIAL_GATE

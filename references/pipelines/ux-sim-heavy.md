@@ -8,15 +8,34 @@
 
 ## Team Composition
 
-| Step | Agent | Responsibility |
-|------|-------|---------------|
-| 1 | task-orchestrator | Classify as UX Simulation + COMPLEXA |
-| 2 | information-gate | Deep verification: journeys, devices, accessibility, personas |
-| 3 | executor-controller | Execute comprehensive simulations, 1 journey per batch |
-| 4 | review-orchestrator | Independent batch review (adversarial + architecture in parallel) |
-| 5 | sanity-checker | Verify coverage completeness |
-| 6 | final-validator | Full UX assessment |
-| 7 | final-adversarial-orchestrator | Independent final review (recommended, opt-in) |
+| Step | Agent | Phase | Responsibility |
+|------|-------|-------|---------------|
+| 1 | task-orchestrator | 0a | Classify as UX Simulation + COMPLEXA |
+| 2 | sentinel (ORCHESTRATOR_VALIDATION) | 0 | Validate classification correctness |
+| 3 | information-gate | 0b | Deep verification: journeys, devices, accessibility, personas |
+| 4 | design-interrogator | 0c | Walk UX scope decision tree (automatic for COMPLEXA) |
+| 5 | sentinel (phase_0_to_1) | 0→1 | Validate Phase 0 coherence |
+| 6 | plan-architect | 1.5 | Enter Plan Mode, plan simulation execution order |
+| 7 | sentinel (phase_1_to_2) | 1→2 | Validate Phase 1 coherence |
+| 8 | executor-controller | 2 | Execute comprehensive simulations, 1 journey per batch |
+| 9 | review-orchestrator | 2 | Independent batch review (adversarial + architecture in parallel) |
+| 10 | sentinel (phase_2_to_3) | 2→3 | Validate phase transition coherence |
+| 11 | sanity-checker | 3 | Verify coverage completeness |
+| 12 | final-adversarial-orchestrator | 3 | Independent final review (strongly recommended, opt-in) |
+| 13 | final-validator (Pa de Cal) | 3 | Full UX assessment |
+| 14 | sentinel (post_final_validator) | 3 | Final coherence validation |
+| 15 | finishing-branch | 3 | Present closeout options |
+
+**Note:** UX Simulation pipelines produce REPORTS ONLY — no TDD (quality-gate-router/pre-tester not applicable).
+
+### Pipeline Discipline (MANDATORY — ALL checkpoints for COMPLEXA)
+
+- **Sentinel checkpoints:** ALL 5 checkpoints (#1-#5) are MANDATORY for COMPLEXA.
+- **Design interrogation:** Automatic for COMPLEXA — defines UX simulation scope.
+- **Plan mode:** Automatic for COMPLEXA — plans simulation execution order.
+- **Phase transitions:** Emit Phase Transition Summary block BEFORE every phase change.
+- **Gate decisions:** Log EVERY gate trigger to `{PIPELINE_DOC_PATH}/gate-decisions.jsonl`.
+- **State file:** Update `sentinel-state.json` via Write tool BEFORE every Agent spawn.
 
 ## Step-by-Step Flow
 
@@ -109,3 +128,19 @@ UX_SIMULATION_REPORT:
 - Blocker UX issues -> recommend immediate fix before release
 - Accessibility failures -> flag as compliance risk
 - Systemic issues across 3+ journeys -> architectural recommendation
+
+---
+
+### Type-Specific Agent Team
+
+**Team:** UX Sim Heavy
+**Mode:** report-only
+**Agents (execution order):**
+1. ux-simulator — per-journey simulation, step-by-step friction analysis, cross-device consistency
+2. ux-accessibility-auditor — keyboard navigation, screen reader, color contrast, motion (parallel with ux-simulator)
+3. ux-qa-validator — cross-journey pattern analysis, systemic issue identification, report assembly
+
+**Dispatch note:** ux-simulator and ux-accessibility-auditor are dispatched IN PARALLEL per batch (parallel dispatch notation: `[ux-simulator || ux-accessibility-auditor]`).
+
+**Phase 3 Note:**
+This is a report-only pipeline. final-adversarial-orchestrator is SKIPPED (zero code review surface). Pipeline proceeds directly to final-validator.
