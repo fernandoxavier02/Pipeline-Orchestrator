@@ -139,6 +139,19 @@ Analyze `<arguments>` to determine mode:
 | `/pipeline --plan [task]` | FULL + plan mode | Force plan-architect for any complexity |
 | `/pipeline review-only` | **REVIEW-ONLY** | Runs final adversarial review on current uncommitted changes |
 
+### Pre-classified type prefix (v4.2+)
+
+If the prompt starts with `PRE_CLASSIFIED_TYPE=<Type>` (passed by entry commands like `/pipeline-orchestrator:bugfix`, `/pipeline-orchestrator:feature`, etc.), pass that prefix unchanged to the `task-orchestrator` agent in Phase 0a — the orchestrator strips and consumes it (see `task-orchestrator.md` Step 1a).
+
+**Critical invariants when PRE_CLASSIFIED_TYPE is present:**
+- `task-orchestrator` skips ONLY type-classification reasoning — complexity, pipeline_variant, ssot_status are still computed.
+- `information-gate` (Phase 0b) ALWAYS runs — gap detection is never skipped.
+- `design-interrogator` (Phase 0c) runs per the standard COMPLEXA/`--grill` rule.
+- All gates (`SSOT_CONFLICT`, `INFO_GATE_BLOCKED`, etc.) apply identically.
+- Sentinel checkpoints run identically.
+
+The pre-classification is an entry-point shortcut, not a gate skip.
+
 ### REVIEW-ONLY Mode
 
 When `review-only` is specified:

@@ -134,6 +134,20 @@ Collect context via grep:
 
 **SSOT Conflict Detection:** If you find the same data/rule defined in 2+ places with different values, BLOCK the pipeline and report to user.
 
+#### Step 1a: Pre-classified type shortcut (v4.2+)
+
+**If the input prompt contains the prefix `PRE_CLASSIFIED_TYPE=<Type>`** (passed by entry commands like `/pipeline-orchestrator:bugfix`, `/pipeline-orchestrator:feature`, etc.), skip the type-classification reasoning:
+
+1. Strip the prefix from the request before analysis.
+2. Set `type` directly to the pre-classified value (must be one of: `Bug Fix`, `Feature`, `User Story`, `Audit`, `UX Simulation`).
+3. Still compute `complexity`, `pipeline_variant`, `affected_files`, `business_rules`, `ssot_status` normally — those are NEVER pre-fixed.
+4. Validate that the pre-classified type is consistent with request keywords. If the request screams "Feature" but the prefix says "Bug Fix", emit a warning in the ORCHESTRATOR_DECISION's `notes` field but proceed with the pre-classified type (entry command authority).
+5. Information-Gate (Step 2) and the rest of the pipeline run identically.
+
+This is analogous to the `--simples/--media/--complexa` flags that pre-fix complexity — entry-point authority over single fields, the rest of classification still runs.
+
+**Rationale:** entry commands (`/bugfix`, `/feature`, etc.) are thin shortcuts. The user already declared the type by choosing the command. Re-classifying wastes tokens and risks mismatch.
+
 ### Step 2: Spawn Information-Gate
 
 After classification, IMMEDIATELY spawn the `information-gate` agent:
