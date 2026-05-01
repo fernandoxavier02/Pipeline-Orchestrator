@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Pipeline Orchestrator v4.2.0 loaded. Entry points: /pipeline [task] (full classifier), /bugfix [task], /feature [task], /userstory [task], /audit [task], /ux [task] (thin shortcuts that skip type-classification by pre-fixing task_type). All entry-points share the same pipeline-controller agent and respect session lock + edit-guard contract. v4.1.x base: orchestration in isolated controller; direct Edit/Write blocked during pipeline sessions; stale-lock self-heal; fs.statSync().mtimeMs authoritative opened_at."
+            "prompt": "Pipeline Orchestrator v4.2.1 loaded. Entry points (case-insensitive): /pipeline-orchestrator:pipeline (full classifier) and /pipeline-orchestrator:bugfix [task] (thin shortcut, type pre-fixed). v4.2.1 patch closes SEC-1 (uppercase bypass) and SEC-2 (namespace collision) found in adversarial review. v4.1.x base: orchestration in isolated controller; direct Edit/Write blocked during pipeline sessions; stale-lock self-heal; fs.statSync().mtimeMs authoritative opened_at."
           }
         ]
       }

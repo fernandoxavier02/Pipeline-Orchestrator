@@ -1,7 +1,7 @@
 {
   "name": "pipeline-orchestrator",
-  "version": "4.2.0",
-  "description": "Automated multi-agent pipeline. v4.2: thin entry-points (/bugfix, /feature, /userstory, /audit, /ux) — same controller, type-pre-fixed. v4 base: orchestration in isolated controller agent, eliminating main-LLM bypass.",
+  "version": "4.2.1",
+  "description": "Automated multi-agent pipeline. v4.2.1 patch: SEC-1 (uppercase entry-point bypass) + SEC-2 (namespace collision with foreign plugins) closed via case-insensitive lock regex + fully-qualified namespace requirement. v4.2: thin entry-points (/bugfix, /feature, /userstory, /audit, /ux). v4 base: orchestration in isolated controller agent.",
   "author": {
     "name": "FX Studio AI",
     "url": "https://github.com/fernandoxavier02/Pipeline-Orchestrator"

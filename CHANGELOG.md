@@ -5,6 +5,53 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.1] - 2026-04-30
+
+Patch release closing 2 security findings identified by adversarial review of
+v4.2.0. Both issues were bypass-class — they would let an attacker (or a
+mistyping user) sidestep the v4 session-lock protection contract.
+
+### Fixed
+
+- **SEC-1 — Uppercase entry-point bypass (MEDIUM).** `session-lock-hook.cjs`
+  `PIPELINE_REGEX` was case-sensitive while `force-pipeline-agents.cjs`
+  `isPipelineSkill` was case-insensitive. A user typing `/BUGFIX algo` would
+  receive `PIPELINE_SKILL_MESSAGE` but the session lock would NOT be created —
+  pipeline ran without edit-guard, allowing direct edits during the "pipeline
+  session". Fix: added `/i` flag to `PIPELINE_REGEX`.
+- **SEC-2 — Namespace collision with foreign plugins (MEDIUM).**
+  `force-pipeline-agents.cjs` `SKILL_PATTERNS` matched bare `/bugfix`,
+  `/feature`, `/userstory`, `/audit`, `/ux` without requiring the
+  `pipeline-orchestrator:` namespace. Foreign marketplace plugins with a
+  same-named command (especially `/audit`, `/ux`) would be silently classified
+  as pipeline-orchestrator skills, injecting `PIPELINE_SKILL_MESSAGE` into
+  unrelated sessions. Fix: split `SKILL_PATTERNS` row 1 into a dedicated
+  namespaced pattern; `isPipelineSkill` no longer matches the bare aliases.
+
+### Hardened (proactive)
+
+- **SEC-3 mitigation (LOW maintenance risk).** Added explicit comment block
+  above `isPipelineSkill` documenting that case-insensitivity is enforced
+  ONLY via the `/i` flag at that site. Future maintainers removing `/i`
+  thinking `toLowerCase()` in `isSkillCommand` already canonicalizes would
+  re-open SEC-1 partially. Comment prevents the regression.
+
+### Tests
+
+- Smoke validation 10/10 unit cases: `/PIPELINE-ORCHESTRATOR:BUGFIX foo`
+  now creates a lock; bare `/audit`, `/feature`, `/ux` no longer hijacked;
+  legacy `/pipeline` preserved; non-pipeline skills (`/commit`, `/test`)
+  still receive `SKILL_MESSAGE` correctly.
+
+### Open / deferred
+
+- **ARCH-2 (HIGH) — Trust boundary on PRE_CLASSIFIED_TYPE prefix.**
+  User invoking the full `/pipeline-orchestrator:pipeline` could manually
+  inject `PRE_CLASSIFIED_TYPE=...` in their prompt to forge type. Decision:
+  defer to Slice 3 when the 4 remaining entry-points ship. At that point
+  the contract will be re-evaluated holistically, possibly moving from
+  string prefix to a separate Agent-call metadata field.
+
 ## [4.2.0] - 2026-04-30
 
 Minor release adding **thin entry-point commands** that skip type-classification
