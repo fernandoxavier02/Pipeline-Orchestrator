@@ -35,16 +35,6 @@ The controller returns a `PIPELINE COMPLETE` block as its tool result. Show it t
 
 The ONLY phase shortened is Phase 0a (`task-orchestrator`): the classifier accepts `force_type=Bug Fix` (via the `PRE_CLASSIFIED_TYPE` prefix) and skips the type-classification reasoning, but still computes complexity, pipeline_variant, and ssot_status. See `agents/core/task-orchestrator.md` Step 1a.
 
-## Why this is a skill (not a command) in v4.3.0
-
-In Claude Code 2026, custom commands have been merged into skills (per official doc: *"Skills are recommended since they support additional features like supporting files."*). Bug Fix is the ideal candidate for a skill with `disable-model-invocation: true`:
-
-- It has side effects (creates RED tests, edits production code, proposes commits) — the user must consciously trigger it.
-- It belongs to a family of 5 entry-points (`/bugfix`, `/feature`, `/userstory`, `/audit`, `/ux`) that will all follow this pattern in Slice 3.
-- Skill directory format opens room for future supporting files (templates, examples, scripts) without restructuring the entry-point.
-
-This skill replaces the v4.2.x `commands/bugfix.md` flat file. The user-facing invocation (`/pipeline-orchestrator:bugfix [task]`) is identical — only the file structure changed.
-
 ## Pass-through behavior
 
 The `$ARGUMENTS` placeholder captures everything the user typed after the skill name. The full string is passed verbatim to the controller, prefixed by `PRE_CLASSIFIED_TYPE=Bug Fix\n\n`. The controller's Step 1 recognizes the prefix, the `task-orchestrator` Step 1a strips and consumes it, and the rest of the 4-phase pipeline runs identically to a `/pipeline` invocation that classified as Bug Fix.

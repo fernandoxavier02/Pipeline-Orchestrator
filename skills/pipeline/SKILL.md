@@ -1,6 +1,9 @@
 ---
 name: pipeline
-description: Automated multi-agent pipeline for any project. Use when ANY task needs rigorous Bug Fix, Feature, User Story, Audit, or UX Simulation execution with TDD, adversarial review, and gate enforcement. Invoked via `/pipeline-orchestrator:pipeline [task]`.
+description: Automated multi-agent pipeline for any project. Use when ANY task needs rigorous Bug Fix, Feature, User Story, Audit, or UX Simulation execution with TDD, adversarial review, and gate enforcement. Invoked via `/pipeline-orchestrator:pipeline [task]`. Manual-only — never auto-invoked because every pipeline run has side effects (TDD-RED tests, code edits, commits proposed).
+disable-model-invocation: true
+allowed-tools: Task
+argument-hint: [task description]
 ---
 
 # pipeline v4 — thin skill (delegates to controller agent)
