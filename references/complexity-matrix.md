@@ -41,6 +41,7 @@ Values at exact boundaries (e.g., exactly 3 files, exactly 30 lines) are classif
 | **Plan Mode** | Skip | Optional (--plan) | Automatic |
 | **Architecture review** | Skip | Per-batch | Per-batch (deep) |
 | **Adversarial checklists** | IF auth touched: auth + injection; ELSE: skip entirely | auth + input-validation + error-handling | All 7 checklists |
+| **Sentinel checkpoints** | #1 (post_orchestrator) + #4 (phase_2_to_3) | #1 + #4 mandatory, #2-3-5 recommended | All 5 mandatory |
 | **Checkpoint validation** | Build only | Build + tests | Build + tests + regression |
 | **Sanity check** | Build only | Build + tests | Build + tests + regression + coverage |
 | **Pa de Cal criteria** | Build passes | Build + tests pass, no high vulns | Build + tests + no vulns + regression + AC met |
