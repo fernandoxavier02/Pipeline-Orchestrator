@@ -5,6 +5,43 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.2.0] - 2026-04-30
+
+Minor release adding **thin entry-point commands** that skip type-classification
+by pre-fixing `task_type`. Same pipeline-controller, same gates, same session
+lock + edit-guard contract — the new commands are shortcuts, not bypasses.
+
+### Added
+
+- `commands/bugfix.md` — `/pipeline-orchestrator:bugfix [task]` shortcut for
+  Bug Fix tasks. Delegates to `pipeline-controller` with prompt prefix
+  `PRE_CLASSIFIED_TYPE=Bug Fix`. (Slice 1 of v5 roadmap.)
+- `pipeline-controller.md` Step 1: documents `PRE_CLASSIFIED_TYPE=<Type>`
+  prefix and lists invariants that still apply (information-gate,
+  design-interrogator, all gates, sentinel checkpoints).
+- `task-orchestrator.md` Step 1a: accepts the prefix, sets `type` directly,
+  still computes complexity, pipeline_variant, ssot_status. Mirrors the
+  existing `--simples/--media/--complexa` flag pattern but for type.
+
+### Changed
+
+- `session-lock-hook.cjs` `PIPELINE_REGEX` now matches all entry-points
+  (`pipeline|bugfix|feature|userstory|audit|ux`). Without this patch, the
+  new `/bugfix` would have bypassed the v4 protection contract — main-LLM
+  could edit files directly during a `/bugfix` session. **Critical fix
+  identified by adversarial review of the slice plan.**
+- `force-pipeline-agents.cjs` `SKILL_PATTERNS` and `isPipelineSkill` regex
+  recognize all entry-points. Cosmetic but keeps UX consistent.
+- `hooks/hooks.json` SessionStart prompt advertises all 6 entry-points.
+- `plugin.json` and `marketplace.json` bumped to 4.2.0.
+
+### Forward-compat note
+
+The regex and prefix vocabulary already accommodate the remaining 4
+entry-points (`/feature`, `/userstory`, `/audit`, `/ux`), which arrive in
+subsequent slices (v5 Slice 3). Adding them is now purely additive — same
+pattern as `commands/bugfix.md`.
+
 ## [4.1.3] - 2026-04-29
 
 Patch release fixing a class of bugs where the `edit-guard-hook` would refuse
