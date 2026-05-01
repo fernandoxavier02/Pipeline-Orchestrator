@@ -5,7 +5,10 @@ const path = require('node:path');
 // v4.2: accepts /pipeline-orchestrator:pipeline OR thin entry-points
 // (bugfix, feature, userstory, audit, ux). All entry-points open the same
 // session lock contract — without this, /bugfix etc. would bypass v4 protection.
-const PIPELINE_REGEX = /^\/pipeline-orchestrator:(pipeline|bugfix|feature|userstory|audit|ux)(\s|$)/;
+// v4.2.1 (SEC-1 fix): /i flag aligns with force-pipeline-agents.cjs isPipelineSkill.
+// Without it, "/BUGFIX" would inject PIPELINE_SKILL_MESSAGE but fail to create the
+// session lock — pipeline ran without protection.
+const PIPELINE_REGEX = /^\/pipeline-orchestrator:(pipeline|bugfix|feature|userstory|audit|ux)(\s|$)/i;
 const SESSION_ID_REGEX = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 // A live session updates last_seen_at on every UserPromptSubmit. If a foreign
 // lock has not been seen for this long, the owning Claude Code process is

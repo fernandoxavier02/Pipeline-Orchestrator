@@ -17,9 +17,13 @@
 // ============================================================
 
 // Padrões de SKILLS - usa skill, não precisa de orchestrator externo
-// v4.2: bugfix/feature/userstory/audit/ux added — thin entry-points to pipeline-controller.
+// v4.2: thin entry-points to pipeline-controller registered via fully-qualified
+// `pipeline-orchestrator:<name>` form ONLY (SEC-2 fix v4.2.1). The previous
+// version accepted bare `/bugfix`, `/feature`, etc. without the namespace prefix,
+// which collided with same-named commands from other plugins in the marketplace.
 const SKILL_PATTERNS = [
-  /^\/(context|commit|code-review|fix|verify|deploy|qa|test|pipeline|bugfix|feature|userstory|audit|ux)/i,
+  /^\/(context|commit|code-review|fix|verify|deploy|qa|test|pipeline)/i,
+  /^\/pipeline-orchestrator:(pipeline|bugfix|feature|userstory|audit|ux)\b/i,
   /^\/kiro:/i,
   /^\/prompts:/i,
   /^\/vertical/i,
@@ -212,7 +216,17 @@ process.stdin.on('end', () => {
     // 2. Se é skill → passa direto (skill tem seu próprio fluxo)
     if (isSkillCommand(prompt)) {
       // v4.2: thin entry-points (bugfix/feature/userstory/audit/ux) trigger same PIPELINE_SKILL_MESSAGE
-      const isPipelineSkill = /^\/(pipeline-orchestrator:(pipeline|bugfix|feature|userstory|audit|ux)|pipeline|bugfix|feature|userstory|audit|ux)\b/i.test(prompt.trim());
+      // v4.2.1 (SEC-2 fix): bare /bugfix, /feature, /audit, etc. NO LONGER match here —
+      // they could belong to other plugins. We require the fully-qualified
+      // `pipeline-orchestrator:` namespace OR the legacy bare `/pipeline` alias.
+      //
+      // CONVENTION: case-insensitivity is enforced ONLY via the /i flag below.
+      // isSkillCommand() lowercases the prompt before SKILL_PATTERNS testing — that
+      // lowercased form does NOT propagate here; this regex receives the raw
+      // prompt.trim() and relies on /i alone. Removing /i here re-opens SEC-1
+      // (uppercase invocations would create a session lock but skip phase
+      // enforcement). Do NOT remove /i without updating this comment + tests.
+      const isPipelineSkill = /^\/(pipeline-orchestrator:(pipeline|bugfix|feature|userstory|audit|ux)|pipeline)\b/i.test(prompt.trim());
       console.log(JSON.stringify({
         continue: true,
         systemMessage: isPipelineSkill ? PIPELINE_SKILL_MESSAGE : SKILL_MESSAGE
