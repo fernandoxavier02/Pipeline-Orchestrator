@@ -1,5 +1,11 @@
 # CLAUDE.md — Pipeline-Orchestrator (canonical)
 
+## Estilo de comunicacao (vale neste projeto tambem)
+
+Linguagem leiga, completa e curta. Veredicto primeiro, detalhe depois. Sem jargao seco — termo tecnico so com traducao na primeira ocorrencia. Prosa curta > bullets/tabelas (use tabela so para comparacao real). Codigo/paths/hashes ficam em blocos de codigo. Modo tecnico completo so quando pedido explicitamente. SSOT da regra: `~/.claude/CLAUDE.md` secao "Estilo de Conversa com o Usuario (REGRA MESTRA)".
+
+---
+
 ## Identidade
 
 **Nome:** Pipeline-Orchestrator (CC plugin para Claude Code)
