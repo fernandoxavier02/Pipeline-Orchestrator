@@ -538,20 +538,24 @@ Before spawning any N2 executor agent that needs to Edit/Write production code O
 
 **v4.5+ replaces the LLM-driven 3-step ritual with two deterministic Bash calls.** The wrappers in `scripts/exec-window/` reuse the tested `openExecWindow()` and `closeExecWindow()` helpers from `.claude/hooks/edit-guard-hook.cjs`, so the controller does not have to manually write the JSON file, append a paired audit line, or compute timestamps inside the ±60 s pairing window. All four can-fail steps now happen atomically inside a Node process the controller invokes.
 
+**Path resolution (IMPORTANT):** the wrapper scripts ship inside the plugin install, not inside the user's project. The controller MUST invoke them with the absolute path resolved through the `{CLAUDE_PLUGIN_ROOT}` template variable provided by the harness. Always quote the path — plugins may be installed under directories that contain spaces (e.g., `~/.claude/plugins/cache/<owner>/...`).
+
 1. **Open the window before the spawn:**
 
    ```bash
-   node scripts/exec-window/open.cjs <session_id> <spawning_agent> "<purpose>" [ttl_minutes]
+   node "{CLAUDE_PLUGIN_ROOT}/scripts/exec-window/open.cjs" <session_id> <spawning_agent> "<purpose>" [ttl_minutes]
    ```
 
-   Example:
+   Example (after the harness substitutes `{CLAUDE_PLUGIN_ROOT}`):
 
    ```bash
-   node scripts/exec-window/open.cjs sess-abc123 pipeline-orchestrator:executor:executor-implementer-task "apply task 1.2" 5
+   node "/Users/me/.claude/plugins/cache/FX-studio-AI/pipeline-orchestrator/4.4.1/scripts/exec-window/open.cjs" sess-abc123 pipeline-orchestrator:executor:executor-implementer-task "apply task 1.2" 5
    ```
 
+   Run the command from the project root — the wrapper uses `process.cwd()` to find `.pipeline/sessions/` and `.pipeline/docs/`, so it MUST be invoked while the shell's working directory is the same project that owns the active lock. Do NOT `cd` somewhere else before calling it.
+
    The wrapper:
-   - Validates that an active lock matching `<session_id>` exists (refuses orphan windows).
+   - Validates that an active lock matching `<session_id>` exists in the cwd's `.pipeline/sessions/` (refuses orphan windows).
    - Writes `.pipeline/sessions/<session_id>.exec-window` with the canonical schema (`session_id`, `ttl_minutes`, `purpose`, `spawning_agent`).
    - Appends the paired `EXEC_WINDOW_OPEN` line to `gate-decisions.jsonl` automatically, with the timestamp derived inside the same process so the ±60 s pairing window is always satisfied.
    - Enforces TTL bounds: default 5 minutes, hard max 60 minutes (`MAX_TTL_MINUTES`).
@@ -562,7 +566,7 @@ Before spawning any N2 executor agent that needs to Edit/Write production code O
 3. **Close the window after the N2 returns:**
 
    ```bash
-   node scripts/exec-window/close.cjs <session_id>
+   node "{CLAUDE_PLUGIN_ROOT}/scripts/exec-window/close.cjs" <session_id>
    ```
 
    The wrapper deletes `.pipeline/sessions/<session_id>.exec-window` and appends the matching `EXEC_WINDOW_CLOSE` audit line. Idempotent — safe to call when no window exists (exits 0 with `{"existed": false}`).

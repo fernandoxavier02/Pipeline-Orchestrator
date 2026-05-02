@@ -9,8 +9,8 @@
   "plugins": [
     {
       "name": "pipeline-orchestrator",
-      "description": "Single-command multi-agent pipeline for Claude Code. v4.4.0 (Slice 1.5): imports prescriptive 11-step Heavy + 8-step Light bugfix workflows from Pulsar as backing skills (bugfix-light, bugfix-heavy); /bugfix dispatches via --light/--heavy flags or auto-classify; closes 6 audit gaps (Heavy 3+9+11, Light 3+5+6) with 8 enforcement rules. v4.3.1 polish: review-driven cleanup of v4.3.0 skill migration — /bugfix SKILL.md trimmed to execution-essential content; /pipeline skill gains disable-model-invocation:true + allowed-tools + argument-hint for parity. v4.3.0: /bugfix migrated commands/ → skills/ per official docs. v4.2.1: SEC-1+SEC-2 patches. v4.2.0: thin entry-points pre-fix task_type. v4.1.x: edit-guard fs.statSync().mtimeMs authoritative opened_at; stale-lock self-heal.",
-      "version": "4.4.0",
+      "description": "Single-command multi-agent pipeline for Claude Code. v4.4.1 fix: replace LLM-driven 3-step exec-window ritual with deterministic Node wrapper (scripts/exec-window/{open,close}.cjs invoked via {CLAUDE_PLUGIN_ROOT}). Eliminates recurring PIPELINE_LOCK_ACTIVE stalls when controllers forgot or mis-ordered the open-window steps mid-batch. v4.4.0 (Slice 1.5): imports prescriptive 11-step Heavy + 8-step Light bugfix workflows from Pulsar as backing skills (bugfix-light, bugfix-heavy); /bugfix dispatches via --light/--heavy flags or auto-classify; closes 6 audit gaps (Heavy 3+9+11, Light 3+5+6) with 8 enforcement rules. v4.3.1 polish: review-driven cleanup of v4.3.0 skill migration — /bugfix SKILL.md trimmed to execution-essential content; /pipeline skill gains disable-model-invocation:true + allowed-tools + argument-hint for parity. v4.3.0: /bugfix migrated commands/ → skills/ per official docs. v4.2.1: SEC-1+SEC-2 patches. v4.2.0: thin entry-points pre-fix task_type. v4.1.x: edit-guard fs.statSync().mtimeMs authoritative opened_at; stale-lock self-heal.",
+      "version": "4.4.1",
       "author": {
         "name": "FX Studio AI",
         "url": "https://github.com/fernandoxavier02/Pipeline-Orchestrator"
@@ -18,7 +18,7 @@
       "source": {
         "source": "url",
         "url": "https://github.com/fernandoxavier02/Pipeline-Orchestrator.git",
-        "ref": "v4.4.0"
+        "ref": "v4.4.1"
       },
       "category": "development"
     },
