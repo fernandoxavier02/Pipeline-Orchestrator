@@ -532,53 +532,51 @@ Test minimums by level:
 
 #### Step 2c: Implementation (Batch Execution)
 
-##### Exec-window protocol (v4.1+)
+##### Exec-window protocol (v4.5+, deterministic wrapper)
 
 Before spawning any N2 executor agent that needs to Edit/Write production code OUTSIDE `.pipeline/` (e.g., `executor-implementer-task`, `executor-fix`, `feature-implementer`), the controller MUST open an **exec-window** so the `edit-guard-hook` allows those edits cooperatively.
 
-1. **Write the exec-window file (no JS execution at controller runtime):**
+**v4.5+ replaces the LLM-driven 3-step ritual with two deterministic Bash calls.** The wrappers in `scripts/exec-window/` reuse the tested `openExecWindow()` and `closeExecWindow()` helpers from `.claude/hooks/edit-guard-hook.cjs`, so the controller does not have to manually write the JSON file, append a paired audit line, or compute timestamps inside the ±60 s pairing window. All four can-fail steps now happen atomically inside a Node process the controller invokes.
 
-   Use the `Write` tool to create `.pipeline/sessions/{session_id}.exec-window` with this schema:
+1. **Open the window before the spawn:**
 
-   ```json
-   {
-     "session_id": "{session_id}",
-     "ttl_minutes": 5,
-     "purpose": "<one-line reason>",
-     "spawning_agent": "<subagent_type of the N2 you're about to spawn>"
-   }
+   ```bash
+   node scripts/exec-window/open.cjs <session_id> <spawning_agent> "<purpose>" [ttl_minutes]
    ```
 
-   **v4.1.3 timestamp model — IMPORTANT:** the `edit-guard-hook` derives `opened_at` from `fs.statSync(path).mtimeMs` (the filesystem's authoritative mtime on the file you just wrote). It IGNORES any `opened_at`/`expires_at` fields in the JSON when deciding whether the window is active. You SHOULD write only `ttl_minutes` (default 5, hard max 60). The legacy `opened_at`/`expires_at` fields are still accepted and used for back-deriving `ttl_minutes` when not provided, but they are otherwise advisory only.
+   Example:
 
-   This change exists because controller LLMs do not have access to a real clock. Pre-v4.1.3 the spec asked the controller to write `opened_at: <current-ms-epoch>`, but a controller with a stale internal clock would fabricate the wrong year, making the window appear permanently expired and forcing manual exec-window refresh.
-
-   The helper `openExecWindow(pipelineDir, sessionId, opts)` exists for programmatic callers (tests, scripts); it also validates that an active matching lock exists before creating the window. As a controller agent you write the file directly via `Write`; the JSON schema above is the contract.
-
-   **TTL bounds (v4.1+):** default is 5 minutes; hard maximum is 60 minutes. The `edit-guard-hook` refuses to honor exec-windows whose effective TTL exceeds 60 minutes, regardless of how the window was created. `openExecWindow` also throws on `ttl_minutes > 60`.
-
-   **Pairing requirement (v4.1+, NI-3):** the `edit-guard-hook` additionally requires a paired `EXEC_WINDOW_OPEN` entry in any `gate-decisions.jsonl` under `.pipeline/docs/Pre-*-action/<subdir>/` with a `timestamp` within ±60 seconds of the window's `opened_at`. The `openExecWindow` helper appends this audit line automatically. Controllers that create exec-windows via raw `Write` MUST also append the audit line themselves, using this exact schema (one JSON object per line, append-only):
-
-   ```json
-   {"gate": "EXEC_WINDOW_OPEN", "hardness": "AUDIT", "session_id": "<id>", "timestamp": <ms epoch>, "detail": "<=200 chars, no newlines>"}
+   ```bash
+   node scripts/exec-window/open.cjs sess-abc123 pipeline-orchestrator:executor:executor-implementer-task "apply task 1.2" 5
    ```
 
-   An exec-window without a matching pairing entry is treated as forged and ignored by the hook.
+   The wrapper:
+   - Validates that an active lock matching `<session_id>` exists (refuses orphan windows).
+   - Writes `.pipeline/sessions/<session_id>.exec-window` with the canonical schema (`session_id`, `ttl_minutes`, `purpose`, `spawning_agent`).
+   - Appends the paired `EXEC_WINDOW_OPEN` line to `gate-decisions.jsonl` automatically, with the timestamp derived inside the same process so the ±60 s pairing window is always satisfied.
+   - Enforces TTL bounds: default 5 minutes, hard max 60 minutes (`MAX_TTL_MINUTES`).
+   - Exits 0 on success and prints the window metadata as a single JSON line on stdout. Exits non-zero with a stderr diagnostic on any precondition failure — when this happens the controller MUST abort the spawn and report the error to the user instead of proceeding.
 
 2. **Spawn the N2 executor** via the Agent tool.
 
-3. **After N2 returns** — close the exec-window. As a controller agent, remove `.pipeline/sessions/{session_id}.exec-window` using `Write` (empty content to truncate, then delete) or `Bash("rm .pipeline/sessions/{session_id}.exec-window")`. The `closeExecWindow(pipelineDir, sessionId)` helper is the programmatic equivalent for tests and scripts (idempotent: returns `false` if none existed).
+3. **Close the window after the N2 returns:**
 
-4. **Log to `gate-decisions.jsonl`**:
-   - `{"gate": "EXEC_WINDOW_OPEN", "hardness": "AUDIT", "detail": "purpose=..., agent=..."}`
-   - `{"gate": "EXEC_WINDOW_CLOSE", "hardness": "AUDIT", "detail": "..."}`
+   ```bash
+   node scripts/exec-window/close.cjs <session_id>
+   ```
 
-**Security limitation (documented):** exec-window is **cooperative authorization**, NOT cryptographic. A compromised main LLM could technically create this file itself. Mitigations:
+   The wrapper deletes `.pipeline/sessions/<session_id>.exec-window` and appends the matching `EXEC_WINDOW_CLOSE` audit line. Idempotent — safe to call when no window exists (exits 0 with `{"existed": false}`).
+
+**Why this changed (v4.5):** the prior protocol asked the controller LLM to remember a 3-step ritual (write JSON file → append audit line within ±60 s of mtime → spawn agent). Real incident reports showed controllers consistently skipping or mis-ordering the steps under context pressure, leaving N2 spawns to hit `PIPELINE_LOCK_ACTIVE` and stall the pipeline. Moving the ritual into deterministic Node code removes the failure mode entirely. The cooperative authorization model is unchanged — see the security note below.
+
+**Why Node and not a `.sh` wrapper:** the rest of the plugin's automation (`edit-guard-hook.cjs`, `sentinel-hook.cjs`, `session-lock-hook.cjs`) is already Node, the helpers we delegate to are already Node, and millisecond-precision timestamps are trivial in Node and painful in portable Bash. The wrappers are runnable as `node scripts/exec-window/open.cjs ...` from any platform that has Node (which the plugin already requires for its hooks).
+
+**Security limitation (unchanged):** exec-window is **cooperative authorization**, NOT cryptographic. A compromised main LLM could technically invoke the wrapper itself. Mitigations are unchanged from v4.1:
 
 - 5-minute default TTL (60-minute hard cap, enforced by `MAX_TTL_MINUTES` in `edit-guard-hook.cjs`) auto-closes stale windows.
 - File content is human-readable and visible in `git diff` for user audit.
 - Every open/close is appended to `gate-decisions.jsonl` for audit trail.
-- v4 relies on **user diff review** for integrity, not hook-level enforcement of exec-window creation.
+- The plugin relies on **user diff review** for integrity, not hook-level enforcement of exec-window creation.
 
 ##### Spawn executor-controller
 
