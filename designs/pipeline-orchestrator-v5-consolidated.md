@@ -3,12 +3,12 @@
 ## 0. Metadados
 
 - **Data inicial:** 2026-04-29
-- **Última revisão:** 2026-05-01 (Slice 1.5 design adicionado §21)
-- **Status:** DRAFT consolidado — Slices 0+0.5+1+1.5 ENTREGUES (v4.4.0); Slices 2-4 PENDENTES
+- **Última revisão:** 2026-05-02 (Slice 3a design adicionado §22 — Pulsar audit workflow import)
+- **Status:** DRAFT consolidado — Slices 0+0.5+1+1.5+3a ENTREGUES (v4.5.0); Slices 2 + 3 (resto) + 4 PENDENTES
 - **Supersedes:** D1 (`pipeline-orchestrator-v5-pipeline-as-code.md`), D2 (`pipeline-orchestrator-v5-execution-vertical-slices.md`), D3 (`pipeline-orchestrator-v5-addendum-context-and-policies.md`) — todos arquivados em `designs/legacy/`.
 - **SSOT:** este documento. Em caso de divergência com D1/D2/D3, ESTE prevalece.
-- **Reality-check baseline:** verificado em 2026-04-29 contra repositório canonical. Em 2026-04-30, canonical foi sincronizado de v3.0.2 para v4.1.3 e em seguida bumpado para v4.2.0 (Slice 1) + v4.2.1 (SEC patch) + v4.3.0 (skill migration) + v4.3.1 (review polish). Em 2026-05-01, design Slice 1.5 fechado em §21 (Pulsar bugfix workflow import). Ver `designs/slice-0/INVENTORY.md` para baseline pós-execução.
-- **Versão atual no marketplace:** **v4.4.0** (Slice 1.5 entregue 2026-05-01 — Pulsar bugfix workflow import; ver §21).
+- **Reality-check baseline:** verificado em 2026-04-29 contra repositório canonical. Em 2026-04-30, canonical foi sincronizado de v3.0.2 para v4.1.3 e em seguida bumpado para v4.2.0 (Slice 1) + v4.2.1 (SEC patch) + v4.3.0 (skill migration) + v4.3.1 (review polish). Em 2026-05-01, design Slice 1.5 fechado em §21 (Pulsar bugfix workflow import) e v4.4.0/v4.4.1 entregues. Em 2026-05-02, design Slice 3a fechado em §22 (Pulsar audit workflow import) e v4.5.0 entregue. Ver `designs/slice-0/INVENTORY.md` para baseline pós-execução.
+- **Versão atual no marketplace:** **v4.5.0** (Slice 3a entregue 2026-05-02 — Pulsar audit workflow import; ver §22).
 - **Repositório:** github.com/fernandoxavier02/Pipeline-Orchestrator
 - **Modo de redação:** Builder + consolidação adversarial.
 - **Esforço já consumido:** ~1 dia solo (2026-04-30) — sync 4.1.3 + Slice 0.5 + Slice 1 + patch SEC.
@@ -504,7 +504,8 @@ Slice 0.5   Context & Policies                              🟢 ENTREGUE (v4.2.
 Slice 1     /bugfix command + thin entry-point pattern      🟢 ENTREGUE (v4.2.0 + v4.2.1 + v4.3.0 + v4.3.1)
 Slice 1.5   Pulsar bugfix workflow import (§21)             🟢 ENTREGUE (v4.4.0)
 Slice 2     TRACE.md (Run Record)                           🔴 PENDENTE (1 sem)
-Slice 3     /feature, /userstory, /audit, /ux + ARCH-2 fix  🔴 PENDENTE (0.5-1 sem)
+Slice 3a    Pulsar audit workflow import (§22)              🟢 ENTREGUE (v4.5.0)
+Slice 3     /feature, /userstory, /ux + ARCH-2 fix          🔴 PENDENTE (0.3-0.7 sem)
 Slice 4     Compat regression suite + CI test runner        🟡 PARCIAL (1.5-2 sem)
 v5.0.0 (release)
 Slice 5     YAML interpreter (COMMITTED v5.1, ≤ Q+2)        🔴 PENDENTE (3-5 sem)
@@ -519,7 +520,8 @@ v5.1.0
 | 0.5 | 🟢 | v4.2.0 | CLAUDE.md raiz, AGENTS.md raiz, COMPLEXITY_GATE no registry |
 | 1 | 🟢 | v4.2.0 + v4.2.1 | `/bugfix` thin wrapper, `PRE_CLASSIFIED_TYPE` contract, hook patches; SEC-1+SEC-2 fechados em adversarial review |
 | 2 | 🔴 | — | trace-generator + trace-schema/v1.md |
-| 3 | 🔴 | — | 4 commands + ARCH-2 (trust boundary do prefix — ver §17.3 #7) |
+| 3a | 🟢 | v4.5.0 | `/audit` thin wrapper + `audit-light` + `audit-heavy` skills (9 steps cada), §22; reusa `audit-{intake,domain-analyzer,compliance-checker,risk-matrix-generator}` agents |
+| 3 | 🔴 | — | 3 commands restantes (feature/userstory/ux) + ARCH-2 (trust boundary do prefix — ver §17.3 #7) |
 | 4 | 🟡 | — | 10/10 smoke unit cases existem; CI runner formal pendente |
 | 5 | 🔴 | — | v5.1, defer |
 
@@ -1705,6 +1707,89 @@ allowed_tools: [Bash, Read]
 2. **Slice 1.5 execution:** invocar `/superpowers:executing-plans` (após writing-plans) com a spec em mãos
 3. **Slice 1.5 verification:** invocar `/superpowers:verification-before-completion` ao final
 4. **Pós-Slice 1.5:** Slice 2 (TRACE.md) ou Slice 3 (`/feature`, `/userstory`, `/audit`, `/ux` — reusam o padrão estabelecido aqui)
+
+---
+
+## 22. Slice 3a — Pulsar audit workflow import (NOVO 2026-05-02)
+
+### 22.1 Origem e justificativa
+
+Slice 3 (§12.7) compromete `/feature`, `/audit`, `/ux` num único entregável. O usuário pediu a **portabilidade isolada do workflow de audit** primeiro — mesma operação que Slice 1.5 fez pra bugfix. Esta seção (§22) documenta o sub-slice **3a** que entrega especificamente a porção de audit, mantendo Slice 3 (resto) pendente para feature/userstory/ux.
+
+A spec do Pipeline-Orchestrator já tinha as 4 peças necessárias:
+
+- `agents/executor/type-specific/audit-{intake,domain-analyzer,compliance-checker,risk-matrix-generator}.md` — 4 agentes domain-native, todos read-only, IRON LAW enforced.
+- `references/pipelines/audit-heavy.md` + `audit-light.md` — team-composition references com 9-step Pulsar flow + Pa de Cal.
+- §7.2.2 — design da forma do pipeline (9 passos forenses, "Light = Heavy em estrutura").
+- Pulsar source canônica em `D:\Projeto Pulsar\.claude\commands\Prompts\Audtiroria\` — Heavy 9 steps + Light 9 steps + manifests + TESTS.
+
+O que faltava era o **wrapper executável**: SKILL.md com sequence_lock + step files com frontmatter contrato + thin entry-point. Slice 3a entrega isso.
+
+### 22.2 Decisão de design
+
+Reusa **literalmente** o template provado em Slice 1.5 (§21), aplicado aos 9 passos da Pulsar:
+
+- **3 skills criados:** `skills/audit/` (thin entry-point com `--light`/`--heavy` flags), `skills/audit-light/` (9 steps + tests), `skills/audit-heavy/` (9 steps + tests).
+- **Ownership mapping confirmado:** step 1 = `audit-intake`; steps 2–4 = `audit-domain-analyzer` (Heavy) ou `audit-compliance-checker` light_mode (Light); steps 5–8 = `audit-compliance-checker`; step 9 = `audit-risk-matrix-generator`.
+- **Iron-Law extension:** invariante 9 ("Read-only enforcement") declarada no manifest via `report_only: true` e em cada step via `production_writes_allowed: false`. `edit-guard-hook.cjs` enforça.
+- **Gates:** Heavy + Light = 2 gates AskUserQuestion cada. Step 1 (scope approval) e step 9 (Pa de Cal). Light step 9 tem 4ª opção `ESCALATE-TO-HEAVY` quando triggers detectam scope insuficiente.
+- **Sentinel checkpoints:** Heavy = `[pre_1, pre_5, pre_9]` (mid-pipeline coherence em data layer). Light = `[pre_1, pre_9]` (cap reduzido).
+
+### 22.3 Forma do pipeline — 9 passos canônicos
+
+Heavy (cobertura completa) e Light (1 área / 1 nível) compartilham a mesma sequência semântica:
+
+| # | Heavy | Light | Output Heavy | Output Light |
+|---|-------|-------|--------------|--------------|
+| 1 | Intake + Spec + Inventory | Initial Read + Project Map | `AuditIntake` | `AuditSnapshot` |
+| 2 | Architecture + Boundaries + Dependencies | Architecture + Organization + Responsibilities | `DependencyImpactAudit` | `ArchitectureAudit` |
+| 3 | Domain + Rules + SSOT + Decisions | Domain + Rules + SSOT | `DecisionSSOTAudit` | `DomainSSOTAudit` |
+| 4 | Contracts + APIs + Endpoints + Validations | APIs + Endpoints + Contracts | `ContractGovernanceAudit` | `ContractAudit` |
+| 5 | Data + Migrations + Integrity + Security | Data + Persistence + Migrations | `DataGovernanceAudit` | `DataAudit` |
+| 6 | Frontend + State + A11y + PWA | Frontend Quality + State + UI | `FrontendDeepAudit` | `FrontendAudit` |
+| 7 | Backend + Errors + Auth + Observability | Backend Services + Security | `BackendDeepAudit` | `BackendAudit` |
+| 8 | Governance + Tests + CI/CD + Docs | Tests + Observability + Performance | `DeliveryGovernanceAudit` | `QualityOpsAudit` |
+| 9 | Pá de Cal + Risk Matrix | Pá de Cal + Conclusion + Plan | `AuditMasterSeal` | `AuditFinalSeal` |
+
+### 22.4 Regras de execução (8 regras + Iron Law)
+
+Mesmas 8 regras de Slice 1.5 (§21.3) + invariante 9 específico de audit (read-only). Frontmatter contrato + dispatch-guard + sentinel-hook + edit-guard-hook validam tudo deterministicamente em runtime.
+
+### 22.5 Migration plan
+
+Target: **v4.5.0** (minor release, retro-compatível). Lineage: v4.4.1 → v4.5.0.
+
+1. Files criados/atualizados:
+   - `skills/audit/SKILL.md` (thin entry-point, ~60 linhas).
+   - `skills/audit-heavy/SKILL.md` + `steps/01..09.md` + `tests/tests-audit-heavy.md`.
+   - `skills/audit-light/SKILL.md` + `steps/01..09.md` + `tests/tests-audit-light.md`.
+   - `references/glossary/audit.md` (NOVO — domain glossary).
+   - `references/pipelines/audit-heavy.md` + `audit-light.md` (header pointer "As of v4.5.0").
+   - `designs/pipeline-orchestrator-v5-consolidated.md` (esta §22 + §0 metadata + §12.2 sequência).
+2. Hooks: NENHUM hook precisou ser criado ou modificado. Os 4 hooks existentes (`dispatch-guard`, `sentinel-hook`, `edit-guard-hook`, `force-pipeline-agents`) cobrem o novo skill via contrato declarativo.
+3. Agents: NENHUM agente precisou ser criado. Os 4 audit agents já existiam desde antes do Slice 1.
+
+### 22.6 Backward compatibility
+
+Aditivo: nenhum comportamento existente alterado. `/pipeline-orchestrator:audit` é novo entry-point manual; auto-classify via `/pipeline-orchestrator:pipeline` continua igual e agora pode rotear para `audit-{light,heavy}` via pipeline_variant.
+
+### 22.7 Critérios de done (DoD do Slice 3a)
+
+- [x] `skills/audit/SKILL.md` criado com thin wrapper + variant flag handling.
+- [x] `skills/audit-heavy/` completo (SKILL.md + 9 step files + tests).
+- [x] `skills/audit-light/` completo (SKILL.md + 9 step files + tests).
+- [x] `references/glossary/audit.md` criado.
+- [x] `references/pipelines/audit-{heavy,light}.md` atualizados com header pointer.
+- [x] §22 desta spec preenchida; §0 metadata bumpada; §12.2 sequência marca Slice 3a 🟢.
+- [ ] `plugin.json` bumpado para v4.5.0.
+- [ ] `hooks/hooks.json` SessionStart prompt atualizado.
+- [ ] `CHANGELOG.md` atualizado.
+- [ ] Smoke test: invocar `/pipeline-orchestrator:audit-light test-fixture` e `/pipeline-orchestrator:audit-heavy test-fixture` confirma execução determinística (sem skip, sem reorder, AskUserQuestion gates dispararam, IRON LAW respeitado).
+
+### 22.8 Próximos passos
+
+1. **Pós-Slice 3a:** Slice 2 (TRACE.md) ou Slice 3 (resto) — `/feature`, `/userstory`, `/ux` reusam o mesmo padrão estabelecido aqui e em Slice 1.5.
+2. **Slice 3 (resto):** 3 commands restantes (feature, userstory, ux) seguem template idêntico — ~0,5 semana cada com playbook Pulsar disponível.
 
 ---
 

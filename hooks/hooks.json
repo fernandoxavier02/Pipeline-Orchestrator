@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "prompt",
-            "prompt": "Pipeline Orchestrator v4.4.0 loaded. Entry points: /pipeline-orchestrator:pipeline (full classifier, supports --light/--heavy variant flags), /pipeline-orchestrator:bugfix [task] (auto-classify or --light/--heavy), /pipeline-orchestrator:bugfix-light [task] and /pipeline-orchestrator:bugfix-heavy [task] (direct skills with prescriptive 8/11 step workflows imported from Pulsar). All entry-points manual-only via disable-model-invocation:true. v4.3.x: skill migration + SEC patches. v4.1.x base."
+            "prompt": "Pipeline Orchestrator v4.5.0 loaded. Entry points: /pipeline-orchestrator:pipeline (full classifier, supports --light/--heavy variant flags), /pipeline-orchestrator:bugfix [task] (auto-classify or --light/--heavy), /pipeline-orchestrator:bugfix-light [task] and /pipeline-orchestrator:bugfix-heavy [task] (direct skills with prescriptive 8/11 step bugfix workflows imported from Pulsar), /pipeline-orchestrator:audit [scope] (auto-classify or --light/--heavy), /pipeline-orchestrator:audit-light [scope] and /pipeline-orchestrator:audit-heavy [scope] (direct skills with prescriptive 9/9 step audit workflows imported from Pulsar — REPORT ONLY by Iron Law). All entry-points manual-only via disable-model-invocation:true. v4.5.0 (Slice 3a): audit import. v4.4.x: bugfix import + exec-window wrapper. v4.3.x: skill migration + SEC patches."
           }
         ]
       }

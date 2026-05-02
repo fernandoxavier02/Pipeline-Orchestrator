@@ -1,5 +1,7 @@
 # Audit Pipeline — Light
 
+> **As of v4.5.0 (Slice 3a):** the prescriptive 9-step procedure now lives in `skills/audit-light/SKILL.md` and its supporting files (`steps/0X-*.md`). This file remains as the team-composition reference (which agent runs at which phase). When `pipeline-controller` detects `pipeline_variant: audit-light`, it dispatches the skill via `Skill(pipeline-orchestrator:audit-light)` for Phase 2 execution. See `designs/pipeline-orchestrator-v5-consolidated.md` §22 for the full design.
+
 ## When Selected
 - Type: Audit
 - Complexity: MEDIA (3-5 files, 2 domains)

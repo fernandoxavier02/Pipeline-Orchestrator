@@ -5,6 +5,45 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.5.0] - 2026-05-02
+
+Minor release implementing **Slice 3a**: imports the prescriptive 9-step Heavy and 9-step Light audit workflows from Pulsar (`D:\Projeto Pulsar\.claude\commands\Prompts\Audtiroria\`) as Claude Code skills. Audit pipelines are **REPORT-ONLY** by Iron Law — no production file modification at any step. Design: `designs/pipeline-orchestrator-v5-consolidated.md` §22.
+
+### Added
+
+- `skills/audit/SKILL.md` — thin entry-point skill with `--light`/`--heavy` variant flag handling; auto-classify fallback delegates to `pipeline-controller` with `PRE_CLASSIFIED_TYPE=Audit`
+- `skills/audit-light/` — 9-step prescriptive workflow for SIMPLES/MEDIA audits (`SKILL.md` + 9 `steps/0X-*.md` + `tests/tests-audit-light.md`)
+- `skills/audit-heavy/` — 9-step prescriptive workflow for COMPLEXA audits (`SKILL.md` + 9 `steps/0X-*.md` + `tests/tests-audit-heavy.md`)
+- `references/glossary/audit.md` — domain glossary for the audit bounded context (finding, severity, surface area, threat model, intake, risk matrix, evidence tag, Pa de Cal, light_mode, escalation)
+- 9-step canonical sequence per tier:
+  - Step 1 — Intake + Spec + Inventory (`AuditIntake` / `AuditSnapshot`) — gate (scope approval)
+  - Step 2 — Architecture + Boundaries + Dependencies (`DependencyImpactAudit` / `ArchitectureAudit`)
+  - Step 3 — Domain + SSOT + Decisions (`DecisionSSOTAudit` / `DomainSSOTAudit`)
+  - Step 4 — Contracts + APIs + Endpoints + Validations (`ContractGovernanceAudit` / `ContractAudit`)
+  - Step 5 — Data + Migrations + Integrity + Security (`DataGovernanceAudit` / `DataAudit`)
+  - Step 6 — Frontend + State + A11y + PWA (`FrontendDeepAudit` / `FrontendAudit`)
+  - Step 7 — Backend + Errors + Auth + Observability (`BackendDeepAudit` / `BackendAudit`)
+  - Step 8 — Governance + Tests + CI/CD + Documentation (`DeliveryGovernanceAudit` / `QualityOpsAudit`)
+  - Step 9 — Pa de Cal + Risk Matrix (`AuditMasterSeal` / `AuditFinalSeal`) — gate (GO/CONDITIONAL/NO-GO; Light has 4th option ESCALATE-TO-HEAVY)
+- 8 enforcement rules baked into skill+step frontmatter (`sequence_lock`, `execution_mode` lock, `agent_type` whitelist, output schema, AskUserQuestion gates at steps 1+9, STOP RULE, audit log, sentinel checkpoints `pre_1`/`pre_5`/`pre_9` for Heavy and `pre_1`/`pre_9` for Light)
+- 9th invariant unique to audit: **Read-only enforcement** (`report_only: true` in manifest, `production_writes_allowed: false` in every step) — `edit-guard-hook.cjs` blocks any Edit/Write originating from audit-* steps or agents
+- Light-tier escalation triggers (Critical severity / ≥30% `[HYPOTHESIS]` tags / cascade across 3+ areas / regulatory keyword) surface ESCALATE-TO-HEAVY as recommended option at step 9
+
+### Changed
+
+- `skills/audit/SKILL.md`: detects `--light`/`--heavy` flags + delegates to backing skill
+- `references/pipelines/audit-heavy.md` and `audit-light.md`: header pointer "As of v4.5.0 (Slice 3a)" routes prescriptive procedure to the new skill while preserving team-composition reference
+- `designs/pipeline-orchestrator-v5-consolidated.md`: §0 metadata bumped to v4.5.0; §12.2 sequência marca Slice 3a 🟢; §22 net-new design rationale + DoD
+- `.claude-plugin/plugin.json` + `marketplace.json`: version 4.4.1 → 4.5.0
+- `hooks/hooks.json`: SessionStart prompt mentions `/audit`, `/audit-light`, `/audit-heavy`
+
+### Notes
+
+- **No new agents required.** The 4 audit agents (`audit-intake`, `audit-domain-analyzer`, `audit-compliance-checker`, `audit-risk-matrix-generator`) already existed since before Slice 1; this slice wraps them with prescriptive step procedure + frontmatter contract.
+- **No new hooks required.** Existing hooks (`dispatch-guard`, `sentinel-hook`, `edit-guard-hook`, `force-pipeline-agents`) cover the new skills via declarative contract.
+- **Report-only.** Audit findings are advisory; remediation requires a downstream `/pipeline-orchestrator:bugfix [finding-AUDIT-NNN]` or `/feature` invocation.
+- **Slice 3 (resto) — `/feature`, `/userstory`, `/ux`** remains pending; the same template is now battle-proven in two slices (1.5 + 3a) and is reusable.
+
 ## [4.4.0] - 2026-05-01
 
 Minor release implementing **Slice 1.5**: imports the prescriptive 11-step Heavy and 8-step Light bugfix workflows from Pulsar (`D:\Projeto Pulsar\.claude\commands\Prompts\Bug_fix\`) as Claude Code skills, closing 6 audit gaps identified in v4.3.1 review. Design: `designs/pipeline-orchestrator-v5-consolidated.md` §21.
