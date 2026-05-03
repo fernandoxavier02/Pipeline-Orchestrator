@@ -354,15 +354,15 @@ A versão sensacional do v5 não vende — ela **acontece** quando o usuário ro
 
 **Exemplo concreto:** usuário roda `/pipeline-orchestrator:bugfix --investigate login broken`. Um agente domain-native enumera 3 hipóteses; outro valida cada uma com `file:line`; quando a hipótese vencedora aponta `auth/session.js:42`, um terceiro invoca emergentemente o `ai-dev-security-scanner` — sem o usuário pedir. Tudo registrado com evidência cirúrgica no TRACE.md. **Quem roda diz "não pedi pra ele chamar segurança, mas faz total sentido que tenha chamado".**
 
-### 7.5 pipeline-controller (agente central — A SER CRIADO)
+### 7.5 pipeline-controller (agente central — EXISTE)
 
-**Status crítico:** `agents/core/pipeline-controller.md` **NÃO EXISTE** no repo [VERIFICADO]. Toda v5 depende dele. **Pré-requisito P0 do Slice 0** (ver §15 e §16).
+**Status:** `agents/core/pipeline-controller.md` **EXISTE** [VERIFICADO 2026-04-30 via sync 4.1.3]. Origem do erro de baseline em D1/D2/D3: os docs originais não tinham visibilidade do conteúdo da cache 4.1.3 — quando o canonical foi sincronizado em 2026-04-30 (commits `59e0984..c5c9477`), o arquivo já estava lá. Cross-ref: §16 erro #1 (RESOLVIDO) e §17.3 #5 (resolução documentada).
 
 **Role:** orquestrador central. Lê shape do pipeline, faz dispatch sequencial, aplica gates, escreve `gate-decisions.jsonl`, invoca `trace-generator` ao final.
 
-**Tools obrigatórias** (frontmatter): `[Agent, Task, Read, Write, Bash, Glob, Grep, AskUserQuestion]`. Sem isso, não consegue spawnar subagentes — ver §15.
+**Tools declaradas no frontmatter atual** [VERIFICADO 2026-05-03 pós-instalação]: `Read, Write, Glob, Grep, Agent, AskUserQuestion, Task, Bash` (8 tools). **Modelo:** opus (não Sonnet como D1/D2 prescreviam — atualizado pós-baseline).
 
-**Modelo:** Sonnet.
+**DoD #7 satisfeita:** §8 Critério #7 prescreve `tools: [Agent, Task, Read, Write, Bash, Glob, Grep, AskUserQuestion]` (8 tools). Frontmatter real agora declara as 8. Gap fechado em 2026-05-03 (ver §17.3 #9 RESOLVIDO).
 
 ---
 
@@ -518,14 +518,18 @@ v5.1.0
 |---|---|---|---|
 | 0 | 🟢 | sync 4.1.3 | pipeline-controller, sentinel, type-specific, gates.md já existiam na cache 4.1.3 — sincronizados pro canonical |
 | 0.5 | 🟢 | v4.2.0 | CLAUDE.md raiz, AGENTS.md raiz, COMPLEXITY_GATE no registry |
-| 1 | 🟢 | v4.2.0 + v4.2.1 | `/bugfix` thin wrapper, `PRE_CLASSIFIED_TYPE` contract, hook patches; SEC-1+SEC-2 fechados em adversarial review |
+| 1 † | 🟢 | v4.2.0 + v4.2.1 | `/bugfix` thin wrapper, `PRE_CLASSIFIED_TYPE` contract, hook patches; SEC-1+SEC-2 fechados em adversarial review. **† TRACE-defer:** ACs sobre TRACE.md diferidas para Slice 2 (ver §12.5.3 e §17.3 #8) |
 | 2 | 🔴 | — | trace-generator + trace-schema/v1.md |
 | 3a | 🟢 | v4.5.0 | `/audit` thin wrapper + `audit-light` + `audit-heavy` skills (9 steps cada), §22; reusa `audit-{intake,domain-analyzer,compliance-checker,risk-matrix-generator}` agents |
 | 3 | 🔴 | — | 3 commands restantes (feature/userstory/ux) + ARCH-2 (trust boundary do prefix — ver §17.3 #7) |
-| 4 | 🟡 | — | 10/10 smoke unit cases existem; CI runner formal pendente |
+| 4 | 🟡 (90% estrutural) | — | runner.cjs ✅ + workflow YAML ✅ + 5/5 fixtures estruturais (template) + 0/5 baselines reais + performance N/A + protocolo de captura ✅. 2/4 critérios fechados; critério 3 100% estrutural mas 0% real. Falta: capturar 5 baselines via dogfooding + medir wall-clock real. Ver §12.8.3 + §17.3 #10/#11. |
 | 5 | 🔴 | — | v5.1, defer |
 
-**Resolução de contradição — ordem Slice 1 vs Slice 2:** D2:799–826 reordenou goal-backward — TRACE.md primeiro porque materializa "caixa de vidro" desde rc.1 e baseline para Slice 4. **Consolidado adota ordem D2:** Slice 0 → 0.5 → 2 → 1 → 3 → 4 → 5. (D3:24–30 lista 0 → 0.5 → 1 → 2 → 3 → 4 mas é inventário, não ordem de execução.)
+**Resolução de contradição — ordem Slice 1 vs Slice 2:** D2:799–826 reordenou goal-backward — TRACE.md primeiro porque materializa "caixa de vidro" desde rc.1 e baseline para Slice 4. **Consolidado original adotou ordem D2:** Slice 0 → 0.5 → **2** → 1 → 3 → 4 → 5. (D3:24–30 lista 0 → 0.5 → 1 → 2 → 3 → 4 mas é inventário, não ordem de execução.)
+
+**Ordem REAL entregue (atualizado 2026-05-03 governance audit):** Slice 0 → 0.5 → **1 (TRACE diferido)** → 1.5 → 3a → ... A ordem real divergiu do plano: Slice 1 foi shippado em v4.2.0 antes de Slice 2 existir. TRACE.md como AC do Slice 1 foi diferido para Slice 2 (ver §12.5.3 nota TRACE-defer). Esta inversão está documentada como lição em §17.3 #8 — não foi decisão deliberada, foi optimization de UX (entregar `/bugfix` cedo) que custou consistência prerequisita. Slice 2, quando entregue, retroativamente popula TRACE.md a partir do `gate-decisions.jsonl` já existente.
+
+**Nota sobre Slice 3a vs Slice 3:** Slice 3a (audit workflow import — ver §22) é **ortogonal e independente** de Slice 3 (commands restantes feature/userstory/ux + ARCH-2 fix). Não há dependência entre eles; podem shippar em qualquer ordem ou paralelamente. Slice 3a foi feito antes de Slice 3 porque o playbook Pulsar de audit estava pronto para porte; Slice 3 espera ARCH-2 trust-boundary decision (§17.4 #7).
 
 **Nota sobre numeração de release candidates:** numeração `rc` segue ordem de ship (Slice 2 = `rc.1`; Slice 1 = `rc.2`; Slice 3 = `rc.3`; etc.), independente do número do Slice. Isso garante que `rc.N+1` sempre suceda `rc.N` no tempo, mesmo quando a sequência de execução não casa com o número ordinal do slice.
 
@@ -811,12 +815,20 @@ tests/slice1/
 ```yaml
 slice_id: 1
 title: "Command /pipeline-orchestrator:bugfix end-to-end"
-prerequisite_slices: [0, 0.5, 2]
+prerequisite_slices: [0, 0.5]   # ATUALIZADO 2026-05-03: Slice 2 removido por TRACE-defer (ver nota abaixo + §17.3 #8)
 prerequisite_decisions:
   - "Slice 0 confirmou: hooks PreToolUse podem inspecionar argumentos do Agent call"
   - "Slice 0 inventário confirmou onde lógica de classificação reside"
-  - "Slice 2 estabeleceu schema do TRACE.md e quem escreve o quê"
+  - "Slice 2 estabeleceu schema do TRACE.md e quem escreve o quê"  # PARCIALMENTE ATENDIDA — ver TRACE-defer
   - "Slice 0 criou agents/core/pipeline-controller.md com tools corretas (DoD #7)"
+
+# TRACE-defer (2026-05-03 governance audit):
+# Slice 1 foi entregue em v4.2.0 antes de Slice 2 (TRACE.md) existir. As ACs originais do Slice 1
+# referenciavam emissão de type_source no TRACE.md ("emite PIPELINE COMPLETE com type_source=manual"),
+# mas o TRACE.md não foi gerado — o pipeline emite type_source no log de gate-decisions.jsonl em vez disso.
+# Implicação: a parte "TRACE.md universal" das ACs do Slice 1 está oficialmente DIFERIDA para Slice 2,
+# que deverá retroativamente popular TRACE.md a partir do gate-decisions.jsonl quando for entregue.
+# Isso não invalida v4.2.0+ — só explicita o débito.
 
 files_to_create:
   - path: "commands/bugfix.md"
@@ -862,6 +874,8 @@ verification:
 **Duração:** ~1 sem solo. Cobre Problema #3 e parte de #2.
 
 **Prerequisite slices:** [0, 0.5].
+
+**Nota TRACE-defer (2026-05-03 governance audit):** Slice 2 também tem responsabilidade retroativa — fechar as ACs do Slice 1 que mencionavam emissão de `type_source` no TRACE.md. Em v4.2.0+ o pipeline emite no `gate-decisions.jsonl`; quando trace-generator existir, deve ler esse log e popular TRACE.md correspondente para runs históricos (best-effort) ou pelo menos para runs novos. Ver §12.5.3 nota TRACE-defer e §17.3 #8 para contexto completo.
 
 #### 12.6.1 BDD
 
@@ -1102,6 +1116,35 @@ branch_on_spike_result:
 - `tests/compat/README.md` explica como adicionar cenários.
 - Tag `v5.0.0` (release final).
 
+**Critério formal de promoção 🟡 PARCIAL → 🟢 ENTREGUE** (adicionado 2026-05-03 via governance audit):
+
+Slice 4 só transita para 🟢 quando os 4 itens abaixo forem TODOS verificáveis por terceiro:
+
+1. **Runner existe e executa:** `tests/compat/runner.cjs` presente e invocável via `node tests/compat/runner.cjs --all`. Saída legível indica per-cenário PASS/DIVERGED/SKIPPED.
+2. **CI workflow ativo:** `.github/workflows/compat-regression.yml` registrado, dispara em PRs que tocam `commands/`, `agents/core/`, `agents/quality/`, `references/pipelines/`, `references/gates.md`. Falha do workflow bloqueia merge (branch protection rule configurada).
+3. **5 cenários canônicos fixados:** `tests/compat/v4-baseline/scenarios/` contém pelo menos 5 subdiretórios — 1 por type (bugfix, feature, audit, ux) + 1 hotfix — cada um com `input.md` + `expected.yaml` validados contra v4.5.0 (baseline atual, dado que v4.1.0 já foi superado).
+4. **Performance budget cumprido:** wall-clock total dos 5 cenários < 5 minutos em runner GitHub Actions (`ubuntu-latest`). Medido via timestamp inicial/final no log do workflow.
+
+**Status atual em 2026-05-03 (atualizado pós-implementação):**
+
+- ✅ **Critério 1 (runner):** `tests/compat/runner.cjs` implementado (~340 linhas, parser YAML inline, modo mock+real, comparação 4-campos com canonicalização key-order-independente, detecção TEMPLATE, exit codes 0/1/2). Smoke test verde. Adversarial review aplicou 7 fixes (2 CRIT + 4 MAJ + 1 MIN). Ver §17.3 #10 para histórico de fixes.
+- ✅ **Critério 2 (CI workflow):** `.github/workflows/compat-regression.yml` criado. Dispara em PRs que tocam pipeline-affecting paths (commands, agents core/quality/executor, references, skills, hooks, plugin.json, marketplace.json, CLAUDE.md). Falha do step gera PR comment via `gh pr comment --body-file`. Branch protection rule continua sendo trabalho manual no GitHub UI.
+- 🟡 **Critério 3 (5 cenários):** **5/5 estruturalmente implementados** [VERIFICADO 2026-05-03] — `bugfix-fixture/`, `feature-fixture/`, `audit-fixture/`, `ux-fixture/`, `hotfix-fixture/` cada um com `input.md` (task description realista) + `expected.yaml` (contrato observável inferido do spec §7.2.X / `commands/pipeline.md` HOTFIX Mode). Todos marcados `baseline_method: TEMPLATE` → runner detecta e SKIPa, retornando exit 1 com warning "NO REAL VALIDATION" — CI bloqueia merge corretamente. **0/5 com baseline real capturado** — todos precisam de dogfooding em sessão CLI claude para popular `mock-output.json` (modo mock) ou rodar live (modo real). Protocolo executável de captura documentado em `tests/compat/README.md` seção "Protocolo de captura de baseline real" (5 passos por fixture, ~10min cada).
+- ⏸️ **Critério 4 (performance):** N/A até os 5 cenários existirem. Runner mede wall-clock per-cenário e total; budget 5min hardcoded.
+
+**Score:** 2/4 ✅ + 1/4 🟡 (80% interno: 4/5 fixtures estruturais + 0/5 baselines reais) + 1/4 ⏸️ = **estrutura completa, faltando captura de baselines + 1 fixture hotfix**. Slice 4 permanece 🟡 até critérios 3 (capturar 5 baselines reais) e 4 (medição wall-clock) fecharem.
+
+**Implicação para v5.0 final:** a tag `v5.0.0` continua bloqueada pela DoD #5 ("Slice 4 verde"). Esta atualização documenta progresso real (50% feito, 50% requer dogfooding) sem afrouxar o critério.
+
+**Próxima ação concreta para fechar Slice 4:**
+1. Criar `hotfix-fixture/` (5º cenário) — copiar template do `bugfix-fixture/` ajustando para `--hotfix` flag (force COMPLEXA, type=Bug Fix, severity=Critical, 2 checklists adversarial em vez de 7).
+2. Em sessão CLI claude, rodar `/pipeline-orchestrator:pipeline <input de cada fixture>` para os 5 cenários (hoje 4 existem como template + 1 a criar).
+3. Para cada um, capturar a saída observável (4 campos) e popular `expected.yaml`: substituir `baseline_method: TEMPLATE` por `baseline_method: captured 2026-MM-DD via dogfooding`. Adicionalmente, salvar snapshot em `mock-output.json` ao lado para o runner usar em modo `--mock` (CI sem claude CLI).
+4. Rodar `node tests/compat/runner.cjs --all` e confirmar 5 PASS.
+5. Commit + medir wall-clock total → atualizar Critério 4 com número real.
+
+**Tempo estimado para fechar:** ~1h em sessão CLI dedicada (5 cenários × ~10min cada para rodar + capturar + validar).
+
 ### 12.9 Slice 5 — YAML interpreter (COMMITTED v5.1, ≤ Q+2)
 
 **Status pós-iter 2 (D2:776–793):** **Compromisso firmado**, não condicional. Pilar (a) da tese ("pipeline declarativo") só fecha com este slice.
@@ -1313,7 +1356,7 @@ Auditoria 2026-04-29 contra repo canonical revelou 10 itens. Todos devem ser end
 
 | # | Erro | Origem nos docs | Real | Slice owner |
 |---|---|---|---|---|
-| 1 | `pipeline-controller` agent não existe em `agents/core/` | D1, D2, D3 assumem existência (D1:176, D2:148, D3:175) | **Ausente** [VERIFICADO] | **Slice 0 P0** — criar com tools corretas (§15) |
+| 1 | ~~`pipeline-controller` agent não existe em `agents/core/`~~ | D1, D2, D3 assumem existência (D1:176, D2:148, D3:175) | **EXISTE** [VERIFICADO 2026-04-30 — falso alarme; estava na cache 4.1.3, sincronizado para canonical] | **RESOLVIDO** via sync 4.1.3 (ver §17.3 #5 e §7.5 atualizado). Gap residual: 2 tools faltantes vs DoD #7 — ver §7.5 nota final. |
 | 2 | 5 dos 7 hooks referenciados não existem (`sentinel-hook`, `dispatch-guard`, `session-lock-hook`, `edit-guard-hook`, `session-cleanup-hook`) | D1:184–188, D3:132 | Existem apenas `completion-checklist.cjs` e `force-pipeline-agents.cjs` [VERIFICADO] | **Slice 0** auditar; **Slice 0.5 C1/C2** criar `dispatch-guard.cjs` e estender `force-pipeline-agents.cjs` |
 | 3 | Versão do plugin = 4.1.x assumida | D1:5, D1:264, D2 (toda referência), D3:181 | **plugin.json declara 3.0.2; README 3.1.0** [VERIFICADO] | **Slice 0.5 D3** alinhar |
 | 4 | Contagem de agentes = 38 | D1:12 | **19 agentes** [VERIFICADO] | **Slice 0** auditar e atualizar AGENTS.md (Slice 0.5 A2) |
@@ -1351,10 +1394,14 @@ Origem: D2:850–856 (Q1–Q5 originais decididos) + D3:259–264 (4 residuais).
 3. **Slice 0.5 paraleliza com Slice 0?** Possível, zero overlap de arquivos. Decisão do dono.
 4. **MEMORY.md raiz — descartado mesmo?** Confirmação: TRACE.md per-run cobre. Decisões arquiteturais persistentes vivem em `designs/` (apropriado).
 
-### 17.3 Novas (surgidas na consolidação)
+### 17.3 Novas (surgidas na consolidação e em audits posteriores)
 
 5. **§16 erro #7/#8 — recriar agents fantasmas ou apagar referências?** ✅ **RESOLVIDO em 2026-04-30**: descoberta no sync que ambos JÁ EXISTIAM na cache 4.1.3 (não eram fantasmas — só não estavam no canonical D:\). Sincronizado.
 6. **Critério #7 (§15) — pipeline-controller é o ÚNICO agente com bug de tools propagation, ou outros agentes core também?** ✅ **RESOLVIDO via SPIKE-NESTED-SPAWN.md v2** (2026-04-30): auditoria empírica do baseline 4.1.3 mostrou que pipeline-controller é o único N0 que declara `tools:` (least-privilege); demais N1/N2 omitem o campo (= full default tools). Convenção CC 2.x identificada e documentada.
+8. **Lição registrada — ordem de execução divergiu do plano (Slice 1 antes de Slice 2).** 📌 **DOCUMENTADA em 2026-05-03 governance audit**: Slice 1 (`/bugfix` thin entry-point) foi shippado em v4.2.0 antes de Slice 2 (TRACE.md generator) existir. ACs do Slice 1 que mencionavam emissão de `type_source` no TRACE.md ficaram sem verificação direta — o pipeline emite no `gate-decisions.jsonl` em vez disso. Ajuste retroativo: §12.5.3 `prerequisite_slices` corrigido para `[0, 0.5]` (era `[0, 0.5, 2]`); §12.6 marcará que Slice 2 retroativamente popula TRACE.md a partir do log existente. **Causa-raiz da divergência:** otimização de UX do dono (entregar comando explícito cedo para dogfooding); custo: prerequisita declarada virou ficção até esta nota. **Lição capturada:** quando ordem real divergir do plano, atualizar prerequisite_slices E status table na MESMA release — não acumular dívida silenciosa. Esta é uma instância concreta do drift que §1.1 já criticou em D1/D2/D3.
+9. **Gap residual de tools no pipeline-controller (descoberto 2026-05-03).** ✅ **RESOLVIDO em 2026-05-03**: opção (b) escolhida pelo dono — `Task` e `Bash` adicionadas ao frontmatter de `agents/core/pipeline-controller.md`. Frontmatter atual declara 8 tools (`Read, Write, Glob, Grep, Agent, AskUserQuestion, Task, Bash`), conforme DoD #7. Justificativa para opção (b) sobre opção (a): defensive — adicionar é aditivo e não-breaking; o controller já funcionava sem essas duas, mas pode vir a precisar (ex: `Bash` para invocar exec-window scripts diretamente em vez de via Agent dispatch; `Task` se o harness CC 2.x ganhar nova semântica). Custo zero, risco zero.
+10. **Slice 4 instalação parcial (2026-05-03).** 📌 **HISTÓRICO REGISTRADO**: estrutura do Slice 4 entregue em duas sessões pipeline lean-inline. Sessão 1 (01:00-01:06 UTC): runner.cjs + workflow YAML + 1 fixture template (bugfix) + README. Reviewer adversarial (`ce-correctness-reviewer`) cravou NEEDS_REWORK com 2 CRITICAL (parseYaml lookahead via `lines.indexOf` frágil; executeMock retornava expected como actual = PASS sintético) + 6 MAJOR + 4 MINOR. Fix-loop atempt 1/3 aplicou 7 fixes (2 CRIT + 4 MAJ + 1 MIN); 2 MINOR cosméticos pulados; 1 MAJOR (typo CLAUDE_CLI_AVAILABLE) aceito como risco. Smoke test pós-fix verde (exit 1 quando só SKIPPED — não engana CI). Sessão 2 (02:00-02:05 UTC): adicionados 3 fixtures restantes (feature, audit, ux) inferidos do spec §7.2.3/§7.2.2/§7.2.4, todos marcados TEMPLATE. Smoke test 4-fixtures: 4 SKIPPED + exit 1 + warning "NO REAL VALIDATION" — CI bloqueia merge no estado atual. Faltam: 1 fixture (hotfix) + 5 baselines reais via dogfooding + medição wall-clock para promover Slice 4 a 🟢. Owner: dono do plugin.
+11. **Slice 4 fixture-5 + protocolo de captura (2026-05-03 sessão 3).** 📌 **HISTÓRICO REGISTRADO**: brainstorming + writing-plans + execução adicionou `hotfix-fixture/` (5º cenário, contrato observável inferido de `commands/pipeline.md` HOTFIX Mode com diferenças explícitas vs bugfix-fixture: campo `mode=hotfix`, pseudo-gate `HOTFIX_CONFIRMATION`, 2 checklists adversarial em vez de 7, `adversarial-{architecture,quality}-reviewer` ausentes, `FINAL_ADVERSARIAL_GATE.decision=SKIPPED`, artefato `HOTFIX_LOG.md` obrigatório, seção `hotfix_assertions` que runner verifica sempre). Mais: seção "Protocolo de captura de baseline real" no `tests/compat/README.md` documenta 5 passos por fixture para quando dogfooding real acontecer. Captura de baselines reais e medição wall-clock continuam adiadas por decisão do dono ("deixa isso que vemos no decorrer das execuções reais"). Score Slice 4: 90% estrutural, 0% baseline real. Ver spec `docs/superpowers/specs/2026-05-03-hotfix-fixture-and-capture-protocol-design.md`.
 
 ### 17.4 Aberta — para Slice 3
 
@@ -1773,7 +1820,7 @@ Target: **v4.5.0** (minor release, retro-compatível). Lineage: v4.4.1 → v4.5.
 
 Aditivo: nenhum comportamento existente alterado. `/pipeline-orchestrator:audit` é novo entry-point manual; auto-classify via `/pipeline-orchestrator:pipeline` continua igual e agora pode rotear para `audit-{light,heavy}` via pipeline_variant.
 
-### 22.7 Critérios de done (DoD do Slice 3a)
+### 22.7 Critérios de conclusão — 9/10 (1 smoke test em débito reconhecido)
 
 - [x] `skills/audit/SKILL.md` criado com thin wrapper + variant flag handling.
 - [x] `skills/audit-heavy/` completo (SKILL.md + 9 step files + tests).
@@ -1781,10 +1828,12 @@ Aditivo: nenhum comportamento existente alterado. `/pipeline-orchestrator:audit`
 - [x] `references/glossary/audit.md` criado.
 - [x] `references/pipelines/audit-{heavy,light}.md` atualizados com header pointer.
 - [x] §22 desta spec preenchida; §0 metadata bumpada; §12.2 sequência marca Slice 3a 🟢.
-- [ ] `plugin.json` bumpado para v4.5.0.
-- [ ] `hooks/hooks.json` SessionStart prompt atualizado.
-- [ ] `CHANGELOG.md` atualizado.
-- [ ] Smoke test: invocar `/pipeline-orchestrator:audit-light test-fixture` e `/pipeline-orchestrator:audit-heavy test-fixture` confirma execução determinística (sem skip, sem reorder, AskUserQuestion gates dispararam, IRON LAW respeitado).
+- [x] `plugin.json` bumpado para v4.5.0 [VERIFICADO 2026-05-03 — `version: "4.5.0"` confirmado].
+- [x] `hooks/hooks.json` SessionStart prompt atualizado [VERIFICADO 2026-05-03 — prompt diz "Pipeline Orchestrator v4.5.0 loaded" e referencia `/audit`/`audit-light`/`audit-heavy` + Slice 3a].
+- [x] `CHANGELOG.md` atualizado [VERIFICADO 2026-05-03 — entry `[4.5.0] - 2026-05-02` presente com seções Added/Changed completas].
+- [ ] **Smoke test PENDENTE:** invocar `/pipeline-orchestrator:audit-light test-fixture` e `/pipeline-orchestrator:audit-heavy test-fixture` para confirmar execução determinística. **Estado em 2026-05-03:** `tests/manual-validation-log.md` ainda mostra `_(first run pending)_`. **Débito reconhecido:** v4.5.0 foi tagueada antes deste smoke test rodar — registrado retroativamente. Próxima ação: rodar ambas as variantes contra fixture e popular log.
+
+**Status DoD §22.7 em 2026-05-03:** 9/10 itens concluídos (smoke test único pendente). Reconciliação retroativa feita após governance audit do design v5 detectar que checkboxes não refletiam estado real (3 itens estavam feitos mas marcados [ ]).
 
 ### 22.8 Próximos passos
 
