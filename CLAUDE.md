@@ -16,16 +16,16 @@ Linguagem leiga, completa e curta. Veredicto primeiro, detalhe depois. Sem jarga
 
 | Camada | SSOT | Notas |
 |---|---|---|
-| **Design v5** | `designs/pipeline-orchestrator-v5-consolidated.md` | 1491 linhas, sucessor único dos 3 docs em `designs/legacy/` |
+| **Design v5** | `designs/pipeline-orchestrator-v5-consolidated.md` | 1796 linhas, sucessor único dos 3 docs em `designs/legacy/` |
 | **Design v5 Slice 0** | `designs/slice-0/INVENTORY.md` + 4 SPIKEs | Reality-check pós-sync 4.1.3 — INVENTORY atualizado em 2026-04-30 (Slices 0+0.5+1 marcados como concluídos) |
-| **Versão canônica** | `.claude-plugin/plugin.json` `"version"` | Atualmente: **4.4.0**. Lineage: v4.2.0 → v4.2.1 → v4.3.0 → v4.3.1 → v4.4.0 (Slice 1.5 — Pulsar bugfix workflow import). Marketplace lê este arquivo. |
+| **Versão canônica** | `.claude-plugin/plugin.json` `"version"` | Atualmente: **4.5.0**. Lineage: v4.2.0 → v4.2.1 → v4.3.0 → v4.3.1 → v4.4.0 (Slice 1.5 — Pulsar bugfix workflow import) → v4.4.1 (exec-window wrapper fix) → v4.5.0 (Slice 3a — Pulsar audit workflow import). Marketplace lê este arquivo. |
 | **Pipeline flow** | `commands/pipeline.md` (full classifier) + `commands/bugfix.md` (thin shortcut) | 1112 linhas no full + 40 no thin. **Inline Invariants** em `pipeline.md` sobrepõem Grep-loaded refs em caso de conflito |
 | **Agent orchestrator** | `agents/core/pipeline-controller.md` | N1, dispatched pela skill, coordena 4 fases |
 | **Gates** | `references/gates.md` | Hardness Taxonomy + 16-gate Registry |
 | **Audit Trail** | `references/audit-trail.md` | Phase Transition Summary + JSONL log format |
 | **Confidence** | `references/confidence.md` | Scoring schema (advisory) |
 | **Sentinel** | `references/sentinel-integration.md` + `agents/core/sentinel.md` | 5 mandatory checkpoints |
-| **Team roster** | `references/team-registry.md` | 38 agents (9 core + 5 executor + 17 type-specific + 7 quality) |
+| **Team roster** | `references/team-registry.md` | **19 agents reais** [VERIFICADO 2026-05-03] (`agents/**/*.md`). O número antigo "38" estava errado — vinha do D1 sem reality-check; corrigido em `designs/pipeline-orchestrator-v5-consolidated.md` §1.1 e §16 erro #4. `team-registry.md` pode ainda mostrar 38 — atualizar quando tocado. |
 
 ## Política de edits
 
@@ -33,7 +33,7 @@ Linguagem leiga, completa e curta. Veredicto primeiro, detalhe depois. Sem jarga
 
 🔴 **REGRA #2:** O cache `C:\.claude\plugins\cache\FX-studio-AI\pipeline-orchestrator\<version>\` é **runtime read-only** — NUNCA editar lá. Ele é populado pelo marketplace ao instalar/atualizar.
 
-🟡 **HISTÓRICO:** Antes de 2026-04-30, releases 3.8.0 → 4.1.3 foram publicadas no marketplace SEM passar pelo git canonical (deriva de 97 commits). Em 2026-04-30, canonical foi sincronizado com cache 4.1.3 via 5 commits temáticos (`59e0984..c5c9477` em `feat/v5-addendum-context-policies`). Mesmo dia: Slice 0.5 + Slice 1 (`/bugfix` entry-point) entregues como v4.2.0 + patch v4.2.1 (SEC-1+SEC-2). Daqui em diante, **todo release passa pelo git** antes de virar marketplace package.
+🟡 **HISTÓRICO:** Antes de 2026-04-30, releases 3.8.0 → 4.1.3 foram publicadas no marketplace SEM passar pelo git canonical (deriva de 97 commits). Em 2026-04-30, canonical foi sincronizado com cache 4.1.3 via 5 commits temáticos (`59e0984..c5c9477` em `feat/v5-addendum-context-policies`). Mesmo dia: Slice 0.5 + Slice 1 (`/bugfix` entry-point) entregues como v4.2.0 + patch v4.2.1 (SEC-1+SEC-2), seguidos de v4.3.0 (skill migration), v4.3.1 (review polish), v4.4.0 (Slice 1.5 Pulsar bugfix import) em 2026-05-01, v4.4.1 (exec-window wrapper) e v4.5.0 (Slice 3a Pulsar audit import) em 2026-05-02. Daqui em diante, **todo release passa pelo git** antes de virar marketplace package.
 
 ## Política operacional para Claude (este agent)
 
@@ -81,3 +81,5 @@ Ver `commands/pipeline.md` linhas finais para detalhamento.
 | Versão | Data | Mudança |
 |---|---|---|
 | v1.0 | 2026-04-30 | Inicial — pós-sync 4.1.3 (Slice 0.5 A1) |
+| v1.1 | 2026-05-03 | Bump versão canônica 4.4.0 → 4.5.0; lineage estendida com v4.3.x/4.4.x/4.5.0; corrigida contagem do consolidated (1491 → 1796 linhas). Reconciliação de governança disparada por audit do design v5. |
+| v1.2 | 2026-05-03 | Team roster corrigido (38 → 19 agents reais [VERIFICADO]) após coherence review apontar drift. |
