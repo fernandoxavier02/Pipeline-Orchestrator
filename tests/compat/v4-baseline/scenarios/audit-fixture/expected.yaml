@@ -1,0 +1,77 @@
+# Expected observable contract for audit-fixture
+# Inferred from designs/pipeline-orchestrator-v5-consolidated.md §7.2.2 (audit shape)
+# + §22 (Slice 3a — Pulsar audit import) + §10.1 (audit-light caps)
+# Status: TEMPLATE — replace with real values after dogfooding /pipeline
+
+baseline_version: "4.5.0"
+baseline_captured_at: "TODO_REPLACE_AFTER_DOGFOODING"
+baseline_method: "TEMPLATE — inferred from spec §7.2.2 + §22, not yet validated against real run"
+
+classification:
+  type: audit
+  complexity: MEDIA
+  pipeline_variant: audit-light    # 1 area = auth/, 1 nivel profundidade per §10.1
+
+gates_triggered:
+  - gate: INFO_GATE_BLOCKED
+    hardness: HARD
+    decision: PASS
+  - gate: ADVERSARIAL_GATE_MANDATORY    # auth domain
+    hardness: MANDATORY
+    decision: PASS
+  - gate: FINAL_ADVERSARIAL_GATE
+    hardness: SOFT
+    decision: PASS
+  - gate: CLOSEOUT_CONFIRM
+    hardness: SOFT
+    decision: PASS
+
+# NOTE: TDD_APPROVAL and CHECKPOINT_FAIL ABSENT — audit is report-only,
+# does not generate code or modify production. §22.4 Iron Law.
+
+agents_invoked:
+  # Per §22.2 ownership: step 1 = audit-intake, steps 2-8 = compliance-checker (light_mode),
+  # step 9 = audit-risk-matrix-generator. Plus controller cascade.
+  - task-orchestrator
+  - sentinel                              # ORCHESTRATOR_VALIDATION
+  - information-gate
+  - executor-controller                   # dispatches audit steps
+  - audit-intake                          # §22.3 step 1
+  - audit-compliance-checker              # §22.3 steps 2-8 (light_mode)
+  - audit-risk-matrix-generator           # §22.3 step 9 — Pa de Cal
+  - sentinel                              # phase_2_to_3
+  - sanity-checker                        # build-only (no test changes)
+  - final-validator
+
+artifacts_produced:
+  - PIPELINE_DOC_PATH/sentinel-state.json
+  - PIPELINE_DOC_PATH/gate-decisions.jsonl
+  - PIPELINE_DOC_PATH/01-task-orchestrator.md
+  - PIPELINE_DOC_PATH/02-information-gate.md
+  - PIPELINE_DOC_PATH/03-audit-intake.md
+  - PIPELINE_DOC_PATH/04-audit-compliance-checker.md
+  - PIPELINE_DOC_PATH/05-audit-risk-matrix-generator.md
+  - PIPELINE_DOC_PATH/06-final-validator.md
+  - PIPELINE_DOC_PATH/AuditSnapshot.md           # §22.3 step 1 output (light)
+  - PIPELINE_DOC_PATH/AuditFinalSeal.md          # §22.3 step 9 output (light)
+
+verdict: GO    # ou CONDITIONAL se findings críticos detectados — capturar real para confirmar
+
+# Iron Law check (CRÍTICO — não em ignore, deve sempre verificar):
+iron_law_assertions:
+  - "no production file modified during run (only PIPELINE_DOC_PATH/* writes)"
+  - "no Bash command with destructive operators (rm, mv, >, >>)"
+  - "all step outputs declare report_only: true em frontmatter"
+
+ignore:
+  - "exact wall-clock duration_seconds"
+  - "exact AuditSnapshot/AuditFinalSeal content (prose findings)"
+  - "exact PIPELINE_DOC_PATH timestamp"
+
+must_match:
+  - "classification.type, complexity, pipeline_variant"
+  - "set of gates_triggered (presence, hardness, decision)"
+  - "set of agents_invoked (presence)"
+  - "set of artifacts_produced (basenames only)"
+  - "verdict"
+  - "iron_law_assertions ALL true"

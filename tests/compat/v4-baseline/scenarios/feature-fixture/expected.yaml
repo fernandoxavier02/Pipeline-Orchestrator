@@ -1,0 +1,82 @@
+# Expected observable contract for feature-fixture
+# Inferred from designs/pipeline-orchestrator-v5-consolidated.md §7.2.3 (feature-heavy)
+# + §10.1 (feature-light caps) + §7.3.1 (cross-cutting invocations)
+# Status: TEMPLATE — replace with real values after dogfooding /pipeline
+
+baseline_version: "4.5.0"
+baseline_captured_at: "TODO_REPLACE_AFTER_DOGFOODING"
+baseline_method: "TEMPLATE — inferred from spec §7.2.3, not yet validated against real run"
+
+classification:
+  type: feature
+  complexity: MEDIA
+  pipeline_variant: feature-light    # MEDIA + 1 user story = light per §10.1
+
+gates_triggered:
+  - gate: INFO_GATE_BLOCKED
+    hardness: HARD
+    decision: PASS
+  - gate: TDD_APPROVAL
+    hardness: HARD
+    decision: PASS
+  - gate: ADVERSARIAL_GATE_MANDATORY    # auth + data-model domains
+    hardness: MANDATORY
+    decision: PASS
+  - gate: CHECKPOINT_FAIL
+    hardness: HARD
+    decision: PASS                       # checkpoint passou
+  - gate: FINAL_ADVERSARIAL_GATE
+    hardness: SOFT
+    decision: PASS
+  - gate: CLOSEOUT_CONFIRM
+    hardness: SOFT
+    decision: PASS
+
+agents_invoked:
+  # Feature-light heavy enough to invoke vertical-slice planner per §7.2.3
+  - task-orchestrator
+  - sentinel                              # ORCHESTRATOR_VALIDATION
+  - information-gate
+  - quality-gate-router                   # TDD scenarios approval
+  - pre-tester                            # RED tests
+  - executor-controller
+  - feature-vertical-slice-planner        # §7.2.3 step 7+9
+  - feature-implementer                   # §7.2.3 step 10
+  - feature-integration-validator         # §7.2.3 step 11
+  - executor-spec-reviewer
+  - executor-quality-reviewer
+  - checkpoint-validator
+  - review-orchestrator                   # adversarial gate per-batch
+  - adversarial-batch
+  - architecture-reviewer
+  - sentinel                              # phase_2_to_3 COHERENCE_VALIDATION
+  - sanity-checker
+  - final-validator
+
+artifacts_produced:
+  - PIPELINE_DOC_PATH/sentinel-state.json
+  - PIPELINE_DOC_PATH/gate-decisions.jsonl
+  - PIPELINE_DOC_PATH/01-task-orchestrator.md
+  - PIPELINE_DOC_PATH/02-information-gate.md
+  - PIPELINE_DOC_PATH/03-quality-gate-router.md
+  - PIPELINE_DOC_PATH/04-pre-tester.md
+  - PIPELINE_DOC_PATH/05-executor-controller.md
+  - PIPELINE_DOC_PATH/06-feature-vertical-slice-planner.md
+  - PIPELINE_DOC_PATH/07-review-orchestrator.md
+  - PIPELINE_DOC_PATH/08-sanity-checker.md
+  - PIPELINE_DOC_PATH/09-final-validator.md
+
+verdict: GO
+
+ignore:
+  - "exact wall-clock duration_seconds"
+  - "exact agent prose / reasoning"
+  - "exact PIPELINE_DOC_PATH timestamp"
+  - "ordering within parallel adversarial reviewers"
+
+must_match:
+  - "classification.type, complexity, pipeline_variant"
+  - "set of gates_triggered (presence, hardness, decision PASS/FAIL/SKIPPED)"
+  - "set of agents_invoked (presence — order is best-effort, not strict)"
+  - "set of artifacts_produced (basenames only)"
+  - "verdict (GO / CONDITIONAL / NO-GO)"

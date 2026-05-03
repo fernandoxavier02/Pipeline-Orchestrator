@@ -1,0 +1,82 @@
+# Expected observable contract for bugfix-fixture
+# Captured against: v4.5.0 baseline (TODO — capture against real run)
+# Status: TEMPLATE — replace with real values after dogfooding /pipeline
+
+baseline_version: "4.5.0"
+baseline_captured_at: "TODO_REPLACE_AFTER_DOGFOODING"
+baseline_method: "TEMPLATE — not yet captured from real run"
+
+classification:
+  type: bugfix
+  complexity: MEDIA
+  pipeline_variant: bugfix-light    # MEDIA + auth domain → light variant w/ mandatory adversarial
+
+gates_triggered:
+  # Ordem cronológica esperada (sem timestamps, sem detail prose)
+  - gate: INFO_GATE_BLOCKED
+    hardness: HARD
+    decision: PASS
+  - gate: TDD_APPROVAL
+    hardness: HARD
+    decision: PASS
+  - gate: ADVERSARIAL_GATE_MANDATORY    # auth domain
+    hardness: MANDATORY
+    decision: PASS
+  - gate: CHECKPOINT_FAIL               # build+tests after batch 1
+    hardness: HARD
+    decision: PASS                       # PASS = checkpoint passou; FAIL seria gate triggered
+  - gate: FINAL_ADVERSARIAL_GATE
+    hardness: SOFT
+    decision: PASS                       # ou SKIPPED se user opt-out
+  - gate: CLOSEOUT_CONFIRM
+    hardness: SOFT
+    decision: PASS
+
+agents_invoked:
+  # Ordem de spawn (controller-led)
+  - task-orchestrator
+  - sentinel                   # ORCHESTRATOR_VALIDATION
+  - information-gate
+  - quality-gate-router        # TDD scenarios
+  - pre-tester                 # RED tests
+  - executor-controller
+  - executor-implementer-task  # 1 batch (MEDIA = 2-3 tasks)
+  - executor-spec-reviewer
+  - executor-quality-reviewer
+  - checkpoint-validator
+  - review-orchestrator        # adversarial gate per-batch
+  - adversarial-batch
+  - architecture-reviewer
+  - sentinel                   # phase_2_to_3 COHERENCE_VALIDATION
+  - sanity-checker
+  - final-validator
+
+artifacts_produced:
+  # Filenames only — no content
+  - PIPELINE_DOC_PATH/sentinel-state.json
+  - PIPELINE_DOC_PATH/gate-decisions.jsonl
+  - PIPELINE_DOC_PATH/01-task-orchestrator.md
+  - PIPELINE_DOC_PATH/02-information-gate.md
+  - PIPELINE_DOC_PATH/03-quality-gate-router.md
+  - PIPELINE_DOC_PATH/04-pre-tester.md
+  - PIPELINE_DOC_PATH/05-executor-controller.md
+  - PIPELINE_DOC_PATH/06-review-orchestrator.md
+  - PIPELINE_DOC_PATH/07-sanity-checker.md
+  - PIPELINE_DOC_PATH/08-final-validator.md
+
+verdict: GO    # build + tests + adversarial all clean
+
+# Tolerances — what the runner SHOULD ignore
+ignore:
+  - "exact wall-clock duration_seconds"   # varies per machine
+  - "exact agent prose / reasoning"        # LLM output varies
+  - "exact PIPELINE_DOC_PATH timestamp"    # generated per run
+  - "ordering within parallel adversarial reviewers"   # may vary
+
+# What the runner MUST verify
+must_match:
+  - "classification.type, complexity, pipeline_variant"
+  - "set of gates_triggered (presence, hardness, decision PASS/FAIL/SKIPPED)"
+  - "set of agents_invoked (presence — order is best-effort, not strict)"
+  - "set of artifacts_produced (basenames only)"
+  - "verdict (GO / CONDITIONAL / NO-GO)"

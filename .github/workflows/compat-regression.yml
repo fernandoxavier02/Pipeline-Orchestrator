@@ -1,0 +1,105 @@
+name: Compat Regression
+
+# Slice 4 — guarantees /pipeline-orchestrator:pipeline observable contract stays stable.
+# Fires on PRs touching files that can affect pipeline behavior.
+# See tests/compat/README.md for the 4-field observable contract definition.
+
+on:
+  pull_request:
+    paths:
+      - 'commands/**'
+      - 'agents/core/**'
+      - 'agents/quality/**'
+      - 'agents/executor/**'
+      - 'references/pipelines/**'
+      - 'references/gates.md'
+      - 'references/audit-trail.md'
+      - 'references/confidence.md'
+      - 'skills/**'
+      - 'hooks/**'
+      - '.claude/hooks/**'
+      - 'tests/compat/**'
+      - '.github/workflows/compat-regression.yml'
+      - '.claude-plugin/plugin.json'      # MINOR #9 — version + autoDiscover affect classifier
+      - 'marketplace.json'                 # MINOR #9 — distribution metadata
+      - 'CLAUDE.md'                        # invariants live here, can affect controller behavior
+  workflow_dispatch:    # allow manual trigger from Actions UI
+
+jobs:
+  compat-regression:
+    name: Compat Regression Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 6    # 5min budget + 1min slack; runner enforces 5min internally too
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Verify runner exists
+        run: |
+          if [ ! -f tests/compat/runner.cjs ]; then
+            echo "::error::tests/compat/runner.cjs missing — Slice 4 not initialized"
+            exit 2
+          fi
+          node --version
+          ls -la tests/compat/v4-baseline/scenarios/
+
+      - name: Run compat suite (mock mode)
+        id: compat
+        # Mock mode used in CI by default — real mode requires claude CLI which isn't available
+        # in standard GitHub runners. Override via workflow_dispatch input or repository variable
+        # CLAUDE_CLI_AVAILABLE=true if a self-hosted runner with claude CLI is configured.
+        run: |
+          MODE="--mock"
+          if [ "${{ vars.CLAUDE_CLI_AVAILABLE }}" = "true" ]; then
+            MODE=""
+            echo "Real mode enabled (claude CLI available on this runner)"
+          else
+            echo "Mock mode (default; set repo var CLAUDE_CLI_AVAILABLE=true to enable real mode)"
+          fi
+          node tests/compat/runner.cjs --all $MODE --verbose
+
+      - name: Write PR comment body (avoid heredoc indent bug)
+        if: failure() && github.event_name == 'pull_request'
+        run: |
+          # Fixes MAJOR #4: write body to file instead of heredoc inside $() — YAML preserves
+          # indent which breaks heredoc EOF terminator.
+          cat > /tmp/pr-comment.md <<'BODY'
+          ## ❌ Compat Regression Failed
+
+          A pipeline change in this PR caused observable contract drift in at least one scenario.
+
+          **Required actions:**
+
+          1. Review the diff in the workflow log above.
+          2. **If intentional**: update the relevant `tests/compat/v4-baseline/scenarios/<name>/expected.yaml` in this PR + add a CHANGELOG note explaining the contract change.
+          3. **If regression**: fix the underlying change before merging.
+
+          See `tests/compat/README.md` for the 4-field observable contract. Run results attached as artifact `compat-results-${{ github.run_id }}`.
+          BODY
+
+      - name: Post PR comment on failure
+        if: failure() && github.event_name == 'pull_request'
+        run: gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/pr-comment.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Upload compat run results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compat-results-${{ github.run_id }}
+          # Fixes MAJOR #7: upload runner output (results.json), not committed source fixtures
+          path: tests/compat/results.json
+          if-no-files-found: warn
+          retention-days: 14
+
+# Branch protection: enable "Require status checks to pass before merging" with this job
+# selected in repo Settings → Branches → branch protection rules. Without that toggle, the
+# job can fail without actually blocking merge — see tests/compat/README.md "Limitações
+# conhecidas" for the manual setup step.

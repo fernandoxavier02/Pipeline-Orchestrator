@@ -1,0 +1,71 @@
+# Expected observable contract for ux-fixture
+# Inferred from designs/pipeline-orchestrator-v5-consolidated.md §7.2.4 (ux shape)
+# + §10.1 (ux-light caps) + §7.1.1 (ux agents)
+# Status: TEMPLATE — replace with real values after dogfooding /pipeline
+
+baseline_version: "4.5.0"
+baseline_captured_at: "TODO_REPLACE_AFTER_DOGFOODING"
+baseline_method: "TEMPLATE — inferred from spec §7.2.4, not yet validated against real run"
+
+classification:
+  type: ux
+  complexity: MEDIA
+  pipeline_variant: ux-light    # 1 persona, 1 jornada, top-3 frictions per §10.1
+
+gates_triggered:
+  - gate: INFO_GATE_BLOCKED
+    hardness: HARD
+    decision: PASS
+  - gate: ADVERSARIAL_GATE          # SOFT — domain non-sensitive
+    hardness: SOFT
+    decision: SKIPPED                # commonly skipped on UX exploratory
+  - gate: FINAL_ADVERSARIAL_GATE
+    hardness: SOFT
+    decision: SKIPPED                # exploratory, often declined
+  - gate: CLOSEOUT_CONFIRM
+    hardness: SOFT
+    decision: PASS
+
+# NOTE: TDD_APPROVAL ABSENT — ux is exploratory per §7.2.4 (TDD nao se aplica).
+# CHECKPOINT_FAIL ABSENT — no code changes.
+
+agents_invoked:
+  # Per §7.2.4 ownership: step 1 = controller intake; steps 2-3 = ux-simulator (or journey-walker
+  # when v5.1 deferred agents land); step 5 = improvement-proposer; steps 4+6 = controller.
+  # Slice 1.5 mapped passo 9 do bugfix to ux-simulator (existing agent) — same here.
+  - task-orchestrator
+  - sentinel                              # ORCHESTRATOR_VALIDATION
+  - information-gate
+  - executor-controller
+  - ux-simulator                          # §7.2.4 step 2-3 (journey walk + friction catalog)
+  - ux-qa-validator                       # consolidates per ux-qa-validator role
+  - sentinel                              # phase_2_to_3
+  - sanity-checker                        # build-only (no test changes)
+  - final-validator
+
+artifacts_produced:
+  - PIPELINE_DOC_PATH/sentinel-state.json
+  - PIPELINE_DOC_PATH/gate-decisions.jsonl
+  - PIPELINE_DOC_PATH/01-task-orchestrator.md
+  - PIPELINE_DOC_PATH/02-information-gate.md
+  - PIPELINE_DOC_PATH/03-ux-simulator.md
+  - PIPELINE_DOC_PATH/04-ux-qa-validator.md
+  - PIPELINE_DOC_PATH/05-final-validator.md
+  - PIPELINE_DOC_PATH/friction-catalog.md         # §7.2.4 output característico
+  - PIPELINE_DOC_PATH/improvement-proposals.md    # §7.2.4 output característico
+
+verdict: GO    # exploratory — sempre GO se persona+jornada definidos
+
+ignore:
+  - "exact wall-clock duration_seconds"
+  - "exact friction-catalog content (prose findings)"
+  - "exact improvement-proposals content"
+  - "exact PIPELINE_DOC_PATH timestamp"
+  - "ordering within ux-simulator persona walk steps"
+
+must_match:
+  - "classification.type, complexity, pipeline_variant"
+  - "set of gates_triggered (presence, hardness, decision)"
+  - "set of agents_invoked (presence)"
+  - "set of artifacts_produced (basenames only — esp friction-catalog + improvement-proposals)"
+  - "verdict"
