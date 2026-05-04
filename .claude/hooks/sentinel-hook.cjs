@@ -35,6 +35,56 @@
 
 const fs = require('fs');
 const path = require('path');
+const enforcement = require('./skill-frontmatter-parser.cjs');
+
+// ── v4.8.0 Skill Enforcement ────────────────────────────────────────────────
+
+// Validates state against SKILL.md sentinel_checkpoints contract.
+// Returns null when no enforcement needed (no skill, no contract, or step not at checkpoint).
+// Returns { violation, hint } when contract is breached.
+function enforceSkillContract(state) {
+  const ctx = enforcement.getCurrentSkill(state);
+  if (!ctx || !ctx.step) return null; // No skill in flight → skip (preserves advisory mode)
+  const repoRoot = process.env.PIPELINE_REPO_ROOT || process.cwd();
+  const skillResult = enforcement.readSkillFrontmatter(ctx.skill, repoRoot);
+  if (!skillResult.ok) return null; // Can't read skill → skip gracefully
+  const fm = skillResult.frontmatter;
+  if (!Array.isArray(fm.sentinel_checkpoints)) return null; // No checkpoints declared
+  const stepLabel = `pre_${ctx.step}`;
+  const stepInList = fm.sentinel_checkpoints.includes(ctx.step) || fm.sentinel_checkpoints.includes(stepLabel);
+  if (!stepInList) return null; // Current step is not a checkpoint
+  if (!state.expected_next || String(state.expected_next).trim() === '') {
+    return {
+      violation: `checkpoint ${stepLabel} reached but expected_next not set in state`,
+      hint: 'Controller must set expected_next before spawning Agent at checkpoint steps',
+    };
+  }
+  return null; // OK
+}
+
+function applyEnforcement(state) {
+  let violation;
+  try { violation = enforceSkillContract(state); } catch { return false; }
+  if (!violation) return false;
+  const mode = enforcement.getEnforcementMode();
+  const docPath = state.pipeline_doc_path || (process.env.PIPELINE_DOC_PATH || '').trim();
+  enforcement.logEnforcementDecision(docPath, {
+    mode, hook: 'sentinel-hook', skill: state.current_skill, step: state.current_step,
+    violation: violation.violation, detail: violation.hint, pipeline_doc_path: docPath,
+  });
+  if (mode === 'deny') {
+    console.log(JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'deny',
+        permissionDecisionReason: `[ENFORCEMENT] ${violation.violation}. ${violation.hint}`,
+      }
+    }));
+    return true; // signal to caller: exit
+  }
+  process.stderr.write(`[ENFORCEMENT_WARN] sentinel-hook: ${violation.violation}\n`);
+  return false; // warn mode → continue with normal flow
+}
 
 // ── Auto-Discovery ──────────────────────────────────────────────────────────
 
@@ -190,6 +240,10 @@ function handleInput(raw) {
   if (!state.pipeline_active) {
     return process.exit(0);
   }
+
+  // 8.5. v4.8.0 Skill enforcement (sentinel_checkpoints)
+  // Returns true only when deny was emitted; warn returns false and we continue.
+  if (applyEnforcement(state)) return process.exit(0);
 
   // 9. Stale state detection (collected, NOT early-return — divergence check must ALWAYS run)
   const STALE_THRESHOLD_MS = 300_000; // 300 seconds (5 minutes) — opus agents can take >60s per spawn

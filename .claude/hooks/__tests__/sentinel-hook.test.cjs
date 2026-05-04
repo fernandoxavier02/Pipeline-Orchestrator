@@ -584,6 +584,111 @@ function writeState(dir, stateObj) {
   assertEqual(rNested.stdout.trim(), '', '[19c] nested array does not route');
 }
 
+// ── v4.8.0 Skill Enforcement Tests ──────────────────────────────────────────
+//
+// These tests cover the new sentinel_checkpoints contract enforcement.
+// They use fake repo roots pointing at __tests__/fixtures/skills/ so the
+// production skills/ tree is not exercised.
+
+function makeSkillStateDir(skillFixture, stateOverrides = {}) {
+  const docPath = createTempDir();
+  const fakeRepoRoot = path.join(docPath, 'fake-repo');
+  if (skillFixture && stateOverrides.current_skill) {
+    const skillDir = path.join(fakeRepoRoot, 'skills', stateOverrides.current_skill);
+    fs.mkdirSync(skillDir, { recursive: true });
+    fs.copyFileSync(
+      path.join(__dirname, 'fixtures', 'skills', skillFixture, 'SKILL.md'),
+      path.join(skillDir, 'SKILL.md')
+    );
+  }
+  const state = Object.assign({
+    schema_version: 1,
+    pipeline_active: true,
+    last_updated: new Date().toISOString(),
+    consecutive_corrections: 0,
+    pipeline_doc_path: docPath,
+  }, stateOverrides);
+  writeState(docPath, state);
+  return { docPath, fakeRepoRoot };
+}
+
+// 20. v4.8 enforcement skipped when state has no current_skill
+{
+  const { docPath } = makeSkillStateDir(null, {
+    expected_next: 'adversarial-security-scanner',
+  });
+  const r = runHook(
+    { tool_name: 'Agent', tool_input: { subagent_type: AGENTS.SECURITY_SCANNER } },
+    { PIPELINE_DOC_PATH: docPath }
+  );
+  assertEqual(r.exitCode, 0, '[20] no current_skill: enforcement skipped, exit 0');
+  assertEqual(r.stdout.trim(), '', '[20] no current_skill: silent allow');
+}
+
+// 21. v4.8 enforcement skipped when SKILL.md has no sentinel_checkpoints
+{
+  const { docPath, fakeRepoRoot } = makeSkillStateDir('feature-light-no-contract', {
+    current_skill: 'feature-light-no-contract',
+    current_step: 3,
+    expected_next: 'adversarial-security-scanner',
+  });
+  const r = runHook(
+    { tool_name: 'Agent', tool_input: { subagent_type: AGENTS.SECURITY_SCANNER } },
+    { PIPELINE_DOC_PATH: docPath, PIPELINE_REPO_ROOT: fakeRepoRoot }
+  );
+  assertEqual(r.exitCode, 0, '[21] no contract: enforcement skipped, exit 0');
+}
+
+// 22. v4.8 enforcement: step at checkpoint with expected_next set → silent allow
+{
+  const { docPath, fakeRepoRoot } = makeSkillStateDir('feature-light-good', {
+    current_skill: 'feature-light-good',
+    current_step: 3,
+    expected_next: 'adversarial-security-scanner',
+  });
+  const r = runHook(
+    { tool_name: 'Agent', tool_input: { subagent_type: AGENTS.SECURITY_SCANNER } },
+    { PIPELINE_DOC_PATH: docPath, PIPELINE_REPO_ROOT: fakeRepoRoot }
+  );
+  assertEqual(r.exitCode, 0, '[22] checkpoint with expected_next: exit 0');
+}
+
+// 23. v4.8 enforcement WARN mode: step at checkpoint, expected_next missing → warn but allow
+{
+  const { docPath, fakeRepoRoot } = makeSkillStateDir('feature-light-good', {
+    current_skill: 'feature-light-good',
+    current_step: 3,
+    expected_next: '',
+  });
+  const r = runHook(
+    { tool_name: 'Agent', tool_input: { subagent_type: AGENTS.SECURITY_SCANNER } },
+    { PIPELINE_DOC_PATH: docPath, PIPELINE_REPO_ROOT: fakeRepoRoot, PIPELINE_ENFORCEMENT: 'warn' }
+  );
+  assertContains(r.stderr, '[ENFORCEMENT_WARN]', '[23] warn mode: stderr emits ENFORCEMENT_WARN');
+  // gate-decisions.jsonl should have an entry
+  const logPath = path.join(docPath, 'gate-decisions.jsonl');
+  assertEqual(fs.existsSync(logPath), true, '[23] warn mode: gate-decisions.jsonl created');
+  if (fs.existsSync(logPath)) {
+    assertContains(fs.readFileSync(logPath, 'utf8'), 'ENFORCEMENT_WARN', '[23] warn mode: log contains ENFORCEMENT_WARN');
+  }
+}
+
+// 24. v4.8 enforcement DENY mode: step at checkpoint, expected_next missing → deny
+{
+  const { docPath, fakeRepoRoot } = makeSkillStateDir('feature-light-good', {
+    current_skill: 'feature-light-good',
+    current_step: 3,
+    expected_next: '',
+  });
+  const r = runHook(
+    { tool_name: 'Agent', tool_input: { subagent_type: AGENTS.SECURITY_SCANNER } },
+    { PIPELINE_DOC_PATH: docPath, PIPELINE_REPO_ROOT: fakeRepoRoot, PIPELINE_ENFORCEMENT: 'deny' }
+  );
+  assertEqual(r.exitCode, 0, '[24] deny mode: exit 0 (deny via stdout)');
+  assertContains(r.stdout, '"permissionDecision":"deny"', '[24] deny mode: stdout has deny');
+  assertContains(r.stdout, '[ENFORCEMENT]', '[24] deny mode: deny reason has [ENFORCEMENT] tag');
+}
+
 // ── Report ──────────────────────────────────────────────────────────────────
 
 const total = passed + failed;
