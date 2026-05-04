@@ -5,6 +5,45 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.0] - 2026-05-03
+
+Minor release implementing **Slice 3b**: imports the prescriptive 13-step Pulsar `Implement_new_feature` workflow (`D:\Projeto Pulsar\.claude\commands\Prompts\Implement_new_feature\`) as a Claude Code skill. **Pattern novo:** single skill `feature` com mode flag (`heavy|light`) controlando verbosidade de prompt — primeira vez que um port usa essa estrutura (vs 2 skills separadas em Slice 1.5/3a). Design: `designs/pipeline-orchestrator-v5-consolidated.md` §23 + spec mapping `docs/superpowers/specs/2026-05-03-feature-pulsar-import-mapping.md`.
+
+### Added
+
+- `skills/feature/SKILL.md` — manifest com mode flag (heavy default, --mode=light override), sequence_lock, gates_at: [3, 7, 9, 10], sentinel_checkpoints: [pre_3, pre_10, pre_13]
+- `skills/feature/steps/01..13-*.md` — 13 step files mode-aware (Heavy + Light prompts em seções separadas)
+- `skills/feature/tests/tests-feature.md` — diretrizes user story (absorve TESTS_USER_STORY_{HEAVY,LIGHT}.md do Pulsar)
+- `references/pipelines/feature.md` — reference single (substitui implement-*)
+- 4 AskUserQuestion gates obrigatórios (steps 3 acceptance-matrix, 7 architecture-choice, 9 plan-approval com conditional skip, 10 tdd-tests-approval)
+
+### Changed
+
+- `agents/core/task-orchestrator.md` — aceita `FORCE_VARIANT=feature` + `FORCE_MODE={light,heavy}`
+- `commands/pipeline.md` — adicionado `--variant=feature` + `--mode=light|heavy` na tabela de modes
+- `references/pipelines/implement-{heavy,light}.md` — DEPRECATED como redirects para `feature.md`
+- `.claude-plugin/plugin.json` — version 4.5.0 → 4.6.0
+- `hooks/hooks.json` — SessionStart prompt menciona `/pipeline-orchestrator:feature`
+- `CLAUDE.md` + `AGENTS.md` — versão + roster entry
+
+### Reused (no new agents)
+
+- `feature-vertical-slice-planner` (steps 3, 7, 9 — re-spawned 3x com TASK_CONTEXT diferente)
+- `feature-implementer` (step 11)
+- `feature-integration-validator` (step 12)
+- `pre-tester` (step 10 — parametrized via `expected_inputs.pre_tester_artifacts`)
+- `quality-gate-router` (step 10 — Phase 2 do pipeline)
+
+### Notes
+
+- **Hooks são ADVISORY:** campos do SKILL.md frontmatter (`sequence_lock`, `gates_at`, etc) são declarativos; controller respeita o contrato mas hooks NÃO parseiam SKILL.md (ver consolidated §17.4 #8)
+- **Step 9 conditional skip:** se Phase 1.5 plan-architect rodou (filesystem check em `PIPELINE_DOC_PATH/05-plan-architect.md`), skill pula step 9 e usa output do plan-architect
+- **TDD step 10 parametrizado:** Pulsar source usava paths Firebase-específicos (`functions/src/__tests__/`); skill recebe paths via `expected_inputs.pre_tester_artifacts` do agente `pre-tester`
+- **Step 11 SEM gate skill-level:** executor-controller (Phase 2) já tem adversarial gate antes de Edits; double gate seria DRY violation
+- **Pre-check absorvido por Phase 0:** `HEAVY_A_CHECK_ANTES_DE_NOVA_FEATURE.md` do Pulsar não vira step da skill — `information-gate` + `design-interrogator` da Phase 0 cobrem
+- **Userstory + ux ports:** ainda pendentes (futuros v4.7.0 / v4.8.0 — sub-slices Slice 3c/3d)
+- **v5.0 final:** continua bloqueado por Slice 4 verde (per consolidated §12.8.3)
+
 ## [4.5.0] - 2026-05-02
 
 Minor release implementing **Slice 3a**: imports the prescriptive 9-step Heavy and 9-step Light audit workflows from Pulsar (`D:\Projeto Pulsar\.claude\commands\Prompts\Audtiroria\`) as Claude Code skills. Audit pipelines are **REPORT-ONLY** by Iron Law — no production file modification at any step. Design: `designs/pipeline-orchestrator-v5-consolidated.md` §22.
