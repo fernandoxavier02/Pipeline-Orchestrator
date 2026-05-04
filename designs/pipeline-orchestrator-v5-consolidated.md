@@ -169,8 +169,9 @@ Origem: D2:64–233.
 |---|---|---|---|
 | bugfix | `bugfix-diagnostician` | `diagnostic.md` (1:1) | Slice 1 BDD: controller pula classificação e executa diagnostic→root-cause→implementation→verification |
 | bugfix | `bugfix-fix-proposer` | `executor.md` | Slice 1 BDD: fase de implementation precisa de agente que propõe diff mínimo |
-| feature | `feature-slice-architect` | `plan.md` | Slice 3 BDD: feature pipeline precisa modelar slice antes de implementar |
-| feature | `feature-slice-implementer` | `executor.md` | Slice 3 BDD: implementação do slice |
+| feature | `feature-vertical-slice-planner` | `plan.md` | Slice 3 BDD: feature pipeline precisa modelar slice antes de implementar (renomeado de `feature-slice-architect` em 2026-05-03 para alinhar com nome real do agent — ver §17.3 #12) |
+| feature | `feature-implementer` | `executor.md` | Slice 3 BDD: implementação do slice (renomeado de `feature-slice-implementer` em 2026-05-03 — ver §17.3 #12) |
+| feature | `feature-integration-validator` | (novo) | Slice 3 BDD: validation de integração pós-implementation (passo 11/12 do shape; agente real existente, faltava no inventário original) |
 | audit | `audit-intake-mapper` | (novo) | Slice 3 BDD: audit pipeline precisa fase de intake |
 | audit | `audit-finding-classifier` | `plan.md` + `adversarial.md` | Slice 3 BDD: audit produz findings classificados |
 | ux | `ux-journey-walker` | `ux-qa.md` (1:1) | Slice 3 BDD: ux pipeline precisa simular jornada |
@@ -278,16 +279,23 @@ TDD não se aplica (read-only). Outputs incluem matriz de risco.
 12. Release Observability
 13. Done
 
-**Light (6 passos, redesenhar do zero):** cap "1 user story de no máx 5 acceptance criteria, 1 vertical slice".
+**Light (13 passos compartilhados com Heavy — atualizado 2026-05-03 governance audit):** mesma estrutura semântica de 13 passos do Heavy, com cap "1 user story de no máx 5 acceptance criteria, 1 vertical slice" enforced por verbosidade reduzida do prompt em cada step (mode flag). Decisão tomada após import do Pulsar `Implement_new_feature` (Slice 3b, ver §17.3 #12) que mostrou que Pulsar Light tem mesmos 13 passos que Heavy — só difere em prompt depth. Reverte design original que prescrevia 6 passos "redesenhar do zero" (D2:281).
 
-1. Intent
-2. Domain rules mínimo
-3. TDD pre-impl
-4. Execução minimal diff
-5. Validation
-6. Done
+1. Intent + Value + Scope
+2. Terrain Recon
+3. User Flow + UX (acceptance matriz + gate)
+4. Domain Rules
+5. Source of Truth
+6. Data Model + Persistence
+7. Architecture Design Options (gate: escolher abordagem)
+8. Risk Controls
+9. Implementation Plan (gate; SKIP se Phase 1.5 plan-architect rodou)
+10. TDD Pre-Impl (RED) (gate; via `pre-tester` agent + parametrizado via `expected_inputs`)
+11. Execution Minimal Diff (GREEN)
+12. Testing Validation
+13. Release + Observability
 
-**Ownership:** passos 1–5 = `pipeline-controller`; passos 6–9 = `feature-slice-architect`; passo 9b = `pipeline-controller`; passos 10–11 = `feature-slice-implementer`; passos 12–13 = `pipeline-controller`.
+**Ownership (atualizado 2026-05-03):** passos 1, 2, 4, 5, 6, 8, 13 = `pipeline-controller` inline; passo 3 = `feature-vertical-slice-planner` + acceptance gate; passos 7, 9 = `feature-vertical-slice-planner`; passo 10 = `pre-tester` (com TDD scenarios pré-aprovados via `quality-gate-router` da Phase 2); passo 11 = `feature-implementer`; passo 12 = `feature-integration-validator`. Para Light: mesmos owners, mas mode flag controla verbosidade.
 
 #### 7.2.4 ux — shape simulado-exploratório
 
@@ -1402,10 +1410,12 @@ Origem: D2:850–856 (Q1–Q5 originais decididos) + D3:259–264 (4 residuais).
 9. **Gap residual de tools no pipeline-controller (descoberto 2026-05-03).** ✅ **RESOLVIDO em 2026-05-03**: opção (b) escolhida pelo dono — `Task` e `Bash` adicionadas ao frontmatter de `agents/core/pipeline-controller.md`. Frontmatter atual declara 8 tools (`Read, Write, Glob, Grep, Agent, AskUserQuestion, Task, Bash`), conforme DoD #7. Justificativa para opção (b) sobre opção (a): defensive — adicionar é aditivo e não-breaking; o controller já funcionava sem essas duas, mas pode vir a precisar (ex: `Bash` para invocar exec-window scripts diretamente em vez de via Agent dispatch; `Task` se o harness CC 2.x ganhar nova semântica). Custo zero, risco zero.
 10. **Slice 4 instalação parcial (2026-05-03).** 📌 **HISTÓRICO REGISTRADO**: estrutura do Slice 4 entregue em duas sessões pipeline lean-inline. Sessão 1 (01:00-01:06 UTC): runner.cjs + workflow YAML + 1 fixture template (bugfix) + README. Reviewer adversarial (`ce-correctness-reviewer`) cravou NEEDS_REWORK com 2 CRITICAL (parseYaml lookahead via `lines.indexOf` frágil; executeMock retornava expected como actual = PASS sintético) + 6 MAJOR + 4 MINOR. Fix-loop atempt 1/3 aplicou 7 fixes (2 CRIT + 4 MAJ + 1 MIN); 2 MINOR cosméticos pulados; 1 MAJOR (typo CLAUDE_CLI_AVAILABLE) aceito como risco. Smoke test pós-fix verde (exit 1 quando só SKIPPED — não engana CI). Sessão 2 (02:00-02:05 UTC): adicionados 3 fixtures restantes (feature, audit, ux) inferidos do spec §7.2.3/§7.2.2/§7.2.4, todos marcados TEMPLATE. Smoke test 4-fixtures: 4 SKIPPED + exit 1 + warning "NO REAL VALIDATION" — CI bloqueia merge no estado atual. Faltam: 1 fixture (hotfix) + 5 baselines reais via dogfooding + medição wall-clock para promover Slice 4 a 🟢. Owner: dono do plugin.
 11. **Slice 4 fixture-5 + protocolo de captura (2026-05-03 sessão 3).** 📌 **HISTÓRICO REGISTRADO**: brainstorming + writing-plans + execução adicionou `hotfix-fixture/` (5º cenário, contrato observável inferido de `commands/pipeline.md` HOTFIX Mode com diferenças explícitas vs bugfix-fixture: campo `mode=hotfix`, pseudo-gate `HOTFIX_CONFIRMATION`, 2 checklists adversarial em vez de 7, `adversarial-{architecture,quality}-reviewer` ausentes, `FINAL_ADVERSARIAL_GATE.decision=SKIPPED`, artefato `HOTFIX_LOG.md` obrigatório, seção `hotfix_assertions` que runner verifica sempre). Mais: seção "Protocolo de captura de baseline real" no `tests/compat/README.md` documenta 5 passos por fixture para quando dogfooding real acontecer. Captura de baselines reais e medição wall-clock continuam adiadas por decisão do dono ("deixa isso que vemos no decorrer das execuções reais"). Score Slice 4: 90% estrutural, 0% baseline real. Ver spec `docs/superpowers/specs/2026-05-03-hotfix-fixture-and-capture-protocol-design.md`.
+12. **Slice 3b drift descoberto via adversarial review (2026-05-03 sessão 4).** 📌 **HISTÓRICO REGISTRADO + RESOLVIDO**: durante prep do porte do Pulsar `Implement_new_feature` (Slice 3b), 3 reviewers adversariais (`ce-coherence` + `ce-feasibility` + `ce-scope-guardian`) detectaram drift entre §7.1.1 e realidade do plugin. **§7.1.1 listava** `feature-slice-architect`, `feature-slice-implementer` (nomes que NUNCA existiram); reais são `feature-vertical-slice-planner`, `feature-implementer`, `feature-integration-validator` [VERIFICADO 2026-05-03 via `ls agents/executor/type-specific/feature-*.md`]. Origem: D1/D2 invertaram nomes sem reality-check — mesmo padrão que §1.1 já tinha criticado. **Resoluções aplicadas em 2026-05-03 nesta passada:** (a) §7.1.1 atualizada com 3 nomes corretos; (b) §7.2.3 reescrita — Light = 13 passos compartilhados com Heavy + mode flag (era 6 "redesenhar do zero"), alinhado com Pulsar Light real; (c) ownership mapping corrigido para refletir agentes reais. **Lições adicionais capturadas:** (i) hooks (`sentinel-hook`, `dispatch-guard`, `force-pipeline-agents`) NÃO parseiam SKILL.md frontmatter — campos `sequence_lock`, `gates_at`, `sentinel_checkpoints`, `agent_type` em skill specs são **ADVISORY documentação, não enforcement** (slice 1.5/3a funcionam assim hoje silenciosamente; documentado explicitamente em §17.4 #8 abaixo); (ii) Pulsar TDD step usa paths Firebase-específicos (`functions/src/__tests__/`) que NÃO generalizam — porte deve parametrizar via `expected_inputs.pre_tester_artifacts` em vez de hardcoded shell. Spec mapping 3b: `docs/superpowers/specs/2026-05-03-feature-pulsar-import-mapping.md` (rewrite v2 pós-bugfix em commit subsequente).
 
 ### 17.4 Aberta — para Slice 3
 
 7. **ARCH-2 (HIGH) — Trust boundary do `PRE_CLASSIFIED_TYPE` prefix.** Identificada em adversarial review do Slice 1 (2026-04-30): o prefix `PRE_CLASSIFIED_TYPE=<Type>` é uma string injetável pelo usuário se ele invocar `/pipeline-orchestrator:pipeline` direto e digitar o prefix manualmente. O `task-orchestrator` Step 1a obedece sem checar origem. Decisão: **deferida pra Slice 3** quando os 4 entry-points restantes (`/feature`, `/userstory`, `/audit`, `/ux`) forem desenhados juntos. Naquele momento, avaliar se o contrato deve mover de string-prefix para um campo de metadata fora do prompt-string (e.g., Agent.metadata ou frontmatter args).
+8. **Hooks NÃO enforce SKILL.md frontmatter (descoberto 2026-05-03 ce-feasibility-reviewer).** ⚠️ **EM ABERTO**: campos `sequence_lock`, `gates_at`, `sentinel_checkpoints`, `agent_type` em SKILL.md de bugfix-{light,heavy} (Slice 1.5) + audit-{light,heavy} (Slice 3a) + feature-{light,heavy} (Slice 3b futuro) são **ADVISORY documentação** — `sentinel-hook.cjs` lê `expected_next` do `sentinel-state.json` (state file populado pelo controller), NÃO do skill frontmatter. `dispatch-guard.cjs` é static map de short-name→FQN, não whitelist por step. `force-pipeline-agents.cjs` força AskUserQuestion em pipeline-skill matches mas não em campo `gate_required:` per-step. **Implicações:** (a) skills "protegidas" hoje dependem de o controller respeitar o contrato (bom em prática, mas sem enforcement mecânico); (b) declaração da Slice 1.5/3a "hooks cobrem o contrato sem modificação" é parcialmente verdadeira — hooks cobrem o NÍVEL de session (lock + edit-guard) mas não o NÍVEL de skill (sequence/gates per-step). **Decisão pendente para v5.0+:** (i) aceitar advisory model + documentar explicitamente em SKILL.md de cada port; (ii) estender `sentinel-hook.cjs` para parsear SKILL.md frontmatter e enforcer per-step (mudança de escopo grande, vira novo sub-slice). Default seguro: opção (i). Ver §17.3 #12 para origem da descoberta.
 
 ---
 
