@@ -513,7 +513,7 @@ Slice 1     /bugfix command + thin entry-point pattern      🟢 ENTREGUE (v4.2.
 Slice 1.5   Pulsar bugfix workflow import (§21)             🟢 ENTREGUE (v4.4.0)
 Slice 2     TRACE.md (Run Record)                           🔴 PENDENTE (1 sem)
 Slice 3a    Pulsar audit workflow import (§22)              🟢 ENTREGUE (v4.5.0)
-Slice 3b    Pulsar feature workflow import (§23)            🟢 ENTREGUE (v4.6.1, corrigido vs v4.6.0)
+Slice 3b    Pulsar feature workflow import (§23)            🟢 ENTREGUE (v4.7.0, polido vs v4.6.1)
 Slice 3     /feature, /userstory, /ux + ARCH-2 fix          🔴 PENDENTE (0.3-0.7 sem)
 Slice 4     Compat regression suite + CI test runner        🟡 PARCIAL (1.5-2 sem)
 v5.0.0 (release)
@@ -530,7 +530,7 @@ v5.1.0
 | 1 † | 🟢 | v4.2.0 + v4.2.1 | `/bugfix` thin wrapper, `PRE_CLASSIFIED_TYPE` contract, hook patches; SEC-1+SEC-2 fechados em adversarial review. **† TRACE-defer:** ACs sobre TRACE.md diferidas para Slice 2 (ver §12.5.3 e §17.3 #8) |
 | 2 | 🔴 | — | trace-generator + trace-schema/v1.md |
 | 3a | 🟢 | v4.5.0 | `/audit` thin wrapper + `audit-light` + `audit-heavy` skills (9 steps cada), §22; reusa `audit-{intake,domain-analyzer,compliance-checker,risk-matrix-generator}` agents |
-| 3b | 🟢 | v4.6.1 | `/feature-light` + `/feature-heavy` 2 skills separadas espelhando Pulsar `Ligth/` + `Heavy/` 1:1 (igual padrão Slice 1.5/3a). §23. v4.6.0 inicial unificou em single skill com mode flag — **REVERTIDO** em v4.6.1 ([CORREÇÃO 2026-05-03]: fonte canônica tem 2 pastas, port deve ter 2 skills). Cada step file = cópia literal do prompt Pulsar correspondente + frontmatter mínimo. |
+| 3b | 🟢 | v4.7.0 | `/feature-light` + `/feature-heavy` 2 skills separadas espelhando Pulsar `Ligth/` + `Heavy/` 1:1 (igual padrão Slice 1.5/3a). §23. v4.6.0 inicial unificou em single skill com mode flag — **REVERTIDO** em v4.6.1 ([CORREÇÃO 2026-05-03]: fonte canônica tem 2 pastas, port deve ter 2 skills); **POLIDO** em v4.7.0 ([POLISH 2026-05-03]: frontmatter contract completo nos 26 step files + SKILL.md manifests completos + thin entry-point `/pipeline-orchestrator:feature` + tests reais — 11 audit findings fechados). Cada step file = cópia literal do prompt Pulsar correspondente + frontmatter contract completo (execution_mode + agent_type + expected_*). |
 | 3 | 🔴 | — | 3 commands restantes (feature/userstory/ux) + ARCH-2 (trust boundary do prefix — ver §17.3 #7) |
 | 4 | 🟡 (90% estrutural) | — | runner.cjs ✅ + workflow YAML ✅ + 5/5 fixtures estruturais (template) + 0/5 baselines reais + performance N/A + protocolo de captura ✅. 2/4 critérios fechados; critério 3 100% estrutural mas 0% real. Falta: capturar 5 baselines via dogfooding + medir wall-clock real. Ver §12.8.3 + §17.3 #10/#11. |
 | 5 | 🔴 | — | v5.1, defer |
@@ -1915,7 +1915,9 @@ Target: **v4.6.0** (minor release). Lineage: v4.5.0 → v4.6.0.
 - ✅ `references/pipelines/implement-{heavy,light}.md` continuam acessíveis com deprecation header (redirect).
 - ✅ Slice 1.5 (bugfix) e Slice 3a (audit) sem mudança.
 
-### 23.7 Critérios de done (DoD do Slice 3b CORRIGIDO v4.6.1)
+### 23.7 Critérios de done (DoD do Slice 3b POLIDO v4.7.0)
+
+**v4.6.1 baseline (estrutural):**
 
 - [x] `skills/feature-light/SKILL.md` + 13 step files (cópia literal Pulsar Ligth/) + tests
 - [x] `skills/feature-heavy/SKILL.md` + 13 step files (cópia literal Pulsar Heavy/) + tests
@@ -1923,9 +1925,28 @@ Target: **v4.6.0** (minor release). Lineage: v4.5.0 → v4.6.0.
 - [x] `references/pipelines/feature.md` (single, errado) REMOVIDO; futuras references `feature-light.md` + `feature-heavy.md` quando precisarem
 - [x] Plugin metadata bumpado 4.6.0 → 4.6.1 (plugin.json + hooks.json)
 - [x] CLAUDE.md + AGENTS.md + CHANGELOG.md atualizados (CHANGELOG marca v4.6.0 como DEPRECATED)
-- [x] §12.2 status table reflete v4.6.1
+- [x] §12.2 status table reflete v4.6.1 (depois v4.7.0)
 - [x] §23 reescrito documentando reversão
 - [x] §17.3 #12 estendido com lição capturada
+
+**v4.7.0 polish (funcional):**
+
+- [x] 26 step files com frontmatter contract completo (execution_mode + agent_type + expected_inputs/outputs/next + gate_required + allowed_tools); duplo frontmatter mergeado em single block; bodies dos prompts Pulsar INTOCADOS
+- [x] `skills/feature-light/SKILL.md` + `skills/feature-heavy/SKILL.md` com manifest declarativo completo (sequence_lock + gates_at + sentinel_checkpoints + stop_rule_max_failures + ownership por step + gates listados + sentinel checkpoints listados)
+- [x] `skills/feature/SKILL.md` CRIADO (thin entry-point com `--light`/`--heavy` flag handling, espelha audit/SKILL.md + bugfix/SKILL.md)
+- [x] `tests/tests-feature-{light,heavy}.md` REESCRITOS de placeholder TESTS_USER_STORY para tests reais do skill workflow
+- [x] `references/feature-user-story-guidelines.md` CRIADO absorvendo o conteúdo OLD dos tests files (merged Light + Heavy)
+- [x] `references/pipelines/implement-{heavy,light}.md` deprecated headers corrigidos (apontavam para `feature.md` deletado)
+- [x] `AGENTS.md` header corrigido (38 → 19 agents auditado)
+- [x] `docs/superpowers/specs/...mapping.md` + `docs/superpowers/plans/...slice-3b.md` com correction headers explicando reversão v4.6.1 + polish v4.7.0
+- [x] Plugin metadata bumpado 4.6.1 → 4.7.0
+- [x] CHANGELOG entry [4.7.0] explicando os 11 fixes
+
+### 23.7.1 Polish nota (v4.7.0)
+
+A v4.6.1 corrigiu a estrutura de pastas (2 skills separadas espelhando Pulsar 1:1) mas deixou os skills funcionalmente incompletos: frontmatter mínimo nos SKILL.md, duplo frontmatter nos step files (gerado por concatenação automática durante o port inicial), tests files com conteúdo placeholder de TESTS_USER_STORY (que são guidelines de tradução de user story, não tests do skill workflow), e sem thin entry-point `/feature` (que existia em v4.6.0 mas foi deletado junto com a unificação errada).
+
+**Lição capturada:** entrega "estrutura correta + frontmatter mínimo" não é equivalente a "skill funcional pronto para uso". Próximas portabilidades de fonte canônica devem incluir frontmatter contract completo + thin entry-point + tests reais como parte do scope inicial, não como polish posterior. Audit pós-correção é mecanismo válido para detectar esse gap, mas idealmente deveria estar no DoD original do Slice.
 
 ### 23.8 Próximos passos
 

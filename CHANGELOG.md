@@ -5,6 +5,34 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.7.0] - 2026-05-03
+
+**Patch+minor release POLINDO Slice 3b** (sucessor de v4.6.1). Audit pós-correção identificou 11 findings — a v4.6.1 corrigiu a estrutura de pastas mas deixou os skills funcionalmente incompletos (frontmatter mínimo, tests placeholder, sem thin entry-point). Esta release fecha todos os 11 findings em batch único, mantendo Iron Law de "1:1 fidelity Pulsar nos prompts" (texto dos bodies intocado — apenas frontmatter contract foi adicionado).
+
+### Added
+
+- **`skills/feature/SKILL.md` CRIADO** — thin entry-point com `--light`/`--heavy` flag handling (espelha pattern de `skills/audit/SKILL.md` e `skills/bugfix/SKILL.md`). Permite `/pipeline-orchestrator:feature [task]` → auto-classify, `--light` → routing direto, `--heavy` → routing direto.
+- **`references/feature-user-story-guidelines.md` CRIADO** — merged Pulsar TESTS_USER_STORY_LIGHT.md + TESTS_USER_STORY_HEAVY.md em 1 doc consumido pelo usuário antes de invocar feature-{light,heavy}. Conteúdo OLD dos tests files foi movido para cá.
+
+### Changed
+
+- **26 step files (`skills/feature-{light,heavy}/steps/*.md`)** — duplo frontmatter (`step_number/step_name/source` + `description/allowed-tools`) MERGED em single block + execution contract adicionado: `description`, `execution_mode` (inline|subagent), `agent_type` (FQN ou ""), `expected_inputs` (chained `from_step_NN`), `expected_outputs` (typed structure), `expected_next` (NN+1 ou "complete"), `gate_required` (bool), `gate_name` (4 gates: acceptance-matrix-approval, architecture-choice, plan-approval, tdd-tests-approval), `allowed_tools` (herdado de Pulsar + AskUserQuestion para gates). Bodies dos prompts INTOCADOS (1:1 fidelity Pulsar preservada).
+- **`skills/feature-light/SKILL.md` + `skills/feature-heavy/SKILL.md`** — frontmatter mínimo expandido para contrato declarativo completo: `sequence: [1..13]`, `sequence_lock: true`, `gates_at: [3, 7, 9, 10]`, `sentinel_checkpoints: [pre_3, pre_10, pre_13]`, `stop_rule_max_failures: 2`, `disable-model-invocation: true`, `argument-hint`, `allowed-tools` ampliado. Body do SKILL.md adicionado: "Quando usar" + "Sequência canônica" + "Ownership por step" (5 agentes mapeados) + "Gates" (4 mandatory) + "Sentinel checkpoints" (3) + "Execution rules" (8 herdados de Slice 1.5 §21.3).
+- **`skills/feature-{light,heavy}/tests/tests-feature-{light,heavy}.md`** — REESCRITOS de placeholder Pulsar TESTS_USER_STORY (diretrizes de tradução de user story, irrelevantes para o skill workflow) para tests reais do skill: smoke test scenarios + per-step contract assertions + frontmatter validation + gate assertions + sentinel assertions + STOP rule + anti-tests. Modelo: `skills/audit-heavy/tests/tests-audit-heavy.md`.
+- **`references/pipelines/implement-{heavy,light}.md`** — deprecated headers corrigidos (v4.6.0 erroneamente apontavam para `references/pipelines/feature.md` que foi deletado em v4.6.1). Agora apontam corretamente para `skills/feature-{heavy,light}/SKILL.md` ou `skills/feature/SKILL.md` com flag.
+- **`AGENTS.md`** header — `Total agents: 38` (errado, herdado de D1/D2 sem reality-check) → `19 agents (auditado 2026-05-03)` + nota explicando origem do drift.
+- **`docs/superpowers/specs/2026-05-03-feature-pulsar-import-mapping.md`** + **`docs/superpowers/plans/2026-05-03-feature-pulsar-import-slice-3b.md`** — adicionado correction header explicando que docs foram escritos para v4.6.0 (single skill) mas implementação foi REVERTIDA em v4.6.1 e POLIDA em v4.7.0; usuário deve ler como histórico de design, não como spec canônica.
+- `.claude-plugin/plugin.json` — version 4.6.1 → 4.7.0; description estendida com Slice 3b polish.
+- `hooks/hooks.json` — SessionStart prompt menciona v4.7.0 + `/pipeline-orchestrator:feature` (thin shortcut).
+- `CLAUDE.md` — lineage estendida + entry v1.5.
+- `designs/pipeline-orchestrator-v5-consolidated.md` §12.2 status table (Slice 3b row v4.6.1 → v4.7.0 com nota "frontmatter contract completo + tests reais + thin entry-point") + §23 estendido com nota v4.7.0 polish + DoD checkboxes atualizados.
+
+### Notes
+
+- **1:1 fidelity Pulsar preservada:** Iron Law dos prompts INTOCADOS continua valendo. Nenhum texto de body de step foi alterado — apenas o frontmatter (que é metadata de contrato, não conteúdo do prompt) foi expandido.
+- **Hooks ainda ADVISORY** (vide §17.4 #8). v4.7.0 não muda enforcement runtime — só completa a documentação declarativa que o controller deve respeitar.
+- **Lição capturada:** entrega "estrutura correta + frontmatter mínimo" (v4.6.1) não é equivalente a "skill funcional pronto para uso". Próximas portabilidades de fonte canônica devem incluir frontmatter contract completo + thin entry-point + tests reais como parte do scope inicial, não como polish posterior.
+
 ## [4.6.1] - 2026-05-03
 
 **Patch release CORRIGINDO Slice 3b**: a v4.6.0 inicial unificou Heavy + Light em **uma única skill `feature` com mode flag**, supostamente para reduzir contagem de arquivos. Decisão revertida: a fonte canônica Pulsar (`D:\Projeto Pulsar\.claude\commands\Prompts\Implement_new_feature\`) tem **2 pastas separadas** (`Heavy/` + `Ligth/`), e o port deve espelhar isso 1:1 — mesmo padrão de Slice 1.5 (bugfix) e Slice 3a (audit).

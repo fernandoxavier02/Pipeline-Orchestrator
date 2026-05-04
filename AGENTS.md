@@ -2,7 +2,7 @@
 
 > **SSOT** for the agent roster. Operational dispatch policy lives in `references/team-registry.md` (type-to-team mapping) and `commands/pipeline.md` (phase flow). This file is the entry point for understanding **who exists** and **how they're invoked**.
 
-**Total agents:** 38 (9 core + 5 executor + 17 executor/type-specific + 7 quality)
+**Total agents:** 19 agents (auditado 2026-05-03 via `ls agents/**/*.md` no canonical repo). O número antigo "38" estava errado — vinha do D1/D2 sem reality-check, mesmo padrão criticado em `designs/pipeline-orchestrator-v5-consolidated.md` §1.1 e §16 erro #4. Source-of-truth para roster operacional: `references/team-registry.md`.
 
 ## Tool declaration policy (CC 2.x convention)
 

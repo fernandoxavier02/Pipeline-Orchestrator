@@ -16,6 +16,8 @@
 
 **Target release:** v4.6.0 (minor) após Slice 3a (v4.5.0). Lineage: v4.4.x (Slice 1.5) → v4.5.0 (Slice 3a) → v4.6.0 (Slice 3b).
 
+**UPDATE (v4.6.1 + v4.7.0 corrections):** Plan inicialmente escrito para v4.6.0 (single skill com mode flag). Implementação foi REVERTIDA em v4.6.1 (2 skills separadas espelhando Pulsar 1:1) e POLIDA em v4.7.0 (frontmatter contract completo + thin entry-point + tests reais). Use este plan doc apenas para histórico de design. Canonical implementation atual: `skills/feature-{light,heavy}/SKILL.md` + `skills/feature/SKILL.md`. Ver CHANGELOG [4.6.1] e [4.7.0] para racional das mudanças.
+
 ---
 
 ## Pre-Execution Notes

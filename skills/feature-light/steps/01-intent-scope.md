@@ -2,11 +2,19 @@
 step_number: 01
 step_name: "intent-scope"
 source: "Pulsar/LIGHT_01_01_INTENT_SCOPE.md"
----
-
----
 description: "Light 01: Intencao, valor e limites de escopo"
-allowed-tools: Read, Grep, Glob
+execution_mode: inline
+agent_type: ""
+expected_inputs:
+  - feature_request: from_user
+  - business_value: from_user
+expected_outputs:
+  - intent_doc: object
+  - scope_boundaries: object
+  - applicability_assessment: object
+expected_next: 2
+gate_required: false
+allowed_tools: [Read, Grep, Glob]
 ---
 
 # Feature Pipeline (Light) - Intencao, valor e limites de escopo

@@ -2,11 +2,21 @@
 step_number: 03
 step_name: "user-flow-ux"
 source: "Pulsar/LIGHT_03_03_USER_FLOW_UX.md"
----
-
----
 description: "Light 03: Fluxo do usuario e UX mobile-first"
-allowed-tools: Read, Grep, Glob
+execution_mode: subagent
+agent_type: "pipeline-orchestrator:executor:type-specific:feature-vertical-slice-planner"
+expected_inputs:
+  - intent_doc: from_step_01
+  - terrain_map: from_step_02
+expected_outputs:
+  - user_flow: object
+  - acceptance_matrix: object
+  - askuserquestion_response: string
+  - gate_decision: "approved | revise | abort"
+expected_next: 4
+gate_required: true
+gate_name: "acceptance-matrix-approval"
+allowed_tools: [Read, Grep, Glob, AskUserQuestion]
 ---
 
 # Feature Pipeline (Light) - Fluxo do usuario e UX (mobile-first quando aplicavel)

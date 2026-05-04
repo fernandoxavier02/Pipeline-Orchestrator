@@ -2,11 +2,19 @@
 step_number: 11
 step_name: "execution-minimal-diff"
 source: "Pulsar/LIGHT_11_10_EXECUTION_MINIMAL_DIFF.md"
----
-
----
 description: "Light 11: Execucao disciplinada (mudanca minima)"
-allowed-tools: Read, Grep, Glob, Edit, Bash
+execution_mode: subagent
+agent_type: "pipeline-orchestrator:executor:type-specific:feature-implementer"
+expected_inputs:
+  - test_files: from_step_10
+  - implementation_plan: from_step_09
+  - chosen_architecture: from_step_07
+expected_outputs:
+  - code_diff: object
+  - green_status: object
+expected_next: 12
+gate_required: false
+allowed_tools: [Read, Grep, Glob, Edit, Bash]
 ---
 
 # Feature Pipeline (Light) - Execucao disciplinada (mudanca minima / preservar estilo)

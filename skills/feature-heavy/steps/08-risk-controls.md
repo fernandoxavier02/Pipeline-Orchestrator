@@ -2,11 +2,20 @@
 step_number: 08
 step_name: "risk-controls"
 source: "Pulsar/HEAVY_08_08_RISK_CONTROLS.md"
----
-
----
 description: "Heavy 08: Riscos e controles (idempotencia, atomicidade)"
-allowed-tools: Read, Grep, Glob
+execution_mode: inline
+agent_type: ""
+expected_inputs:
+  - chosen_architecture: from_step_07
+  - data_model: from_step_06
+expected_outputs:
+  - risk_register: list
+  - controls_plan: object
+  - idempotency_strategy: object
+  - atomicity_strategy: object
+expected_next: 9
+gate_required: false
+allowed_tools: [Read, Grep, Glob]
 ---
 
 # Feature Pipeline (Heavy) - Riscos e controles: idempotencia/atomicidade/concorrrencia (se aplicavel)

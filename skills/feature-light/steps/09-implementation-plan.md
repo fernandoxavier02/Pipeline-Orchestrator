@@ -2,11 +2,22 @@
 step_number: 09
 step_name: "implementation-plan"
 source: "Pulsar/LIGHT_09_09_IMPLEMENTATION_PLAN.md"
----
-
----
 description: "Light 09: Plano de implementacao em incrementos"
-allowed-tools: Read, Grep, Glob
+execution_mode: subagent
+agent_type: "pipeline-orchestrator:executor:type-specific:feature-vertical-slice-planner"
+expected_inputs:
+  - chosen_architecture: from_step_07
+  - risk_register: from_step_08
+  - acceptance_matrix: from_step_03
+expected_outputs:
+  - implementation_plan: object
+  - increments: list
+  - askuserquestion_response: string
+  - gate_decision: "approved | revise | abort"
+expected_next: 10
+gate_required: true
+gate_name: "plan-approval"
+allowed_tools: [Read, Grep, Glob, AskUserQuestion]
 ---
 
 # Feature Pipeline (Light) - Plano de implementacao em incrementos

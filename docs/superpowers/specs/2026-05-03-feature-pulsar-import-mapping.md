@@ -6,6 +6,8 @@
 **Scope:** Documentar PORTE do workflow `Implement_new_feature` da Pulsar (13 steps Heavy + 13 Light, **shared shape via mode flag**) para skill `feature` única do pipeline-orchestrator. **NÃO inclui execução** — só mapeamento.
 **Origem:** Pedido inicial 2026-05-03 ("primeiramente documentação mapeamento") → mapping v1 → 3 reviewers adversariais (`ce-coherence` + `ce-feasibility` + `ce-scope-guardian`) cravaram 5 CRIT + 7 MAJ + 6 MIN → bugfix-heavy lean-inline com 10 decisões resolvidas via AskUserQuestion → este doc v2.
 
+**UPDATE (v4.6.1 + v4.7.0 corrections):** Spec inicialmente escrita para v4.6.0 (single skill com mode flag). Implementação foi REVERTIDA em v4.6.1 (2 skills separadas espelhando Pulsar 1:1) e POLIDA em v4.7.0 (frontmatter contract completo + thin entry-point + tests reais). Use este mapping doc apenas para histórico de design. Canonical implementation atual: `skills/feature-{light,heavy}/SKILL.md` + `skills/feature/SKILL.md`. Ver CHANGELOG [4.6.1] e [4.7.0] para racional das mudanças.
+
 ---
 
 ## 1. Contexto

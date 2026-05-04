@@ -2,11 +2,18 @@
 step_number: 06
 step_name: "data-model-persistence"
 source: "Pulsar/LIGHT_06_06_DATA_MODEL_PERSISTENCE.md"
----
-
----
 description: "Light 06: Modelo de dados e persistencia"
-allowed-tools: Read, Grep, Glob
+execution_mode: inline
+agent_type: ""
+expected_inputs:
+  - ssot_mapping: from_step_05
+  - domain_rules: from_step_04
+expected_outputs:
+  - data_model: object
+  - persistence_plan: object
+expected_next: 7
+gate_required: false
+allowed_tools: [Read, Grep, Glob]
 ---
 
 # Feature Pipeline (Light) - Modelo de dados e persistencia (se aplicavel)

@@ -2,11 +2,19 @@
 step_number: 05
 step_name: "source-of-truth"
 source: "Pulsar/HEAVY_05_05_SOURCE_OF_TRUTH.md"
----
-
----
 description: "Heavy 05: Fonte da verdade e modelo de estado"
-allowed-tools: Read, Grep, Glob
+execution_mode: inline
+agent_type: ""
+expected_inputs:
+  - domain_rules: from_step_04
+  - terrain_map: from_step_02
+expected_outputs:
+  - ssot_mapping: object
+  - state_model: object
+  - divergence_risks: list
+expected_next: 6
+gate_required: false
+allowed_tools: [Read, Grep, Glob]
 ---
 
 # Feature Pipeline (Heavy) - Fonte da verdade e modelo de estado

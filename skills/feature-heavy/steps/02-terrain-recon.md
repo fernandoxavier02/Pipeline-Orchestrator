@@ -2,11 +2,20 @@
 step_number: 02
 step_name: "terrain-recon"
 source: "Pulsar/HEAVY_02_02_TERRAIN_RECON.md"
----
-
----
 description: "Heavy 02: Reconhecimento do terreno do projeto"
-allowed-tools: Read, Grep, Glob
+execution_mode: inline
+agent_type: ""
+expected_inputs:
+  - intent_doc: from_step_01
+  - scope_boundaries: from_step_01
+expected_outputs:
+  - terrain_map: object
+  - existing_patterns: list
+  - integration_points: list
+  - evidence_vs_assumption: list
+expected_next: 3
+gate_required: false
+allowed_tools: [Read, Grep, Glob]
 ---
 
 # Feature Pipeline (Heavy) - Reconhecimento do terreno do projeto

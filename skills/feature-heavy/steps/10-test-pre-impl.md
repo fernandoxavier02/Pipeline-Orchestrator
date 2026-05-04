@@ -2,11 +2,24 @@
 step_number: 10
 step_name: "test-pre-impl"
 source: "Pulsar/HEAVY_10_TEST_PRE_IMPL.md"
----
-
----
 description: "Feature Heavy: Criar testes completos ANTES de implementar"
-allowed-tools: Read, Grep, Glob, Write, Bash
+execution_mode: subagent
+agent_type: "pipeline-orchestrator:quality:pre-tester"
+expected_inputs:
+  - implementation_plan: from_step_09
+  - acceptance_matrix: from_step_03
+  - domain_rules: from_step_04
+  - pre_tester_artifacts: optional
+expected_outputs:
+  - test_files: list
+  - red_status: object
+  - coverage_matrix: object
+  - askuserquestion_response: string
+  - gate_decision: "approved | revise | abort"
+expected_next: 11
+gate_required: true
+gate_name: "tdd-tests-approval"
+allowed_tools: [Read, Grep, Glob, Write, Bash, AskUserQuestion]
 ---
 
 # HEAVY 10 — Testes Pre-Implementacao (Feature)

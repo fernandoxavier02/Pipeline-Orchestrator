@@ -1,4 +1,4 @@
-> **DEPRECATED (as of v4.6.0):** This file is preserved as a redirect. New canonical reference: `references/pipelines/feature.md` (single-skill-with-mode-flag pattern). Slice 3b (2026-05-03) replaced separate heavy/light references with unified `feature` skill. Will be removed in v5.0 final.
+> **DEPRECATED (as of v4.7.0):** This file is preserved as historical reference. New canonical entry-points: `/pipeline-orchestrator:feature-heavy` skill (`skills/feature-heavy/SKILL.md`) mirroring Pulsar workflow 1:1, or `/pipeline-orchestrator:feature` thin shortcut with `--heavy` flag. Will be removed in v5.0 final.
 
 ---
 

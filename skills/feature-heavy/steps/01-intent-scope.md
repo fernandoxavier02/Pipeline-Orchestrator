@@ -2,11 +2,22 @@
 step_number: 01
 step_name: "intent-scope"
 source: "Pulsar/HEAVY_01_01_INTENT_SCOPE.md"
----
-
----
 description: "Heavy 01: Intencao, valor e limites de escopo"
-allowed-tools: Read, Grep, Glob
+execution_mode: inline
+agent_type: ""
+expected_inputs:
+  - feature_request: from_user
+  - business_value: from_user
+  - user_story: from_user
+  - acceptance_criteria: from_user
+expected_outputs:
+  - intent_doc: object
+  - scope_boundaries: object
+  - applicability_assessment: object
+  - evidence_vs_assumption: list
+expected_next: 2
+gate_required: false
+allowed_tools: [Read, Grep, Glob]
 ---
 
 # Feature Pipeline (Heavy) - Intencao, valor e limites de escopo

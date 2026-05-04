@@ -2,11 +2,19 @@
 step_number: 13
 step_name: "release-observability"
 source: "Pulsar/LIGHT_13_12_RELEASE_OBSERVABILITY.md"
----
-
----
 description: "Light 12: Prontidao de release e observabilidade"
-allowed-tools: Read, Grep, Glob, Bash
+execution_mode: inline
+agent_type: ""
+expected_inputs:
+  - test_results: from_step_12
+  - sanity_report: from_step_12
+expected_outputs:
+  - release_notes: object
+  - observability_plan: object
+  - rollback_plan: object
+expected_next: "complete"
+gate_required: false
+allowed_tools: [Read, Grep, Glob, Bash]
 ---
 
 # Feature Pipeline (Light) - Prontidao de release, observabilidade e rollback

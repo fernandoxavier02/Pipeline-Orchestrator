@@ -2,11 +2,18 @@
 step_number: 12
 step_name: "testing-validation"
 source: "Pulsar/LIGHT_12_11_TESTING_VALIDATION.md"
----
-
----
 description: "Light 11: Testes, validacao e checks de sanidade"
-allowed-tools: Read, Grep, Glob, Bash
+execution_mode: subagent
+agent_type: "pipeline-orchestrator:executor:type-specific:feature-integration-validator"
+expected_inputs:
+  - code_diff: from_step_11
+  - test_files: from_step_10
+expected_outputs:
+  - test_results: object
+  - sanity_report: object
+expected_next: 13
+gate_required: false
+allowed_tools: [Read, Grep, Glob, Bash]
 ---
 
 # Feature Pipeline (Light) - Testes, validacao e checks de sanidade

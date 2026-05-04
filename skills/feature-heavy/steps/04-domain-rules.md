@@ -2,11 +2,20 @@
 step_number: 04
 step_name: "domain-rules"
 source: "Pulsar/HEAVY_04_04_DOMAIN_RULES.md"
----
-
----
 description: "Heavy 04: Dominio e regras de negocio"
-allowed-tools: Read, Grep, Glob
+execution_mode: inline
+agent_type: ""
+expected_inputs:
+  - acceptance_matrix: from_step_03
+  - terrain_map: from_step_02
+expected_outputs:
+  - domain_rules: list
+  - ambiguities: list
+  - rule_tests_outline: object
+  - property_tests_plan: list
+expected_next: 5
+gate_required: false
+allowed_tools: [Read, Grep, Glob]
 ---
 
 # Feature Pipeline (Heavy) - Dominio e regras de negocio (aplicabilidade explicita)

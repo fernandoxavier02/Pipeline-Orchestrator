@@ -2,11 +2,18 @@
 step_number: 05
 step_name: "source-of-truth"
 source: "Pulsar/LIGHT_05_05_SOURCE_OF_TRUTH.md"
----
-
----
 description: "Light 05: Fonte da verdade e modelo de estado"
-allowed-tools: Read, Grep, Glob
+execution_mode: inline
+agent_type: ""
+expected_inputs:
+  - domain_rules: from_step_04
+  - terrain_map: from_step_02
+expected_outputs:
+  - ssot_mapping: object
+  - state_model: object
+expected_next: 6
+gate_required: false
+allowed_tools: [Read, Grep, Glob]
 ---
 
 # Feature Pipeline (Light) - Fonte da verdade e modelo de estado
