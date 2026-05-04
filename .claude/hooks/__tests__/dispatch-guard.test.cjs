@@ -234,6 +234,103 @@ scenario('Oversized skill names are dropped silently (DoS prevention)', () => {
   });
 });
 
+// ── v4.8.0 Agent Step Enforcement Scenarios ────────────────────────────────
+
+const os = require('os');
+
+function runHookAgent(subagentType, env = {}) {
+  const payload = { tool_name: 'Agent', tool_input: { subagent_type: subagentType } };
+  const result = spawnSync('node', [HOOK_PATH], {
+    input: JSON.stringify(payload),
+    encoding: 'utf8',
+    env: { ...process.env, ...env },
+  });
+  return { exitCode: result.status, stdout: result.stdout || '', stderr: result.stderr || '' };
+}
+
+function makeAgentEnforcementState(overrides = {}, declaredAgent) {
+  const docPath = fs.mkdtempSync(path.join(os.tmpdir(), 'dispatch-guard-test-'));
+  const state = Object.assign({
+    schema_version: 1,
+    pipeline_active: true,
+    pipeline_doc_path: docPath,
+  }, overrides);
+  fs.writeFileSync(path.join(docPath, 'sentinel-state.json'), JSON.stringify(state));
+  const fakeRepoRoot = path.join(docPath, 'fake-repo');
+  if (overrides.current_skill && overrides.current_step != null) {
+    const stepDir = path.join(fakeRepoRoot, 'skills', overrides.current_skill, 'steps');
+    fs.mkdirSync(stepDir, { recursive: true });
+    const stepPattern = String(overrides.current_step).padStart(2, '0');
+    fs.writeFileSync(
+      path.join(stepDir, `${stepPattern}-test.md`),
+      `---\nstep_number: ${overrides.current_step}\nagent_type: "${declaredAgent}"\n---\nbody`
+    );
+  }
+  return { docPath, fakeRepoRoot };
+}
+
+scenario('Agent call: enforcement skipped when sentinel-state has no current_skill', () => {
+  const docPath = fs.mkdtempSync(path.join(os.tmpdir(), 'dispatch-guard-test-'));
+  fs.writeFileSync(path.join(docPath, 'sentinel-state.json'), JSON.stringify({ schema_version: 1, pipeline_active: true }));
+  const result = when('Agent is invoked without skill state', () =>
+    runHookAgent('pipeline-orchestrator:core:task-orchestrator', { PIPELINE_DOC_PATH: docPath })
+  );
+  then('exit silently (no enforcement, no deny)', () => {
+    expectEqual(result.exitCode, 0);
+    expectEqual(result.stdout.trim(), '');
+  });
+});
+
+scenario('Agent call: matching agent_type for current step passes silently', () => {
+  const declared = 'pipeline-orchestrator:executor:type-specific:feature-vertical-slice-planner';
+  const { docPath, fakeRepoRoot } = makeAgentEnforcementState({
+    current_skill: 'feature-light-good', current_step: 3,
+  }, declared);
+  const result = when('Agent matches declared agent_type', () =>
+    runHookAgent(declared, { PIPELINE_DOC_PATH: docPath, PIPELINE_REPO_ROOT: fakeRepoRoot, PIPELINE_ENFORCEMENT: 'warn' })
+  );
+  then('exit silently (no warn)', () => {
+    expectEqual(result.exitCode, 0);
+    expectEqual(result.stdout.trim(), '');
+  });
+});
+
+scenario('Agent call: agent_type mismatch in WARN mode logs warning and allows', () => {
+  const declared = 'pipeline-orchestrator:executor:type-specific:feature-vertical-slice-planner';
+  const { docPath, fakeRepoRoot } = makeAgentEnforcementState({
+    current_skill: 'feature-light-good', current_step: 3,
+  }, declared);
+  const result = when('Agent is wrong agent_type in warn mode', () =>
+    runHookAgent('pipeline-orchestrator:core:WRONG-agent', {
+      PIPELINE_DOC_PATH: docPath, PIPELINE_REPO_ROOT: fakeRepoRoot, PIPELINE_ENFORCEMENT: 'warn',
+    })
+  );
+  then('exit code is 0 (still allowed in warn mode)', () => expectEqual(result.exitCode, 0));
+  and('stderr contains [ENFORCEMENT_WARN]', () => expectContains(result.stderr, '[ENFORCEMENT_WARN]'));
+  and('gate-decisions.jsonl has ENFORCEMENT_WARN entry', () => {
+    const logPath = path.join(docPath, 'gate-decisions.jsonl');
+    expectEqual(fs.existsSync(logPath), true);
+    expectContains(fs.readFileSync(logPath, 'utf8'), 'ENFORCEMENT_WARN');
+  });
+});
+
+scenario('Agent call: agent_type mismatch in DENY mode emits permissionDecision deny', () => {
+  const declared = 'pipeline-orchestrator:executor:type-specific:feature-vertical-slice-planner';
+  const { docPath, fakeRepoRoot } = makeAgentEnforcementState({
+    current_skill: 'feature-light-good', current_step: 3,
+  }, declared);
+  const result = when('Agent is wrong agent_type in deny mode', () =>
+    runHookAgent('pipeline-orchestrator:core:WRONG-agent', {
+      PIPELINE_DOC_PATH: docPath, PIPELINE_REPO_ROOT: fakeRepoRoot, PIPELINE_ENFORCEMENT: 'deny',
+    })
+  );
+  then('exit code is 0 (deny via stdout, not exit code)', () => expectEqual(result.exitCode, 0));
+  and('stdout has permissionDecision=deny with [ENFORCEMENT] tag', () => {
+    expectContains(result.stdout, '"permissionDecision":"deny"');
+    expectContains(result.stdout, '[ENFORCEMENT]');
+  });
+});
+
 // ── Report ──────────────────────────────────────────────────────────────────
 
 console.log(`\ndispatch-guard.test.cjs — ${scenariosPassed}/${scenariosRun} scenarios passed`);

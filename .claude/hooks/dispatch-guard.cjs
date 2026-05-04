@@ -2,26 +2,34 @@
 'use strict';
 
 /**
- * dispatch-guard.cjs — PreToolUse:Skill guard for pipeline-orchestrator.
+ * dispatch-guard.cjs — PreToolUse:Skill + PreToolUse:Agent guard for pipeline-orchestrator.
  *
- * Purpose (v3.6.0):
- *   LLM controllers running `/pipeline` occasionally invoke `Skill(task-orchestrator)`
- *   instead of `Agent(subagent_type: "pipeline-orchestrator:core:task-orchestrator")`.
- *   The Skill call fails with "Unknown skill" and the pipeline stalls at Phase 0a
- *   with a confusing error.
+ * Purpose (v3.6.0 base + v4.8.0 extension):
+ *   v3.6.0: LLM controllers running `/pipeline` occasionally invoke `Skill(task-orchestrator)`
+ *     instead of `Agent(subagent_type: "pipeline-orchestrator:core:task-orchestrator")`.
+ *     The Skill call fails with "Unknown skill" and the pipeline stalls at Phase 0a.
+ *   v4.8.0: When a backing skill (feature-light, audit-heavy, etc.) is in flight,
+ *     each step file (skills/<name>/steps/0N-*.md) declares an `agent_type` in its
+ *     frontmatter. dispatch-guard now reads that contract and validates that the
+ *     Agent being spawned matches the declared agent_type for the current step.
  *
  * What this hook does:
- *   - Intercepts any Skill tool invocation whose skill name matches a known
- *     pipeline-orchestrator agent leaf name.
- *   - DENIES the call via stdout (hookSpecificOutput permissionDecision: deny).
- *   - Returns a corrective message that names the correct Agent tool invocation
- *     with the fully-qualified subagent_type, so the LLM can self-correct.
+ *   - Skill calls: intercepts skill names that collide with agent leaves and emits
+ *     a corrective deny telling the LLM to use Agent(subagent_type: ...) instead.
+ *   - Agent calls (v4.8+): when sentinel-state.json has current_skill + current_step,
+ *     reads skills/<name>/steps/0N-*.md frontmatter and validates agent_type matches
+ *     the call's subagent_type. Mismatch → ENFORCEMENT_WARN (until 2026-05-17) or
+ *     ENFORCEMENT_DENY (after).
  *
  * Protocol:
  *   - Exit 0 with no stdout → allow (silent pass)
- *   - Exit 0 with hookSpecificOutput deny → deny this Skill call; reason fed to Claude
+ *   - Exit 0 with hookSpecificOutput deny → deny this call; reason fed to Claude
  *   - NEVER exits with non-zero — a misfire of this guard must not hard-block the user
  */
+
+const fs = require('fs');
+const path = require('path');
+const enforcement = require('./skill-frontmatter-parser.cjs');
 
 // ── Agent leaf → fully-qualified subagent_type map ──────────────────────────
 //
@@ -92,6 +100,65 @@ function buildDenyReason(leaf, fqn) {
   );
 }
 
+// ── v4.8.0 Skill Step Enforcement (Agent calls) ────────────────────────────
+
+function checkStepAgentType(toolInput) {
+  const docPath = (process.env.PIPELINE_DOC_PATH || '').trim();
+  if (!docPath) return null;
+  const statePath = path.join(docPath, 'sentinel-state.json');
+  let state;
+  try { state = JSON.parse(fs.readFileSync(statePath, 'utf8')); } catch { return null; }
+  const ctx = enforcement.getCurrentSkill(state);
+  if (!ctx || !ctx.step) return null;
+  const repoRoot = process.env.PIPELINE_REPO_ROOT || process.cwd();
+  const stepPattern = String(ctx.step).padStart(2, '0');
+  const stepsDir = path.join(repoRoot, 'skills', ctx.skill, 'steps');
+  let stepFile = null;
+  try {
+    for (const f of fs.readdirSync(stepsDir)) {
+      if (f.startsWith(stepPattern + '-') && f.endsWith('.md')) { stepFile = path.join(stepsDir, f); break; }
+    }
+  } catch { return null; }
+  if (!stepFile) return null;
+  let stepText;
+  try { stepText = fs.readFileSync(stepFile, 'utf8'); } catch { return null; }
+  const stepFm = enforcement.parseFrontmatter(stepText);
+  if (!stepFm.ok || !stepFm.frontmatter || !stepFm.frontmatter.agent_type) return null;
+  const expectedAgent = String(stepFm.frontmatter.agent_type);
+  const actualAgent = (toolInput && typeof toolInput.subagent_type === 'string') ? toolInput.subagent_type : '';
+  if (actualAgent === expectedAgent) return null;
+  return {
+    violation: `step ${ctx.step} of skill ${ctx.skill} expects agent ${expectedAgent}, got "${actualAgent || '(none)'}"`,
+    hint: 'Spawn the declared agent_type or update the step file frontmatter',
+    pipeline_doc_path: state.pipeline_doc_path || docPath,
+    skill: ctx.skill,
+    step: ctx.step,
+  };
+}
+
+function handleAgentEnforcement(toolInput) {
+  let violation;
+  try { violation = checkStepAgentType(toolInput); } catch { return false; }
+  if (!violation) return false;
+  const mode = enforcement.getEnforcementMode();
+  enforcement.logEnforcementDecision(violation.pipeline_doc_path, {
+    mode, hook: 'dispatch-guard', skill: violation.skill, step: violation.step,
+    violation: violation.violation, detail: violation.hint, pipeline_doc_path: violation.pipeline_doc_path,
+  });
+  if (mode === 'deny') {
+    console.log(JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'deny',
+        permissionDecisionReason: `[ENFORCEMENT] ${violation.violation}. ${violation.hint}`,
+      }
+    }));
+    return true;
+  }
+  process.stderr.write(`[ENFORCEMENT_WARN] dispatch-guard: ${violation.violation}\n`);
+  return false;
+}
+
 function handleInput(raw) {
   // 1. Parse stdin. Empty or unparseable → fail-open (do not block user workflows).
   let input;
@@ -100,6 +167,14 @@ function handleInput(raw) {
     input = JSON.parse(raw.trim());
   } catch {
     return process.exit(0);
+  }
+
+  // 1.5. v4.8.0 Agent enforcement: validate agent_type per step
+  // Agent calls flow through this branch when matcher includes "Agent" in hooks.json.
+  if (input && input.tool_name === 'Agent') {
+    const toolInput = input.tool_input || {};
+    if (handleAgentEnforcement(toolInput)) return process.exit(0);
+    return process.exit(0); // Agent calls are otherwise out of scope for the legacy Skill→FQN map
   }
 
   // 2. We only evaluate Skill tool calls. Any other tool → not our concern.
