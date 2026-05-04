@@ -5,6 +5,37 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.8.0] - 2026-05-03
+
+**Minor release HOOK ENFORCEMENT** — resolve consolidated.md §17.4 #8 ("hooks NÃO enforce SKILL.md frontmatter"). Os campos declarativos `sequence_lock`, `gates_at`, `sentinel_checkpoints`, e `agent_type` (per step) eram apenas documentação legível por humanos até v4.7.0 — drift teoricamente possível. Esta release implementa enforcement real via hooks Node, com roll-out 2-fases time-based para evitar quebras durante a janela de migração.
+
+### Added
+
+- **`.claude/hooks/skill-frontmatter-parser.cjs` (NEW)** — módulo compartilhado consumido pelos 3 hooks. Expõe: `parseYaml`, `parseFrontmatter`, `readSkillFrontmatter(skillName, repoRoot)`, `getCurrentSkill(state)`, `getEnforcementMode(today)` (warn vs deny baseado em data + override `PIPELINE_ENFORCEMENT={warn,deny}`), `logEnforcementDecision(repoRoot, decision)` (append-only em `gate-decisions.jsonl` com `gate: "ENFORCEMENT_WARN"|"ENFORCEMENT_DENY"`, `hardness: "AUDIT"`). YAML parser inline reutilizado de `tests/compat/runner.cjs`. ~210 linhas.
+- **`.claude/hooks/__tests__/skill-frontmatter-parser.test.cjs` (NEW)** — 32 assertions cobrindo parser (valid/missing/malformed/non-string), readSkillFrontmatter (good/notfound/no-contract/invalid-name), getCurrentSkill (valid/missing variants), getEnforcementMode (before/after/boundary/override).
+- **`.claude/hooks/__tests__/fixtures/skills/{feature-light-good,feature-light-bad-yaml,feature-light-no-contract}/SKILL.md` (NEW)** — fixtures sintéticos para testes dos 3 hooks.
+- **`.claude/hooks/__tests__/force-pipeline-agents.test.cjs` (NEW)** — 13 assertions cobrindo enforcement de `gates_at` em UserPromptSubmit (5 cenários: no-skill / not-at-gate / no-evidence-warn / with-evidence / deny-mode).
+
+### Changed
+
+- **`.claude/hooks/sentinel-hook.cjs`** — adicionado `enforceSkillContract(state)` que valida `sentinel_checkpoints`. Quando `current_skill` + `current_step` populados em sentinel-state.json e step está em `sentinel_checkpoints`, verifica que `expected_next` está set. Modos: warn (logga em gate-decisions.jsonl + stderr) / deny (emite `permissionDecision: deny`). 9 novos testes (83/83 passing).
+- **`.claude/hooks/dispatch-guard.cjs`** — agora também processa Agent calls (matcher `Skill|Agent` em hooks.json). Quando skill em flight, lê `skills/<name>/steps/0N-*.md` frontmatter e valida que `agent_type` declarado match com `subagent_type` da Agent call. Mismatch → warn/deny conforme modo. 4 novos cenários BDD (13/13 passing).
+- **`.claude/hooks/force-pipeline-agents.cjs`** — adicionado `applyGateEnforcement()` chamado em UserPromptSubmit. Quando current step está em `gates_at`, verifica `gate-decisions.jsonl` por evidência de AskUserQuestion logado. Missing → warn/deny systemMessage (não bloqueia o prompt — UserPromptSubmit não pode deny — mas surface ao operador). 13 novos test assertions.
+- **`hooks/hooks.json`** — matcher `Skill` → `Skill|Agent` para dispatch-guard; SessionStart prompt menciona v4.8.0.
+- **`agents/core/pipeline-controller.md`** — adicionada subsection "State fields for skill enforcement (v4.8.0+)" documentando contrato: controller deve popular `current_skill` + `current_step` em sentinel-state.json antes de spawn Agent. Backward compat: hooks skipam quando ausentes.
+- **`.claude-plugin/plugin.json`** — version 4.7.0 → 4.8.0; description estendida.
+
+### Notes
+
+- **Roll-out 2-fases:** Warn mode até **2026-05-17** (logga `ENFORCEMENT_WARN` em gate-decisions.jsonl com hardness AUDIT, não bloqueia). Deny mode auto-promove após (bloqueia via permissionDecision). 14 dias de janela permite operadores observarem warns + ajustarem state file pattern antes de blocking.
+- **Override:** Set env var `PIPELINE_ENFORCEMENT=warn` ou `=deny` para forçar modo (útil em testing/CI).
+- **Backward compat preservada:** Hooks skipam enforcement silently quando state não tem `current_skill` ou quando SKILL.md não declara o campo (sentinel_checkpoints / gates_at). Flows não-skill (`/pipeline` direto sem backing skill) continuam funcionando como antes.
+- **Hardness AUDIT:** Entries de enforcement usam `hardness: "AUDIT"` para distinguir dos gates SOFT/HARD/MANDATORY/CIRCUIT_BREAKER existentes em gate-decisions.jsonl. Permite filtragem em queries.
+- **Iron Law respected:** Apenas hooks JS + tests do plugin foram modificados. Consumer projects (e.g. `/pipeline-orchestrator:feature` invocação real) NÃO foram tocados.
+- **Resolve §17.4 #8** do consolidated.md (hooks-not-enforce-frontmatter). Issue agora fechada.
+
+---
+
 ## [4.7.0] - 2026-05-03
 
 **Patch+minor release POLINDO Slice 3b** (sucessor de v4.6.1). Audit pós-correção identificou 11 findings — a v4.6.1 corrigiu a estrutura de pastas mas deixou os skills funcionalmente incompletos (frontmatter mínimo, tests placeholder, sem thin entry-point). Esta release fecha todos os 11 findings em batch único, mantendo Iron Law de "1:1 fidelity Pulsar nos prompts" (texto dos bodies intocado — apenas frontmatter contract foi adicionado).
