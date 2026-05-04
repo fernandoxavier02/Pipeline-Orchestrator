@@ -513,6 +513,7 @@ Slice 1     /bugfix command + thin entry-point pattern      🟢 ENTREGUE (v4.2.
 Slice 1.5   Pulsar bugfix workflow import (§21)             🟢 ENTREGUE (v4.4.0)
 Slice 2     TRACE.md (Run Record)                           🔴 PENDENTE (1 sem)
 Slice 3a    Pulsar audit workflow import (§22)              🟢 ENTREGUE (v4.5.0)
+Slice 3b    Pulsar feature workflow import (§23)            🟢 ENTREGUE (v4.6.0)
 Slice 3     /feature, /userstory, /ux + ARCH-2 fix          🔴 PENDENTE (0.3-0.7 sem)
 Slice 4     Compat regression suite + CI test runner        🟡 PARCIAL (1.5-2 sem)
 v5.0.0 (release)
@@ -529,6 +530,7 @@ v5.1.0
 | 1 † | 🟢 | v4.2.0 + v4.2.1 | `/bugfix` thin wrapper, `PRE_CLASSIFIED_TYPE` contract, hook patches; SEC-1+SEC-2 fechados em adversarial review. **† TRACE-defer:** ACs sobre TRACE.md diferidas para Slice 2 (ver §12.5.3 e §17.3 #8) |
 | 2 | 🔴 | — | trace-generator + trace-schema/v1.md |
 | 3a | 🟢 | v4.5.0 | `/audit` thin wrapper + `audit-light` + `audit-heavy` skills (9 steps cada), §22; reusa `audit-{intake,domain-analyzer,compliance-checker,risk-matrix-generator}` agents |
+| 3b | 🟢 | v4.6.0 | `/feature` skill **single com mode flag** (NEW pattern vs Slice 1.5/3a) + 13 steps mode-aware. §23. Reusa 5 agentes existentes (`feature-vertical-slice-planner`, `feature-implementer`, `feature-integration-validator`, `pre-tester`, `quality-gate-router`); 0 novos. 4 gates (steps 3, 7, 9, 10). Hooks ADVISORY (§17.4 #8). |
 | 3 | 🔴 | — | 3 commands restantes (feature/userstory/ux) + ARCH-2 (trust boundary do prefix — ver §17.3 #7) |
 | 4 | 🟡 (90% estrutural) | — | runner.cjs ✅ + workflow YAML ✅ + 5/5 fixtures estruturais (template) + 0/5 baselines reais + performance N/A + protocolo de captura ✅. 2/4 critérios fechados; critério 3 100% estrutural mas 0% real. Falta: capturar 5 baselines via dogfooding + medir wall-clock real. Ver §12.8.3 + §17.3 #10/#11. |
 | 5 | 🔴 | — | v5.1, defer |
@@ -1849,6 +1851,84 @@ Aditivo: nenhum comportamento existente alterado. `/pipeline-orchestrator:audit`
 
 1. **Pós-Slice 3a:** Slice 2 (TRACE.md) ou Slice 3 (resto) — `/feature`, `/userstory`, `/ux` reusam o mesmo padrão estabelecido aqui e em Slice 1.5.
 2. **Slice 3 (resto):** 3 commands restantes (feature, userstory, ux) seguem template idêntico — ~0,5 semana cada com playbook Pulsar disponível.
+
+---
+
+## 23. Slice 3b — Pulsar feature workflow import (NOVO 2026-05-03)
+
+### 23.1 Origem e justificativa
+
+Igual a Slice 1.5 (bugfix) e Slice 3a (audit) — port do workflow Pulsar (`D:\Projeto Pulsar\.claude\commands\Prompts\Implement_new_feature\`) com 13 steps Heavy + 13 Light. **Único entre os 3 ports: usa pattern single-skill-com-mode-flag** em vez de 2 skills separadas. Origem da decisão: bugfix-heavy adversarial review 2026-05-03 (3 reviewers paralelos) cravou que Pulsar Light é estruturalmente igual a Heavy (13=13 passos), só diferindo em verbosidade de prompt. Spec mapping: `docs/superpowers/specs/2026-05-03-feature-pulsar-import-mapping.md` (v2 pós-bugfix com 0 decisões pendentes).
+
+### 23.2 Decisão de design
+
+- **3 skills criados** (vs 5 dos ports anteriores): `skills/feature/SKILL.md` (manifest single) + 13 step files mode-aware + 1 tests file = 16 arquivos novos.
+- **Mode flag:** SKILL.md frontmatter declara `mode: heavy` (default). User override via `--mode=light` no argument. Cada step.md tem `## Heavy mode prompt` e `## Light mode prompt` sections; controller seleciona baseado em mode flag.
+- **5 agentes existentes reusados, 0 novos.**
+- **4 gates** (vs 5 da v1 do mapping): steps 3 (acceptance-matrix), 7 (architecture-choice), 9 (plan-approval; SKIP se Phase 1.5 plan-architect rodou), 10 (tdd-tests-approval). Step 11 sem gate skill-level (executor-controller cobre).
+- **3 sentinel checkpoints:** pre_3, pre_10, pre_13.
+- **Hooks ADVISORY:** ver §17.4 #8.
+- **TDD step 10 parametrizado** via `expected_inputs.pre_tester_artifacts` (não shell discovery hardcoded como Pulsar).
+- **Pré-check** (`HEAVY_A_*` do Pulsar) **absorvido por Phase 0** (information-gate + design-interrogator), não vira step da skill.
+
+### 23.3 Forma do pipeline — 13 passos canônicos
+
+Per spec mapping §3 — Heavy = Light em estrutura (mode flag controla verbosidade):
+
+| # | Step | Output Heavy | Output Light |
+|---|---|---|---|
+| 1 | Intent + Value + Scope | `IntentDoc` completo | `IntentDoc` mínimo |
+| 2 | Terrain Recon | mapa detalhado | mapa rápido |
+| 3 | User Flow + UX **[GATE]** | matriz cenários completa | top-3 cenários |
+| 4 | Domain Rules | regras + property tests | regras + 1 unit test |
+| 5 | Source of Truth | SSOT mapping completo | SSOT inline |
+| 6 | Data Model + Persistence | schema + migration tests | schema + integration test |
+| 7 | Architecture Design Options **[GATE]** | 3 opções + trade-offs | 2 opções |
+| 8 | Risk Controls | risk register completo | top risks |
+| 9 | Implementation Plan **[GATE; SKIP se Phase 1.5]** | plan completo | plan mínimo |
+| 10 | TDD Pre-Impl (RED) **[GATE]** | full coverage | 1 main + 1 regression + 1 edge |
+| 11 | Execution Minimal Diff (GREEN) | código completo | código mínimo |
+| 12 | Testing Validation | suite completa | unit + integration |
+| 13 | Release + Observability | release notes + monitoring | release notes mínimo |
+
+### 23.4 Regras de execução
+
+Mesmas 8 regras herdadas de Slice 1.5 (§21.3) — sequence_lock, execution_mode, agent_type whitelist, output schema, AskUserQuestion gates, STOP RULE, audit log, sentinel checkpoints. Hooks são ADVISORY (não enforcement) — controller respeita o contrato.
+
+### 23.5 Migration plan
+
+Target: **v4.6.0** (minor release). Lineage: v4.5.0 → v4.6.0.
+
+1. Files criados: `skills/feature/SKILL.md`, 13 `steps/*.md`, `tests/tests-feature.md`, `references/pipelines/feature.md`.
+2. Files modificados: `commands/pipeline.md` (--variant=feature + --mode flag), `agents/core/task-orchestrator.md` (FORCE_VARIANT), `references/pipelines/implement-{heavy,light}.md` (DEPRECATED redirects), `CLAUDE.md`, `AGENTS.md`, `CHANGELOG.md`, `plugin.json`, `hooks/hooks.json`.
+3. Hooks: NENHUM modificado (ADVISORY model — ver §17.4 #8).
+4. Agents: NENHUM novo criado.
+
+### 23.6 Backward compatibility
+
+- ✅ `/pipeline-orchestrator:pipeline [task]` continua funcionando idêntico (auto-classify roteia para variant correto).
+- ✅ `/pipeline-orchestrator:feature [task]` é novo entry-point manual (Slice 3b).
+- ✅ `references/pipelines/implement-{heavy,light}.md` continuam acessíveis com deprecation header (redirect).
+- ✅ Slice 1.5 (bugfix) e Slice 3a (audit) sem mudança.
+
+### 23.7 Critérios de done (DoD do Slice 3b)
+
+- [x] `skills/feature/SKILL.md` criado com mode flag handling.
+- [x] `skills/feature/steps/01..13-*.md` completos (13 step files mode-aware).
+- [x] `skills/feature/tests/tests-feature.md` criado.
+- [x] `references/pipelines/feature.md` criado; `implement-{heavy,light}.md` deprecated.
+- [x] Plugin metadata bumpado (plugin.json + hooks.json).
+- [x] CLAUDE.md + AGENTS.md + CHANGELOG.md atualizados.
+- [x] §12.2 status table marca Slice 3b 🟢.
+- [ ] Smoke test: invocar `/pipeline-orchestrator:feature test-fixture` confirma execução determinística.
+- [ ] Adversarial review round 2 (ce-coherence-reviewer) confirma fixes não introduziram regressão.
+- [ ] `git push origin main` concluído.
+
+### 23.8 Próximos passos
+
+1. **Pós-Slice 3b:** Slice 2 (TRACE.md) ou Slice 3c/3d (`/userstory`, `/ux` — provavelmente também single-skill-com-mode-flag se Pulsar source seguir mesmo pattern).
+2. **Backport question:** considerar refactor de `audit-{light,heavy}` para single-skill-com-mode-flag (audit também é Light=Heavy=9). Slice 3e potencial.
+3. **v5.0 final:** continua bloqueado por Slice 4 verde (§12.8.3).
 
 ---
 
