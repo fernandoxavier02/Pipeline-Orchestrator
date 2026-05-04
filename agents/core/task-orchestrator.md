@@ -158,9 +158,21 @@ When `FORCE_VARIANT` is present:
    - `heavy` → `bugfix-heavy` (when type=Bug Fix), or the corresponding `*-heavy` variant for the resolved type.
 3. Still compute `affected_files`, `business_rules`, `ssot_status`, and `severity` normally — those are NEVER pre-fixed.
 4. Validate consistency. If `force_variant=light` was passed but the inferred complexity would be COMPLEXA (heavy territory), or vice versa, emit a warning in the ORCHESTRATOR_DECISION's `notes` field but proceed with the forced variant (entry-point authority).
-5. If `force_variant` arrives with a type other than `Bug Fix`, emit a warning that the flag is currently scoped to Bug Fix variants and proceed with normal variant routing.
+5. If `force_variant` arrives with a type other than `Bug Fix` or `Feature`, emit a warning that the flag is currently scoped to those variants and proceed with normal variant routing.
 
 The same authority hierarchy applies: explicit `FORCE_VARIANT` from the entry command overrides inferred routing, identical to how `--simples/--media/--complexa` overrides inferred complexity.
+
+**Slice 3b extension (v4.6.0+):** `FORCE_VARIANT=feature` is also accepted (single-skill-with-mode-flag pattern, distinct from bugfix/audit which use 2 separate skills). When `FORCE_VARIANT=feature`:
+
+1. Set `pipeline_variant: feature` (no `-light/-heavy` suffix; mode is separate).
+2. ALSO check for companion line `FORCE_MODE=light` or `FORCE_MODE=heavy` in the same prefix block.
+3. If `FORCE_MODE` present, set `feature_mode: <value>` field in ORCHESTRATOR_DECISION (default `heavy` when absent).
+4. The `pipeline-controller` then loads `skills/feature/SKILL.md` and selects the Heavy or Light prompt section per `feature_mode` flag.
+
+**Valid `force_variant` values (post Slice 3b v4.6.0):**
+- `light`, `heavy` (Slice 1.5 — Bug Fix)
+- `feature` (Slice 3b — single skill, paired with `force_mode={light,heavy}`)
+- (audit-light / audit-heavy still routed via type=Audit + complexity inference)
 
 ### Step 2: Spawn Information-Gate
 
