@@ -18,7 +18,7 @@ Linguagem leiga, completa e curta. Veredicto primeiro, detalhe depois. Sem jarga
 |---|---|---|
 | **Design v5** | `designs/pipeline-orchestrator-v5-consolidated.md` | 1796 linhas, sucessor único dos 3 docs em `designs/legacy/` |
 | **Design v5 Slice 0** | `designs/slice-0/INVENTORY.md` + 4 SPIKEs | Reality-check pós-sync 4.1.3 — INVENTORY atualizado em 2026-04-30 (Slices 0+0.5+1 marcados como concluídos) |
-| **Versão canônica** | `.claude-plugin/plugin.json` `"version"` | Atualmente: **4.6.0**. Lineage: v4.2.0 → v4.2.1 → v4.3.0 → v4.3.1 → v4.4.0 (Slice 1.5 — Pulsar bugfix workflow import) → v4.4.1 (exec-window wrapper fix) → v4.5.0 (Slice 3a — Pulsar audit workflow import) → v4.6.0 (Slice 3b — Pulsar feature workflow import, single-skill-com-mode-flag pattern). Marketplace lê este arquivo. |
+| **Versão canônica** | `.claude-plugin/plugin.json` `"version"` | Atualmente: **4.6.1**. Lineage: v4.2.0 → v4.2.1 → v4.3.0 → v4.3.1 → v4.4.0 (Slice 1.5 — Pulsar bugfix workflow import) → v4.4.1 (exec-window wrapper fix) → v4.5.0 (Slice 3a — Pulsar audit workflow import) → v4.6.0 (Slice 3b — Pulsar feature workflow import, single-skill-com-mode-flag pattern, REVERTIDO) → v4.6.1 (Slice 3b corrigido — 2 skills separadas espelhando Pulsar Heavy/ + Ligth/ 1:1). Marketplace lê este arquivo. |
 | **Pipeline flow** | `commands/pipeline.md` (full classifier) + `commands/bugfix.md` (thin shortcut) | 1112 linhas no full + 40 no thin. **Inline Invariants** em `pipeline.md` sobrepõem Grep-loaded refs em caso de conflito |
 | **Agent orchestrator** | `agents/core/pipeline-controller.md` | N1, dispatched pela skill, coordena 4 fases |
 | **Gates** | `references/gates.md` | Hardness Taxonomy + 16-gate Registry |
@@ -84,3 +84,4 @@ Ver `commands/pipeline.md` linhas finais para detalhamento.
 | v1.1 | 2026-05-03 | Bump versão canônica 4.4.0 → 4.5.0; lineage estendida com v4.3.x/4.4.x/4.5.0; corrigida contagem do consolidated (1491 → 1796 linhas). Reconciliação de governança disparada por audit do design v5. |
 | v1.2 | 2026-05-03 | Team roster corrigido (38 → 19 agents reais [VERIFICADO]) após coherence review apontar drift. |
 | v1.3 | 2026-05-03 | Bump versão canônica 4.5.0 → 4.6.0 (Slice 3b — feature skill com mode flag, pattern novo vs Slice 1.5/3a). |
+| v1.4 | 2026-05-03 | CORREÇÃO: bump 4.6.0 → 4.6.1. Decisão de "single skill com mode flag" foi revertida — port deve espelhar EXATAMENTE a fonte canônica (Pulsar Heavy/ + Ligth/ = 2 pastas → skills/feature-light/ + skills/feature-heavy/ separadas). Pattern volta a ser igual a Slice 1.5/3a. |

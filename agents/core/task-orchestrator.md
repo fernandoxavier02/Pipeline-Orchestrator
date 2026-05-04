@@ -162,16 +162,14 @@ When `FORCE_VARIANT` is present:
 
 The same authority hierarchy applies: explicit `FORCE_VARIANT` from the entry command overrides inferred routing, identical to how `--simples/--media/--complexa` overrides inferred complexity.
 
-**Slice 3b extension (v4.6.0+):** `FORCE_VARIANT=feature` is also accepted (single-skill-with-mode-flag pattern, distinct from bugfix/audit which use 2 separate skills). When `FORCE_VARIANT=feature`:
+**Slice 3b extension CORRIGIDA (v4.6.1+):** `FORCE_VARIANT=feature-light` ou `FORCE_VARIANT=feature-heavy` são aceitos (padrão de 2 skills separadas, igual a bugfix-light/bugfix-heavy de Slice 1.5). A v4.6.0 inicial usou `FORCE_VARIANT=feature` + `FORCE_MODE` em pattern de single skill — REVERTIDO em v4.6.1 para alinhar com fonte canônica Pulsar (2 pastas Heavy + Ligth). Quando `FORCE_VARIANT=feature-{light,heavy}`:
 
-1. Set `pipeline_variant: feature` (no `-light/-heavy` suffix; mode is separate).
-2. ALSO check for companion line `FORCE_MODE=light` or `FORCE_MODE=heavy` in the same prefix block.
-3. If `FORCE_MODE` present, set `feature_mode: <value>` field in ORCHESTRATOR_DECISION (default `heavy` when absent).
-4. The `pipeline-controller` then loads `skills/feature/SKILL.md` and selects the Heavy or Light prompt section per `feature_mode` flag.
+1. Set `pipeline_variant: feature-light` ou `feature-heavy` direto (igual a `bugfix-light/heavy`).
+2. `pipeline-controller` carrega `skills/feature-light/SKILL.md` ou `skills/feature-heavy/SKILL.md` conforme variant.
 
-**Valid `force_variant` values (post Slice 3b v4.6.0):**
+**Valid `force_variant` values (post Slice 3b v4.6.1):**
 - `light`, `heavy` (Slice 1.5 — Bug Fix)
-- `feature` (Slice 3b — single skill, paired with `force_mode={light,heavy}`)
+- `feature-light`, `feature-heavy` (Slice 3b corrected — 2 skills separadas espelhando Pulsar 1:1)
 - (audit-light / audit-heavy still routed via type=Audit + complexity inference)
 
 ### Step 2: Spawn Information-Gate

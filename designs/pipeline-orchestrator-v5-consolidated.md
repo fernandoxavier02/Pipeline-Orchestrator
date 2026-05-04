@@ -513,7 +513,7 @@ Slice 1     /bugfix command + thin entry-point pattern      🟢 ENTREGUE (v4.2.
 Slice 1.5   Pulsar bugfix workflow import (§21)             🟢 ENTREGUE (v4.4.0)
 Slice 2     TRACE.md (Run Record)                           🔴 PENDENTE (1 sem)
 Slice 3a    Pulsar audit workflow import (§22)              🟢 ENTREGUE (v4.5.0)
-Slice 3b    Pulsar feature workflow import (§23)            🟢 ENTREGUE (v4.6.0)
+Slice 3b    Pulsar feature workflow import (§23)            🟢 ENTREGUE (v4.6.1, corrigido vs v4.6.0)
 Slice 3     /feature, /userstory, /ux + ARCH-2 fix          🔴 PENDENTE (0.3-0.7 sem)
 Slice 4     Compat regression suite + CI test runner        🟡 PARCIAL (1.5-2 sem)
 v5.0.0 (release)
@@ -530,7 +530,7 @@ v5.1.0
 | 1 † | 🟢 | v4.2.0 + v4.2.1 | `/bugfix` thin wrapper, `PRE_CLASSIFIED_TYPE` contract, hook patches; SEC-1+SEC-2 fechados em adversarial review. **† TRACE-defer:** ACs sobre TRACE.md diferidas para Slice 2 (ver §12.5.3 e §17.3 #8) |
 | 2 | 🔴 | — | trace-generator + trace-schema/v1.md |
 | 3a | 🟢 | v4.5.0 | `/audit` thin wrapper + `audit-light` + `audit-heavy` skills (9 steps cada), §22; reusa `audit-{intake,domain-analyzer,compliance-checker,risk-matrix-generator}` agents |
-| 3b | 🟢 | v4.6.0 | `/feature` skill **single com mode flag** (NEW pattern vs Slice 1.5/3a) + 13 steps mode-aware. §23. Reusa 5 agentes existentes (`feature-vertical-slice-planner`, `feature-implementer`, `feature-integration-validator`, `pre-tester`, `quality-gate-router`); 0 novos. 4 gates (steps 3, 7, 9, 10). Hooks ADVISORY (§17.4 #8). |
+| 3b | 🟢 | v4.6.1 | `/feature-light` + `/feature-heavy` 2 skills separadas espelhando Pulsar `Ligth/` + `Heavy/` 1:1 (igual padrão Slice 1.5/3a). §23. v4.6.0 inicial unificou em single skill com mode flag — **REVERTIDO** em v4.6.1 ([CORREÇÃO 2026-05-03]: fonte canônica tem 2 pastas, port deve ter 2 skills). Cada step file = cópia literal do prompt Pulsar correspondente + frontmatter mínimo. |
 | 3 | 🔴 | — | 3 commands restantes (feature/userstory/ux) + ARCH-2 (trust boundary do prefix — ver §17.3 #7) |
 | 4 | 🟡 (90% estrutural) | — | runner.cjs ✅ + workflow YAML ✅ + 5/5 fixtures estruturais (template) + 0/5 baselines reais + performance N/A + protocolo de captura ✅. 2/4 critérios fechados; critério 3 100% estrutural mas 0% real. Falta: capturar 5 baselines via dogfooding + medir wall-clock real. Ver §12.8.3 + §17.3 #10/#11. |
 | 5 | 🔴 | — | v5.1, defer |
@@ -1412,7 +1412,7 @@ Origem: D2:850–856 (Q1–Q5 originais decididos) + D3:259–264 (4 residuais).
 9. **Gap residual de tools no pipeline-controller (descoberto 2026-05-03).** ✅ **RESOLVIDO em 2026-05-03**: opção (b) escolhida pelo dono — `Task` e `Bash` adicionadas ao frontmatter de `agents/core/pipeline-controller.md`. Frontmatter atual declara 8 tools (`Read, Write, Glob, Grep, Agent, AskUserQuestion, Task, Bash`), conforme DoD #7. Justificativa para opção (b) sobre opção (a): defensive — adicionar é aditivo e não-breaking; o controller já funcionava sem essas duas, mas pode vir a precisar (ex: `Bash` para invocar exec-window scripts diretamente em vez de via Agent dispatch; `Task` se o harness CC 2.x ganhar nova semântica). Custo zero, risco zero.
 10. **Slice 4 instalação parcial (2026-05-03).** 📌 **HISTÓRICO REGISTRADO**: estrutura do Slice 4 entregue em duas sessões pipeline lean-inline. Sessão 1 (01:00-01:06 UTC): runner.cjs + workflow YAML + 1 fixture template (bugfix) + README. Reviewer adversarial (`ce-correctness-reviewer`) cravou NEEDS_REWORK com 2 CRITICAL (parseYaml lookahead via `lines.indexOf` frágil; executeMock retornava expected como actual = PASS sintético) + 6 MAJOR + 4 MINOR. Fix-loop atempt 1/3 aplicou 7 fixes (2 CRIT + 4 MAJ + 1 MIN); 2 MINOR cosméticos pulados; 1 MAJOR (typo CLAUDE_CLI_AVAILABLE) aceito como risco. Smoke test pós-fix verde (exit 1 quando só SKIPPED — não engana CI). Sessão 2 (02:00-02:05 UTC): adicionados 3 fixtures restantes (feature, audit, ux) inferidos do spec §7.2.3/§7.2.2/§7.2.4, todos marcados TEMPLATE. Smoke test 4-fixtures: 4 SKIPPED + exit 1 + warning "NO REAL VALIDATION" — CI bloqueia merge no estado atual. Faltam: 1 fixture (hotfix) + 5 baselines reais via dogfooding + medição wall-clock para promover Slice 4 a 🟢. Owner: dono do plugin.
 11. **Slice 4 fixture-5 + protocolo de captura (2026-05-03 sessão 3).** 📌 **HISTÓRICO REGISTRADO**: brainstorming + writing-plans + execução adicionou `hotfix-fixture/` (5º cenário, contrato observável inferido de `commands/pipeline.md` HOTFIX Mode com diferenças explícitas vs bugfix-fixture: campo `mode=hotfix`, pseudo-gate `HOTFIX_CONFIRMATION`, 2 checklists adversarial em vez de 7, `adversarial-{architecture,quality}-reviewer` ausentes, `FINAL_ADVERSARIAL_GATE.decision=SKIPPED`, artefato `HOTFIX_LOG.md` obrigatório, seção `hotfix_assertions` que runner verifica sempre). Mais: seção "Protocolo de captura de baseline real" no `tests/compat/README.md` documenta 5 passos por fixture para quando dogfooding real acontecer. Captura de baselines reais e medição wall-clock continuam adiadas por decisão do dono ("deixa isso que vemos no decorrer das execuções reais"). Score Slice 4: 90% estrutural, 0% baseline real. Ver spec `docs/superpowers/specs/2026-05-03-hotfix-fixture-and-capture-protocol-design.md`.
-12. **Slice 3b drift descoberto via adversarial review (2026-05-03 sessão 4).** 📌 **HISTÓRICO REGISTRADO + RESOLVIDO**: durante prep do porte do Pulsar `Implement_new_feature` (Slice 3b), 3 reviewers adversariais (`ce-coherence` + `ce-feasibility` + `ce-scope-guardian`) detectaram drift entre §7.1.1 e realidade do plugin. **§7.1.1 listava** `feature-slice-architect`, `feature-slice-implementer` (nomes que NUNCA existiram); reais são `feature-vertical-slice-planner`, `feature-implementer`, `feature-integration-validator` [VERIFICADO 2026-05-03 via `ls agents/executor/type-specific/feature-*.md`]. Origem: D1/D2 invertaram nomes sem reality-check — mesmo padrão que §1.1 já tinha criticado. **Resoluções aplicadas em 2026-05-03 nesta passada:** (a) §7.1.1 atualizada com 3 nomes corretos; (b) §7.2.3 reescrita — Light = 13 passos compartilhados com Heavy + mode flag (era 6 "redesenhar do zero"), alinhado com Pulsar Light real; (c) ownership mapping corrigido para refletir agentes reais. **Lições adicionais capturadas:** (i) hooks (`sentinel-hook`, `dispatch-guard`, `force-pipeline-agents`) NÃO parseiam SKILL.md frontmatter — campos `sequence_lock`, `gates_at`, `sentinel_checkpoints`, `agent_type` em skill specs são **ADVISORY documentação, não enforcement** (slice 1.5/3a funcionam assim hoje silenciosamente; documentado explicitamente em §17.4 #8 abaixo); (ii) Pulsar TDD step usa paths Firebase-específicos (`functions/src/__tests__/`) que NÃO generalizam — porte deve parametrizar via `expected_inputs.pre_tester_artifacts` em vez de hardcoded shell. Spec mapping 3b: `docs/superpowers/specs/2026-05-03-feature-pulsar-import-mapping.md` (rewrite v2 pós-bugfix em commit subsequente).
+12. **Slice 3b drift descoberto via adversarial review (2026-05-03 sessão 4).** 📌 **HISTÓRICO REGISTRADO + RESOLVIDO**: durante prep do porte do Pulsar `Implement_new_feature` (Slice 3b), 3 reviewers adversariais (`ce-coherence` + `ce-feasibility` + `ce-scope-guardian`) detectaram drift entre §7.1.1 e realidade do plugin. **§7.1.1 listava** `feature-slice-architect`, `feature-slice-implementer` (nomes que NUNCA existiram); reais são `feature-vertical-slice-planner`, `feature-implementer`, `feature-integration-validator` [VERIFICADO 2026-05-03 via `ls agents/executor/type-specific/feature-*.md`]. Origem: D1/D2 invertaram nomes sem reality-check — mesmo padrão que §1.1 já tinha criticado. **Resoluções aplicadas em 2026-05-03 nesta passada:** (a) §7.1.1 atualizada com 3 nomes corretos; (b) §7.2.3 reescrita — Light = 13 passos compartilhados com Heavy + mode flag (era 6 "redesenhar do zero"), alinhado com Pulsar Light real; (c) ownership mapping corrigido para refletir agentes reais. **Lições adicionais capturadas:** (i) hooks (`sentinel-hook`, `dispatch-guard`, `force-pipeline-agents`) NÃO parseiam SKILL.md frontmatter — campos `sequence_lock`, `gates_at`, `sentinel_checkpoints`, `agent_type` em skill specs são **ADVISORY documentação, não enforcement** (slice 1.5/3a funcionam assim hoje silenciosamente; documentado explicitamente em §17.4 #8 abaixo); (ii) Pulsar TDD step usa paths Firebase-específicos (`functions/src/__tests__/`) que NÃO generalizam — porte deve parametrizar via `expected_inputs.pre_tester_artifacts` em vez de hardcoded shell. Spec mapping 3b: `docs/superpowers/specs/2026-05-03-feature-pulsar-import-mapping.md` (rewrite v2 pós-bugfix em commit subsequente). **Adendo 2026-05-03 v4.6.1 correction:** o pattern "single skill com mode flag" do mapping v2 foi REVERTIDO em v4.6.1 — fonte canônica Pulsar tem 2 pastas (Heavy + Ligth), port deve ter 2 skills. Lição: AskUserQuestion com primeira opção marcada "Recomendado" pode enviesar a escolha do dono. Próximas portabilidades de fonte canônica devem espelhar 1:1 sem reinterpretar estrutura — perguntas técnicas envolvendo "padrão novo vs estrutura da fonte" devem apresentar a estrutura da fonte como recomendada por padrão, não a otimização inventada.
 
 ### 17.4 Aberta — para Slice 3
 
@@ -1860,16 +1860,20 @@ Aditivo: nenhum comportamento existente alterado. `/pipeline-orchestrator:audit`
 
 Igual a Slice 1.5 (bugfix) e Slice 3a (audit) — port do workflow Pulsar (`D:\Projeto Pulsar\.claude\commands\Prompts\Implement_new_feature\`) com 13 steps Heavy + 13 Light. **Único entre os 3 ports: usa pattern single-skill-com-mode-flag** em vez de 2 skills separadas. Origem da decisão: bugfix-heavy adversarial review 2026-05-03 (3 reviewers paralelos) cravou que Pulsar Light é estruturalmente igual a Heavy (13=13 passos), só diferindo em verbosidade de prompt. Spec mapping: `docs/superpowers/specs/2026-05-03-feature-pulsar-import-mapping.md` (v2 pós-bugfix com 0 decisões pendentes).
 
-### 23.2 Decisão de design
+### 23.2 Decisão de design (CORRIGIDA em v4.6.1)
 
-- **3 skills criados** (vs 5 dos ports anteriores): `skills/feature/SKILL.md` (manifest single) + 13 step files mode-aware + 1 tests file = 16 arquivos novos.
-- **Mode flag:** SKILL.md frontmatter declara `mode: heavy` (default). User override via `--mode=light` no argument. Cada step.md tem `## Heavy mode prompt` e `## Light mode prompt` sections; controller seleciona baseado em mode flag.
-- **5 agentes existentes reusados, 0 novos.**
-- **4 gates** (vs 5 da v1 do mapping): steps 3 (acceptance-matrix), 7 (architecture-choice), 9 (plan-approval; SKIP se Phase 1.5 plan-architect rodou), 10 (tdd-tests-approval). Step 11 sem gate skill-level (executor-controller cobre).
-- **3 sentinel checkpoints:** pre_3, pre_10, pre_13.
-- **Hooks ADVISORY:** ver §17.4 #8.
-- **TDD step 10 parametrizado** via `expected_inputs.pre_tester_artifacts` (não shell discovery hardcoded como Pulsar).
-- **Pré-check** (`HEAVY_A_*` do Pulsar) **absorvido por Phase 0** (information-gate + design-interrogator), não vira step da skill.
+**v4.6.0 inicial (REVERTIDO):** propunha single skill `feature` com mode flag (`mode: heavy|light`). Justificativa era reduzir file count (1 skill com 13 step files vs 2 skills com 13 cada). Aprovado via AskUserQuestion mas o "Recomendado" foi influência do agent — não validade neutra. Dono apontou após review: fonte canônica Pulsar tem 2 pastas separadas (`Heavy/` + `Ligth/`), port deve espelhar 1:1 igual Slice 1.5/3a.
+
+**v4.6.1 corrigido (vigente):**
+
+- **2 skills separadas** (padrão igual a Slice 1.5/3a):
+  - `skills/feature-light/` — SKILL.md + 13 step files (`steps/01..13-*.md`) + tests = 15 arquivos
+  - `skills/feature-heavy/` — SKILL.md + 13 step files + tests = 15 arquivos
+  - Total: **30 arquivos novos** (era 16 na unificação errada)
+- **Cada step file é cópia LITERAL** do arquivo Pulsar correspondente + frontmatter mínimo (`step_number`, `step_name`, `source`). Sem mode flag, sem GATE sections inventadas, sem parametrização TDD — espelhamento 1:1.
+- **Pré-check Pulsar** (`HEAVY_A_*` + `Avaliacao-pre-melhoria-ligth.md`) NÃO incluído nas skills. Pode ser absorvido por Phase 0 do pipeline (info-gate + design-interrogator) quando relevante.
+- **Hooks ADVISORY:** mantido (ver §17.4 #8). Sem mudança.
+- **Agentes reusados:** se controller dispatcha agentes para steps específicos, mantém os 5 existentes (`feature-vertical-slice-planner`, `feature-implementer`, `feature-integration-validator`, `pre-tester`, `quality-gate-router`). Mas SKILL.md NÃO declara ownership por step — fica a cargo do controller decidir runtime.
 
 ### 23.3 Forma do pipeline — 13 passos canônicos
 
@@ -1911,18 +1915,17 @@ Target: **v4.6.0** (minor release). Lineage: v4.5.0 → v4.6.0.
 - ✅ `references/pipelines/implement-{heavy,light}.md` continuam acessíveis com deprecation header (redirect).
 - ✅ Slice 1.5 (bugfix) e Slice 3a (audit) sem mudança.
 
-### 23.7 Critérios de done (DoD do Slice 3b)
+### 23.7 Critérios de done (DoD do Slice 3b CORRIGIDO v4.6.1)
 
-- [x] `skills/feature/SKILL.md` criado com mode flag handling.
-- [x] `skills/feature/steps/01..13-*.md` completos (13 step files mode-aware).
-- [x] `skills/feature/tests/tests-feature.md` criado.
-- [x] `references/pipelines/feature.md` criado; `implement-{heavy,light}.md` deprecated.
-- [x] Plugin metadata bumpado (plugin.json + hooks.json).
-- [x] CLAUDE.md + AGENTS.md + CHANGELOG.md atualizados.
-- [x] §12.2 status table marca Slice 3b 🟢.
-- [ ] Smoke test: invocar `/pipeline-orchestrator:feature test-fixture` confirma execução determinística.
-- [ ] Adversarial review round 2 (ce-coherence-reviewer) confirma fixes não introduziram regressão.
-- [ ] `git push origin main` concluído.
+- [x] `skills/feature-light/SKILL.md` + 13 step files (cópia literal Pulsar Ligth/) + tests
+- [x] `skills/feature-heavy/SKILL.md` + 13 step files (cópia literal Pulsar Heavy/) + tests
+- [x] `skills/feature/` (unificação errada v4.6.0) REMOVIDO
+- [x] `references/pipelines/feature.md` (single, errado) REMOVIDO; futuras references `feature-light.md` + `feature-heavy.md` quando precisarem
+- [x] Plugin metadata bumpado 4.6.0 → 4.6.1 (plugin.json + hooks.json)
+- [x] CLAUDE.md + AGENTS.md + CHANGELOG.md atualizados (CHANGELOG marca v4.6.0 como DEPRECATED)
+- [x] §12.2 status table reflete v4.6.1
+- [x] §23 reescrito documentando reversão
+- [x] §17.3 #12 estendido com lição capturada
 
 ### 23.8 Próximos passos
 

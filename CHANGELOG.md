@@ -5,7 +5,31 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.6.1] - 2026-05-03
+
+**Patch release CORRIGINDO Slice 3b**: a v4.6.0 inicial unificou Heavy + Light em **uma única skill `feature` com mode flag**, supostamente para reduzir contagem de arquivos. Decisão revertida: a fonte canônica Pulsar (`D:\Projeto Pulsar\.claude\commands\Prompts\Implement_new_feature\`) tem **2 pastas separadas** (`Heavy/` + `Ligth/`), e o port deve espelhar isso 1:1 — mesmo padrão de Slice 1.5 (bugfix) e Slice 3a (audit).
+
+### Changed
+
+- **`skills/feature/` REMOVIDO** (era a unificação errada; 15 arquivos deletados)
+- **`skills/feature-light/` CRIADO** — 13 step files espelhando Pulsar `Ligth/LIGHT_NN_*.md` 1:1 + SKILL.md + tests
+- **`skills/feature-heavy/` CRIADO** — 13 step files espelhando Pulsar `Heavy/HEAVY_NN_*.md` 1:1 + SKILL.md + tests
+- `references/pipelines/feature.md` REMOVIDO; substituído por `feature-light.md` + `feature-heavy.md` (a serem criados via futuro touch quando precisarem)
+- `commands/pipeline.md` — `--variant=feature` + `--mode` REMOVIDOS; entry-points são `/pipeline-orchestrator:feature-light` e `/pipeline-orchestrator:feature-heavy` (igual bugfix/audit)
+- `agents/core/task-orchestrator.md` — `FORCE_VARIANT=feature` + `FORCE_MODE` REMOVIDOS; aceita `FORCE_VARIANT=feature-light` ou `feature-heavy` (igual bugfix-light/bugfix-heavy)
+- `.claude-plugin/plugin.json` — version 4.6.0 → 4.6.1
+- `hooks/hooks.json` — SessionStart prompt menciona `/pipeline-orchestrator:feature-light` e `/pipeline-orchestrator:feature-heavy`
+- `CLAUDE.md` + `AGENTS.md` — versão + 2 roster entries (separadas)
+- `designs/pipeline-orchestrator-v5-consolidated.md` §23 — reescrita explicando reversão; §17.3 #12 estendida com lição
+
+### Notes
+
+- **Lição capturada:** quando há fonte canônica com estrutura definida (2 pastas), port DEVE espelhar 1:1. Otimizações de file count via "padrões novos" (mode flag) que divergem da fonte = drift documental e re-trabalho. Decisão tomada via AskUserQuestion na sessão de bugfix-heavy 2026-05-03 com opção "Recomendado" — o "Recomendado" foi minha (assistant) preferência por compactação, não validade neutra. Próximas portabilidades devem espelhar 1:1 sem reinterpretar a estrutura da fonte.
+- **Userstory + ux ports:** quando portados (Slice 3c/3d futuro), DEVEM espelhar igualmente a estrutura de pastas Pulsar.
+
 ## [4.6.0] - 2026-05-03
+
+> **DEPRECATED — vide [4.6.1]:** esta release foi corrigida em [4.6.1] que reverteu a unificação. Mantida no histórico para rastreabilidade.
 
 Minor release implementing **Slice 3b**: imports the prescriptive 13-step Pulsar `Implement_new_feature` workflow (`D:\Projeto Pulsar\.claude\commands\Prompts\Implement_new_feature\`) as a Claude Code skill. **Pattern novo:** single skill `feature` com mode flag (`heavy|light`) controlando verbosidade de prompt — primeira vez que um port usa essa estrutura (vs 2 skills separadas em Slice 1.5/3a). Design: `designs/pipeline-orchestrator-v5-consolidated.md` §23 + spec mapping `docs/superpowers/specs/2026-05-03-feature-pulsar-import-mapping.md`.
 

@@ -249,9 +249,8 @@ Analyze `<arguments>` to determine mode:
 | `/pipeline --complexa [task]` | FULL + force COMPLEXA | Override classification |
 | `/pipeline --light [task]` | FULL + force pipeline_variant=light | Force variant override (Slice 1.5+, valid for type=Bug Fix) |
 | `/pipeline --heavy [task]` | FULL + force pipeline_variant=heavy | Force variant override (Slice 1.5+, valid for type=Bug Fix) |
-| `/pipeline --variant=feature [task]` | FULL + force pipeline_variant=feature | Force feature variant (Slice 3b+, single skill with mode flag) |
-| `/pipeline --variant=feature --mode=light [task]` | FULL + force feature + mode=light | Force feature variant in Light mode (1 user story, max 5 AC) |
-| `/pipeline --variant=feature --mode=heavy [task]` | FULL + force feature + mode=heavy | Force feature variant in Heavy mode (full 13-step rigor) |
+| `/pipeline --variant=feature-light [task]` | FULL + force pipeline_variant=feature-light | Force feature-light variant (Slice 3b corrected v4.6.1, mirrors Pulsar Ligth/) |
+| `/pipeline --variant=feature-heavy [task]` | FULL + force pipeline_variant=feature-heavy | Force feature-heavy variant (Slice 3b corrected v4.6.1, mirrors Pulsar Heavy/) |
 | `/pipeline --hotfix [task]` | **HOTFIX** | Emergency bypass for production incidents |
 | `/pipeline --grill [task]` | FULL + design interrogation | Force design-interrogator for any complexity |
 | `/pipeline --plan [task]` | FULL + plan mode | Force plan-architect for any complexity |
