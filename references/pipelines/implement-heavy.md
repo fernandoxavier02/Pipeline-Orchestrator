@@ -1,3 +1,7 @@
+> **DEPRECATED (as of v4.6.0):** This file is preserved as a redirect. New canonical reference: `references/pipelines/feature.md` (single-skill-with-mode-flag pattern). Slice 3b (2026-05-03) replaced separate heavy/light references with unified `feature` skill. Will be removed in v5.0 final.
+
+---
+
 # Feature Implementation Pipeline — Heavy
 
 ## When Selected
