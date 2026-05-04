@@ -286,6 +286,23 @@ Immediately after creating PIPELINE_DOC_PATH, create the sentinel state file:
 2. Set `expected_next: "task-orchestrator"` so the hook knows the first expected spawn
 3. The Write MUST complete before any Agent tool call
 
+### State fields for skill enforcement (v4.8.0+)
+
+When the controller delegates to a backing skill (e.g., `feature-light`, `feature-heavy`, `audit-light`, `audit-heavy`, `bugfix-light`, `bugfix-heavy`), it MUST populate these fields in `sentinel-state.json` BEFORE spawning the next Agent:
+
+- `current_skill: "<skill-name>"` — short name matching `skills/<name>/SKILL.md` (e.g., `"feature-light"`, NOT `"pipeline-orchestrator:feature-light"`)
+- `current_step: <number>` — current step number from the skill's `sequence:` array (e.g., 3 for step 03)
+- `pipeline_doc_path: "<path>"` — already populated; used by enforcement hooks to log decisions
+
+These fields are READ by:
+- `sentinel-hook.cjs` — validates current step is within `sentinel_checkpoints` declared in SKILL.md frontmatter
+- `dispatch-guard.cjs` — validates the Agent being spawned matches `agent_type` for `current_step` in skill's step file
+- `force-pipeline-agents.cjs` — forces AskUserQuestion log entry before allowing Agent spawn when `current_step` is in `gates_at` array
+
+**Backward compat:** if either `current_skill` or `current_step` is missing/empty, hooks SILENTLY skip enforcement (advisory mode for non-skill flows). This preserves behavior for `/pipeline-orchestrator:pipeline` direct invocation without skill backing.
+
+**Mode toggle:** until 2026-05-17, violations log WARNs to `gate-decisions.jsonl` (gate=ENFORCEMENT_WARN, hardness=AUDIT) but do NOT block. After 2026-05-17, violations BLOCK with denial reason. Override via env var `PIPELINE_ENFORCEMENT=warn|deny` for testing.
+
 ---
 
 ## STEP 4: EXECUTE PHASES
