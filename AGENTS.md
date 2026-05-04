@@ -113,6 +113,7 @@ Plugin v4.3.1 has **2 skills**; v4.4.0 will add 2 more (Slice 1.5):
 | `bugfix` | Shipped v4.3.0+v4.3.1 | `skills/bugfix/SKILL.md` | Thin entry pre-fixes task_type=Bug Fix |
 | `bugfix-light` | 🟢 Shipped v4.4.0 | `skills/bugfix-light/` | 8 prescriptive steps from Pulsar workflow (consolidated §21) |
 | `bugfix-heavy` | 🟢 Shipped v4.4.0 | `skills/bugfix-heavy/` | 11 prescriptive steps from Pulsar workflow (consolidated §21) |
+| `feature` | 🟢 Shipped v4.6.0 | `skills/feature/` | 13 prescriptive steps from Pulsar workflow with mode flag (heavy default, --mode=light) — single skill pattern (NEW vs Slice 1.5/3a). 4 gates. (consolidated §23) |
 
 ## Versão deste arquivo
 
