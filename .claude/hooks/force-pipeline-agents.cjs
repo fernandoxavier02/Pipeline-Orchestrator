@@ -12,6 +12,10 @@
  * Mantém o sistema de agentes funcionando de forma DETERMINÍSTICA.
  */
 
+const fs = require('fs');
+const path = require('path');
+const enforcement = require('./skill-frontmatter-parser.cjs');
+
 // ============================================================
 // CONFIGURAÇÃO
 // ============================================================
@@ -173,6 +177,59 @@ REGRAS DE ENFORCEMENT:
 `.trim();
 
 // ============================================================
+// v4.8.0 GATES_AT ENFORCEMENT
+// ============================================================
+//
+// When a backing skill is in flight (sentinel-state.json has current_skill +
+// current_step), and current_step is in the SKILL.md frontmatter `gates_at`
+// list, this hook checks that gate-decisions.jsonl already records evidence
+// of an AskUserQuestion / gate decision for that step. Missing evidence:
+// - warn (until 2026-05-17): log ENFORCEMENT_WARN to gate-decisions.jsonl + stderr
+// - deny (after 2026-05-17): emit a [ENFORCEMENT_DENY] systemMessage (does NOT
+//   block the prompt — UserPromptSubmit cannot deny — but surfaces to operator).
+
+function checkGateLogged() {
+  const docPath = (process.env.PIPELINE_DOC_PATH || '').trim();
+  if (!docPath) return null;
+  const statePath = path.join(docPath, 'sentinel-state.json');
+  let state;
+  try { state = JSON.parse(fs.readFileSync(statePath, 'utf8')); } catch { return null; }
+  const ctx = enforcement.getCurrentSkill(state);
+  if (!ctx || !ctx.step) return null;
+  const repoRoot = process.env.PIPELINE_REPO_ROOT || process.cwd();
+  const skillResult = enforcement.readSkillFrontmatter(ctx.skill, repoRoot);
+  if (!skillResult.ok || !Array.isArray(skillResult.frontmatter.gates_at)) return null;
+  if (!skillResult.frontmatter.gates_at.includes(ctx.step)) return null; // Not at gate
+  // Look for gate evidence in gate-decisions.jsonl
+  const logPath = path.join(docPath, 'gate-decisions.jsonl');
+  let logText = '';
+  try { logText = fs.readFileSync(logPath, 'utf8'); } catch { /* ok if missing */ }
+  // Heuristic: any line that mentions this step number, or a gate/askuser keyword.
+  const stepRegex = new RegExp(`(askuser|"gate"\\s*:|"step"\\s*:\\s*${ctx.step}\\b|step.{0,8}${ctx.step})`, 'i');
+  if (stepRegex.test(logText)) return null; // Evidence found
+  return {
+    violation: `gate at step ${ctx.step} of skill ${ctx.skill} required but no gate decision logged`,
+    hint: 'Controller must invoke AskUserQuestion and log decision before proceeding past this step',
+    pipeline_doc_path: state.pipeline_doc_path || docPath,
+    skill: ctx.skill,
+    step: ctx.step,
+  };
+}
+
+function applyGateEnforcement() {
+  let violation;
+  try { violation = checkGateLogged(); } catch { return null; }
+  if (!violation) return null;
+  const mode = enforcement.getEnforcementMode();
+  enforcement.logEnforcementDecision(violation.pipeline_doc_path, {
+    mode, hook: 'force-pipeline-agents', skill: violation.skill, step: violation.step,
+    violation: violation.violation, detail: violation.hint, pipeline_doc_path: violation.pipeline_doc_path,
+  });
+  process.stderr.write(`[ENFORCEMENT_${mode === 'deny' ? 'DENY' : 'WARN'}] force-pipeline-agents: ${violation.violation}\n`);
+  return mode === 'deny' ? `[ENFORCEMENT_DENY] ${violation.violation}. ${violation.hint}` : null;
+}
+
+// ============================================================
 // MAIN
 // ============================================================
 
@@ -207,9 +264,16 @@ process.stdin.on('end', () => {
       }
     }
 
+    // 0. v4.8.0 gates_at enforcement (runs before all routing — independent advisory).
+    // Returns a deny message string if mode=deny + gate violated; surfaces via systemMessage.
+    // Never blocks the prompt itself; UserPromptSubmit cannot deny.
+    const gateDenyMsg = applyGateEnforcement();
+
     // 1. Se é conversacional/meta → passa direto
     if (isTrivialChat(prompt)) {
-      console.log(JSON.stringify({ continue: true }));
+      console.log(JSON.stringify(gateDenyMsg
+        ? { continue: true, systemMessage: gateDenyMsg }
+        : { continue: true }));
       return;
     }
 
