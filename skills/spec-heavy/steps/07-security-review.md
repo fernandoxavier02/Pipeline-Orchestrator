@@ -25,11 +25,11 @@ allowed_tools: [Read, Grep, Glob, Bash]
 
 ## Quando usar
 
-Use apos a Implementation (step 04) ter terminado. Roda em paralelo com steps 05 (post-impl-validation) e 06 (architecture-audit). Sem gate proprio — sera consumido pelo step 08 (confidence dashboard) e pelo step 09 (closure).
+Use apos a Implementation (step 04) ter terminado e os steps 05 (post-impl-validation) e 06 (architecture-audit) terem consolidado seus reports. Sem gate proprio — sera consumido pelo step 08 (confidence dashboard) e pelo step 09 (closure).
 
-## Paralelismo
+## Ordem de execucao
 
-Steps 05, 06 e 07 sao independentes — todos auditam o mesmo codigo imutavel e nao se modificam mutuamente. O orchestrator e ENCORAJADO a dispatcha-los em paralelo (single-message com 3 Agent calls). `expected_next: 8` no frontmatter mantem ordem sequencial por seguranca de schema, mas paralelo e o caminho recomendado.
+A cadeia `expected_next` e sequencial: 05 → 06 → 07 → 08. Steps 05/06/07 sao auditorias independentes do mesmo codigo imutavel, mas executam em sequencia conforme a cadeia declarada — o frontmatter `expected_next: 8` reflete essa ordem.
 
 ## Regras
 
@@ -196,4 +196,4 @@ Step 07 nao emite gate proprio — findings sao consumidos pelo step 08 e pelo s
 
 ---
 
-**Proximo step:** 08 (sequencial); pode ter rodado em paralelo com 05 e 06
+**Proximo step:** 08 (sequencial)

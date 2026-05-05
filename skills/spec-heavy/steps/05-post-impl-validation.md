@@ -22,7 +22,7 @@ allowed_tools: [Read, Grep, Glob, Bash]
 # Spec Lifecycle (Heavy) — Step 05: Post-Impl Validation (6-axis congruence)
 
 > **Position in pipeline:** Step 5 — primeiro dos 3 audits independentes pos-implementation. Cross-checks spec contra codigo.
-> **Goal:** Produzir um Congruence Score (0-100%) que quantifica fidelidade da implementacao a spec, em 6 eixos com peso. No Heavy, este step roda em PARALELO com steps 06 (architecture audit) e 07 (security review) sempre que o orchestrator pode dispatchar paralelo — todos os tres auditam o mesmo codigo e nao se modificam mutuamente.
+> **Goal:** Produzir um Congruence Score (0-100%) que quantifica fidelidade da implementacao a spec, em 6 eixos com peso. Steps 05, 06 e 07 sao auditorias independentes (auditam o mesmo codigo imutavel e nao se modificam mutuamente); resultados consolidam no step 08 (confidence dashboard).
 
 ---
 
@@ -30,9 +30,9 @@ allowed_tools: [Read, Grep, Glob, Bash]
 
 Use apos a Implementation (step 04) ter terminado com build PASS e adversarial loop encerrado. Este passo nao escreve codigo — ele audita o que foi escrito contra o que a spec prometeu.
 
-## Paralelismo (Heavy)
+## Ordem de execucao
 
-Steps 05, 06 e 07 sao independentes (auditam codigo ja imutavel) e o orchestrator e ENCORAJADO a dispatchar os tres em paralelo via single-message multi-Agent call. O frontmatter declara `expected_next: 6` por consistencia de schema, mas a execucao paralela e o caminho recomendado quando o ambiente suporta. Resultados consolidam no step 08 (confidence dashboard).
+A cadeia `expected_next` e sequencial: 05 → 06 → 07 → 08. O orchestrator dispatcha os steps nesta ordem. O frontmatter declara `expected_next: 6` para consistencia com a sequencia.
 
 ## Regras
 
@@ -154,11 +154,11 @@ Score eixo: XX/100
 ## Gate (AskUserQuestion mandatorio)
 
 Apos emitir o report, abrir AskUserQuestion com header `Post-Impl` e opcoes:
-- **Aprovar (Recomendado se PASS)** — prosseguir para step 06 (architecture audit) — ou para step 08 se 06+07 ja rodaram em paralelo.
+- **Aprovar (Recomendado se PASS)** — prosseguir para step 06 (architecture audit).
 - **Aprovar com warnings (PASS_WITH_WARNINGS)** — prosseguir; warnings registrados no closure-report.
 - **Remediar e re-rodar** — voltar ao step 04 com lista de remediacao.
 - **Abortar pipeline** — encerrar sem closure.
 
 ---
 
-**Proximo step:** 06 (sequencial); 06+07 podem ter rodado em paralelo com este step
+**Proximo step:** 06 (sequencial)

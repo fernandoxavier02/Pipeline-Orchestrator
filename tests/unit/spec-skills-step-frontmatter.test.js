@@ -240,3 +240,27 @@ test('total step file count across all 3 skills equals 20', () => {
   const total = SKILLS.reduce((acc, s) => acc + STEPS[s.name].length, 0);
   assert.strictEqual(total, 20, `expected 20 total step files, got ${total}`);
 });
+
+// TD-08: spec-audit-only step files declare production_writes_allowed: false
+// (audit-only is read-only by design — spec/docs writes during fix-loop are
+// scoped to .kiro/specs/<feature>/ via Step 03 body guard, not feature code)
+test('spec-audit-only step files declare production_writes_allowed: false', () => {
+  const auditOnlySteps = STEPS['spec-audit-only'];
+  assert.strictEqual(
+    auditOnlySteps.length,
+    5,
+    `sanity: spec-audit-only must have 5 step files, got ${auditOnlySteps.length}`
+  );
+  for (const step of auditOnlySteps) {
+    const fm = step.result.frontmatter;
+    assert.ok(
+      Object.prototype.hasOwnProperty.call(fm, 'production_writes_allowed'),
+      `spec-audit-only/${step.basename}: missing required field "production_writes_allowed"`
+    );
+    assert.strictEqual(
+      fm.production_writes_allowed,
+      false,
+      `spec-audit-only/${step.basename}: production_writes_allowed must be boolean false, got ${JSON.stringify(fm.production_writes_allowed)}`
+    );
+  }
+});

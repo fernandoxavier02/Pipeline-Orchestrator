@@ -109,14 +109,26 @@ Estado por slice:
 
 Estado pipeline-level (acumula across slices):
 - `total_adversarial_rounds` (counter, max 12 no Heavy; usado pra hard cap absoluto).
+  <!-- Rationale do hard cap: max 12 = 4 slices x 3 rounds/slice. Heavy tolera
+       mais rodadas que Light (que para em 9 = 3 x 3) por ser pipeline mais
+       longo, com auditoria deeper nos steps 06+07 ja na pos-impl. Estourou 12
+       sem convergir = problema fora do escopo de loop adversarial. -->
 
-Definicao de `findings_signature` (Node.js):
+Definicao de `findings_signature` (Node.js — entrada canonica;
+runtime pode usar qualquer impl de sha256, ver nota de cross-ref abaixo):
 
 ```js
 const crypto = require('crypto');
 const payload = JSON.stringify(findings.map(f => f.id + '|' + f.severity).sort());
 const findings_signature = crypto.createHash('sha256').update(payload).digest('hex');
 ```
+
+<!-- MIRROR: skills/spec-light/steps/03-implementation.md
+     A entrada canonica do `findings_signature` (a string que vai pro hash —
+     `JSON.stringify(findings.map(f => f.id + '|' + f.severity).sort())`) e
+     identica entre Light e Heavy. Qualquer implementacao de sha256 (Node crypto,
+     openssl CLI, web crypto subtle, biblioteca de terceiro) e aceitavel desde
+     que a entrada seja exatamente essa. Sync edits across both files. -->
 
 Duas rodadas consecutivas com a MESMA assinatura forcam checkpoint imediato sem incrementar `loop_attempt`.
 

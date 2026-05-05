@@ -4,6 +4,7 @@ step_name: "confidence-dashboard"
 description: "Spec Audit-Only: Confidence dashboard — audit-mode scoring (no implementation phase, baseline 75)"
 execution_mode: inline
 agent_type: ""
+production_writes_allowed: false
 expected_inputs:
   - format_gate_report: from_step_01
   - content_review_report: from_step_02

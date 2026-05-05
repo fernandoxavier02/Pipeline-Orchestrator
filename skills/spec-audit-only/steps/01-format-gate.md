@@ -4,6 +4,7 @@ step_name: "format-gate"
 description: "Spec Audit-Only: Format validation (25 checks) — full column table; spec expected post_impl_validation or closed"
 execution_mode: subagent
 agent_type: "pipeline-orchestrator:executor:type-specific:spec-format-gate"
+production_writes_allowed: false
 expected_inputs:
   - spec_context: from_spec_context_yaml
   - spec_path: from_spec_context_yaml

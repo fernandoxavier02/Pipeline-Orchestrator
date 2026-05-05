@@ -70,20 +70,11 @@ Se durante a analise surgirem indicios de domain/contratos complexos, integracoe
 
 ## spec-context.yaml schema
 
-The orchestrator pipes a single artifact `spec-context.yaml` into every step. Required fields:
+The orchestrator pipes a single artifact `spec-context.yaml` into every step. The canonical schema (fields, semantics, ownership) is declared in a single location to prevent drift across the 3 spec lifecycle skills:
 
-```yaml
-spec_context_schema:
-  feature_name: string (required)
-  spec_path: string (required, abs path to .kiro/specs/<feature>/)
-  estimated_complexity: "Light" | "Heavy" | "Audit-Only" (required)
-  acceptance_criteria: list of objects (each: { id: "AC#N", text: string, testable: boolean })
-  domains_touched: list of strings
-  files_affected: integer
-  business_rules: list of strings
-```
+→ See [`references/spec-context-schema.md`](../../references/spec-context-schema.md) for the full schema, field-by-field semantics, and the sub-field reference convention.
 
-`spec-context.yaml` é criado pelo task-orchestrator (Phase 0a) e populado pelos steps 01-02 conforme avançam. Step 02 lê `acceptance_criteria` como SUB-FIELD de `spec_context`, NÃO como input separado (i.e. `spec_context.acceptance_criteria`).
+In `spec-light`, `spec-context.yaml` is created by the task-orchestrator (Phase 0a) and populated by steps 01-02 as they progress. Step 02 reads `acceptance_criteria` as a SUB-FIELD of `spec_context`, NOT as a separate input (i.e. `spec_context.acceptance_criteria`).
 
 ## Execution rules
 

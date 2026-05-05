@@ -4,6 +4,7 @@ step_name: "closure"
 description: "Spec Audit-Only: Formal spec closure — 2 reports + spec.json update (only if fixes applied) + archive (only if fixes applied)"
 execution_mode: subagent
 agent_type: "pipeline-orchestrator:executor:spec-closer"
+production_writes_allowed: false
 expected_inputs:
   - confidence_score: from_step_04
   - spec_grade: from_step_04
@@ -64,12 +65,14 @@ Use apos o Confidence Dashboard (step 04) ter sido emitido. Este passo nao tem g
 | 0 | `<feature>` valida o allowlist `^[a-zA-Z0-9_-]+$` (sem espacos, sem `..`, sem `/`, sem `;`, sem `$`, sem aspas) | match |
 | 1 | `spec.json` existe e e parseavel | true |
 | 2 | `loop_result.gate_decision` ∈ {`approved`, `checkpoint`} (nao `abort`) | true |
-| 3 | Build do projeto passa (re-run defensivo) | exit code 0 |
+| 3 | Build do projeto passa (re-run defensivo) — **CONDICIONAL: pular se `loop_result.fixes_applied.length == 0`** | exit code 0 (ou skipped se zero fixes) |
 | 4 | 0 findings BLOCKER outstanding (escalated counta como nao-bloqueante para audit-only) | true |
 
 **Check 0 (sanitizacao) e MANDATORIO antes de qualquer comando shell desta step.** Se `<feature>` nao matchar o allowlist `^[a-zA-Z0-9_-]+$`, FAIL imediato com mensagem de erro `INVALID_FEATURE_NAME: <feature>` e NAO prosseguir para Etapa 4 (mv) nem qualquer outra etapa que invoque shell. Razao: previne shell injection no `mv`.
 
-Se qualquer pre-requisito falhar, ABORTAR sem tocar arquivos. Reportar ao usuario qual pre-req falhou.
+**Check 3 (build pass) e CONDICIONAL ao audit-only ter aplicado fixes.** Se `loop_result.fixes_applied.length == 0`, o audit foi puramente read-only — nenhum codigo (e nenhum arquivo de spec/docs) foi alterado, entao re-rodar o build e desnecessario e arrisca um falso negativo se o working tree estava com problema pre-existente nao relacionado ao audit. Skip do check 3 nesse caso e registrar `build_check: skipped (zero fixes — audit was read-only)` no closure-report. Se `fixes_applied.length > 0`, executar o check 3 normalmente.
+
+Se qualquer pre-requisito (excluindo check 3 quando skipped) falhar, ABORTAR sem tocar arquivos. Reportar ao usuario qual pre-req falhou.
 
 ---
 

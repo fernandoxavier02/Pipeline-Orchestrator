@@ -104,14 +104,25 @@ Estado por slice:
 
 Estado pipeline-level (acumula across slices):
 - `total_adversarial_rounds` (counter, max 9; usado pra hard cap absoluto).
+  <!-- Rationale do hard cap: max 9 = 3 slices x 3 rounds/slice. Alem disso o sinal
+       e que o Light esta saturado de findings — promover para spec-heavy (mais auditoria)
+       ao inves de continuar gastando rodadas em Light. Heavy usa 12 (4 x 3). -->
 
-Definicao de `findings_signature` (Node.js):
+Definicao de `findings_signature` (Node.js — entrada canonica;
+runtime pode usar qualquer impl de sha256, ver nota de cross-ref abaixo):
 
 ```js
 const crypto = require('crypto');
 const payload = JSON.stringify(findings.map(f => f.id + '|' + f.severity).sort());
 const findings_signature = crypto.createHash('sha256').update(payload).digest('hex');
 ```
+
+<!-- MIRROR: skills/spec-heavy/steps/04-implementation.md
+     A entrada canonica do `findings_signature` (a string que vai pro hash —
+     `JSON.stringify(findings.map(f => f.id + '|' + f.severity).sort())`) e
+     identica entre Light e Heavy. Qualquer implementacao de sha256 (Node crypto,
+     openssl CLI, web crypto subtle, biblioteca de terceiro) e aceitavel desde
+     que a entrada seja exatamente essa. Sync edits across both files. -->
 
 Duas rodadas consecutivas com a MESMA assinatura forcam checkpoint imediato sem incrementar `loop_attempt`.
 
