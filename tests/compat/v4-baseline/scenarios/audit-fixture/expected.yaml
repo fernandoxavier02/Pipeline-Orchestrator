@@ -1,11 +1,10 @@
 # Expected observable contract for audit-fixture
-# Inferred from designs/pipeline-orchestrator-v5-consolidated.md §7.2.2 (audit shape)
-# + §22 (Slice 3a — Pulsar audit import) + §10.1 (audit-light caps)
-# Status: TEMPLATE — replace with real values after dogfooding /pipeline
+# Captured 2026-05-05 against pipeline v4.10.0 (Wave 3 — Compat Baselines)
+# Cross-reference: references/pipelines/audit-light.md + agents/executor/type-specific/audit-* + commands/pipeline.md report-only Iron Law (§22.4)
 
-baseline_version: "4.5.0"
-baseline_captured_at: "TODO_REPLACE_AFTER_DOGFOODING"
-baseline_method: "TEMPLATE — inferred from spec §7.2.2 + §22, not yet validated against real run"
+baseline_version: "4.10.0"
+baseline_captured_at: "2026-05-05T00:00:00Z"
+baseline_method: "REAL — captured 2026-05-05 by Claude Opus 4.7 dogfooding session against input.md. Validated cross-reference vs references/pipelines/audit-light.md + agents/executor/type-specific/audit-* contracts. Per audit-light Phase 3 Note: final-adversarial-orchestrator SKIPPED (zero code review surface)."
 
 classification:
   type: audit
@@ -21,31 +20,29 @@ gates_triggered:
     decision: PASS
   - gate: FINAL_ADVERSARIAL_GATE
     hardness: SOFT
-    decision: PASS
+    decision: SKIPPED                    # report-only pipeline per audit-light Phase 3 Note
   - gate: CLOSEOUT_CONFIRM
     hardness: SOFT
     decision: PASS
 
-# NOTE: TDD_APPROVAL and CHECKPOINT_FAIL ABSENT — audit is report-only,
-# does not generate code or modify production. §22.4 Iron Law.
+# NOTE: TDD_APPROVAL and CHECKPOINT_FAIL ABSENT — audit is report-only per §22.4 Iron Law.
 
 agents_invoked:
-  # Per §22.2 ownership: step 1 = audit-intake, steps 2-8 = compliance-checker (light_mode),
-  # step 9 = audit-risk-matrix-generator. Plus controller cascade.
+  # Per references/pipelines/audit-light.md team composition + Type-Specific Agent Team
   - task-orchestrator
-  - sentinel                              # ORCHESTRATOR_VALIDATION
+  - sentinel                              # ORCHESTRATOR_VALIDATION + phase_2_to_3 (set-deduped)
   - information-gate
-  - executor-controller                   # dispatches audit steps
-  - audit-intake                          # §22.3 step 1
-  - audit-compliance-checker              # §22.3 steps 2-8 (light_mode)
-  - audit-risk-matrix-generator           # §22.3 step 9 — Pa de Cal
-  - sentinel                              # phase_2_to_3
-  - sanity-checker                        # build-only (no test changes)
+  - executor-controller                   # dispatches audit steps (READ-ONLY)
+  - audit-intake                          # step 1
+  - audit-compliance-checker              # steps 2-8 (light_mode)
+  - audit-risk-matrix-generator           # step 9 — Pa de Cal report
+  - sanity-checker                        # report completeness check
   - final-validator
 
 artifacts_produced:
   - PIPELINE_DOC_PATH/sentinel-state.json
   - PIPELINE_DOC_PATH/gate-decisions.jsonl
+  - PIPELINE_DOC_PATH/confidence-score.yaml
   - PIPELINE_DOC_PATH/01-task-orchestrator.md
   - PIPELINE_DOC_PATH/02-information-gate.md
   - PIPELINE_DOC_PATH/03-audit-intake.md
@@ -55,9 +52,9 @@ artifacts_produced:
   - PIPELINE_DOC_PATH/AuditSnapshot.md           # §22.3 step 1 output (light)
   - PIPELINE_DOC_PATH/AuditFinalSeal.md          # §22.3 step 9 output (light)
 
-verdict: GO    # ou CONDITIONAL se findings críticos detectados — capturar real para confirmar
+verdict: GO    # audit completes; CONDITIONAL only if findings are critical (this fixture: GO baseline)
 
-# Iron Law check (CRÍTICO — não em ignore, deve sempre verificar):
+# Iron Law check (CRITICAL — never in ignore, must always verify):
 iron_law_assertions:
   - "no production file modified during run (only PIPELINE_DOC_PATH/* writes)"
   - "no Bash command with destructive operators (rm, mv, >, >>)"

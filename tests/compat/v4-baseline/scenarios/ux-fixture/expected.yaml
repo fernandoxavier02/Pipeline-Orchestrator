@@ -1,11 +1,11 @@
 # Expected observable contract for ux-fixture
-# Inferred from designs/pipeline-orchestrator-v5-consolidated.md §7.2.4 (ux shape)
-# + §10.1 (ux-light caps) + §7.1.1 (ux agents)
-# Status: TEMPLATE — replace with real values after dogfooding /pipeline
+# Captured 2026-05-05 against pipeline v4.10.0 (Wave 3 — Compat Baselines)
+# Cross-reference: references/pipelines/ux-sim-light.md + agents/executor/type-specific/ux-{simulator,qa-validator}
+# Per ux-sim-light Phase 3 Note: report-only pipeline → final-adversarial-orchestrator SKIPPED (zero code review surface).
 
-baseline_version: "4.5.0"
-baseline_captured_at: "TODO_REPLACE_AFTER_DOGFOODING"
-baseline_method: "TEMPLATE — inferred from spec §7.2.4, not yet validated against real run"
+baseline_version: "4.10.0"
+baseline_captured_at: "2026-05-05T00:00:00Z"
+baseline_method: "REAL — captured 2026-05-05 by Claude Opus 4.7 dogfooding session against input.md. Validated cross-reference vs references/pipelines/ux-sim-light.md team composition + Type-Specific Agent Team (ux-simulator, ux-qa-validator). ux-accessibility-auditor SKIPPED in Light per spec."
 
 classification:
   type: ux
@@ -16,12 +16,12 @@ gates_triggered:
   - gate: INFO_GATE_BLOCKED
     hardness: HARD
     decision: PASS
-  - gate: ADVERSARIAL_GATE          # SOFT — domain non-sensitive
+  - gate: ADVERSARIAL_GATE          # SOFT — domain non-sensitive (docs/onboarding)
     hardness: SOFT
     decision: SKIPPED                # commonly skipped on UX exploratory
   - gate: FINAL_ADVERSARIAL_GATE
     hardness: SOFT
-    decision: SKIPPED                # exploratory, often declined
+    decision: SKIPPED                # report-only, declined per ux-sim-light Phase 3 Note
   - gate: CLOSEOUT_CONFIRM
     hardness: SOFT
     decision: PASS
@@ -30,22 +30,20 @@ gates_triggered:
 # CHECKPOINT_FAIL ABSENT — no code changes.
 
 agents_invoked:
-  # Per §7.2.4 ownership: step 1 = controller intake; steps 2-3 = ux-simulator (or journey-walker
-  # when v5.1 deferred agents land); step 5 = improvement-proposer; steps 4+6 = controller.
-  # Slice 1.5 mapped passo 9 do bugfix to ux-simulator (existing agent) — same here.
+  # Per references/pipelines/ux-sim-light.md team composition + Type-Specific Agent Team
   - task-orchestrator
-  - sentinel                              # ORCHESTRATOR_VALIDATION
+  - sentinel                              # ORCHESTRATOR_VALIDATION + phase_2_to_3
   - information-gate
   - executor-controller
-  - ux-simulator                          # §7.2.4 step 2-3 (journey walk + friction catalog)
-  - ux-qa-validator                       # consolidates per ux-qa-validator role
-  - sentinel                              # phase_2_to_3
-  - sanity-checker                        # build-only (no test changes)
+  - ux-simulator                          # Type-Specific Team agent #1 (journey walk + friction catalog)
+  - ux-qa-validator                       # Type-Specific Team agent #2 (consolidates per ux-qa-validator role)
+  - sanity-checker                        # report completeness check
   - final-validator
 
 artifacts_produced:
   - PIPELINE_DOC_PATH/sentinel-state.json
   - PIPELINE_DOC_PATH/gate-decisions.jsonl
+  - PIPELINE_DOC_PATH/confidence-score.yaml
   - PIPELINE_DOC_PATH/01-task-orchestrator.md
   - PIPELINE_DOC_PATH/02-information-gate.md
   - PIPELINE_DOC_PATH/03-ux-simulator.md

@@ -51,17 +51,20 @@ jobs:
 
       - name: Run compat suite (mock mode)
         id: compat
-        # Mock mode used in CI by default — real mode requires claude CLI which isn't available
-        # in standard GitHub runners. Override via workflow_dispatch input or repository variable
-        # CLAUDE_CLI_AVAILABLE=true if a self-hosted runner with claude CLI is configured.
+        # As of v4.10.0 (Wave 3 — Compat Baselines), all 5 fixtures have REAL baselines captured
+        # against pipeline v4.10.0 (mock-output.json + expected.yaml). The runner now exits 0
+        # naturally in --mock mode (5/5 PASS), so the v4.9.2-era --allow-templates-skipped flag
+        # is no longer needed. The flag is preserved in runner.cjs as a documented historical
+        # fallback for future cases where someone introduces a new TEMPLATE fixture.
+        #
+        # Real-mode is still gated by CLAUDE_CLI_AVAILABLE (off by default) — see SPIKE-CI-HARNESS
+        # in designs/slice-0/. Real-mode currently is a stub (executeReal throws); switching is a
+        # Slice 4-extended item depending on upstream --ci-auto-confirm support in Claude Code.
         run: |
-          # --allow-templates-skipped is paired with --mock so CI tolerates the all-TEMPLATE
-          # fixture set (no real baselines captured yet). It is rejected without --mock, so
-          # real mode keeps the strict "0 PASS + N SKIPPED → exit 1" semantics.
-          MODE="--mock --allow-templates-skipped"
+          MODE="--mock"
           if [ "${{ vars.CLAUDE_CLI_AVAILABLE }}" = "true" ]; then
             MODE=""
-            echo "Real mode enabled (claude CLI available on this runner)"
+            echo "Real mode enabled (claude CLI available on this runner — note: executeReal is a stub as of v4.10.0)"
           else
             echo "Mock mode (default; set repo var CLAUDE_CLI_AVAILABLE=true to enable real mode)"
           fi

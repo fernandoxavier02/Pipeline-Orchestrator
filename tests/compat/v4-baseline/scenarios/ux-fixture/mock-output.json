@@ -1,0 +1,37 @@
+{
+  "_comment": "Captured 2026-05-05 baseline for ux-fixture. Mirrors expected.yaml. Report-only pipeline — no TDD/CHECKPOINT, ADVERSARIAL_GATE skipped (non-sensitive domain), FINAL_ADVERSARIAL skipped per ux-sim-light spec.",
+  "classification": {
+    "type": "ux",
+    "complexity": "MEDIA",
+    "pipeline_variant": "ux-light"
+  },
+  "gates_triggered": [
+    { "gate": "INFO_GATE_BLOCKED", "hardness": "HARD", "decision": "PASS" },
+    { "gate": "ADVERSARIAL_GATE", "hardness": "SOFT", "decision": "SKIPPED" },
+    { "gate": "FINAL_ADVERSARIAL_GATE", "hardness": "SOFT", "decision": "SKIPPED" },
+    { "gate": "CLOSEOUT_CONFIRM", "hardness": "SOFT", "decision": "PASS" }
+  ],
+  "agents_invoked": [
+    "task-orchestrator",
+    "sentinel",
+    "information-gate",
+    "executor-controller",
+    "ux-simulator",
+    "ux-qa-validator",
+    "sanity-checker",
+    "final-validator"
+  ],
+  "artifacts_produced": [
+    "PIPELINE_DOC_PATH/sentinel-state.json",
+    "PIPELINE_DOC_PATH/gate-decisions.jsonl",
+    "PIPELINE_DOC_PATH/confidence-score.yaml",
+    "PIPELINE_DOC_PATH/01-task-orchestrator.md",
+    "PIPELINE_DOC_PATH/02-information-gate.md",
+    "PIPELINE_DOC_PATH/03-ux-simulator.md",
+    "PIPELINE_DOC_PATH/04-ux-qa-validator.md",
+    "PIPELINE_DOC_PATH/05-final-validator.md",
+    "PIPELINE_DOC_PATH/friction-catalog.md",
+    "PIPELINE_DOC_PATH/improvement-proposals.md"
+  ],
+  "verdict": "GO"
+}

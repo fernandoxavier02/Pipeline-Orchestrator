@@ -1,0 +1,51 @@
+{
+  "_comment": "Captured 2026-05-05 baseline for bugfix-fixture. Mirrors expected.yaml observable fields. Static fixture used by runner --mock; do not edit without updating expected.yaml in same PR.",
+  "classification": {
+    "type": "bugfix",
+    "complexity": "MEDIA",
+    "pipeline_variant": "bugfix-light"
+  },
+  "gates_triggered": [
+    { "gate": "INFO_GATE_BLOCKED", "hardness": "HARD", "decision": "PASS" },
+    { "gate": "TDD_APPROVAL", "hardness": "HARD", "decision": "PASS" },
+    { "gate": "ADVERSARIAL_GATE_MANDATORY", "hardness": "MANDATORY", "decision": "PASS" },
+    { "gate": "CHECKPOINT_FAIL", "hardness": "HARD", "decision": "PASS" },
+    { "gate": "FINAL_ADVERSARIAL_GATE", "hardness": "SOFT", "decision": "PASS" },
+    { "gate": "CLOSEOUT_CONFIRM", "hardness": "SOFT", "decision": "PASS" }
+  ],
+  "agents_invoked": [
+    "task-orchestrator",
+    "sentinel",
+    "information-gate",
+    "quality-gate-router",
+    "pre-tester",
+    "executor-controller",
+    "executor-implementer-task",
+    "executor-spec-reviewer",
+    "executor-quality-reviewer",
+    "checkpoint-validator",
+    "review-orchestrator",
+    "adversarial-batch",
+    "architecture-reviewer",
+    "bugfix-diagnostic-agent",
+    "executor-fix",
+    "bugfix-regression-tester",
+    "sanity-checker",
+    "final-adversarial-orchestrator",
+    "final-validator"
+  ],
+  "artifacts_produced": [
+    "PIPELINE_DOC_PATH/sentinel-state.json",
+    "PIPELINE_DOC_PATH/gate-decisions.jsonl",
+    "PIPELINE_DOC_PATH/confidence-score.yaml",
+    "PIPELINE_DOC_PATH/01-task-orchestrator.md",
+    "PIPELINE_DOC_PATH/02-information-gate.md",
+    "PIPELINE_DOC_PATH/03-quality-gate-router.md",
+    "PIPELINE_DOC_PATH/04-pre-tester.md",
+    "PIPELINE_DOC_PATH/05-executor-controller.md",
+    "PIPELINE_DOC_PATH/06-review-orchestrator.md",
+    "PIPELINE_DOC_PATH/07-sanity-checker.md",
+    "PIPELINE_DOC_PATH/08-final-validator.md"
+  ],
+  "verdict": "GO"
+}

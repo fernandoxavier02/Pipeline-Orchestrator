@@ -1,0 +1,50 @@
+{
+  "_comment": "Captured 2026-05-05 baseline for feature-fixture. Mirrors expected.yaml. feature-light excludes feature-integration-validator per implement-light.md:107.",
+  "classification": {
+    "type": "feature",
+    "complexity": "MEDIA",
+    "pipeline_variant": "feature-light"
+  },
+  "gates_triggered": [
+    { "gate": "INFO_GATE_BLOCKED", "hardness": "HARD", "decision": "PASS" },
+    { "gate": "TDD_APPROVAL", "hardness": "HARD", "decision": "PASS" },
+    { "gate": "ADVERSARIAL_GATE_MANDATORY", "hardness": "MANDATORY", "decision": "PASS" },
+    { "gate": "CHECKPOINT_FAIL", "hardness": "HARD", "decision": "PASS" },
+    { "gate": "FINAL_ADVERSARIAL_GATE", "hardness": "SOFT", "decision": "PASS" },
+    { "gate": "CLOSEOUT_CONFIRM", "hardness": "SOFT", "decision": "PASS" }
+  ],
+  "agents_invoked": [
+    "task-orchestrator",
+    "sentinel",
+    "information-gate",
+    "quality-gate-router",
+    "pre-tester",
+    "executor-controller",
+    "feature-vertical-slice-planner",
+    "feature-implementer",
+    "executor-spec-reviewer",
+    "executor-quality-reviewer",
+    "checkpoint-validator",
+    "review-orchestrator",
+    "adversarial-batch",
+    "architecture-reviewer",
+    "sanity-checker",
+    "final-adversarial-orchestrator",
+    "final-validator"
+  ],
+  "artifacts_produced": [
+    "PIPELINE_DOC_PATH/sentinel-state.json",
+    "PIPELINE_DOC_PATH/gate-decisions.jsonl",
+    "PIPELINE_DOC_PATH/confidence-score.yaml",
+    "PIPELINE_DOC_PATH/01-task-orchestrator.md",
+    "PIPELINE_DOC_PATH/02-information-gate.md",
+    "PIPELINE_DOC_PATH/03-quality-gate-router.md",
+    "PIPELINE_DOC_PATH/04-pre-tester.md",
+    "PIPELINE_DOC_PATH/05-executor-controller.md",
+    "PIPELINE_DOC_PATH/06-feature-vertical-slice-planner.md",
+    "PIPELINE_DOC_PATH/07-review-orchestrator.md",
+    "PIPELINE_DOC_PATH/08-sanity-checker.md",
+    "PIPELINE_DOC_PATH/09-final-validator.md"
+  ],
+  "verdict": "GO"
+}

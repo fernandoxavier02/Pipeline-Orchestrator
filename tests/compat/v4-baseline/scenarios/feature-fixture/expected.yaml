@@ -1,11 +1,11 @@
 # Expected observable contract for feature-fixture
-# Inferred from designs/pipeline-orchestrator-v5-consolidated.md §7.2.3 (feature-heavy)
-# + §10.1 (feature-light caps) + §7.3.1 (cross-cutting invocations)
-# Status: TEMPLATE — replace with real values after dogfooding /pipeline
+# Captured 2026-05-05 against pipeline v4.10.0 (Wave 3 — Compat Baselines)
+# Cross-reference: skills/feature-light/SKILL.md + agents/executor/type-specific/feature-* + commands/pipeline.md
+# Per implement-light.md:107 (deprecated but normative): feature-integration-validator SKIPPED in Light.
 
-baseline_version: "4.5.0"
-baseline_captured_at: "TODO_REPLACE_AFTER_DOGFOODING"
-baseline_method: "TEMPLATE — inferred from spec §7.2.3, not yet validated against real run"
+baseline_version: "4.10.0"
+baseline_captured_at: "2026-05-05T00:00:00Z"
+baseline_method: "REAL — captured 2026-05-05 by Claude Opus 4.7 dogfooding session against input.md. Validated cross-reference vs references/pipelines/implement-light.md (deprecated but normative for team-composition) + skills/feature-light/SKILL.md + agents/executor/type-specific/feature-{vertical-slice-planner,implementer} contracts."
 
 classification:
   type: feature
@@ -33,29 +33,30 @@ gates_triggered:
     decision: PASS
 
 agents_invoked:
-  # Feature-light heavy enough to invoke vertical-slice planner per §7.2.3
+  # feature-light per implement-light.md team + Type-Specific Agent Team
+  # NOTE: feature-integration-validator SKIPPED in Light (handled inline by checkpoint-validator)
   - task-orchestrator
-  - sentinel                              # ORCHESTRATOR_VALIDATION
+  - sentinel                              # ORCHESTRATOR_VALIDATION + phase_2_to_3
   - information-gate
   - quality-gate-router                   # TDD scenarios approval
   - pre-tester                            # RED tests
   - executor-controller
-  - feature-vertical-slice-planner        # §7.2.3 step 7+9
-  - feature-implementer                   # §7.2.3 step 10
-  - feature-integration-validator         # §7.2.3 step 11
+  - feature-vertical-slice-planner        # Type-Specific Team agent #1
+  - feature-implementer                   # Type-Specific Team agent #2
   - executor-spec-reviewer
   - executor-quality-reviewer
   - checkpoint-validator
   - review-orchestrator                   # adversarial gate per-batch
   - adversarial-batch
   - architecture-reviewer
-  - sentinel                              # phase_2_to_3 COHERENCE_VALIDATION
   - sanity-checker
+  - final-adversarial-orchestrator
   - final-validator
 
 artifacts_produced:
   - PIPELINE_DOC_PATH/sentinel-state.json
   - PIPELINE_DOC_PATH/gate-decisions.jsonl
+  - PIPELINE_DOC_PATH/confidence-score.yaml
   - PIPELINE_DOC_PATH/01-task-orchestrator.md
   - PIPELINE_DOC_PATH/02-information-gate.md
   - PIPELINE_DOC_PATH/03-quality-gate-router.md
