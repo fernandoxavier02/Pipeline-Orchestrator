@@ -6,12 +6,12 @@ description: |
   desired before implementation). Adds full content review (12 axes) and parallel adversarial
   audits (architecture-critic + security-scanner) on top of the Light pipeline. Sequence is
   locked (1→9, no skip, no reorder). 5 mandatory AskUserQuestion gates at steps 1
-  (format-gate-approval), 2 (content-review-approval), 3 (tdd-scenarios-approval), 4
-  (adversarial-loop-checkpoint), 5 (post-impl-validation). 6 reused agents: spec-format-gate
-  (1), spec-content-reviewer (2), spec-post-impl-validator (5), adversarial-architecture-critic
-  (6), adversarial-security-scanner (7), spec-closer (9); steps 3, 4 and 8 inline.
-  stop_rule_max_failures: 3 (longer workflow warrants more tolerance). Manual-only invocation
-  via /pipeline-orchestrator:spec-heavy.
+  (format-gate-approval), 2 (content-review-approval), 3 (tdd-scenarios-approval),
+  4 (adversarial-loop-checkpoint), 5 (post-impl-validation). 6 reused agents:
+  spec-format-gate (1), spec-content-reviewer (2), spec-post-impl-validator (5),
+  adversarial-architecture-critic (6), adversarial-security-scanner (7), spec-closer (9);
+  steps 3, 4 and 8 inline. stop_rule_max_failures: 3 (longer workflow warrants more
+  tolerance). Manual-only invocation via /pipeline-orchestrator:spec-heavy.
 disable-model-invocation: true
 allowed-tools: [Task, Read, Grep, Glob, AskUserQuestion, Edit, Write, Bash]
 argument-hint: "[spec feature name or path to .kiro/specs/<feature>/]"
@@ -70,11 +70,9 @@ Se a spec for de risco pequeno-a-medio e voce confia no conteudo, prefira `spec-
 
 `AskUserQuestion` is non-negotiable at these gates — prose substitution is forbidden by the global rule "Decisoes do Usuario — AskUserQuestion sempre".
 
-## Steps 06 e 07 rodam em paralelo (per design)
+## Steps 05, 06 e 07 — auditorias independentes em sequencia
 
-Steps 06 (architecture-audit) e 07 (security-review) sao independentes entre si e podem rodar em PARALELO apos o step 05. O orchestrator decide se dispatcha em paralelo (single message com 2 Agent calls) ou sequencial; cada step file declara `expected_next` sequencial (06→07) por seguranca de schema, mas a execucao paralela e o caminho recomendado quando o ambiente suporta.
-
-Step 05 (post-impl-validator) tambem pode rodar em paralelo com 06+07 — todos auditam o codigo ja implementado em step 04 e nao se modificam mutuamente. A escolha de paralelizar fica com o orchestrator runtime.
+Steps 05 (post-impl-validation), 06 (architecture-audit) e 07 (security-review) sao auditorias independentes do mesmo codigo imutavel entregue no step 04 — nao se modificam mutuamente. A cadeia `expected_next` e sequencial (05 → 06 → 07 → 08) e o orchestrator dispatcha nesta ordem; o sentinel-hook valida a sequencia. Resultados consolidam no step 08 (confidence dashboard).
 
 ## Sentinel checkpoints
 
@@ -86,20 +84,11 @@ Step 05 (post-impl-validator) tambem pode rodar em paralelo com 06+07 — todos 
 
 ## spec-context.yaml schema
 
-The orchestrator pipes a single artifact `spec-context.yaml` into every step. Required fields:
+The orchestrator pipes a single artifact `spec-context.yaml` into every step. The canonical schema (fields, semantics, ownership) is declared in a single location to prevent drift across the 3 spec lifecycle skills:
 
-```yaml
-spec_context_schema:
-  feature_name: string (required)
-  spec_path: string (required, abs path to .kiro/specs/<feature>/)
-  estimated_complexity: "Light" | "Heavy" | "Audit-Only" (required)
-  acceptance_criteria: list of objects (each: { id: "AC#N", text: string, testable: boolean })
-  domains_touched: list of strings
-  files_affected: integer
-  business_rules: list of strings
-```
+→ See [`references/spec-context-schema.md`](../../references/spec-context-schema.md) for the full schema, field-by-field semantics, and the sub-field reference convention.
 
-`spec-context.yaml` é criado pelo task-orchestrator (Phase 0a) e populado pelos steps 01-03 conforme avançam. Steps 02 e 03 leem `acceptance_criteria` como SUB-FIELD de `spec_context`, NAO como input separado (i.e. `spec_context.acceptance_criteria`).
+In `spec-heavy`, `spec-context.yaml` is created by the task-orchestrator (Phase 0a) and populated by steps 01-03 as they progress. Steps 02 and 03 read `acceptance_criteria` as a SUB-FIELD of `spec_context`, NOT as a separate input (i.e. `spec_context.acceptance_criteria`).
 
 ## Execution rules
 
@@ -114,6 +103,8 @@ The 8 enforcement rules inherited from v4.7.0+ contract apply:
 8. Sentinel checkpoints (`pre_1`, `pre_3`, `pre_5`, `pre_9`).
 
 **Note:** hooks (`sentinel-hook`, `dispatch-guard`, `force-pipeline-agents`) enforce SKILL.md frontmatter via the shared parser at `.claude/hooks/skill-frontmatter-parser.cjs`. Roll-out per `designs/pipeline-orchestrator-v5-consolidated.md` §17.4 #8 (warn mode → deny mode 2026-05-17).
+
+**Convencao de `agent_type` para steps inline:** quando `execution_mode: inline`, o frontmatter declara `agent_type: ""` (string vazia) como sentinela canonica — NAO omitir o campo. Esta convencao e enforced pelo parser compartilhado e mantida consistente entre spec-light, spec-heavy e spec-audit-only. Steps inline nesta skill: 03 (tdd-scenarios), 04 (implementation), 08 (confidence-dashboard).
 
 ## Reference docs
 

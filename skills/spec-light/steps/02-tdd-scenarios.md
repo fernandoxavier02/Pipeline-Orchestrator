@@ -18,6 +18,11 @@ gate_name: "tdd-scenarios-approval"
 allowed_tools: [Read, Grep, Glob, AskUserQuestion]
 ---
 
+<!--
+MIRROR: skills/spec-heavy/steps/03-tdd-scenarios.md
+Body prose is ~95% verbatim by design — sync edits across both files.
+-->
+
 # Spec Lifecycle (Light) — Step 02: TDD Scenarios (ATDD seed)
 
 > **Position in pipeline:** Step 2 — bridge between Format Gate (validated structure) and Implementation (writes code).

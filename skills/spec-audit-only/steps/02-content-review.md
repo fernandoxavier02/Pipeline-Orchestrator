@@ -4,6 +4,7 @@ step_name: "content-review"
 description: "Spec Audit-Only: Full content review (12 axes) — always full mode regardless of complexity"
 execution_mode: subagent
 agent_type: "pipeline-orchestrator:executor:type-specific:spec-content-reviewer"
+production_writes_allowed: false
 expected_inputs:
   - format_gate_report: from_step_01
   - spec_context: from_spec_context_yaml
@@ -15,6 +16,11 @@ gate_required: true
 gate_name: "content-review-approval"
 allowed_tools: [Read, Grep, Glob]
 ---
+
+<!--
+MIRROR: skills/spec-heavy/steps/02-content-review.md
+The 12-eixos prose is byte-identical by design — sync edits across both files.
+-->
 
 # Spec Lifecycle (Audit-Only) — Step 02: Content Review (12 axes)
 

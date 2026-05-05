@@ -4,6 +4,7 @@ step_name: "audit-loop"
 description: "Spec Audit-Only: Adversarial audit iteration — findings + fix loop (no new implementation)"
 execution_mode: inline
 agent_type: ""
+production_writes_allowed: false
 expected_inputs:
   - content_review_report: from_step_02
   - spec_context: from_spec_context_yaml
@@ -93,7 +94,35 @@ Findings com `fix_kind: escalation` sao registrados mas NAO entram no fix-loop �
 
 Para cada finding com `fix_kind != escalation`, aplicar a correcao minima possivel:
 
-1. Aplicar `proposed_fix` via Edit/Write (apenas em arquivos de spec/docs/tasks).
+### Etapa 3.0 — Target-path scope guard (MANDATORIO antes de cada Edit/Write)
+
+Antes de invocar Edit ou Write, validar que `proposed_fix.target_path` esta dentro do escopo permitido. O `allowed_tools` da step inclui `Edit, Write` por necessidade do fix-loop, mas o escopo real de gravacao e restrito a:
+
+- `.kiro/specs/<feature>/**` — qualquer arquivo dentro da pasta da spec sendo auditada (spec.json, requirements.md, design.md, tasks.md, closure-report.md draft, research.md).
+- `docs/**` (no working tree do projeto auditado) — apenas se a propria spec referenciar arquivos em docs/ como parte de seus artefatos de documentacao operacional.
+
+Algoritmo do guard:
+
+```
+allowed_prefixes = [
+  spec_context.spec_path,            // ex: ".kiro/specs/payment-flow/"
+  "docs/"                            // se spec declarar uso explicito
+]
+target = proposed_fix.target_path    // path relativo ao repo root
+normalized = normalize(target)       // resolve "..", remove "./" extras
+
+REJECT se normalized contem ".." apos normalize (path traversal).
+REJECT se normalized nao bate com nenhum allowed_prefix.
+ACCEPT caso contrario.
+```
+
+Se REJECT: marcar finding como `fix_kind: escalation` (sai do fix-loop) e registrar no closure-report `out_of_scope_target_path: <path>`. Audit-only NAO modifica codigo de feature; tentativa de Edit/Write fora dos prefixos permitidos vira escalation automatica, NUNCA bypass.
+
+Esta checagem e enforcement em codigo do que ja estava em prosa: audit-only e estruturalmente read-only-com-correcoes-de-spec, e o guard previne que o fix-loop derive para edicao de codigo de producao.
+
+### Etapa 3.1 — Aplicar fix e re-validar
+
+1. Aplicar `proposed_fix` via Edit/Write (apos passar pelo guard de Etapa 3.0; apenas em arquivos de spec/docs).
 2. Re-validar: rodar o auditor da `source` correspondente novamente em modo verify (apenas para o finding corrigido, se o agent suportar; senao re-rodar full audit do source).
 3. Se finding desapareceu -> marcar `resolved: true` e seguir.
 4. Se finding persiste -> incrementar `attempt_count`.

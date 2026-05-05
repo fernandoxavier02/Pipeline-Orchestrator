@@ -31,7 +31,7 @@ allowed_tools: [Read, Grep, Glob]
 
 ## Quando usar
 
-Use apos os 3 audits independentes (steps 05, 06, 07) terem retornado seus reports — sequencial ou paralelo. Este passo nao tem gate proprio: apenas consolida e prepara dados para o `spec-closer` (step 09) consumir.
+Use apos os 3 audits independentes (steps 05, 06, 07) terem retornado seus reports na ordem sequencial declarada (05 → 06 → 07 → 08). Este passo nao tem gate proprio: apenas consolida e prepara dados para o `spec-closer` (step 09) consumir.
 
 ## Regras
 

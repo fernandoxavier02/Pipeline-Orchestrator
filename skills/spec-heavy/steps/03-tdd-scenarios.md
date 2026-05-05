@@ -19,6 +19,11 @@ gate_name: "tdd-scenarios-approval"
 allowed_tools: [Read, Grep, Glob, AskUserQuestion]
 ---
 
+<!--
+MIRROR: skills/spec-light/steps/02-tdd-scenarios.md
+Body prose is ~95% verbatim by design — sync edits across both files.
+-->
+
 # Spec Lifecycle (Heavy) — Step 03: TDD Scenarios (ATDD seed)
 
 > **Position in pipeline:** Step 3 — bridge entre Content Review (qualidade da spec validada) e Implementation (escreve codigo).

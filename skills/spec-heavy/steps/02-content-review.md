@@ -16,6 +16,11 @@ gate_name: "content-review-approval"
 allowed_tools: [Read, Grep, Glob]
 ---
 
+<!--
+MIRROR: skills/spec-audit-only/steps/02-content-review.md
+The 12-eixos prose is byte-identical by design — sync edits across both files.
+-->
+
 # Spec Lifecycle (Heavy) — Step 02: Content Review (12 axes)
 
 > **Position in pipeline:** Step 2 — full semantic audit of the spec content. Format Gate (step 01) ja confirmou que a estrutura existe; aqui validamos se o que foi escrito esta correto, completo e coerente.
