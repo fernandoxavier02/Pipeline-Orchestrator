@@ -98,16 +98,18 @@ Para cada finding com `fix_kind != escalation`, aplicar a correcao minima possiv
 
 Antes de invocar Edit ou Write, validar que `proposed_fix.target_path` esta dentro do escopo permitido. O `allowed_tools` da step inclui `Edit, Write` por necessidade do fix-loop, mas o escopo real de gravacao e restrito a:
 
-- `.kiro/specs/<feature>/**` — qualquer arquivo dentro da pasta da spec sendo auditada (spec.json, requirements.md, design.md, tasks.md, closure-report.md draft, research.md).
-- `docs/**` (no working tree do projeto auditado) — apenas se a propria spec referenciar arquivos em docs/ como parte de seus artefatos de documentacao operacional.
+- `.kiro/specs/<feature>/**` — qualquer arquivo dentro da pasta da spec sendo auditada (spec.json, requirements.md, design.md, tasks.md, closure-report.md draft, research.md). Este e o escopo de gravacao primario do guard — todos os fixes do audit-loop devem cair aqui salvo excecao explicita.
+- `docs/**` (no working tree do projeto auditado) — apenas se a propria spec referenciar arquivos em docs/ como parte de seus artefatos de documentacao operacional. Mencoes a `docs/` em prosa de body nas paginas de spec (ex: links para documentacao externa, citacoes de design.md) NAO sao alvo de gravacao — sao apenas referencias de leitura. O prefixo `docs/` so e ativado quando `spec_context.uses_docs == true` (declarado explicitamente pela spec).
 
 Algoritmo do guard:
 
 ```
 allowed_prefixes = [
-  spec_context.spec_path,            // ex: ".kiro/specs/payment-flow/"
-  "docs/"                            // se spec declarar uso explicito
+  spec_context.spec_path,            // ex: ".kiro/specs/payment-flow/" — sempre ativo
 ]
+if (spec_context.uses_docs == true) {
+  allowed_prefixes.push("docs/")     // adicionado apenas quando a spec declara uso explicito
+}
 target = proposed_fix.target_path    // path relativo ao repo root
 normalized = normalize(target)       // resolve "..", remove "./" extras
 

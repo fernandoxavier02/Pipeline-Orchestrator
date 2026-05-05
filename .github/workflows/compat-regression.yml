@@ -55,7 +55,10 @@ jobs:
         # in standard GitHub runners. Override via workflow_dispatch input or repository variable
         # CLAUDE_CLI_AVAILABLE=true if a self-hosted runner with claude CLI is configured.
         run: |
-          MODE="--mock"
+          # --allow-templates-skipped is paired with --mock so CI tolerates the all-TEMPLATE
+          # fixture set (no real baselines captured yet). It is rejected without --mock, so
+          # real mode keeps the strict "0 PASS + N SKIPPED → exit 1" semantics.
+          MODE="--mock --allow-templates-skipped"
           if [ "${{ vars.CLAUDE_CLI_AVAILABLE }}" = "true" ]; then
             MODE=""
             echo "Real mode enabled (claude CLI available on this runner)"

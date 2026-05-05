@@ -11,6 +11,11 @@
  *   node tests/compat/runner.cjs --scenario=bugfix-fixture
  *   node tests/compat/runner.cjs --all --verbose
  *   node tests/compat/runner.cjs --all --mock     (offline; no claude CLI)
+ *   node tests/compat/runner.cjs --all --mock --allow-templates-skipped
+ *                                                  (CI-only: treats all-SKIPPED + mock as exit 0
+ *                                                   with explicit warning. Rejected if not paired
+ *                                                   with --mock — real-mode all-skipped is a
+ *                                                   genuine problem worth exit 1.)
  *
  * Exit codes:
  *   0 = all PASS
@@ -42,10 +47,20 @@ const opts = {
   scenario: (args.find((a) => a.startsWith('--scenario=')) || '').split('=')[1] || null,
   verbose: args.includes('--verbose'),
   mock: args.includes('--mock'),
+  allowTemplatesSkipped: args.includes('--allow-templates-skipped'),
 };
 
 if (!opts.all && !opts.scenario) {
-  console.error('Usage: node runner.cjs (--all | --scenario=<name>) [--verbose] [--mock]');
+  console.error('Usage: node runner.cjs (--all | --scenario=<name>) [--verbose] [--mock] [--allow-templates-skipped]');
+  process.exit(2);
+}
+
+// --allow-templates-skipped is a CI-only escape hatch: it converts the "0 PASS + N SKIPPED"
+// exit 1 (designed to prevent false greens for human use) into exit 0 + explicit warning.
+// Pairing with --mock is mandatory because all-SKIPPED in real mode is a genuine problem
+// (no real validation occurred, baselines must be captured).
+if (opts.allowTemplatesSkipped && !opts.mock) {
+  console.error('--allow-templates-skipped requires --mock (real-mode all-skipped is a real failure)');
   process.exit(2);
 }
 
@@ -392,6 +407,10 @@ function main() {
   if (counts.ERROR) process.exit(2);
   if (counts.DIVERGED) process.exit(1);
   if ((counts.PASS || 0) === 0 && (counts.SKIPPED || 0) > 0) {
+    if (opts.allowTemplatesSkipped && opts.mock) {
+      console.log(`  ⓘ ALL-SKIPPED + MOCK + --allow-templates-skipped — exit 0 with warning. Capture real baselines for green validation.`);
+      process.exit(0);
+    }
     console.log(`  ⚠ NO REAL VALIDATION — only SKIPPED scenarios. Capture baselines before claiming green.`);
     process.exit(1);
   }
