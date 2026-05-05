@@ -48,14 +48,15 @@ const AGENT_LEAF_TO_FQN = Object.freeze({
   'final-validator': 'pipeline-orchestrator:core:final-validator',
   'finishing-branch': 'pipeline-orchestrator:core:finishing-branch',
 
-  // executor/ top level (5 agents)
+  // executor/ top level (6 agents)
   'executor-controller': 'pipeline-orchestrator:executor:executor-controller',
   'executor-implementer-task': 'pipeline-orchestrator:executor:executor-implementer-task',
   'executor-fix': 'pipeline-orchestrator:executor:executor-fix',
   'executor-spec-reviewer': 'pipeline-orchestrator:executor:executor-spec-reviewer',
   'executor-quality-reviewer': 'pipeline-orchestrator:executor:executor-quality-reviewer',
+  'spec-closer': 'pipeline-orchestrator:executor:spec-closer',
 
-  // executor/type-specific/ (17 agents)
+  // executor/type-specific/ (20 agents)
   'adversarial-review-coordinator': 'pipeline-orchestrator:executor:type-specific:adversarial-review-coordinator',
   'adversarial-security-scanner': 'pipeline-orchestrator:executor:type-specific:adversarial-security-scanner',
   'adversarial-architecture-critic': 'pipeline-orchestrator:executor:type-specific:adversarial-architecture-critic',
@@ -70,6 +71,9 @@ const AGENT_LEAF_TO_FQN = Object.freeze({
   'feature-vertical-slice-planner': 'pipeline-orchestrator:executor:type-specific:feature-vertical-slice-planner',
   'feature-implementer': 'pipeline-orchestrator:executor:type-specific:feature-implementer',
   'feature-integration-validator': 'pipeline-orchestrator:executor:type-specific:feature-integration-validator',
+  'spec-format-gate': 'pipeline-orchestrator:executor:type-specific:spec-format-gate',
+  'spec-content-reviewer': 'pipeline-orchestrator:executor:type-specific:spec-content-reviewer',
+  'spec-post-impl-validator': 'pipeline-orchestrator:executor:type-specific:spec-post-impl-validator',
   'ux-simulator': 'pipeline-orchestrator:executor:type-specific:ux-simulator',
   'ux-accessibility-auditor': 'pipeline-orchestrator:executor:type-specific:ux-accessibility-auditor',
   'ux-qa-validator': 'pipeline-orchestrator:executor:type-specific:ux-qa-validator',
