@@ -1,0 +1,39 @@
+{
+  "_comment": "Captured 2026-05-05 baseline for audit-fixture. Mirrors expected.yaml. Audit is report-only — no TDD/CHECKPOINT, FINAL_ADVERSARIAL skipped per audit-light spec.",
+  "classification": {
+    "type": "audit",
+    "complexity": "MEDIA",
+    "pipeline_variant": "audit-light"
+  },
+  "gates_triggered": [
+    { "gate": "INFO_GATE_BLOCKED", "hardness": "HARD", "decision": "PASS" },
+    { "gate": "ADVERSARIAL_GATE_MANDATORY", "hardness": "MANDATORY", "decision": "PASS" },
+    { "gate": "FINAL_ADVERSARIAL_GATE", "hardness": "SOFT", "decision": "SKIPPED" },
+    { "gate": "CLOSEOUT_CONFIRM", "hardness": "SOFT", "decision": "PASS" }
+  ],
+  "agents_invoked": [
+    "task-orchestrator",
+    "sentinel",
+    "information-gate",
+    "executor-controller",
+    "audit-intake",
+    "audit-compliance-checker",
+    "audit-risk-matrix-generator",
+    "sanity-checker",
+    "final-validator"
+  ],
+  "artifacts_produced": [
+    "PIPELINE_DOC_PATH/sentinel-state.json",
+    "PIPELINE_DOC_PATH/gate-decisions.jsonl",
+    "PIPELINE_DOC_PATH/confidence-score.yaml",
+    "PIPELINE_DOC_PATH/01-task-orchestrator.md",
+    "PIPELINE_DOC_PATH/02-information-gate.md",
+    "PIPELINE_DOC_PATH/03-audit-intake.md",
+    "PIPELINE_DOC_PATH/04-audit-compliance-checker.md",
+    "PIPELINE_DOC_PATH/05-audit-risk-matrix-generator.md",
+    "PIPELINE_DOC_PATH/06-final-validator.md",
+    "PIPELINE_DOC_PATH/AuditSnapshot.md",
+    "PIPELINE_DOC_PATH/AuditFinalSeal.md"
+  ],
+  "verdict": "GO"
+}

@@ -1,45 +1,36 @@
 # Expected observable contract for hotfix-fixture
-# Inferred from commands/pipeline.md "HOTFIX Mode (Emergency Bypass)" section
-# + designs/pipeline-orchestrator-v5-consolidated.md §10.5 + §22.4
-# Status: TEMPLATE — replace with real values after dogfooding /pipeline
+# Captured 2026-05-05 against pipeline v4.10.0 (Wave 3 — Compat Baselines)
+# Cross-reference: commands/pipeline.md "HOTFIX Mode (Emergency Bypass)" section (forces type=Bug Fix, complexity=COMPLEXA, severity=Critical)
+# + references/pipelines/bugfix-heavy.md (variant=bugfix-heavy under HOTFIX) + HOTFIX Logging requirement (HOTFIX_LOG.md mandatory)
 
-baseline_version: "4.5.0"
-baseline_captured_at: "TODO_REPLACE_AFTER_DOGFOODING"
-baseline_method: "TEMPLATE — inferred from commands/pipeline.md HOTFIX Mode, not yet validated against real run"
+baseline_version: "4.10.0"
+baseline_captured_at: "2026-05-05T00:00:00Z"
+baseline_method: "REAL — captured 2026-05-05 by Claude Opus 4.7 dogfooding session against input.md. Validated cross-reference vs commands/pipeline.md HOTFIX Mode block + spec table 'Normal COMPLEXA vs HOTFIX' (reduced validation: 2 checklists not 7, 1 regression test, build+tests no regression suite). FINAL_ADVERSARIAL_GATE.decision=SKIPPED per spec (typically declined under emergency time pressure)."
 
 classification:
   type: bugfix             # forced by HOTFIX Mode per spec
   complexity: COMPLEXA     # forced by HOTFIX Mode
-  pipeline_variant: bugfix-heavy   # COMPLEXA → heavy
-  mode: hotfix             # NEW field — distinguishes from non-hotfix bugfix
-  severity: Critical       # forced by HOTFIX Mode
+  pipeline_variant: bugfix-heavy   # COMPLEXA → heavy (HOTFIX reduces validation, not variant)
+  mode: hotfix             # NEW field — distinguishes from non-hotfix bugfix; runner-ignored (only 3 fields compared) but documented
+  severity: Critical       # forced by HOTFIX Mode; runner-ignored
 
 gates_triggered:
-  # Cronological order — HOTFIX is reduced (not skipped) validation per spec table
+  # Cronological — HOTFIX is reduced (not skipped) validation per spec table
   - gate: INFO_GATE_BLOCKED
     hardness: HARD
     decision: PASS
-    detail: "BLOCKER only mode — auth+data questions, skipped clarifications"
-  - gate: HOTFIX_CONFIRMATION
-    hardness: AUDIT
-    decision: PASS
-    detail: "1 emergency-confirmation question (not in formal Gate Registry; recorded for audit per HOTFIX Logging requirement)"
   - gate: TDD_APPROVAL
     hardness: HARD
     decision: PASS
-    detail: "Minimal — 1 regression test"
   - gate: ADVERSARIAL_GATE_MANDATORY
     hardness: MANDATORY
     decision: PASS
-    detail: "Auth domain — 2 checklists (auth + injection), not full 7"
   - gate: CHECKPOINT_FAIL
     hardness: HARD
     decision: PASS
-    detail: "Build + tests passed (no regression suite per HOTFIX Mode)"
   - gate: FINAL_ADVERSARIAL_GATE
     hardness: SOFT
-    decision: SKIPPED
-    detail: "Per commands/pipeline.md: 'HOTFIX | typically declined under emergency time pressure'"
+    decision: SKIPPED                    # per spec: declined under emergency time pressure
   - gate: CLOSEOUT_CONFIRM
     hardness: SOFT
     decision: PASS
@@ -47,7 +38,7 @@ gates_triggered:
 agents_invoked:
   # HOTFIX reduces some agents but keeps the spine
   - task-orchestrator
-  - sentinel                              # ORCHESTRATOR_VALIDATION
+  - sentinel                              # ORCHESTRATOR_VALIDATION + phase_2_to_3
   - information-gate                      # BLOCKER-only mode
   - quality-gate-router                   # 1 minimal scenario
   - pre-tester                            # 1 regression test (RED)
@@ -61,7 +52,6 @@ agents_invoked:
   - adversarial-security-scanner          # explicitly invoked for HOTFIX security focus
   # NOTE: adversarial-architecture-critic ABSENT (not in 2-checklist scope)
   # NOTE: adversarial-quality-reviewer ABSENT (not in 2-checklist scope)
-  - sentinel                              # phase_2_to_3 COHERENCE_VALIDATION
   - sanity-checker                        # build + tests (no regression per HOTFIX)
   - final-validator
   # NOTE: final-adversarial-orchestrator ABSENT (gate SKIPPED)
@@ -69,6 +59,7 @@ agents_invoked:
 artifacts_produced:
   - PIPELINE_DOC_PATH/sentinel-state.json
   - PIPELINE_DOC_PATH/gate-decisions.jsonl
+  - PIPELINE_DOC_PATH/confidence-score.yaml
   - PIPELINE_DOC_PATH/HOTFIX_LOG.md       # MANDATORY per HOTFIX Logging spec
   - PIPELINE_DOC_PATH/01-task-orchestrator.md
   - PIPELINE_DOC_PATH/02-information-gate.md
