@@ -25,6 +25,7 @@ spec_context_schema:
   domains_touched: list of strings
   files_affected: integer
   business_rules: list of strings
+  uses_docs: boolean (optional, default false)
 ```
 
 ## Field semantics
@@ -36,6 +37,7 @@ spec_context_schema:
 - **`domains_touched`** — list of domain areas touched by the feature (e.g., `["billing", "auth", "notifications"]`). Used to size the adversarial review surface and to alert reviewers about cross-cutting concerns.
 - **`files_affected`** — rough integer count from the design's component listing or task summary. Used as a complexity signal during planning and to project review effort.
 - **`business_rules`** — list of strings extracted from `requirements.md` (the "Business Rules" section if present, or inferred from EARS-form ACs that encode invariants).
+- **`uses_docs`** — optional boolean (default `false`); set to `true` only when the spec body explicitly references generated documentation under a top-level `docs/` directory that the audit-loop should treat as in-scope. The `spec-audit-only` step 03 path-guard reads this field to widen its allowed-write set beyond `spec_context.spec_path`. When the field is absent or `false`, writes outside `spec_context.spec_path` are denied (deny-by-default). Introduced in v4.9.2 to disambiguate audit-loop scope when a spec touches documentation outside `.kiro/specs/<feature>/`.
 
 ## Sub-field reference convention
 
