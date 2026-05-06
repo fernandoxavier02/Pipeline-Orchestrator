@@ -3,15 +3,15 @@
 **Snapshot date:** 2026-05-06 (post-Wave-8-spec)
 **Plugin version at snapshot:** `v4.17.0`
 **Report owner:** pipeline-orchestrator core
-**Status:** v5.0 **READY for `rc.1` tag** — 6 of 7 DoD criteria are DONE; only the administrative milestone (Criterion #5, Issue #11) remains.
+**Status:** v5.0 **READY for `rc.1` tag** — 7 of 7 DoD criteria are DONE.
 
 ---
 
 ## TL;DR
 
-Wave 8-spec (`v4.17.0`) closed Criteria #2, #3, and #6 in a single release. The only remaining block is **Criterion #5 (publish v5.1 milestone)** — administrative, resolves with Issue #11. After that, the next step is `git tag v5.0.0-rc.1` followed by 1–2 weeks of feedback before `v5.0.0`.
+Wave 8-spec (`v4.17.0`) closed Criteria #2, #3, and #6 in a single release. Criterion #5 (publish v5.1 milestone) was closed `2026-05-06` post-tag with [milestone #1 — v5.1 Pipeline Declarativo (Slice 5)](https://github.com/fernandoxavier02/Pipeline-Orchestrator/milestone/1) and 3 placeholder issues (#16 YAML grammar, #17 dispatch table design, #18 interpreter spike). Next step is `git tag v5.0.0-rc.1` followed by 1–2 weeks of feedback before `v5.0.0`.
 
-Recommended sequence: **Issue #11 (administrative) → tag `v5.0.0-rc.1`** → 1–2 weeks of feedback → tag `v5.0.0`.
+Recommended sequence: **tag `v5.0.0-rc.1`** → 1–2 weeks of feedback → tag `v5.0.0`.
 
 ---
 
@@ -25,11 +25,11 @@ Recommended sequence: **Issue #11 (administrative) → tag `v5.0.0-rc.1`** → 1
 | 2 | TRACE.md in user repo by default | After any pipeline run, `git status` shows `.pipeline-orchestrator/runs/<id>/TRACE.md` | ✅ DONE | `v4.17.0` (Wave 8-spec) added `references/trace-schema/v1.md` (SSOT, schema_version=1) and wired the writer into `agents/core/pipeline-controller.md` Phase 3 closure (Step 3b-post). Default emit path is `.pipeline-orchestrator/runs/<run-id>/TRACE.md` in user repo; `pipeline-orchestrator.persist_runs: 'private'` opt-out writes to `~/.claude/data/...`. Verified by `tests/integration/trace-writer.test.js` (7/7 PASS). |
 | 3 | TRACE.md attachable to PR without manual editing | Standalone validator passes against fixture-generated TRACE | ✅ DONE | `v4.17.0` (Wave 8-spec) added `scripts/validate-trace.cjs` (pure-Node, exit 0/1, stderr diff). Verified against `tests/fixtures/trace/happy-path.md` (exit 0) and `tests/fixtures/trace/corrupt-frontmatter.md` (exit 1). 5/5 unit tests PASS. |
 | 4 | Compat suite green for 5 canonical scenarios | `npm run test:compat` exits 0 | ✅ DONE | `v4.10.0` graduated all 5 fixtures TEMPLATE → REAL. `v4.14.0` added a 6th TEMPLATE (`spec-fixture`) intentionally. Suite at `v4.17.0`: 5 PASS / 1 SKIPPED, exit 0. |
-| 5 | v5.1 milestone published with YAML interpreter commitment | Public issue tracker has milestone "v5.1 — Pipeline Declarativo (Slice 5)" with target ≤ Q+2; link in v5.0 CHANGELOG | ❌ OPEN | Milestone has not been opened. **Tracked as Issue #11 in this repo.** Last technical block; everything else is DONE. |
+| 5 | v5.1 milestone published with YAML interpreter commitment | Public issue tracker has milestone "v5.1 — Pipeline Declarativo (Slice 5)" with target ≤ Q+2; link in v5.0 CHANGELOG | ✅ DONE | [Milestone #1](https://github.com/fernandoxavier02/Pipeline-Orchestrator/milestone/1) opened `2026-05-06` (target Q3 2026, due 2026-09-30) with 3 placeholder issues — #16 YAML grammar prototype, #17 dispatch table design, #18 interpreter spike. Linked from CHANGELOG `[4.17.0]`. |
 | 6 | Plan-mode-enforcer auto-triggers on MEDIA/COMPLEXA | `/pipeline-orchestrator:bugfix [task with domains_touched=2]` log shows plan-architect invoked before implementation | ✅ DONE | `v4.17.0` (Wave 8-spec) extended `commands/pipeline.md` Phase 1.5 trigger from `complexity == COMPLEXA` to `complexity ∈ {MEDIA, COMPLEXA} AND --no-plan ausente`. Asymmetric override semantics: MEDIA + `--no-plan` = skip + log justification in TRACE; COMPLEXA + `--no-plan` = plan runs anyway, override logged. Design §8 prose corrected. 5/5 trigger tests PASS. |
 | 7 | `pipeline-controller` declares spawn tools explicitly | Frontmatter declares `tools: [Agent, Task, Read, Write, Bash, Glob, Grep, AskUserQuestion]` | ✅ DONE | Verified `2026-05-03` per `designs/pipeline-orchestrator-v5-consolidated.md` §15 + §17.3 #9 RESOLVED. |
 
-**Tally:** 6 DONE / 0 PARTIAL / 1 OPEN (Issue #11, administrative only).
+**Tally:** 7 DONE / 0 PARTIAL / 0 OPEN. v5.0.0-rc.1 unblocked.
 
 ---
 
@@ -58,17 +58,12 @@ Recommended sequence: **Issue #11 (administrative) → tag `v5.0.0-rc.1`** → 1
 
 **Estimated effort:** Wave 8 batch B (½ day). Bundled with #2.
 
-### Criterion #5 (v5.1 milestone) — OPEN → DONE
+### Criterion #5 (v5.1 milestone) — DONE
 
-**Gap:** A GitHub milestone in this repo titled "v5.1 — Pipeline Declarativo (Slice 5)" with a target date ≤ 2026-Q3 (Q+2 from today's Q2-2026), and a backlinked entry in the v5.0 CHANGELOG.
-
-**What it takes to close:**
-- Open Issue #11 (already triaged in `MEMORY.md` as the next logical step).
-- Create the milestone (manual GitHub action — no code).
-- Add 3-5 placeholder issues under it (YAML grammar prototype, interpreter spike, dispatch table for declarative steps).
-- Reference the milestone URL in the v5.0 CHANGELOG section once it exists.
-
-**Estimated effort:** ½ day, fully administrative.
+Closed `2026-05-06` post-`v4.17.0` tag:
+- [Milestone #1](https://github.com/fernandoxavier02/Pipeline-Orchestrator/milestone/1) — "v5.1 — Pipeline Declarativo (Slice 5)" — target Q3 2026 (due 2026-09-30).
+- 3 placeholder issues attached: [#16 YAML grammar prototype](https://github.com/fernandoxavier02/Pipeline-Orchestrator/issues/16), [#17 dispatch table design](https://github.com/fernandoxavier02/Pipeline-Orchestrator/issues/17), [#18 interpreter spike](https://github.com/fernandoxavier02/Pipeline-Orchestrator/issues/18).
+- Linked from `CHANGELOG.md [4.17.0]` section.
 
 ### Criterion #6 (plan-mode-enforcer auto) — PARTIAL → DONE
 
@@ -102,14 +97,13 @@ To keep the picture honest, items that are **sometimes confused** with v5.0 bloc
 
 ---
 
-## 4. Recommended path to v5.0 (post Wave-8-spec)
+## 4. Recommended path to v5.0 (post Wave-8-spec, post-milestone-#1)
 
-The shortest credible path is now 2 sequential steps. Wave 8 (split into 8-pre `v4.16.0` and 8-spec `v4.17.0`) closed the technical block.
+All technical and administrative blocks closed. Single remaining step:
 
 | Order | Action | Wave / patch | Estimated calendar | Unblocks |
 |-------|--------|--------------|---------------------|----------|
-| 1 | Open Issue #11; publish v5.1 milestone with 3–5 placeholder issues | (admin only) | ½ day | DoD #5 |
-| 2 | Tag `v5.0.0-rc.1`, accept 1–2 weeks of feedback, then tag `v5.0.0` | release admin | ~10 calendar days | v5.0 |
+| 1 | Tag `v5.0.0-rc.1`, accept 1–2 weeks of feedback, then tag `v5.0.0` | release admin | ~10 calendar days | v5.0 |
 
 The 11 deferred debts (`v4.13.1` + `v4.14.1`) can ship in parallel — they do **not** block v5.0 and v5.0 does **not** block them.
 
@@ -129,21 +123,20 @@ The 11 deferred debts (`v4.13.1` + `v4.14.1`) can ship in parallel — they do *
 | TRACE.md schema needs a v2 within 6 months | Medium | Medium | Ship `schema_version=1` defensively; design rev-bump path now. |
 | `--no-plan` bypass abused (users routinely skip planning) | Medium | High (defeats the DoD #6 spirit) | Require non-empty justification string; surface count in TRACE.md and CI summary. |
 | YAML interpreter (Slice 5 / v5.1) ships later than Q+2 | Medium | Low (DoD #5 only requires the milestone, not delivery) | Milestone date is the commitment; the deliverable can slide by 1 quarter without breaking v5.0. |
-| Issue #11 stays open >2 weeks after v4.15.0 | Low | Medium (administratively blocks v5.0) | Owner-assign Issue #11 the same day v4.15.0 ships. |
+| Milestone #1 ships less than 30% of placeholder issues by Q3 2026 | Medium | Low (DoD #5 only requires the milestone exists, not delivery) | Re-evaluate milestone scope at v5.1 kickoff; can slip 1 quarter without breaking v5.0. |
 
 ---
 
 ## 6. Sign-off conditions
 
-This report is current at `v4.15.0`. It expires when any of the following happens:
+This report is current at `v4.17.0` (post Wave 8-spec + milestone #1). It expires when any of the following happens:
 
-1. Issue #11 closes → re-tally Criterion #5.
-2. Wave 8 ships → re-tally Criteria #2, #3, #6.
-3. The DoD list in `designs/pipeline-orchestrator-v5-consolidated.md` §8 changes (an 8th criterion, or a renumbering) → regenerate this report.
-4. v5.0.0 itself ships → archive to `docs/archive/v5-readiness-report-2026-05-06.md`.
+1. `v5.0.0-rc.1` is tagged → archive snapshot, generate `v5-rc1-feedback-report.md`.
+2. The DoD list in `designs/pipeline-orchestrator-v5-consolidated.md` §8 changes (an 8th criterion, or a renumbering) → regenerate this report.
+3. `v5.0.0` itself ships → archive to `docs/archive/v5-readiness-report-2026-05-06.md`.
 
 Until then, this is the operating snapshot.
 
 ---
 
-*Generated as part of Wave 7-spec, `v4.15.0`. See [`docs/MIGRATION-v4-to-v5.md`](./MIGRATION-v4-to-v5.md) for the full v4 lineage and breaking-change matrix.*
+*Originally generated as part of Wave 7-spec (`v4.15.0`); regenerated after Wave 8-spec (`v4.17.0`) and milestone #1 publication. See [`docs/MIGRATION-v4-to-v5.md`](./MIGRATION-v4-to-v5.md) for the full v4 lineage and breaking-change matrix.*

@@ -28,6 +28,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`tests/unit/spec-entry-point-and-pipelines.test.js:231`** — Pin bumped from `4.16.0` to `4.17.0` (release-admin chore, not a content invariant).
 - **`docs/v5-readiness-report.md`** — Regenerated. Criteria #2 / #3 / #6 advance from PARTIAL/PENDING to DONE. §4 recommended path collapses from "Wave 8 + tag rc.1" to "tag rc.1".
 
+### v5.0 DoD progress (this wave + the post-tag administrative milestone close 4 of 7 criteria)
+
+- DoD #2 (TRACE.md by default) → DONE in this release.
+- DoD #3 (TRACE.md attachable to PR via standalone validator) → DONE in this release.
+- DoD #6 (plan-mode auto-triggers on MEDIA/COMPLEXA + `--no-plan` bypass) → DONE in this release.
+- DoD #5 (v5.1 milestone published) → DONE post-tag via [milestone #1 — v5.1 Pipeline Declarativo (Slice 5)](https://github.com/fernandoxavier02/Pipeline-Orchestrator/milestone/1) (target Q3 2026, due 2026-09-30) with 3 placeholder issues: [#16 YAML grammar prototype](https://github.com/fernandoxavier02/Pipeline-Orchestrator/issues/16), [#17 dispatch table design](https://github.com/fernandoxavier02/Pipeline-Orchestrator/issues/17), [#18 interpreter spike](https://github.com/fernandoxavier02/Pipeline-Orchestrator/issues/18).
+
+DoD #1, #4, #7 were already DONE pre-wave. **All 7 criteria DONE; v5.0.0-rc.1 unblocked.**
+
 ### Behavior Changes
 
 - **MEDIA tasks now trigger plan-architect by default** (additive, opt-out via `--no-plan`). Pre-v4.17.0, only COMPLEXA triggered plan-architect; MEDIA was a SKIP. To preserve v4.16.0 behavior on a MEDIA task, pass `--no-plan` explicitly — the user will be asked for a justification that lands in `TRACE.md`.
