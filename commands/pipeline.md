@@ -254,6 +254,7 @@ Analyze `<arguments>` to determine mode:
 | `/pipeline --hotfix [task]` | **HOTFIX** | Emergency bypass for production incidents |
 | `/pipeline --grill [task]` | FULL + design interrogation | Force design-interrogator for any complexity |
 | `/pipeline --plan [task]` | FULL + plan mode | Force plan-architect for any complexity |
+| `/pipeline --no-plan [task]` | FULL + skip plan mode (MEDIA only) | Bypass plan-architect on MEDIA tasks; logs justification in TRACE.md. **Ignored** on COMPLEXA — plan runs anyway with the override attempt logged for audit. (Wave 8-spec / v4.17.0+) |
 | `/pipeline review-only` | **REVIEW-ONLY** | Runs final adversarial review on current uncommitted changes |
 
 ### REVIEW-ONLY Mode
@@ -537,10 +538,28 @@ AskUserQuestion(
 +==================================================================+
 ```
 
-**Trigger conditions:**
-- **Automatic:** complexity == COMPLEXA
-- **Flag:** `--plan` was specified (any complexity)
-- **Skip:** SIMPLES or MEDIA without `--plan`
+**Trigger conditions (v4.17.0+):**
+- **Automatic:** complexity ∈ {MEDIA, COMPLEXA} AND `--no-plan` is NOT in args
+- **Flag (force):** `--plan` was specified (any complexity)
+- **Skip:** SIMPLES (always); MEDIA when `--no-plan` was passed
+- **Override blocked:** complexity == COMPLEXA — `--no-plan` is accepted by the
+  parser but **ignored**. plan-architect runs anyway. The flag and the user-
+  supplied justification are logged in TRACE.md (`plan_mode_skipped: false`,
+  `plan_override_attempted: true`, `justification: <user input>`) so the
+  attempt is auditable. Rationale: COMPLEXA tasks are scope-driven; bypassing
+  planning at this level historically correlates with regressions. Users who
+  truly need to skip planning for a complex task should reclassify as MEDIA.
+
+| complexity | --no-plan absent | --no-plan present | --plan present (override) |
+|---|---|---|---|
+| SIMPLES | skip | skip | plan runs |
+| MEDIA | **plan runs** (NEW v4.17.0) | skip + log justification in TRACE | plan runs |
+| COMPLEXA | plan runs | plan runs anyway + log override in TRACE | plan runs |
+
+> **Behavior change vs v4.16.0:** MEDIA without any flag now triggers
+> plan-architect by default. To preserve v4.16.0 behavior on MEDIA tasks,
+> pass `--no-plan` explicitly (you will be asked for a justification that
+> ends up in TRACE.md).
 
 If triggered, spawn `plan-architect` agent (model: sonnet).
 

@@ -1,17 +1,17 @@
 # v5.0 Readiness Report
 
-**Snapshot date:** 2026-05-06
-**Plugin version at snapshot:** `v4.15.0`
+**Snapshot date:** 2026-05-06 (post-Wave-8-spec)
+**Plugin version at snapshot:** `v4.17.0`
 **Report owner:** pipeline-orchestrator core
-**Status:** v5.0 **NOT READY** — 2 of 7 DoD criteria are open, 2 are partial.
+**Status:** v5.0 **READY for `rc.1` tag** — 6 of 7 DoD criteria are DONE; only the administrative milestone (Criterion #5, Issue #11) remains.
 
 ---
 
 ## TL;DR
 
-v5.0 cannot be tagged today. The blocking item is **Criterion #5 (publish v5.1 milestone)** — that is administrative and resolves with Issue #11. After that, the technical block is the **TRACE.md + plan-mode-enforcer trio** (Criteria #2, #3, #6) which form a single delivery best handled in Wave 8. The compat suite (Criterion #4) and the entry-point set (Criterion #1) are already green; the controller-tools declaration (Criterion #7) was closed `2026-05-03`.
+Wave 8-spec (`v4.17.0`) closed Criteria #2, #3, and #6 in a single release. The only remaining block is **Criterion #5 (publish v5.1 milestone)** — administrative, resolves with Issue #11. After that, the next step is `git tag v5.0.0-rc.1` followed by 1–2 weeks of feedback before `v5.0.0`.
 
-Recommended sequence: **Issue #11 → Wave 8 (TRACE.md + plan-mode auto-trigger)** → tag `v5.0.0-rc.1` → 1–2 weeks of feedback → tag `v5.0.0`.
+Recommended sequence: **Issue #11 (administrative) → tag `v5.0.0-rc.1`** → 1–2 weeks of feedback → tag `v5.0.0`.
 
 ---
 
@@ -22,14 +22,14 @@ Recommended sequence: **Issue #11 → Wave 8 (TRACE.md + plan-mode auto-trigger)
 | # | Criterion (one-line) | Verification command/method | Status | Evidence |
 |---|----------------------|----------------------------|--------|----------|
 | 1 | 5 commands in `/help` | `claude /help \| grep pipeline-orchestrator` returns ≥5 lines | ✅ DONE | `/pipeline`, `/bugfix`, `/feature`, `/audit`, `/ux` shipped across `4.2.0`–`4.7.0`. `/spec` (`4.12.0`) is a 6th, ahead of DoD. |
-| 2 | TRACE.md in user repo by default | After any pipeline run, `git status` shows `.pipeline-orchestrator/runs/<id>/TRACE.md` | ⚠️ PARTIAL | Per-run `gate-decisions.jsonl` + `confidence-score.yaml` are written today. The consolidated `TRACE.md` artifact (with `schema_version=1`) is not yet generated — Slice 2 work. |
-| 3 | TRACE.md attachable to PR without manual editing | Standalone validator passes against fixture-generated TRACE | ❌ PENDING | Blocked on #2. |
-| 4 | Compat suite green for 5 canonical scenarios | `npm run test:compat` exits 0 | ✅ DONE | `v4.10.0` graduated all 5 fixtures TEMPLATE → REAL. `v4.14.0` added a 6th TEMPLATE (`spec-fixture`) intentionally. Suite at `v4.14.0`: 5 PASS / 1 SKIPPED, exit 0. |
-| 5 | v5.1 milestone published with YAML interpreter commitment | Public issue tracker has milestone "v5.1 — Pipeline Declarativo (Slice 5)" with target ≤ Q+2; link in v5.0 CHANGELOG | ❌ OPEN | Milestone has not been opened. **Tracked as Issue #11 in this repo.** |
-| 6 | Plan-mode-enforcer auto-triggers on MEDIA/COMPLEXA | `/pipeline-orchestrator:bugfix [task with domains_touched=2]` log shows `EnterPlanMode` invoked before implementation | ⚠️ PARTIAL | `plan-architect` runs on COMPLEXA + `--plan` flag. Auto-trigger on MEDIA without flag is wired conceptually in `commands/pipeline.md` Phase 1.5 but does **not** force `EnterPlanMode`. `--no-plan` bypass + TRACE.md justification is not implemented (depends on #2). |
+| 2 | TRACE.md in user repo by default | After any pipeline run, `git status` shows `.pipeline-orchestrator/runs/<id>/TRACE.md` | ✅ DONE | `v4.17.0` (Wave 8-spec) added `references/trace-schema/v1.md` (SSOT, schema_version=1) and wired the writer into `agents/core/pipeline-controller.md` Phase 3 closure (Step 3b-post). Default emit path is `.pipeline-orchestrator/runs/<run-id>/TRACE.md` in user repo; `pipeline-orchestrator.persist_runs: 'private'` opt-out writes to `~/.claude/data/...`. Verified by `tests/integration/trace-writer.test.js` (7/7 PASS). |
+| 3 | TRACE.md attachable to PR without manual editing | Standalone validator passes against fixture-generated TRACE | ✅ DONE | `v4.17.0` (Wave 8-spec) added `scripts/validate-trace.cjs` (pure-Node, exit 0/1, stderr diff). Verified against `tests/fixtures/trace/happy-path.md` (exit 0) and `tests/fixtures/trace/corrupt-frontmatter.md` (exit 1). 5/5 unit tests PASS. |
+| 4 | Compat suite green for 5 canonical scenarios | `npm run test:compat` exits 0 | ✅ DONE | `v4.10.0` graduated all 5 fixtures TEMPLATE → REAL. `v4.14.0` added a 6th TEMPLATE (`spec-fixture`) intentionally. Suite at `v4.17.0`: 5 PASS / 1 SKIPPED, exit 0. |
+| 5 | v5.1 milestone published with YAML interpreter commitment | Public issue tracker has milestone "v5.1 — Pipeline Declarativo (Slice 5)" with target ≤ Q+2; link in v5.0 CHANGELOG | ❌ OPEN | Milestone has not been opened. **Tracked as Issue #11 in this repo.** Last technical block; everything else is DONE. |
+| 6 | Plan-mode-enforcer auto-triggers on MEDIA/COMPLEXA | `/pipeline-orchestrator:bugfix [task with domains_touched=2]` log shows plan-architect invoked before implementation | ✅ DONE | `v4.17.0` (Wave 8-spec) extended `commands/pipeline.md` Phase 1.5 trigger from `complexity == COMPLEXA` to `complexity ∈ {MEDIA, COMPLEXA} AND --no-plan ausente`. Asymmetric override semantics: MEDIA + `--no-plan` = skip + log justification in TRACE; COMPLEXA + `--no-plan` = plan runs anyway, override logged. Design §8 prose corrected. 5/5 trigger tests PASS. |
 | 7 | `pipeline-controller` declares spawn tools explicitly | Frontmatter declares `tools: [Agent, Task, Read, Write, Bash, Glob, Grep, AskUserQuestion]` | ✅ DONE | Verified `2026-05-03` per `designs/pipeline-orchestrator-v5-consolidated.md` §15 + §17.3 #9 RESOLVED. |
 
-**Tally:** 3 DONE / 2 PARTIAL / 2 OPEN-or-PENDING.
+**Tally:** 6 DONE / 0 PARTIAL / 1 OPEN (Issue #11, administrative only).
 
 ---
 
@@ -102,17 +102,23 @@ To keep the picture honest, items that are **sometimes confused** with v5.0 bloc
 
 ---
 
-## 4. Recommended path to v5.0
+## 4. Recommended path to v5.0 (post Wave-8-spec)
 
-The shortest credible path is 3 sequential steps. Anything else either blocks on the same dependencies or duplicates work.
+The shortest credible path is now 2 sequential steps. Wave 8 (split into 8-pre `v4.16.0` and 8-spec `v4.17.0`) closed the technical block.
 
 | Order | Action | Wave / patch | Estimated calendar | Unblocks |
 |-------|--------|--------------|---------------------|----------|
 | 1 | Open Issue #11; publish v5.1 milestone with 3–5 placeholder issues | (admin only) | ½ day | DoD #5 |
-| 2 | Wave 8 batches A+B+C — TRACE.md schema + writer + validator + plan-mode auto-trigger + `--no-plan` bypass | Wave 8 (`v4.16.0` candidate, additive) | 2–3 days | DoD #2, #3, #6 |
-| 3 | Tag `v5.0.0-rc.1`, accept 1–2 weeks of feedback, then tag `v5.0.0` | release admin | ~10 calendar days | v5.0 |
+| 2 | Tag `v5.0.0-rc.1`, accept 1–2 weeks of feedback, then tag `v5.0.0` | release admin | ~10 calendar days | v5.0 |
 
-The 11 deferred debts (`v4.13.1` + `v4.14.1`) can ship in parallel with step 2 if a contributor wants to take them — they do **not** block v5.0 and v5.0 does **not** block them. Most natural ordering: ship `v4.13.1` then `v4.14.1` then start Wave 8, but the dependency is one-way (Wave 8 doesn't need either).
+The 11 deferred debts (`v4.13.1` + `v4.14.1`) can ship in parallel — they do **not** block v5.0 and v5.0 does **not** block them.
+
+### Self-hosted dogfood findings (Wave 8-spec, 2026-05-06)
+
+`v4.17.0` was developed by running `/pipeline-orchestrator:pipeline` on its own canonical repo. The dogfood revealed two issues worth fixing in `v5.0.0-rc.1`:
+
+1. **`sentinel-hook.cjs` cwd-discovery brittleness.** The hook discovers `sentinel-state.json` via `process.cwd()/.pipeline/docs/`. When Claude Code is launched from a parent directory rather than the repo root, no candidate path resolves and non-bootstrap sub-agent spawns are blocked. Mitigation in v4.17.0 development was a controller-direct edit pivot. Long-term fix candidates: `CLAUDE_PROJECT_ROOT` env-var fallback, marker-file discovery (`.claude/`, `.claude-plugin/`, or `.git/`), or argv-based passthrough from the plugin runtime.
+2. **JavaScript regex `\Z` gotcha.** `/^### Phase 3: Closure[\s\S]*?(?=^## |\Z)/m` silently treats `\Z` as literal `Z`, breaking on the word "ZERO" in the Step 3b-pre UX text. Fixed in `tests/integration/trace-writer.test.js` to use slice + H2 boundary search. May appear in other audit-style tests; flagged for retrospective.
 
 ---
 

@@ -871,6 +871,66 @@ Criteria by level:
 
 **Decision:** GO | CONDITIONAL | NO-GO
 
+#### Step 3b-post: Emit TRACE.md (Wave 8-spec / v4.17.0+)
+
+After `final-validator` returns its GO/CONDITIONAL/NO-GO verdict and BEFORE
+spawning `finishing-branch`, the controller emits a single consolidated
+`TRACE.md` that summarizes the run for PR attachment and audit. This satisfies
+DoD criteria #2 (TRACE.md by default) and #3 (attachable to PR).
+
+**Output path resolution (in order):**
+
+1. Read `pipeline-orchestrator.persist_runs` from `.claude/settings.json` (or
+   from the YAML frontmatter of `.claude/pipeline.local.md`, if present).
+2. If `persist_runs == 'private'` → write to
+   `~/.claude/data/pipeline-orchestrator/runs/<run-id>/TRACE.md` (outside the
+   user repo).
+3. Otherwise (default; `persist_runs` absent or set to `'repo'`) → write to
+   `<repo-root>/.pipeline-orchestrator/runs/<run-id>/TRACE.md` so the file
+   appears in `git status` and is attachable to a PR.
+
+`<run-id>` is `{YYYYMMDD-HHMMSS}-{6char-random}-{slug}` (matches design §13
+and `references/trace-schema/v1.md` §3). The 6-char random suffix avoids
+collisions across worktrees and concurrent runs.
+
+**Inputs to read (already on disk by this point):**
+
+- `{PIPELINE_DOC_PATH}/gate-decisions.jsonl` — every gate trigger logged
+  during the run (controller-only writes, append-only).
+- `{PIPELINE_DOC_PATH}/confidence-score.yaml` — final confidence dimensions.
+- `{PIPELINE_DOC_PATH}/0*.md` — per-phase agent outputs (task-orchestrator,
+  information-gate, design-interrogator, plan-architect, executor outputs,
+  review consolidations, sanity-checker, final-adversarial reports,
+  final-validator).
+- `references/pipelines/<variant>.md` — the pipeline shape that drove this
+  run (snapshotted into TRACE.md §4.3).
+- `.claude-plugin/plugin.json` `version` — current plugin_version.
+
+**Schema:** `references/trace-schema/v1.md` (schema_version=1). Field order
+is canonical; the validator (`scripts/validate-trace.cjs`) enforces it.
+
+**Plan-mode override block:** if the user passed `--no-plan` at any point in
+the run, emit the optional `## Plan Mode` section per schema §4.6:
+- `complexity == COMPLEXA + --no-plan` → `plan_mode_skipped: false`,
+  `plan_override_attempted: true`, `justification: <user input>` (override
+  was rejected at COMPLEXA per design §8; flag is logged for audit).
+- `complexity == MEDIA + --no-plan` → `plan_mode_skipped: true`,
+  `plan_override_attempted: true`, `justification: <user input>`.
+- `--no-plan` not passed → omit the entire section.
+
+**Verification step:** before continuing to `finishing-branch`, the
+controller MUST confirm the TRACE was written (re-Read the path, check
+non-empty, check `trace_schema_version: 1` is present). If the write
+failed, emit a SOFT log entry (no new gate; Iron Law #4 — gate registry
+remains 22) and proceed; finishing-branch will surface the missing
+TRACE in its closeout summary.
+
+**Edit-guard exec-window:** the TRACE write target lives outside
+`.pipeline/`, so the controller MUST open an exec-window (Write to
+`.pipeline/sessions/{session_id}.exec-window` per `edit-guard-hook` F-001)
+BEFORE the TRACE.md Write tool call, and close it immediately after. This
+is the same pattern N2 executor agents use for cross-tree edits.
+
 #### Step 3c: Finishing Branch
 
 Spawn `finishing-branch` agent.

@@ -5,6 +5,48 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.17.0] - 2026-05-06
+
+**Minor release WAVE 8-SPEC — TRACE.md + PLAN-MODE AUTO-TRIGGER**. Last technical block before `v5.0.0-rc.1`. Closes 3 v5.0 DoD criteria (#2, #3, #6) in a single wave. Self-hosted dogfood: this release was developed by running `/pipeline-orchestrator:pipeline` on its own canonical repo; the dogfood revealed and documented `sentinel-hook` cwd-discovery brittleness as a v5.0-rc.1 follow-up.
+
+### Added
+
+- **`references/trace-schema/v1.md` (NEW)** — Authoritative SSOT for the TRACE.md artifact. Declares `schema_version: 1`, canonical field order (mirroring `designs/pipeline-orchestrator-v5-consolidated.md` §13), the four required H2 sections (Classification, Pipeline Definition, Execution Log, Final Verdict), the optional Plan Mode override section (§4.6, used when `--no-plan` is passed), the `<run-id>` format `{YYYYMMDD-HHMMSS}-{6char-random}-{slug}`, and the `pipeline-orchestrator.persist_runs: 'private'` opt-out path (`~/.claude/data/pipeline-orchestrator/runs/...`). Closes DoD #2.
+- **`scripts/validate-trace.cjs` (NEW)** — Standalone TRACE.md validator. Pure Node, zero external deps. `node scripts/validate-trace.cjs <path>` exits 0 (valid against schema_version=1) or 1 (invalid + diagnostic diff on stderr listing missing/malformed fields and out-of-order sections). Usage on no-args / nonexistent file exits 2 with usage line. Module-exports `{ validate, parseHeaderFields, findSectionPositions }` for unit tests. Closes DoD #3.
+- **`tests/integration/trace-writer.test.js` (NEW)** — 7 contract tests covering: schema doc existence + `schema_version: 1` declaration, presence of all canonical header fields, presence of the four required H2 sections, dispatch_mode invariant (#6) documentation, pipeline-controller wires TRACE.md emission in Phase 3 closure between final-validator and finishing-branch, persist_runs opt-out documented, and Iron Law check that `references/gates.md` registry remains at 22 gate rows.
+- **`tests/unit/validate-trace.test.js` (NEW)** — 5 unit tests for the validator: happy-path fixture exits 0; corrupt-frontmatter exits 1; corrupt fixture stderr lists at least one issue; no-args exits non-zero with usage; nonexistent file exits non-zero with clear error.
+- **`tests/unit/plan-mode-trigger.test.js` (NEW)** — 5 unit tests for the new Phase 1.5 auto-trigger contract: trigger condition mentions both MEDIA and COMPLEXA, modes table documents `--no-plan`, COMPLEXA + `--no-plan` documented as override-blocked, TRACE schema declares the three Plan Mode override fields (`plan_mode_skipped`, `plan_override_attempted`, `justification`), design §8 corrected.
+- **`tests/fixtures/trace/happy-path.md` (NEW)** — Reference TRACE.md that conforms to schema_version=1; consumed by validator unit tests and the integration test.
+- **`tests/fixtures/trace/corrupt-frontmatter.md` (NEW)** — Intentionally malformed TRACE.md (wrong `trace_schema_version: 99`, missing fields, missing sections); consumed by validator failure-path tests.
+- **`commands/pipeline.md` modes table — new `--no-plan` row** — Documents the bypass flag and explicitly notes that COMPLEXA ignores it (override blocked).
+
+### Changed
+
+- **`agents/core/pipeline-controller.md` Phase 3 closure — new Step 3b-post (TRACE.md emitter)** — After `final-validator` returns its GO/CONDITIONAL/NO-GO verdict and BEFORE `finishing-branch`, the controller now reads `gate-decisions.jsonl`, `confidence-score.yaml`, the per-phase agent docs, and `references/pipelines/<variant>.md`, then emits a single consolidated `TRACE.md` to `<repo-root>/.pipeline-orchestrator/runs/<run-id>/TRACE.md` (default) or `~/.claude/data/pipeline-orchestrator/runs/<run-id>/TRACE.md` (when `pipeline-orchestrator.persist_runs: 'private'` is set). The controller opens an `edit-guard` exec-window before the cross-tree Write per the F-001 cooperative-authorization pattern, then closes it. Verification step re-reads the path to confirm `trace_schema_version: 1` is present before continuing to finishing-branch.
+- **`commands/pipeline.md` Phase 1.5 trigger condition** — Extended from `complexity == COMPLEXA` to `complexity ∈ {MEDIA, COMPLEXA} AND --no-plan ausente`. The block now includes a 3×3 truth table covering SIMPLES / MEDIA / COMPLEXA against (no flag / `--no-plan` / `--plan`).
+- **`designs/pipeline-orchestrator-v5-consolidated.md` §8 Critério #6 prose** — Corrected to remove the contradiction flagged in `docs/v5-readiness-report.md` §1 (which said "verify in design before implementing"). The corrected text now states explicitly that COMPLEXA always runs plan-architect; `--no-plan` is accepted by the parser but ignored at COMPLEXA, with the flag and justification logged in TRACE.md for audit. Rationale is preserved: COMPLEXA tasks are scope-driven and bypassing planning at this level historically correlates with regressions.
+- **`tests/unit/spec-entry-point-and-pipelines.test.js:231`** — Pin bumped from `4.16.0` to `4.17.0` (release-admin chore, not a content invariant).
+- **`docs/v5-readiness-report.md`** — Regenerated. Criteria #2 / #3 / #6 advance from PARTIAL/PENDING to DONE. §4 recommended path collapses from "Wave 8 + tag rc.1" to "tag rc.1".
+
+### Behavior Changes
+
+- **MEDIA tasks now trigger plan-architect by default** (additive, opt-out via `--no-plan`). Pre-v4.17.0, only COMPLEXA triggered plan-architect; MEDIA was a SKIP. To preserve v4.16.0 behavior on a MEDIA task, pass `--no-plan` explicitly — the user will be asked for a justification that lands in `TRACE.md`.
+- **Default behavior preserved EXACTLY** for SIMPLES (no plan, ever) and COMPLEXA (always plan; `--no-plan` is logged but does not bypass). The change is scoped to the MEDIA × no-flag cell of the truth table.
+
+### Iron Laws Respected
+
+- Gate registry untouched at 22 entries in `references/gates.md`.
+- Sentinel checkpoints (5 mandatory, defined in `references/sentinel-integration.md`) untouched.
+- Agent dispatch namespace untouched (no agents added, removed, or renamed).
+- v5.0.0 NOT bumped; this remains a v4.x release.
+- 11 outstanding deferred debts (10 Wave 3 MEDIUM → v4.13.1; ARCH-WAVE6-1 → v4.14.1) UNTOUCHED.
+- TRACE.md path is `.pipeline-orchestrator/runs/` (in user repo), explicitly NOT `.pipeline/`.
+
+### Self-hosted dogfood findings
+
+- `sentinel-hook.cjs` discovers `sentinel-state.json` via `process.cwd()/.pipeline/docs/`. When Claude Code is launched from a parent directory rather than the plugin repo root, no candidate path resolves and non-bootstrap sub-agent spawns are blocked. Mitigation in v4.17.0 development: pivot to controller-direct edits (preserving TDD discipline). Long-term fix: `v5.0.0-rc.1` will add a `CLAUDE_PROJECT_ROOT` env-var fallback and/or marker-file discovery.
+- `commands/pipeline.md` regex audit-test had a `\Z` anchor that JavaScript regex silently treats as literal `Z`. Bug found because Phase 3 closure UX text contains "ZERO context"; fixed to use explicit slice + H2 boundary search. Same gotcha may appear in other audit-style tests; flagged for retro.
+
 ## [4.16.0] - 2026-05-06
 
 **Minor release WAVE 8-PRE / ISSUE #11 — REAL-MODE COMPAT RUNNER**. Closes Issue #11 by reimplementing `tests/compat/runner.cjs::executeReal()` from stub to working real-mode CI harness, using the `PreToolUse` hook contract that became available in Claude Code v2.1.85+ (`permissionDecision: "allow"` + `updatedInput.answers` to satisfy `AskUserQuestion` in headless mode). The previously documented `--ci-auto-confirm` workaround in `designs/slice-0/SPIKE-CI-HARNESS.md` is no longer needed; SPIKE status updated 🟠 PARTIAL PASS → 🟢 PASS. **Iron Law respected**: only `tests/compat/`, `tests/unit/`, `.github/workflows/`, `designs/`, `CHANGELOG.md`, `.claude-plugin/plugin.json` modified. ZERO changes to `agents/`, `skills/`, `references/`, `commands/`, `hooks/` (the plugin core remains untouched, including the v4 controller architecture and the 22-gate registry). Suite stays GREEN: 129 unit + 8 NEW unit (compat-runner-real) + 12 integration + 5 PASS / 1 SKIPPED compat + 8 hooks syntax (exit 0). Real-mode runner is opt-in via `vars.CLAUDE_CLI_AVAILABLE=true` + `secrets.ANTHROPIC_API_KEY` — default PR gate stays mock-mode (zero API spend, deterministic).
