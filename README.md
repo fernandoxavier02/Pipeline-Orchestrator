@@ -1,6 +1,6 @@
 <div align="center">
   <a href="https://fxstudioai.com">
-    <img src="assets/logos/fx-studio-ai-logo.png" alt="FX Studio AI" width="200"/>
+    <img src="assets/logos/fx-studio-ai-logo.png" alt="FX Studio AI" width="420"/>
   </a>
 </div>
 

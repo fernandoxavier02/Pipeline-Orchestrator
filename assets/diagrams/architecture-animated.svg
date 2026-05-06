@@ -18,7 +18,7 @@
 
   <rect width="1200" height="600" fill="url(#bg2)" rx="12"/>
 
-  <text x="600" y="38" text-anchor="middle" fill="#f0f6fc" font-size="20" font-weight="700" letter-spacing="2" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">ARQUITETURA — 19 AGENTES EM 4 CAMADAS</text>
+  <text x="600" y="38" text-anchor="middle" fill="#f0f6fc" font-size="24" font-weight="700" letter-spacing="2" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">ARCHITECTURE — 19 AGENTS IN 4 LAYERS</text>
   <line x1="360" y1="48" x2="840" y2="48" stroke="#7C3AED" stroke-width="2" opacity="0.6">
     <animate attributeName="opacity" values="0.6;1;0.6" dur="3s" repeatCount="indefinite"/>
   </line>
@@ -27,66 +27,66 @@
     <rect x="25" y="65" width="1150" height="120" rx="10" fill="#1e1b4b" stroke="#7C3AED" stroke-width="2.5" filter="url(#s2)" opacity="0.95">
       <animate attributeName="stroke-width" values="2.5;3.5;2.5" dur="4s" repeatCount="indefinite"/>
     </rect>
-    <text x="45" y="87" fill="#7C3AED" font-size="13" font-weight="800" letter-spacing="2" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">CAMADA NÚCLEO</text>
-    <text x="195" y="87" fill="#6d28d9" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Orquestração, Portões e Validação</text>
+    <text x="45" y="87" fill="#7C3AED" font-size="14" font-weight="800" letter-spacing="2" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">CORE LAYER</text>
+    <text x="195" y="87" fill="#6d28d9" font-size="12" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Orchestration, Gates and Validation</text>
 
     <rect x="45" y="100" width="115" height="65" rx="8" fill="#2d2150" stroke="#8b5cf6" stroke-width="1">
       <animate attributeName="stroke-width" values="1;2.5;1" dur="3s" begin="0s" repeatCount="indefinite"/>
     </rect>
-    <text x="102" y="123" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Task</text>
-    <text x="102" y="137" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Orchestrator</text>
-    <text x="102" y="154" text-anchor="middle" fill="#7c3aed" font-size="8" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">classificação</text>
+    <text x="102" y="123" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Task</text>
+    <text x="102" y="137" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Orchestrator</text>
+    <text x="102" y="154" text-anchor="middle" fill="#7c3aed" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">classification</text>
 
     <rect x="175" y="100" width="115" height="65" rx="8" fill="#2d2150" stroke="#8b5cf6" stroke-width="1">
       <animate attributeName="stroke-width" values="1;2.5;1" dur="3s" begin="0.3s" repeatCount="indefinite"/>
     </rect>
-    <text x="232" y="123" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Information</text>
-    <text x="232" y="137" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Gate</text>
-    <text x="232" y="154" text-anchor="middle" fill="#7c3aed" font-size="8" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">gap detection</text>
+    <text x="232" y="123" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Information</text>
+    <text x="232" y="137" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Gate</text>
+    <text x="232" y="154" text-anchor="middle" fill="#7c3aed" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">gap detection</text>
 
     <rect x="305" y="100" width="115" height="65" rx="8" fill="#2d2150" stroke="#8b5cf6" stroke-width="1">
       <animate attributeName="stroke-width" values="1;2.5;1" dur="3s" begin="0.6s" repeatCount="indefinite"/>
     </rect>
-    <text x="362" y="123" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Design</text>
-    <text x="362" y="137" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Interrogator</text>
-    <text x="362" y="154" text-anchor="middle" fill="#7c3aed" font-size="8" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">decision tree</text>
+    <text x="362" y="123" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Design</text>
+    <text x="362" y="137" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Interrogator</text>
+    <text x="362" y="154" text-anchor="middle" fill="#7c3aed" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">decision tree</text>
 
     <rect x="435" y="100" width="115" height="65" rx="8" fill="#2d2150" stroke="#8b5cf6" stroke-width="1">
       <animate attributeName="stroke-width" values="1;2.5;1" dur="3s" begin="0.9s" repeatCount="indefinite"/>
     </rect>
-    <text x="492" y="123" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Plan</text>
-    <text x="492" y="137" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Architect</text>
-    <text x="492" y="154" text-anchor="middle" fill="#7c3aed" font-size="8" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">impl plan</text>
+    <text x="492" y="123" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Plan</text>
+    <text x="492" y="137" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Architect</text>
+    <text x="492" y="154" text-anchor="middle" fill="#7c3aed" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">impl plan</text>
 
     <rect x="565" y="100" width="115" height="65" rx="8" fill="#2d2150" stroke="#8b5cf6" stroke-width="1">
       <animate attributeName="stroke-width" values="1;2.5;1" dur="3s" begin="1.2s" repeatCount="indefinite"/>
     </rect>
-    <text x="622" y="123" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Checkpoint</text>
-    <text x="622" y="137" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Validator</text>
-    <text x="622" y="154" text-anchor="middle" fill="#7c3aed" font-size="8" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">build + tests</text>
+    <text x="622" y="123" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Checkpoint</text>
+    <text x="622" y="137" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Validator</text>
+    <text x="622" y="154" text-anchor="middle" fill="#7c3aed" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">build + tests</text>
 
     <rect x="695" y="100" width="115" height="65" rx="8" fill="#2d2150" stroke="#8b5cf6" stroke-width="1">
       <animate attributeName="stroke-width" values="1;2.5;1" dur="3s" begin="1.5s" repeatCount="indefinite"/>
     </rect>
-    <text x="752" y="123" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Sanity</text>
-    <text x="752" y="137" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Checker</text>
-    <text x="752" y="154" text-anchor="middle" fill="#7c3aed" font-size="8" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">final sanity</text>
+    <text x="752" y="123" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Sanity</text>
+    <text x="752" y="137" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Checker</text>
+    <text x="752" y="154" text-anchor="middle" fill="#7c3aed" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">final sanity</text>
 
     <rect x="825" y="100" width="115" height="65" rx="8" fill="#2d2150" stroke="#8b5cf6" stroke-width="1">
       <animate attributeName="stroke-width" values="1;2.5;1" dur="3s" begin="1.8s" repeatCount="indefinite"/>
     </rect>
-    <text x="882" y="123" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Final</text>
-    <text x="882" y="137" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Validator</text>
-    <text x="882" y="154" text-anchor="middle" fill="#7c3aed" font-size="8" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Go / No-Go</text>
+    <text x="882" y="123" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Final</text>
+    <text x="882" y="137" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Validator</text>
+    <text x="882" y="154" text-anchor="middle" fill="#7c3aed" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Go / No-Go</text>
 
     <rect x="960" y="95" width="200" height="75" rx="8" fill="#1e1b4b" stroke="#f59e0b" stroke-width="2" stroke-dasharray="5,3">
       <animate attributeName="stroke-dashoffset" values="0;-8" dur="1s" repeatCount="indefinite"/>
       <animate attributeName="stroke-width" values="2;3;2" dur="2s" repeatCount="indefinite"/>
     </rect>
-    <text x="1060" y="120" text-anchor="middle" fill="#fde68a" font-size="12" font-weight="800" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">SENTINEL</text>
-    <text x="1060" y="137" text-anchor="middle" fill="#f59e0b" font-size="9" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">valida cada spawn</text>
-    <text x="1060" y="150" text-anchor="middle" fill="#f59e0b" font-size="9" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">de agente</text>
-    <text x="1060" y="163" text-anchor="middle" fill="#fde68a" font-size="8" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">5 checkpoints</text>
+    <text x="1060" y="120" text-anchor="middle" fill="#fde68a" font-size="13" font-weight="800" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">SENTINEL</text>
+    <text x="1060" y="137" text-anchor="middle" fill="#f59e0b" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">validates each spawn</text>
+    <text x="1060" y="150" text-anchor="middle" fill="#f59e0b" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">agent spawn</text>
+    <text x="1060" y="163" text-anchor="middle" fill="#fde68a" font-size="11" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">5 checkpoints</text>
   </g>
 
   <g stroke="#7C3AED" stroke-width="1.5" stroke-dasharray="4,2" opacity="0.4" filter="url(#connGlow)">
@@ -108,150 +108,150 @@
     <rect x="25" y="210" width="565" height="120" rx="10" fill="#052e16" stroke="#22C55E" stroke-width="2.5" filter="url(#s2)" opacity="0.95">
       <animate attributeName="stroke-width" values="2.5;3.5;2.5" dur="4s" begin="1s" repeatCount="indefinite"/>
     </rect>
-    <text x="45" y="232" fill="#22C55E" font-size="13" font-weight="800" letter-spacing="2" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">CAMADA EXECUTOR</text>
-    <text x="220" y="232" fill="#16a34a" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Implementação e Controle de Batch</text>
+    <text x="45" y="232" fill="#22C55E" font-size="14" font-weight="800" letter-spacing="2" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">EXECUTOR LAYER</text>
+    <text x="220" y="232" fill="#16a34a" font-size="12" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Implementation and Batch Control</text>
 
     <rect x="45" y="245" width="120" height="65" rx="8" fill="#14532d" stroke="#22C55E" stroke-width="1">
       <animate attributeName="stroke-width" values="1;2.5;1" dur="3s" begin="1.2s" repeatCount="indefinite"/>
     </rect>
-    <text x="105" y="268" text-anchor="middle" fill="#86efac" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Executor</text>
-    <text x="105" y="282" text-anchor="middle" fill="#86efac" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Controller</text>
-    <text x="105" y="299" text-anchor="middle" fill="#22c55e" font-size="8" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">batch dispatch</text>
+    <text x="105" y="268" text-anchor="middle" fill="#86efac" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Executor</text>
+    <text x="105" y="282" text-anchor="middle" fill="#86efac" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Controller</text>
+    <text x="105" y="299" text-anchor="middle" fill="#22c55e" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">batch dispatch</text>
 
     <rect x="185" y="245" width="120" height="65" rx="8" fill="#14532d" stroke="#22C55E" stroke-width="1">
       <animate attributeName="stroke-width" values="1;2.5;1" dur="3s" begin="1.5s" repeatCount="indefinite"/>
     </rect>
-    <text x="245" y="268" text-anchor="middle" fill="#86efac" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Implementer</text>
-    <text x="245" y="282" text-anchor="middle" fill="#86efac" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Task</text>
-    <text x="245" y="299" text-anchor="middle" fill="#22c55e" font-size="8" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">per-task TDD</text>
+    <text x="245" y="268" text-anchor="middle" fill="#86efac" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Implementer</text>
+    <text x="245" y="282" text-anchor="middle" fill="#86efac" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Task</text>
+    <text x="245" y="299" text-anchor="middle" fill="#22c55e" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">per-task TDD</text>
 
     <rect x="325" y="245" width="120" height="65" rx="8" fill="#14532d" stroke="#22C55E" stroke-width="1">
       <animate attributeName="stroke-width" values="1;2.5;1" dur="3s" begin="1.8s" repeatCount="indefinite"/>
     </rect>
-    <text x="385" y="268" text-anchor="middle" fill="#86efac" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Spec &amp; Quality</text>
-    <text x="385" y="282" text-anchor="middle" fill="#86efac" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Reviewers</text>
-    <text x="385" y="299" text-anchor="middle" fill="#22c55e" font-size="8" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">per-task review</text>
+    <text x="385" y="268" text-anchor="middle" fill="#86efac" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Spec &amp; Quality</text>
+    <text x="385" y="282" text-anchor="middle" fill="#86efac" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Reviewers</text>
+    <text x="385" y="299" text-anchor="middle" fill="#22c55e" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">per-task review</text>
 
     <rect x="465" y="245" width="120" height="65" rx="8" fill="#7f1d1d" stroke="#EF4444" stroke-width="1">
       <animate attributeName="stroke-width" values="1;2.5;1" dur="3s" begin="2.1s" repeatCount="indefinite"/>
     </rect>
-    <text x="525" y="268" text-anchor="middle" fill="#fca5a5" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Executor</text>
-    <text x="525" y="282" text-anchor="middle" fill="#fca5a5" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Fix</text>
-    <text x="525" y="299" text-anchor="middle" fill="#ef4444" font-size="8" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">finding fixes</text>
+    <text x="525" y="268" text-anchor="middle" fill="#fca5a5" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Executor</text>
+    <text x="525" y="282" text-anchor="middle" fill="#fca5a5" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Fix</text>
+    <text x="525" y="299" text-anchor="middle" fill="#ef4444" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">finding fixes</text>
   </g>
 
   <g>
     <rect x="610" y="210" width="565" height="120" rx="10" fill="#451a03" stroke="#f59e0b" stroke-width="2.5" filter="url(#s2)" opacity="0.95">
       <animate attributeName="stroke-width" values="2.5;3.5;2.5" dur="4s" begin="2s" repeatCount="indefinite"/>
     </rect>
-    <text x="630" y="232" fill="#f59e0b" font-size="13" font-weight="800" letter-spacing="2" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">CAMADA QUALIDADE</text>
-    <text x="790" y="232" fill="#d97706" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Revisão Independente e TDD</text>
+    <text x="630" y="232" fill="#f59e0b" font-size="14" font-weight="800" letter-spacing="2" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">QUALITY LAYER</text>
+    <text x="790" y="232" fill="#d97706" font-size="12" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Independent Review and TDD</text>
 
     <rect x="630" y="245" width="120" height="65" rx="8" fill="#422006" stroke="#f59e0b" stroke-width="1">
       <animate attributeName="stroke-width" values="1;2.5;1" dur="3s" begin="2.2s" repeatCount="indefinite"/>
     </rect>
-    <text x="690" y="268" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Review</text>
-    <text x="690" y="282" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Orchestrator</text>
-    <text x="690" y="299" text-anchor="middle" fill="#f59e0b" font-size="8" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">per-batch review</text>
+    <text x="690" y="268" text-anchor="middle" fill="#fde68a" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Review</text>
+    <text x="690" y="282" text-anchor="middle" fill="#fde68a" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Orchestrator</text>
+    <text x="690" y="299" text-anchor="middle" fill="#f59e0b" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">per-batch review</text>
 
     <rect x="770" y="245" width="120" height="65" rx="8" fill="#422006" stroke="#f59e0b" stroke-width="1">
       <animate attributeName="stroke-width" values="1;2.5;1" dur="3s" begin="2.5s" repeatCount="indefinite"/>
     </rect>
-    <text x="830" y="268" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Adversarial</text>
-    <text x="830" y="282" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">+ Architecture</text>
-    <text x="830" y="299" text-anchor="middle" fill="#f59e0b" font-size="8" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">parallel review</text>
+    <text x="830" y="268" text-anchor="middle" fill="#fde68a" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Adversarial</text>
+    <text x="830" y="282" text-anchor="middle" fill="#fde68a" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">+ Architecture</text>
+    <text x="830" y="299" text-anchor="middle" fill="#f59e0b" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">parallel review</text>
 
     <rect x="910" y="245" width="120" height="65" rx="8" fill="#422006" stroke="#f59e0b" stroke-width="1">
       <animate attributeName="stroke-width" values="1;2.5;1" dur="3s" begin="2.8s" repeatCount="indefinite"/>
     </rect>
-    <text x="970" y="268" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Quality Gate</text>
-    <text x="970" y="282" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Router</text>
-    <text x="970" y="299" text-anchor="middle" fill="#f59e0b" font-size="8" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">TDD scenarios</text>
+    <text x="970" y="268" text-anchor="middle" fill="#fde68a" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Quality Gate</text>
+    <text x="970" y="282" text-anchor="middle" fill="#fde68a" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Router</text>
+    <text x="970" y="299" text-anchor="middle" fill="#f59e0b" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">TDD scenarios</text>
 
     <rect x="1050" y="245" width="120" height="65" rx="8" fill="#422006" stroke="#f59e0b" stroke-width="1">
       <animate attributeName="stroke-width" values="1;2.5;1" dur="3s" begin="3.1s" repeatCount="indefinite"/>
     </rect>
-    <text x="1110" y="268" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Final Adversarial</text>
-    <text x="1110" y="282" text-anchor="middle" fill="#fde68a" font-size="10" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Orchestrator</text>
-    <text x="1110" y="299" text-anchor="middle" fill="#f59e0b" font-size="8" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">3 parallel agents</text>
+    <text x="1110" y="268" text-anchor="middle" fill="#fde68a" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Final Adversarial</text>
+    <text x="1110" y="282" text-anchor="middle" fill="#fde68a" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Orchestrator</text>
+    <text x="1110" y="299" text-anchor="middle" fill="#f59e0b" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">3 parallel agents</text>
   </g>
 
   <g stroke="#22C55E" stroke-width="1.5" stroke-dasharray="4,2" opacity="0.4" filter="url(#connGlow)">
     <line x1="105" y1="345" x2="105" y2="365">
       <animate attributeName="stroke-dashoffset" values="0;-6" dur="0.5s" repeatCount="indefinite"/>
     </line>
-    <text x="120" y="358" fill="#22C55E" font-size="8" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">despacha</text>
+    <text x="120" y="358" fill="#22C55E" font-size="11" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">dispatches</text>
   </g>
 
   <g>
     <rect x="25" y="355" width="1150" height="230" rx="10" fill="#1e1b4b" stroke="#ec4899" stroke-width="2.5" filter="url(#s2)" opacity="0.95">
       <animate attributeName="stroke-width" values="2.5;3.5;2.5" dur="4s" begin="3s" repeatCount="indefinite"/>
     </rect>
-    <text x="45" y="377" fill="#ec4899" font-size="13" font-weight="800" letter-spacing="2" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">CAMADA ESPECIALISTAS</text>
-    <text x="255" y="377" fill="#be185d" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">17 Agentes Especialistas de Domínio</text>
+    <text x="45" y="377" fill="#ec4899" font-size="14" font-weight="800" letter-spacing="2" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">SPECIALIST LAYER</text>
+    <text x="255" y="377" fill="#be185d" font-size="12" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">17 Domain Specialist Agents</text>
 
     <rect x="45" y="390" width="200" height="180" rx="8" fill="#2d2150" stroke="#f59e0b" stroke-width="1.5">
       <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="3s" begin="3.2s" repeatCount="indefinite"/>
     </rect>
     <rect x="45" y="390" width="200" height="28" rx="8" fill="#422006"/>
-    <text x="145" y="410" text-anchor="middle" fill="#fde68a" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">AUDIT (4 agentes)</text>
-    <text x="65" y="435" fill="#c4b5fd" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">audit-intake</text>
-    <text x="65" y="455" fill="#c4b5fd" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">audit-domain-analyzer</text>
-    <text x="65" y="475" fill="#c4b5fd" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">audit-compliance-checker</text>
-    <text x="65" y="495" fill="#c4b5fd" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">audit-risk-matrix-generator</text>
+    <text x="145" y="410" text-anchor="middle" fill="#fde68a" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">AUDIT (4 agents)</text>
+    <text x="65" y="435" fill="#c4b5fd" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">audit-intake</text>
+    <text x="65" y="455" fill="#c4b5fd" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">audit-domain-analyzer</text>
+    <text x="65" y="475" fill="#c4b5fd" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">audit-compliance-checker</text>
+    <text x="65" y="495" fill="#c4b5fd" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">audit-risk-matrix-generator</text>
     <line x1="145" y1="520" x2="145" y2="530" stroke="#f59e0b" stroke-width="1"/>
-    <text x="145" y="545" text-anchor="middle" fill="#f59e0b" font-size="8" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">só relatório</text>
-    <text x="145" y="558" text-anchor="middle" fill="#f59e0b" font-size="8" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">(não muda código)</text>
+    <text x="145" y="545" text-anchor="middle" fill="#f59e0b" font-size="11" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">report only</text>
+    <text x="145" y="558" text-anchor="middle" fill="#f59e0b" font-size="11" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">(doesn't change code)</text>
 
     <rect x="265" y="390" width="180" height="180" rx="8" fill="#2d2150" stroke="#ef4444" stroke-width="1.5">
       <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="3s" begin="3.5s" repeatCount="indefinite"/>
     </rect>
     <rect x="265" y="390" width="180" height="28" rx="8" fill="#7f1d1d"/>
-    <text x="355" y="410" text-anchor="middle" fill="#fca5a5" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">BUGFIX (3 agentes)</text>
-    <text x="285" y="435" fill="#c4b5fd" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">bugfix-diagnostic</text>
-    <text x="285" y="455" fill="#c4b5fd" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">bugfix-root-cause</text>
-    <text x="285" y="475" fill="#c4b5fd" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">bugfix-regression-tester</text>
+    <text x="355" y="410" text-anchor="middle" fill="#fca5a5" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">BUGFIX (3 agents)</text>
+    <text x="285" y="435" fill="#c4b5fd" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">bugfix-diagnostic</text>
+    <text x="285" y="455" fill="#c4b5fd" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">bugfix-root-cause</text>
+    <text x="285" y="475" fill="#c4b5fd" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">bugfix-regression-tester</text>
     <line x1="355" y1="520" x2="355" y2="530" stroke="#ef4444" stroke-width="1"/>
-    <text x="355" y="545" text-anchor="middle" fill="#ef4444" font-size="8" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">muda código</text>
-    <text x="355" y="558" text-anchor="middle" fill="#ef4444" font-size="8" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">(TDD obrigatório)</text>
+    <text x="355" y="545" text-anchor="middle" fill="#ef4444" font-size="11" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">changes code</text>
+    <text x="355" y="558" text-anchor="middle" fill="#ef4444" font-size="11" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">(TDD mandatory)</text>
 
     <rect x="465" y="390" width="180" height="180" rx="8" fill="#2d2150" stroke="#22C55E" stroke-width="1.5">
       <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="3s" begin="3.8s" repeatCount="indefinite"/>
     </rect>
     <rect x="465" y="390" width="180" height="28" rx="8" fill="#14532d"/>
-    <text x="555" y="410" text-anchor="middle" fill="#86efac" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">FEATURE (3 agentes)</text>
-    <text x="485" y="435" fill="#c4b5fd" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">feature-slice-planner</text>
-    <text x="485" y="455" fill="#c4b5fd" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">feature-implementer</text>
-    <text x="485" y="475" fill="#c4b5fd" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">feature-integration-validator</text>
+    <text x="555" y="410" text-anchor="middle" fill="#86efac" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">FEATURE (3 agents)</text>
+    <text x="485" y="435" fill="#c4b5fd" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">feature-slice-planner</text>
+    <text x="485" y="455" fill="#c4b5fd" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">feature-implementer</text>
+    <text x="485" y="475" fill="#c4b5fd" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">feature-integration-validator</text>
     <line x1="555" y1="520" x2="555" y2="530" stroke="#22C55E" stroke-width="1"/>
-    <text x="555" y="545" text-anchor="middle" fill="#22C55E" font-size="8" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">muda código</text>
-    <text x="555" y="558" text-anchor="middle" fill="#22C55E" font-size="8" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">(TDD obrigatório)</text>
+    <text x="555" y="545" text-anchor="middle" fill="#22C55E" font-size="11" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">changes code</text>
+    <text x="555" y="558" text-anchor="middle" fill="#22C55E" font-size="11" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">(TDD mandatory)</text>
 
     <rect x="665" y="390" width="180" height="180" rx="8" fill="#2d2150" stroke="#ec4899" stroke-width="1.5">
       <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="3s" begin="4.1s" repeatCount="indefinite"/>
     </rect>
     <rect x="665" y="390" width="180" height="28" rx="8" fill="#831843"/>
-    <text x="755" y="410" text-anchor="middle" fill="#f9a8d4" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">UX SIM (3 agentes)</text>
-    <text x="685" y="435" fill="#c4b5fd" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">ux-simulator</text>
-    <text x="685" y="455" fill="#c4b5fd" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">ux-accessibility-auditor</text>
-    <text x="685" y="475" fill="#c4b5fd" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">ux-qa-validator</text>
-    <text x="685" y="500" fill="#ec4899" font-size="9" font-style="italic" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">simulador ‖ a11y = paralelo</text>
+    <text x="755" y="410" text-anchor="middle" fill="#f9a8d4" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">UX SIM (3 agents)</text>
+    <text x="685" y="435" fill="#c4b5fd" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">ux-simulator</text>
+    <text x="685" y="455" fill="#c4b5fd" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">ux-accessibility-auditor</text>
+    <text x="685" y="475" fill="#c4b5fd" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">ux-qa-validator</text>
+    <text x="685" y="500" fill="#ec4899" font-size="10" font-style="italic" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">simulator ‖ a11y = parallel</text>
     <line x1="755" y1="520" x2="755" y2="530" stroke="#ec4899" stroke-width="1"/>
-    <text x="755" y="545" text-anchor="middle" fill="#ec4899" font-size="8" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">só relatório</text>
-    <text x="755" y="558" text-anchor="middle" fill="#ec4899" font-size="8" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">(não muda código)</text>
+    <text x="755" y="545" text-anchor="middle" fill="#ec4899" font-size="11" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">report only</text>
+    <text x="755" y="558" text-anchor="middle" fill="#ec4899" font-size="11" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">(doesn't change code)</text>
 
     <rect x="865" y="390" width="295" height="180" rx="8" fill="#2d2150" stroke="#8b5cf6" stroke-width="1.5">
       <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="3s" begin="4.4s" repeatCount="indefinite"/>
     </rect>
     <rect x="865" y="390" width="295" height="28" rx="8" fill="#3b0764"/>
-    <text x="1012" y="410" text-anchor="middle" fill="#d8b4fe" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">ADVERSARIAL (4 agentes)</text>
-    <text x="885" y="435" fill="#c4b5fd" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">adversarial-review-coordinator</text>
-    <text x="885" y="455" fill="#c4b5fd" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">adversarial-security-scanner</text>
-    <text x="885" y="475" fill="#c4b5fd" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">adversarial-architecture-critic</text>
-    <text x="885" y="495" fill="#c4b5fd" font-size="10" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">adversarial-quality-reviewer</text>
-    <text x="885" y="520" fill="#8b5cf6" font-size="9" font-style="italic" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">3 scanners ‖ paralelo, zero contexto</text>
+    <text x="1012" y="410" text-anchor="middle" fill="#d8b4fe" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">ADVERSARIAL (4 agents)</text>
+    <text x="885" y="435" fill="#c4b5fd" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">adversarial-review-coordinator</text>
+    <text x="885" y="455" fill="#c4b5fd" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">adversarial-security-scanner</text>
+    <text x="885" y="475" fill="#c4b5fd" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">adversarial-architecture-critic</text>
+    <text x="885" y="495" fill="#c4b5fd" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">adversarial-quality-reviewer</text>
+    <text x="885" y="520" fill="#8b5cf6" font-size="10" font-style="italic" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">3 scanners ‖ parallel, zero context</text>
     <line x1="1012" y1="540" x2="1012" y2="550" stroke="#8b5cf6" stroke-width="1"/>
-    <text x="1012" y="565" text-anchor="middle" fill="#8b5cf6" font-size="8" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">revisão +/- correção</text>
+    <text x="1012" y="565" text-anchor="middle" fill="#8b5cf6" font-size="11" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">review +/- fix</text>
   </g>
 
   <line x1="50" y1="585" x2="1150" y2="585" stroke="#7C3AED" stroke-width="1" opacity="0.3">
@@ -261,5 +261,5 @@
   <rect x="400" y="590" width="400" height="22" rx="11" fill="#1a1a2e" stroke="#7C3AED" stroke-width="1" stroke-dasharray="4,2">
     <animate attributeName="stroke-dashoffset" values="0;-6" dur="0.8s" repeatCount="indefinite"/>
   </rect>
-  <text x="600" y="605" text-anchor="middle" fill="#c4b5fd" font-size="10" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">🔒 Isolamento de Contexto — Revisores NUNCA veem o raciocínio do implementador</text>
+  <text x="600" y="605" text-anchor="middle" fill="#c4b5fd" font-size="11" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">🔒 Context Isolation — Reviewers NEVER see the implementer's reasoning</text>
 </svg>
