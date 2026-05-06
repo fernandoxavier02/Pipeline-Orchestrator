@@ -5,6 +5,49 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.14.0] - 2026-05-06
+
+**Minor release WAVE 6-SPEC — INTEGRATION TESTS + COMPAT FIXTURE + BAD-VARIANT FIXTURES**. Pure additive release that hardens the Wave 1–5 spec lifecycle stack (4 agents + 3 skill trees + 6 gates + mode_used persistence) with three layers of net: (a) an 8-scenario integration test suite covering the spec-format-gate → spec-content-reviewer → spec-post-impl-validator → spec-closer chain, gate hardness/recovery assertions, and ADVERSARIAL_LOOP_CHECKPOINT counter-reset semantics; (b) a TEMPLATE compat regression fixture (`spec-fixture`) staking out the spec-heavy observable contract for a future dogfooding session to populate with a real baseline; (c) three bad-variant spec fixtures under `tests/fixtures/specs/` (broken JSON, missing traceability, missing artifact) documenting the negative gate decisions spec-format-gate is contracted to emit. **Iron Law respected**: ZERO changes to `agents/`, `skills/`, `references/`, `commands/`, or `hooks/` — only `tests/`, `CHANGELOG.md`, `.claude-plugin/plugin.json` modified. Suite stays GREEN: 129 unit + 12 integration + 5 PASS / 1 SKIPPED compat (exit 0).
+
+### Added
+
+- **`tests/integration/spec-workflow-e2e.test.js` (NEW, 8 scenarios)** — integration test suite that asserts the observable contract of the spec-heavy pipeline chain by parsing live SSOT files (no JS imports of agent contracts, since agents are pure markdown). Covers: `SPEC_FORMAT_GATE_FAIL` is HARD in `references/gates.md` registry; `SPEC_CONTENT_REVIEW_NOGO` is HARD with precondition `format_gate_status ∈ {GO, GO-WARN}`; `SPEC_POST_IMPL_FAIL` is HARD when score < 75%; `spec-closer.md` mode_used mapping (`spec-heavy → full`, `spec-light → slim`, `spec-audit-only → audit`); `ADVERSARIAL_LOOP_CHECKPOINT` counter resets on `batch_changed=true` (per-batch escalation rule from v4.13.0 reused as a pure function). Suite total: 4 → 12 integration tests GREEN.
+- **`tests/compat/v4-baseline/scenarios/spec-fixture/` (NEW, 2 files)** — TEMPLATE compat fixture for the spec-heavy full lifecycle. `input.md` describes a hypothetical `checkout-redesign` Kiro spec scenario (4 components, 12 ACs, 2 contracts, 1 data model → COMPLEXA + spec-heavy). `expected.yaml` documents the expected observable contract (5 spec-* gates + 8 cross-cutting gates, 21 agents per `references/pipelines/spec-heavy.md`, 17 artifacts including `spec.json` with `mode_used=full`, `verdict: GO`). `baseline_method` starts with "TEMPLATE" → runner.cjs lines 320-329 SKIP the scenario until a future dogfooding session captures a real baseline. No `mock-output.json` (TEMPLATE scenarios never reach `executeMock()`).
+- **`tests/fixtures/specs/auth-flow-bad-yaml/` (NEW, 5 files)** — bad-variant fixture for `SPEC_FORMAT_GATE_FAIL` HARD with critical-artifact rule. requirements.md / design.md / tasks.md copied verbatim from `auth-flow-good/`. `spec.json` is **intentionally unparseable JSON** (unquoted key + missing closing brace) to force NO-GO via the spec-format-gate's invalid-JSON critical-artifact rule. `expected.yaml` documents `expected_gate: SPEC_FORMAT_GATE_FAIL`, `expected_hardness: HARD`, `expected_decision: NO-GO`.
+- **`tests/fixtures/specs/auth-flow-no-traceability/` (NEW, 5 files)** — bad-variant fixture for `SPEC_FORMAT_GATE_FAIL` HARD via score ≤17 (NO-GO threshold). requirements.md / tasks.md / spec.json valid; design.md **intentionally stripped** of `Traces to:` references, Glossary section, component responsibilities, data model, and contracts sections — ≥8 of the 25 spec-format-gate checks expected to fail. `expected.yaml` documents the expected gate decision and the structural-completeness checks that fail.
+- **`tests/fixtures/specs/auth-flow-missing-artifact/` (NEW, 4 files)** — bad-variant fixture for `SPEC_ARTIFACT_MISSING` MANDATORY (registry name verified against `references/gates.md` line 45). requirements.md / design.md / spec.json copied verbatim from `auth-flow-good/`; **tasks.md intentionally absent** — its absence triggers the MANDATORY gate that forces NO-GO before format scoring runs. `expected.yaml` documents `expected_gate: SPEC_ARTIFACT_MISSING`, `expected_hardness: MANDATORY`, `expected_decision: NO-GO`.
+
+### Changed
+
+- **`tests/unit/compat-baselines.test.js`** — line 107 regex relaxed from `/SKIPPED:\s+0/` to `/SKIPPED:\s+[01]/` with explanatory comment. The v4.10.0 test hard-coded "SKIPPED: 0" because the 5 fixtures had all graduated to REAL; adding the v4.14.0 spec-fixture in TEMPLATE state would otherwise break it. The test's stated invariant ("runner exits 0 naturally") still holds. The 5 v4.10.0 fixtures remain REAL (covered by the FIXTURES constant assertions in the same file). When a future PR graduates spec-fixture to REAL, this regex should be tightened back to `/SKIPPED:\s+0/`.
+- **`.claude-plugin/plugin.json`** — version `4.13.0` → `4.14.0`; description prepended with v4.14.0 summary.
+
+### Backward Compatibility
+
+- All changes additive. No existing fixture, agent, skill, reference, command, or hook is modified. The 1-line edit to `tests/unit/compat-baselines.test.js` only relaxes one regex assertion (0 → 0 or 1) and is documented inline as v4.14.0-specific.
+- Pre-existing test counts preserved as upper-bound guarantees: 129 unit (Batch A added the integration suite, not unit tests) + 5 hooks syntax + 8 hooks unit (tracked separately in some matrices) all unchanged.
+- Integration suite: 4 (Wave 1 regression) → 12 tests (4 + 8 new spec-workflow-e2e scenarios).
+- Compat suite: 5 PASS preserved + 1 new SKIPPED (spec-fixture TEMPLATE). Runner exits 0 naturally (SKIPPED with ≥1 PASS does not trigger exit 1, per runner.cjs lines 406-416).
+
+### Constraints respected (cirurgical scope)
+
+- **`agents/`**: untouched.
+- **`skills/`**: untouched.
+- **`references/`**: untouched. (Gate names cross-checked via `Grep` only — read-only verification.)
+- **`commands/`**: untouched.
+- **`hooks/`**: untouched.
+- Modified surfaces: only new files under `tests/integration/`, `tests/compat/v4-baseline/scenarios/spec-fixture/`, `tests/fixtures/specs/auth-flow-{bad-yaml,no-traceability,missing-artifact}/`, plus 1 surgical edit in `tests/unit/compat-baselines.test.js` and version + description bump in `.claude-plugin/plugin.json` and this `CHANGELOG.md` section.
+
+### Pipeline-driven (dogfood, degraded-mode)
+
+Wave 6-spec was scoped via `/pipeline-orchestrator:pipeline` itself (COMPLEXA, `implement-heavy` variant, 4 batches: A integration tests, B compat fixture, C bad-variant fixtures, D release closure). Per-batch adversarial gate was SKIPPED by user choice (final-only cadence agreed at gate plan); checkpoint-validator ran after each batch. **Degraded-mode caveat**: this session ran with hooks not registered (controller used absolute paths and wrote sentinel/gate state defensively). Batch C's checkpoint surfaced one regression (`tests/unit/compat-baselines.test.js` line 107 hard-coded `SKIPPED: 0`) — fixed surgically with 1 regex relax inside the allowed `tests/unit/` surface, re-validated GREEN. Suite at close: 129 unit + 12 integration + 5 PASS / 1 SKIPPED compat, all exit 0.
+
+### Known debt — deferred to v4.14.1
+
+- **ARCH-WAVE6-1 (final adversarial finding, IMPORTANT, deferred):** `shouldEscalate(attempt, batchChanged)` helper is now duplicated between `tests/integration/spec-workflow-e2e.test.js` (Wave 6) and `tests/unit/spec-gates-and-mode-persistence.test.js` line 172 (Wave 5). Both copies encode the same per-batch escalation rule from `references/gates.md`. No JS-level single home — drift risk if the rule changes. Cleanup plan: extract to `tests/_helpers/adversarial-loop-rule.cjs`, both tests import. Tracked as patch v4.14.1.
+
+---
+
 ## [4.13.0] - 2026-05-05
 
 **Minor release WAVE 5-SPEC — GATES INVARIANTS & MODE PERSISTENCE**. Closes the ARCH-1 drift identified in the v4.11.0 adversarial review: the 6 spec gates that `pipeline-controller.md` declared via Inline Invariants were not in the `references/gates.md` Registry, leaving SSOT incoherent. This release reconciles both surfaces, extends the Inline Invariants list from 15 to 21 gate names (full registry now 22 entries), adds a Spec row to the Pipeline Routing Matrix in `references/complexity-matrix.md`, declares the optional `mode_used` field (`slim` | `full` | `audit`) in `references/spec-context-schema.md`, and wires `spec-closer.md` to write that field to `spec.json` based on `pipeline_variant`. **Backward compatible**: all changes additive; pre-v4.13.0 specs lack `mode_used` and that absence triggers no gate.

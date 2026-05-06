@@ -104,7 +104,10 @@ test('runner --all --mock exits 0 naturally (no --allow-templates-skipped flag n
     `runner --all --mock should exit 0 with REAL baselines.\nstatus=${result.status}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`
   );
   assert.match(result.stdout, /PASS:\s+5/, `expected "PASS: 5" in stdout, got:\n${result.stdout}`);
-  assert.match(result.stdout, /SKIPPED:\s+0/, `expected "SKIPPED: 0" in stdout, got:\n${result.stdout}`);
+  // v4.14.0 (Wave 6): spec-fixture is intentionally TEMPLATE → SKIPPED. The 5 v4.10.0 fixtures
+  // remain REAL (covered by FIXTURES constant assertions above), so this regex now allows
+  // 0 or 1 SKIPPED. If a future PR graduates spec-fixture to REAL, tighten back to /SKIPPED:\s+0/.
+  assert.match(result.stdout, /SKIPPED:\s+[01]/, `expected "SKIPPED: 0" or "SKIPPED: 1" (Wave 6 spec-fixture TEMPLATE) in stdout, got:\n${result.stdout}`);
 });
 
 test('each fixture passes individually via runner --scenario=<name> --mock', () => {

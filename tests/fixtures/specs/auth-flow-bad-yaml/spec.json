@@ -1,0 +1,5 @@
+{feature_name: "auth-flow-bad-yaml",
+  "phase": "ready",
+  "status": "open",
+  "last_updated": "2026-05-06",
+  "schema_version": 1

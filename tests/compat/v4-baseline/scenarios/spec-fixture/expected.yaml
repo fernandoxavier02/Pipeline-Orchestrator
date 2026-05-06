@@ -1,0 +1,120 @@
+# Expected observable contract for spec-fixture (Spec Lifecycle full mode)
+# Cross-reference: commands/pipeline.md + references/pipelines/spec-heavy.md + references/gates.md (22-gate registry) + agents/executor/spec-closer.md (mode_used mapping)
+
+baseline_version: "4.14.0"
+baseline_captured_at: "2026-05-06T00:00:00Z"
+baseline_method: "TEMPLATE — captured manually 2026-05-06; spec-heavy mock-output deferred to dogfooding session per design v5 §17.3 #10/#11"
+
+classification:
+  type: Spec
+  complexity: COMPLEXA
+  pipeline_variant: spec-heavy    # COMPLEXA + Kiro spec present → spec-heavy full lifecycle
+
+gates_triggered:
+  # Cronological order — see references/gates.md Registry for hardness levels
+  # 22-gate registry per v4.13.0+. Spec-heavy full lifecycle exercises the 5 spec-* gates plus 7 cross-cutting gates.
+  - gate: INFO_GATE_BLOCKED
+    hardness: HARD
+    decision: PASS
+  - gate: SPEC_ARTIFACT_MISSING
+    hardness: MANDATORY
+    decision: PASS                    # all 4 artifacts present
+  - gate: SPEC_FORMAT_GATE_FAIL
+    hardness: HARD
+    decision: PASS                    # format gate emits GO (>=22 of 25 checks)
+  - gate: SPEC_CONTENT_REVIEW_NOGO
+    hardness: HARD
+    decision: PASS                    # content reviewer (full mode) emits GO, 0 critical findings
+  - gate: SPEC_AC_TRACEABILITY_GAP
+    hardness: HARD
+    decision: PASS                    # quality-gate-router derives 12 scenarios (1 per AC)
+  - gate: TDD_APPROVAL
+    hardness: HARD
+    decision: PASS
+  - gate: COMPLEXITY_GATE
+    hardness: SOFT
+    decision: PASS                    # COMPLEXA confirmed by user
+  - gate: ADVERSARIAL_GATE_MANDATORY
+    hardness: MANDATORY
+    decision: PASS                    # COMPLEXA + new public contracts → mandatory
+  - gate: ADVERSARIAL_LOOP_CHECKPOINT
+    hardness: SOFT
+    decision: PASS                    # per-batch escalation, no escalation triggered
+  - gate: CHECKPOINT_FAIL
+    hardness: HARD
+    decision: PASS                    # build + tests green per batch
+  - gate: SPEC_POST_IMPL_FAIL
+    hardness: HARD
+    decision: PASS                    # post-impl validator score >=75% (spec-heavy 6-axis weighted)
+  - gate: FINAL_ADVERSARIAL_GATE
+    hardness: SOFT
+    decision: PASS                    # opt-in but recommended for COMPLEXA + new contracts
+  - gate: CLOSEOUT_CONFIRM
+    hardness: SOFT
+    decision: PASS                    # spec-closer writes mode_used=full + phase=closed
+
+agents_invoked:
+  # spec-heavy per references/pipelines/spec-heavy.md team composition (9-step flow)
+  - task-orchestrator
+  - sentinel                    # 5 spec checkpoints + cross-cutting (set-deduped by runner)
+  - information-gate
+  - plan-architect              # COMPLEXA invokes plan architect
+  - quality-gate-router         # AC-seeded ATDD scenarios
+  - pre-tester                  # RED tests (1 per AC + edge + regression)
+  - executor-controller
+  - spec-format-gate            # type-specific spec lifecycle agent
+  - spec-content-reviewer       # full mode (spec-heavy)
+  - executor-implementer-task   # batches per Slice A/B/C
+  - executor-spec-reviewer
+  - executor-quality-reviewer
+  - checkpoint-validator
+  - review-orchestrator         # adversarial gate per-batch
+  - adversarial-batch
+  - architecture-reviewer
+  - spec-post-impl-validator    # post-impl scoring (6-axis)
+  - spec-closer                 # writes mode_used=full + phase=closed to spec.json
+  - sanity-checker
+  - final-adversarial-orchestrator
+  - final-validator
+
+artifacts_produced:
+  # Filenames only — runner uses path.basename() for set comparison
+  - PIPELINE_DOC_PATH/sentinel-state.json
+  - PIPELINE_DOC_PATH/gate-decisions.jsonl
+  - PIPELINE_DOC_PATH/confidence-score.yaml
+  - PIPELINE_DOC_PATH/01-task-orchestrator.md
+  - PIPELINE_DOC_PATH/02-information-gate.md
+  - PIPELINE_DOC_PATH/03-plan-architect.md
+  - PIPELINE_DOC_PATH/04-quality-gate-router.md
+  - PIPELINE_DOC_PATH/05-pre-tester.md
+  - PIPELINE_DOC_PATH/06-executor-controller.md
+  - PIPELINE_DOC_PATH/07-spec-format-gate.md
+  - PIPELINE_DOC_PATH/08-spec-content-reviewer.md
+  - PIPELINE_DOC_PATH/09-review-orchestrator.md
+  - PIPELINE_DOC_PATH/10-spec-post-impl-validator.md
+  - PIPELINE_DOC_PATH/11-spec-closer.md
+  - PIPELINE_DOC_PATH/12-sanity-checker.md
+  - PIPELINE_DOC_PATH/13-final-validator.md
+  # spec lifecycle artifacts (in .kiro/specs/<feature>/, basenames only)
+  - requirements.md
+  - design.md
+  - tasks.md
+  - spec.json                       # mode_used=full + phase=closed written by spec-closer
+
+verdict: GO    # spec-heavy full lifecycle: format clean + content clean + ATDD clean + post-impl clean + adversarial clean → GO
+
+# Tolerances — what the runner SHOULD ignore
+ignore:
+  - "exact wall-clock duration_seconds"
+  - "exact agent prose / reasoning"
+  - "exact PIPELINE_DOC_PATH timestamp"
+  - "ordering within parallel adversarial reviewers"
+  - "exact number of executor-implementer-task invocations (varies with batch count)"
+
+# What the runner MUST verify
+must_match:
+  - "classification.type, complexity, pipeline_variant"
+  - "set of gates_triggered (presence, hardness, decision PASS/FAIL/SKIPPED)"
+  - "set of agents_invoked (presence — order is best-effort, not strict)"
+  - "set of artifacts_produced (basenames only — including spec.json with mode_used=full)"
+  - "verdict (GO / CONDITIONAL / NO-GO)"
