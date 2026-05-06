@@ -5,6 +5,46 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.0.0] - 2026-05-06
+
+**Major release — first v5.0 stable.** Promoted from `v5.0.0-rc.1` (commit `d643e80`) to `v5.0.0` after user authorization on the same day; the feedback window between rc.1 and 5.0.0 was waived. Content is identical to rc.1.
+
+### What v5.0.0 means
+
+All 7 v5.0 DoD criteria from `designs/pipeline-orchestrator-v5-consolidated.md` §8 are DONE:
+
+1. **5 commands in `/help`** — DONE since v4.7.0 (6th `/spec` since v4.12.0).
+2. **TRACE.md in user repo by default** — DONE in v4.17.0 (Wave 8-spec).
+3. **TRACE.md attachable to PR via standalone validator** — DONE in v4.17.0 (Wave 8-spec).
+4. **Compat suite green for 5 canonical scenarios** — DONE since v4.10.0 (5 PASS / 1 SKIPPED at v5.0.0).
+5. **v5.1 milestone published** — DONE post-v4.17.0 via [milestone #1 — v5.1 Pipeline Declarativo (Slice 5)](https://github.com/fernandoxavier02/Pipeline-Orchestrator/milestone/1) with 3 placeholder issues (#16, #17, #18).
+6. **Plan-mode auto-triggers on MEDIA/COMPLEXA** — DONE in v4.17.0 (Wave 8-spec).
+7. **`pipeline-controller` declares spawn tools explicitly** — DONE since 2026-05-03.
+
+### Suite at v5.0.0
+
+- Unit + integration: 166 PASS / 0 FAIL / 1 SKIPPED.
+- Compat mock: 5 PASS / 0 FAIL / 1 SKIPPED.
+- Hooks syntax: 8 / 8 OK.
+- Zero regressions vs v4.16.0 baseline (149 PASS).
+
+### Changed
+
+- **`.claude-plugin/plugin.json`** — version 4.17.0 → 5.0.0.
+- **`.claude-plugin/marketplace.json`** — pipeline-orchestrator entry version 4.17.0 → 5.0.0; ref v4.17.0 → v5.0.0.
+- **`tests/unit/spec-entry-point-and-pipelines.test.js:231`** — pin bumped 4.17.0 → 5.0.0.
+- **`docs/v5-readiness-report.md`** — final-shipping snapshot; 7/7 DONE confirmed.
+- **`CLAUDE.md`** — lineage row v5.0.0 added.
+
+### Open items deferred to v5.0.1 / v5.1
+
+Documented in `docs/v5-readiness-report.md` §4 — none block v5.0.0 itself:
+
+- `sentinel-hook.cjs` cwd-discovery brittleness when CC launched outside the repo root (Wave 8-spec dogfood finding).
+- Pipeline-controller `## Your tools` section text update after Step 3b-post introduces cross-tree TRACE write (non-blocking polish).
+- JS regex `\Z` gotcha pattern flagged for retro / code-review.
+- 11 outstanding deferred debts (10 Wave 3 MEDIUM → v4.13.1; ARCH-WAVE6-1 → v4.14.1).
+
 ## [4.17.0] - 2026-05-06
 
 **Minor release WAVE 8-SPEC — TRACE.md + PLAN-MODE AUTO-TRIGGER**. Last technical block before `v5.0.0-rc.1`. Closes 3 v5.0 DoD criteria (#2, #3, #6) in a single wave. Self-hosted dogfood: this release was developed by running `/pipeline-orchestrator:pipeline` on its own canonical repo; the dogfood revealed and documented `sentinel-hook` cwd-discovery brittleness as a v5.0-rc.1 follow-up.

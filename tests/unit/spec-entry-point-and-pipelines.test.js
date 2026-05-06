@@ -225,16 +225,16 @@ test('regression: prior entry-points (bugfix/audit/feature) and commands/pipelin
 // (Originally frozen to 4.12.0 for Wave 4-spec; bumped in Wave 5-spec / v4.13.0
 // release-admin batch alongside plugin.json itself; bumped in Wave 6-spec / v4.14.0
 // release-admin batch; bumped in Wave 8-pre / v4.16.0; bumped in Wave 8-spec /
-// v4.17.0 — version is a release-admin concern, not a Wave 4-spec content
-// invariant.)
+// v4.17.0; promoted to v5.0.0 (same content as v5.0.0-rc.1) — version is a
+// release-admin concern, not a Wave 4-spec content invariant.)
 // ----------------------------------------------------------------------
 
-test('version: .claude-plugin/plugin.json bumped to 4.17.0', () => {
+test('version: .claude-plugin/plugin.json bumped to 5.0.0', () => {
   const file = path.join(REPO_ROOT, '.claude-plugin', 'plugin.json');
   const content = JSON.parse(fs.readFileSync(file, 'utf8'));
   assert.equal(
     content.version,
-    '4.17.0',
-    'plugin.json version must be 4.17.0 for Wave 8-spec release'
+    '5.0.0',
+    'plugin.json version must be 5.0.0 for the v5.0.0 release (promoted from v5.0.0-rc.1)'
   );
 });

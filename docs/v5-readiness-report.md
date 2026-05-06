@@ -1,9 +1,9 @@
 # v5.0 Readiness Report
 
-**Snapshot date:** 2026-05-06 (post-Wave-8-spec)
-**Plugin version at snapshot:** `v4.17.0`
+**Snapshot date:** 2026-05-06 (post-v5.0.0 release)
+**Plugin version at snapshot:** `v5.0.0`
 **Report owner:** pipeline-orchestrator core
-**Status:** v5.0 **READY for `rc.1` tag** — 7 of 7 DoD criteria are DONE.
+**Status:** v5.0 **SHIPPED** — `v5.0.0` tagged 2026-05-06; 7 of 7 DoD criteria are DONE.
 
 ---
 
