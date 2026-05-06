@@ -56,3 +56,27 @@ This convention keeps the orchestrator's pipe contract simple (one artifact pass
 - `skills/spec-audit-only/SKILL.md` — section "spec-context.yaml schema"
 
 Each of those sections links here. Do not redeclare the schema in any other file — update this one and the linkers will pick it up.
+
+---
+
+## Fields written to `spec.json` by spec-closer
+
+Distinct from `spec-context.yaml` (the transient pipeline artifact), `spec.json` is the **perennial spec record** persisted at `<spec_path>/spec.json`. The `spec-closer` agent (Phase 3, closure) is the sole writer of these fields at spec close time. They are documented here so the schema for both artifacts lives in one SSOT.
+
+### Field declaration
+
+```yaml
+mode_used: "slim" | "full" | "audit"  # written by spec-closer when closing a spec; OPTIONAL
+```
+
+### Field semantics
+
+Written by `spec-closer` at spec close time. Maps from the `pipeline_variant` that was used:
+
+- `spec-light` → `slim`
+- `spec-heavy` → `full`
+- `spec-audit-only` → `audit`
+
+Optional. Specs created before v4.13.0 will not have this field — that absence is expected and does NOT trigger any gate or fallback. There is no implicit default; downstream consumers must treat absence as unknown, not as any specific value.
+
+Introduced in v4.13.0. The mapping table is mirrored in `agents/executor/spec-closer.md` (the writer) and in `tests/unit/spec-gates-and-mode-persistence.test.js` (the executable contract — `mapVariantToModeUsed` pure function).
