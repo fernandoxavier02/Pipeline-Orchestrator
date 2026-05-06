@@ -185,6 +185,50 @@ SENTINEL_VERDICT:
 
 ---
 
+## SPEC PIPELINE CHECKPOINTS (Wave 3-spec, v4.11.0+)
+
+**Conditional activation:** ALL checkpoints below fire ONLY when `state.pipeline_variant.startsWith("spec-")` (i.e. variant ∈ {`spec-light`, `spec-heavy`, `spec-audit-only`}). For non-spec pipelines they are guarded OFF — the sentinel returns `activated: false` with reason `"not a spec variant — guard skip"`. This prevents accidental activation on bugfix/feature/audit/ux pipelines.
+
+**Routing key (D5):** the discriminator is `pipeline_variant.startsWith("spec-")`, NOT `type == Spec`. If upstream produces `type=Spec` but `pipeline_variant=audit-light`, these checkpoints stay off (variant wins).
+
+### Checkpoint 1: SPEC_DISCOVERY_CHECK
+
+- **What to read:** `sentinel-state.json` → `orchestrator_decision.spec_context`
+- **PASS condition:** `spec_context` is a populated object with `feature_name`, `spec_path`, `artifacts.requirements/design/tasks` all set BEFORE Phase 2 begins
+- **CORRECTED:** if `spec_context` is null but variant is `spec-*`, recommend re-running task-orchestrator with explicit path
+- **BLOCKED:** if state file lacks `orchestrator_decision` entirely
+
+### Checkpoint 2: SPEC_FORMAT_PASSED (post_format_gate)
+
+- **What to read:** `gate-decisions.jsonl` for the most recent entry with `gate: "SPEC_FORMAT_GATE_FAIL"` OR `gate: "format-gate"`
+- **PASS condition:** decision is `GO` or `GO-WARN`; all 4 artifacts (requirements/design/tasks/spec.json) parse correctly
+- **CORRECTED:** if FAIL entry exists, recommend remediation per spec-format-gate output
+- **BLOCKED:** if no format-gate entry exists at Phase 0→1 transition for spec variant
+
+### Checkpoint 3: SPEC_CONTENT_REVIEW_DONE
+
+- **What to read:** `gate-decisions.jsonl` for `gate: "SPEC_CONTENT_REVIEW_NOGO"` or content-review entry
+- **PASS condition:** GO or GO-WARN logged at Phase 1.5 (only required for `spec-heavy` and `spec-audit-only` — `spec-light` skips content review)
+- **CORRECTED:** if missing for spec-heavy/spec-audit-only, route back to spec-content-reviewer
+- **BLOCKED:** if NO-GO and no remediation entry follows
+
+### Checkpoint 4: LOOP_STATE_CONSISTENT (post_phase_2_to_3_spec — overrides default phase_2_to_3)
+
+- **What to read:** `loop-state.yaml` (if present) + `tasks.md` from `spec_context.artifacts.tasks`
+- **PASS condition:** every `- [ ]` task in tasks.md is now `- [x]`; `loop-state.yaml` batch counter equals total batches; sentinel-state.json batch counter matches
+- **Override semantics:** when `pipeline_variant.startsWith("spec-")`, this REPLACES the default phase_2_to_3 transition validator (which checks executor batch completion). The spec override checks tasks.md [x] completion specifically.
+- **CORRECTED:** if some tasks remain unchecked, identify which and recommend re-dispatching
+- **BLOCKED:** if tasks.md cannot be parsed or is missing
+
+### Checkpoint 5: SPEC_GRADE_CALCULABLE
+
+- **What to read:** `confidence-score.yaml` + spec_context dimensions
+- **PASS condition:** all confidence dimensions populated (test_coverage, gate_results, loop_count, etc.) before spec-closer runs
+- **CORRECTED:** if a dimension is null, recommend the agent that produces it
+- **BLOCKED:** if confidence-score.yaml is missing entirely at Phase 3 pre-closer
+
+---
+
 ## CONSTRAINTS
 
 1. **Read-only:** You have Read, Glob, Grep tools only. You CANNOT write files.
@@ -192,3 +236,4 @@ SENTINEL_VERDICT:
 3. **No implementation context:** You never see code diffs, implementation details, or executor outputs.
 4. **Time budget:** Complete validation in under 30 seconds. Read only the files you need.
 5. **Single SENTINEL_VERDICT:** Emit exactly one YAML block per invocation.
+6. **Spec checkpoint guard (Wave 3-spec):** All 5 SPEC PIPELINE CHECKPOINTS above are gated on `pipeline_variant.startsWith("spec-")`. NEVER fire spec-only checkpoints on non-spec variants — emit `activated: false` with the guard-skip reason.

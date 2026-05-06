@@ -74,10 +74,56 @@ When reading project files for classification (business rules, specs, CLAUDE.md,
 | "as a user", "user story", "I want to", "when I..." | User Story | Medium |
 | "review", "analyze", "check", "audit", "assess" | Audit | Low |
 | "simulate", "user journey", "test UX", "walkthrough" | UX Simulation | Low |
+| `--type=spec`, `valida spec`, `implementa spec`, `fech[ae] spec`, path resolves to `<spec_path>/<name>/` with `requirements.md` + `design.md` + `tasks.md` | Spec | Medium |
 
 ### Tiebreaker Priority
 
-When multiple types could apply: Urgency > Error > Creation > Analysis > Simulation
+When multiple types could apply: Urgency > Error > Creation > Analysis > Simulation > Spec (Spec only wins when explicit signals — path/flag — are present)
+
+---
+
+## TYPE=SPEC DETECTION (4-signal pipeline, v4.11.0+)
+
+When the request may target a Spec lifecycle workflow (`spec-light` / `spec-heavy` / `spec-audit-only`), evaluate signals in priority order. Stop at the first signal that resolves.
+
+**Resolve `<spec_path>` first:** read `pipeline.local.md` `spec_path` field (default `.kiro/specs/`). If `pipeline.local.md` is absent or the field is missing, try fallbacks in order: `specs/`, `docs/specs/`. The first existing directory wins; if none exist, `<spec_path>` defaults to `.kiro/specs/`.
+
+### Signal 1 (HIGH confidence) — Explicit path argument
+
+If the first argument resolves to a directory containing all three of `requirements.md`, `design.md`, `tasks.md` → set `type: Spec`, `signal_used: signal_1_explicit_path`, populate `spec_context.path`. No user confirmation needed (the path is unambiguous).
+
+**Security boundary (path scoping — MANDATORY):** before treating Signal 1 as detected, the resolved absolute path MUST satisfy BOTH:
+
+1. It is contained inside the project root (the cwd at pipeline invocation). Reject any path that escapes via `..`, absolute paths to system locations, or symlink traversal.
+2. It is contained inside the configured `<spec_path>` (resolved per `pipeline.local.md` `spec_path` field, with the documented fallback chain).
+
+If either check fails, Signal 1 is treated as **not detected** — fall through to Signals 2/3/4 (do NOT raise an error from Signal 1; a hostile or mistyped path simply does not unlock the Spec route). This prevents path traversal attacks via user-supplied arguments or via a hostile `spec_path` configured in `pipeline.local.md`. The classifier never reads, opens, or stats files outside the project root × spec_path intersection during Signal 1 evaluation.
+
+### Signal 2 (HIGH confidence) — `--type=spec` flag
+
+If `--type=spec` (or `PRE_CLASSIFIED_TYPE=Spec`) is present:
+- If a path argument is also present and Signal 1 resolved, Signal 1 wins.
+- Otherwise, set `type: Spec`, `signal_used: signal_2_flag`, `spec_context: null` (no path yet — D1 fallback to `spec-heavy`).
+- If a path was specified but does NOT exist, throw `ERR_SPEC_PATH_NOT_FOUND: <path>` — never silently route to a non-Spec variant.
+
+### Signal 3 (MEDIUM confidence) — Prose regex + feature found
+
+If the argument matches `/valida.*spec|implementa.*spec|fech[ae].*spec/i` AND at least one feature directory is found under `<spec_path>/`, set `type: Spec`, `signal_used: signal_3_prose_regex`, emit `MEDIUM_CONFIDENCE` flag. **Use AskUserQuestion to confirm** before committing — Signal 3 has known false-positive risk. The first option must be `Confirmar Spec=<feature> (Recomendado)`.
+
+### Signal 4 (LOW confidence) — Glob fallback
+
+If no prior signal matched but `<spec_path>/*/` glob returns 1+ candidates, emit `LOW_CONFIDENCE_LIST` flag and **use AskUserQuestion** to let the user pick from the candidates (or "None — this is not a Spec task").
+
+### Variant decision (after type=Spec is set)
+
+| Condition | Variant | Notes |
+|-----------|---------|-------|
+| `complexity == SIMPLES` | `spec-light` | D2 collapse — log to `notes` field |
+| `complexity ∈ {MEDIA, COMPLEXA}` | `spec-heavy` | Default for non-trivial specs |
+| `complexity` cannot be resolved | `spec-heavy` | D1 fallback (safer to over-validate) |
+| `tasks.md` is 100% `[x]` AND `spec.json.phase != "closed"` | `spec-audit-only` | D4 — closure audit pass |
+
+**Override:** if `FORCE_VARIANT=spec-light` (or `--light`) is passed alongside Signal 1/2, force `spec-light` and emit a warning to `notes` if complexity inference disagrees (parallel to D3 / existing FORCE_VARIANT pattern).
 
 ### Severity Escalation
 
@@ -167,9 +213,10 @@ The same authority hierarchy applies: explicit `FORCE_VARIANT` from the entry co
 1. Set `pipeline_variant: feature-light` ou `feature-heavy` direto (igual a `bugfix-light/heavy`).
 2. `pipeline-controller` carrega `skills/feature-light/SKILL.md` ou `skills/feature-heavy/SKILL.md` conforme variant.
 
-**Valid `force_variant` values (post Slice 3b v4.6.1):**
+**Valid `force_variant` values (post Slice 3b v4.6.1, Wave 3-spec v4.11.0):**
 - `light`, `heavy` (Slice 1.5 — Bug Fix)
 - `feature-light`, `feature-heavy` (Slice 3b corrected — 2 skills separadas espelhando Pulsar 1:1)
+- `spec-light`, `spec-heavy`, `spec-audit-only` (Wave 3-spec — type=Spec routing; D3 override pattern)
 - (audit-light / audit-heavy still routed via type=Audit + complexity inference)
 
 ### Step 2: Spawn Information-Gate
@@ -260,12 +307,24 @@ Reasoning: Display formatting != pricing business logic. No elevation needed.
 ```yaml
 ORCHESTRATOR_DECISION:
   request: "[summary]"
-  type: "[Bug Fix | Feature | User Story | Audit | UX Simulation]"
+  type: "[Bug Fix | Feature | User Story | Audit | UX Simulation | Spec]"
   complexity: "[SIMPLES | MEDIA | COMPLEXA]"
   severity: "[Critical | High | Medium | Low]"
-  pipeline_variant: "[DIRETO | bugfix-light | bugfix-heavy | implement-light | implement-heavy | user-story-light | user-story-heavy | audit-light | audit-heavy | ux-sim-light | ux-sim-heavy]"
+  pipeline_variant: "[DIRETO | bugfix-light | bugfix-heavy | implement-light | implement-heavy | user-story-light | user-story-heavy | audit-light | audit-heavy | ux-sim-light | ux-sim-heavy | spec-light | spec-heavy | spec-audit-only]"
   probable_files: ["file1.ts", "file2.tsx"]
   has_spec: "[Yes: path | No]"
+  # spec_context (only when type=Spec) — see references/spec-context-schema.md
+  spec_context:
+    feature_name: "[name]"
+    spec_path: "[<spec_path>/<feature>/]"
+    artifacts:
+      requirements: "[path/requirements.md]"
+      design: "[path/design.md]"
+      tasks: "[path/tasks.md]"
+      spec_json: "[path/spec.json]"
+    variant: "[spec-light | spec-heavy | spec-audit-only]"
+    acceptance_criteria: ["AC#1 ...", "AC#2 ..."]
+  notes: "[D2 collapse rationale, D3 force-variant override warning, etc.]"
   execution: "[trivial | pipeline]"
   information_gate:
     status: "[CLEAR | RESOLVED]"
@@ -298,7 +357,7 @@ All subsequent agents save to the SAME folder.
 1. **NEVER skip classification** — Every request must be classified
 2. **ALWAYS spawn information-gate** — Even if gaps seem unlikely
 3. **ALWAYS confirm with user** — Present proposal before executing
-4. **5 types only** — Bug Fix, Feature, User Story, Audit, UX Simulation
+4. **6 types only** — Bug Fix, Feature, User Story, Audit, UX Simulation, Spec
 5. **DIRETO for trivial** — Skip pipeline for 1-2 files, < 30 lines
 6. **Proportional execution** — Match rigor to complexity
 7. **Non-invention** — If information is missing, information-gate catches it

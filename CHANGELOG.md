@@ -5,6 +5,41 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.11.0] - 2026-05-05
+
+**Minor release WAVE 3-SPEC — SPEC CLASSIFIER ROUTING**. Wires `type=Spec` as a first-class 6th task type into the 4 core pipeline agents (task-orchestrator + pipeline-controller + sentinel + quality-gate-router) so the 3 spec skill trees from Wave 2 (`spec-light`, `spec-heavy`, `spec-audit-only`) become reachable from the main `/pipeline` entry-point. Backward compat MANDATORY: non-spec pipelines route identically to v4.10.0 (regression tests catch drift).
+
+### Added
+
+- **`agents/core/task-orchestrator.md`** — 6th task type `Spec` added to CLASSIFICATION TABLE; new section "TYPE=SPEC DETECTION (4-signal pipeline, v4.11.0+)" documenting Signal 1 (explicit path), Signal 2 (`--type=spec` flag), Signal 3 (prose regex `/valida.*spec|implementa.*spec|fech[ae].*spec/i` with AskUserQuestion confirmation), Signal 4 (glob fallback with picker). `<spec_path>` resolution: read `pipeline.local.md` `spec_path` field (default `.kiro/specs/`, fallbacks `specs/` → `docs/specs/`).
+- **`spec_context` block in ORCHESTRATOR_DECISION YAML** — emitted when `type=Spec` with fields: `feature_name`, `spec_path`, `artifacts.{requirements,design,tasks,spec_json}`, `variant`, `acceptance_criteria`. Schema: `references/spec-context-schema.md`.
+- **`agents/core/pipeline-controller.md`** — spec dispatch block in Phase 2 mirroring bugfix pattern; when `pipeline_variant.startsWith("spec-")`, invoke `Skill(skill: "pipeline-orchestrator:<variant>")` passing `spec_context` through untouched. Routing discriminator is the variant string (not type field). State update before spawn (v4.8.0 hook contract): `current_skill` + `current_step` populated in sentinel-state.json before Agent dispatch.
+- **`agents/core/sentinel.md`** — 5 spec pipeline checkpoints (`SPEC_DISCOVERY_CHECK`, `SPEC_FORMAT_PASSED`, `SPEC_CONTENT_REVIEW_DONE`, `LOOP_STATE_CONSISTENT (post_phase_2_to_3_spec)`, `SPEC_GRADE_CALCULABLE`) all guarded on `pipeline_variant.startsWith("spec-")` (D5). Phase_2_to_3 + spec variant uses spec override that validates tasks.md `[x]` completion.
+- **`agents/quality/quality-gate-router.md`** — Step 1a SPEC MODE branch: when `spec_context.acceptance_criteria` is non-empty, generate 1 GIVEN/WHEN/THEN scenario per AC (traceable to `AC#1`, `AC#2`, ...). EARS form preserved verbatim; bullet form best-effort normalized with warning `"AC#N normalized from non-EARS source"`. Empty/null guard prevents fabrication.
+- **`spec_context_scenarios` sub-field in QUALITY_GATE_APPROVED output** — records spec_mode flag, acs_covered list, bullet_normalized ids, normalization warnings.
+- **`tests/unit/spec-classifier-detection.test.js` (NEW, 9 tests)** — guards 4-signal detection, D1 fallback, D2 collapse, ERR_SPEC_PATH_NOT_FOUND defensive throw, regression non-spec prose, PROSE_REGEX semantics.
+- **`tests/unit/spec-routing-dispatch.test.js` (NEW, 5 tests)** — guards spec-* skill dispatch, audit-light/bugfix-light pass-through unchanged, variant-discriminates-not-type rule.
+- **`tests/unit/spec-sentinel-checkpoints.test.js` (NEW, 5 tests)** — guards spec-only checkpoint activation, non-spec guard skip, phase_2_to_3 spec override, SSOT freeze.
+- **`tests/unit/spec-ac-scenario-generation.test.js` (NEW, 5 tests)** — guards EARS preservation, bullet normalization with warning, empty/null/undefined defensive returns.
+
+### Changed
+
+- **`pipeline_variant` enum extended** — adds `spec-light`, `spec-heavy`, `spec-audit-only` (task-orchestrator ORCHESTRATOR_DECISION + pipeline-controller dispatch).
+- **`FORCE_VARIANT` valid values extended** — adds `spec-light`, `spec-heavy`, `spec-audit-only` (D3 override pattern, parallel to existing light/heavy/feature-light/feature-heavy).
+- **`pipeline-controller` Inline Invariants gate list** — adds 6 new spec gates: `SPEC_ARTIFACT_MISSING` (MANDATORY); `SPEC_FORMAT_GATE_FAIL`, `SPEC_CONTENT_REVIEW_NOGO`, `SPEC_AC_TRACEABILITY_GAP`, `SPEC_POST_IMPL_FAIL` (HARD); `ADVERSARIAL_LOOP_CHECKPOINT` (SOFT).
+- **`agents/quality/quality-gate-router.md` TEST MINIMUMS table** — adds Spec row: "1 per AC (minimum) + 2 regression + 2 edge cases".
+- **`references/audit-trail.md`** — appends new section "Verdict vs Gate Decision Vocabulary" disambiguating `final-validator` GO/CONDITIONAL/NO-GO (terminal verdict) from gate decisions PASS/FAIL/SKIPPED/RESOLVED/APPROVED/BLOCKED/STOPPED/RESET. Cross-reference table per producer. Note: `spec-closer.spec_grade` is COSMETIC, never replaces final-validator verdict.
+- **`.claude-plugin/plugin.json`** — version 4.10.0 → 4.11.0; description prepended with Wave 3-spec summary.
+
+### Notes
+
+- **Backward compat invariant.** Non-spec pipelines (bugfix-*, implement-*, user-story-*, audit-*, ux-sim-*, DIRETO) route EXACTLY as v4.10.0. The dispatch block, sentinel checkpoints, and quality-gate-router branch all guard on `pipeline_variant.startsWith("spec-")` or `acceptance_criteria` non-empty respectively. Regression tests #3 (Bug Fix), #7 (audit-light pass-through), #8 (bugfix-light pass-through) catch drift.
+- **Constraint compliance.** Wave 3-spec touches ONLY: 4 core agents (task-orchestrator + pipeline-controller + sentinel + quality-gate-router), 1 reference doc (audit-trail.md), 1 plugin config (plugin.json), 2 doc files (CHANGELOG.md + CLAUDE.md), and 4 new test files. ZERO changes to Wave 1 spec lifecycle agents (spec-format-gate, spec-content-reviewer, spec-post-impl-validator, spec-closer). ZERO changes to Wave 2 spec skill trees (skills/spec-light, skills/spec-heavy, skills/spec-audit-only). ZERO changes to commands/pipeline.md (Wave 5-spec scope).
+- **Smoke fixture.** `.kiro/specs/test-spec-routing/` created as a working-state smoke test input (gitignored per CLAUDE.md invariant #4). Contains 4 stub files (requirements.md, design.md, tasks.md, spec.json) for manual E2E validation of Signal 1 path detection routing to spec-heavy.
+- **Test count.** 24 new tests across 4 files, all GREEN. Total cumulative suite count: previous + 24.
+
+---
+
 ## [4.10.0] - 2026-05-05
 
 **Minor release WAVE 3 — COMPAT BASELINES**. Graduates the 5 compat regression fixtures (audit / bugfix / feature / hotfix / ux) from TEMPLATE → REAL baselines, removing the `--allow-templates-skipped` flag from the CI workflow. The Compat Regression Suite is now a genuine net rather than a placeholder — any change to the observable contract (classification, gates, agents, artifacts, verdict) of one of the 5 canonical scenarios fails CI with explicit diff.
