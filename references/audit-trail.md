@@ -64,3 +64,35 @@ Every gate decision MUST be appended to `{PIPELINE_DOC_PATH}/gate-decisions.json
 6. **Controller-only writes:** Only the pipeline controller appends to this file. Subagents report gate outcomes in structured YAML; the controller serializes them. This eliminates injection surface at the file level
 7. **Sanitization:** The `detail` field MUST be truncated to 200 characters and stripped of newline characters (`\n`, `\r`) before serialization. Entries MUST be written via a strict JSON serializer, never via string interpolation
 8. **Parse-time validation (final-validator):** Each line MUST parse as a single valid JSON object with exactly these keys: `gate`, `hardness`, `phase`, `decision`, `decided_by`, `timestamp`, `detail`, `confidence_impact`. Lines that fail to parse or contain unexpected keys MUST be flagged as anomalous and reported to the user. The `hardness` value MUST match the Gate Registry in `references/gates.md` for the named `gate` — mismatches indicate tampering
+
+---
+
+## Verdict vs Gate Decision Vocabulary
+
+> Disambiguates two distinct decision vocabularies in the pipeline. This section was added in v4.11.0 (Wave 3-spec) to resolve confusion flagged in Wave 2 adversarial review where reviewers conflated final-validator verdicts (`GO/CONDITIONAL/NO-GO`) with gate states (`PASS/FAIL/SKIPPED/...`).
+
+### Two distinct vocabularies
+
+| Vocabulary | Producer | Values | Where it appears |
+|------------|----------|--------|------------------|
+| **Pipeline Verdict** | `final-validator` ONLY | `GO` \| `CONDITIONAL` \| `NO-GO` | Pipeline output FINAL DECISION line; pipeline summary block |
+| **Gate Decision** | Each gate (16+ gates) | `PASS` \| `FAIL` \| `SKIPPED` \| `RESOLVED` \| `APPROVED` \| `BLOCKED` \| `STOPPED` \| `RESET` | `gate-decisions.jsonl` (one per gate trigger); audit trail entries |
+
+### Cross-reference table
+
+| Producer | Vocabulary | Notes |
+|----------|------------|-------|
+| `task-orchestrator` | n/a (emits ORCHESTRATOR_DECISION YAML, no verdict) | — |
+| `information-gate` | Gate Decision (RESOLVED \| BLOCKED) | Logs to gate-decisions.jsonl |
+| `quality-gate-router` | Gate Decision (APPROVED) | TDD_APPROVAL gate |
+| `executor-controller` | Gate Decision (PASS \| FAIL per checkpoint) | CHECKPOINT_FAIL gate |
+| `adversarial-review-coordinator` | Gate Decision (PASS \| BLOCKED) | ADVERSARIAL_BLOCK / ADVERSARIAL_GATE |
+| `spec-format-gate` | Gate Decision (GO \| GO-WARN \| NO-GO mapped to PASS \| PASS \| FAIL) | SPEC_FORMAT_GATE_FAIL gate |
+| `spec-content-reviewer` | Gate Decision (GO \| NO-GO mapped to PASS \| FAIL) | SPEC_CONTENT_REVIEW_NOGO gate |
+| `spec-post-impl-validator` | Gate Decision (PASS \| FAIL) | SPEC_POST_IMPL_FAIL gate |
+| **`final-validator`** | **Pipeline Verdict (GO \| CONDITIONAL \| NO-GO)** | **Terminal verdict only — never appears in gate-decisions.jsonl** |
+| `spec-closer` | n/a (emits `spec_grade` STRING — cosmetic, not a gate decision) | `spec_grade` is a letter grade for closure summary; does NOT replace the final-validator verdict |
+
+### Key rule
+
+`spec_grade` (produced by `spec-closer`) is **cosmetic only** — it's a human-readable letter grade for the closure summary block. It is NEVER a substitute for the pipeline verdict. The `final-validator` GO/CONDITIONAL/NO-GO verdict is what determines whether the pipeline ships.
