@@ -1,0 +1,16 @@
+# Bad-variant fixture: auth-flow-missing-artifact
+# Defect: tasks.md is intentionally absent — the entire artifact is missing.
+# Triggers SPEC_ARTIFACT_MISSING (MANDATORY hardness in references/gates.md).
+# This fixture is consumed by spec lifecycle agents (spec-format-gate) — NOT by the compat runner.
+#
+# Note on expected_gate naming: per references/gates.md (verified 2026-05-06), the registry has BOTH:
+#   - SPEC_ARTIFACT_MISSING (MANDATORY) — fires when one or more required artifacts is missing
+#   - SPEC_FORMAT_GATE_FAIL (HARD) — fires when spec-format-gate emits NO-GO due to format checks
+# When tasks.md is absent, the MANDATORY SPEC_ARTIFACT_MISSING gate fires FIRST and forces NO-GO before format scoring runs.
+
+fixture_type: bad-variant
+expected_gate: SPEC_ARTIFACT_MISSING
+expected_hardness: MANDATORY
+expected_decision: NO-GO
+reason: "tasks.md absent; spec-format-gate check #16 fails → critical-artifact rule → forced NO-GO"
+triggers_check: "tasks.md exists"

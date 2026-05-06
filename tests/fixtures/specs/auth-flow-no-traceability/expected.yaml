@@ -1,0 +1,11 @@
+# Bad-variant fixture: auth-flow-no-traceability
+# Defect: design.md missing traceability ("Traces to:") + Glossary + component responsibilities + data model + contracts sections.
+# At least 8 of the 25 spec-format-gate checks fail → score ≤17 → NO-GO threshold.
+# This fixture is consumed by spec lifecycle agents (spec-format-gate) — NOT by the compat runner.
+
+fixture_type: bad-variant
+expected_gate: SPEC_FORMAT_GATE_FAIL
+expected_hardness: HARD
+expected_decision: NO-GO
+reason: "design.md missing traceability + glossary + responsibilities + data-model + contracts; ≥8 checks fail; score ≤17"
+triggers_check: "design.md traceability + structural completeness"
