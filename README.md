@@ -1,4 +1,10 @@
 <div align="center">
+  <a href="https://fxstudioai.com">
+    <img src="assets/logos/fx-studio-ai-logo.png" alt="FX Studio AI" width="200"/>
+  </a>
+</div>
+
+<div align="center">
   <img src="assets/diagrams/hero-banner.svg" alt="Pipeline Orchestrator v5.0.0" width="100%"/>
 </div>
 
@@ -378,10 +384,6 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 <div align="center">
   <br/>
-  <a href="https://fxstudioai.com">
-    <img src="assets/logos/fx-studio-ai-logo.png" alt="FX Studio AI" width="240"/>
-  </a>
-  <br/><br/>
   <strong>Built by <a href="https://github.com/fernandoxavier02">Fernando Xavier</a></strong>
   <br/>
   <a href="https://fxstudioai.com">FX Studio AI</a> — Business Automation with AI
