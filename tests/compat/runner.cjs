@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * tests/compat/runner.cjs — Compat Regression Suite runner (Slice 4)
+ * tests/compat/runner.cjs — Compat Regression Suite runner (Slice 4 / Issue #11)
  *
  * Loads scenarios from tests/compat/v4-baseline/scenarios/<name>/, executes /pipeline
- * against each input.md, compares observable contract (4 fields) against expected.yaml,
+ * against each input.md, compares observable contract (5 fields) against expected.yaml,
  * reports PASS/DIVERGED/ERROR per scenario with strict exit codes.
  *
  * Usage:
@@ -25,17 +25,35 @@
  * Performance budget:
  *   Per scenario: < 60s (mock), < 90s (real)
  *   Total suite:  < 5 min (CI requirement)
+ *
+ * Real mode (Issue #11, v4.16.0):
+ *   - Spawns `claude -p "<input.md>" --settings <tmp> --output-format stream-json
+ *     --verbose --include-partial-messages --permission-mode bypassPermissions
+ *     --allowedTools "Read Glob Grep Write Edit AskUserQuestion Task"`.
+ *     (--verbose is required by claude when --output-format=stream-json with --print.)
+ *   - Tmp settings.json wires PreToolUse → tests/compat/auto-answer-hook.cjs as command hook
+ *     scoped by matcher: "AskUserQuestion".
+ *   - Hook auto-answers AskUserQuestion via permissionDecision="allow" + updatedInput.answers
+ *     (Claude Code v2.1.85+ contract — see auto-answer-hook.cjs header for schema).
+ *   - Stream-json output is parsed line-by-line; observable contract is reconstructed from
+ *     system/init (agent roster), tool_use blocks (Task spawns + gate-decisions writes), and
+ *     final result.
+ *   - 90s hard timeout via spawnSync timeout + SIGKILL.
+ *   - Cleanup: tmp settings file removed; any .pipeline/docs/Pre-*-action/<session>/ created by
+ *     the run is left for forensics (caller can rm -rf afterwards if desired).
  */
 
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
 // ─── Configuration ──────────────────────────────────────────────────────────
 
 const SCENARIOS_DIR = path.join(__dirname, 'v4-baseline', 'scenarios');
+const HOOK_PATH = path.join(__dirname, 'auto-answer-hook.cjs');
 const PER_SCENARIO_BUDGET_MS = { mock: 60_000, real: 90_000 };
 const TOTAL_BUDGET_MS = 5 * 60 * 1000; // 5min hard cap
 
@@ -55,10 +73,6 @@ if (!opts.all && !opts.scenario) {
   process.exit(2);
 }
 
-// --allow-templates-skipped is a CI-only escape hatch: it converts the "0 PASS + N SKIPPED"
-// exit 1 (designed to prevent false greens for human use) into exit 0 + explicit warning.
-// Pairing with --mock is mandatory because all-SKIPPED in real mode is a genuine problem
-// (no real validation occurred, baselines must be captured).
 if (opts.allowTemplatesSkipped && !opts.mock) {
   console.error('--allow-templates-skipped requires --mock (real-mode all-skipped is a real failure)');
   process.exit(2);
@@ -96,7 +110,6 @@ function selectScenarios() {
 // ─── Minimal YAML parser (subset sufficient for expected.yaml shape) ──────
 
 function parseYaml(text) {
-  // Strip comments + blank lines (preserve indentation in raw)
   const lines = text
     .split(/\r?\n/)
     .map((l) => l.replace(/\s*#.*$/, ''))
@@ -114,14 +127,12 @@ function parseYaml(text) {
     if (t === 'null' || t === '~') return null;
     if (/^-?\d+$/.test(t)) return parseInt(t, 10);
     if (/^-?\d+\.\d+$/.test(t)) return parseFloat(t);
-    // Strip matching quote pairs only
     if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
       return t.slice(1, -1);
     }
     return t;
   }
 
-  // Use loop index instead of lines.indexOf — fixes CRITICAL #1 (lookahead bug)
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i];
     const indent = raw.match(/^(\s*)/)[1].length;
@@ -130,12 +141,10 @@ function parseYaml(text) {
     while (stack.length > 1 && stack[stack.length - 1].indent >= indent) stack.pop();
     const top = stack[stack.length - 1];
 
-    // List item
     if (line.startsWith('- ')) {
       const item = line.slice(2).trim();
       if (top.type !== 'array') continue;
 
-      // Inline object: { key: val, key: val }
       if (item.startsWith('{') && item.endsWith('}')) {
         const obj = {};
         item
@@ -170,14 +179,12 @@ function parseYaml(text) {
       continue;
     }
 
-    // Key: value
     const m = line.match(/^([^:]+):\s*(.*)$/);
     if (!m) continue;
     const key = m[1].trim();
     const value = m[2].trim();
 
     if (value.length === 0) {
-      // Lookahead for list using loop index (not lines.indexOf — that was the bug)
       const next = lines[i + 1];
       if (next && next.trim().startsWith('- ')) {
         const arr = [];
@@ -199,8 +206,6 @@ function parseYaml(text) {
 // ─── Pipeline execution (mock or real) ─────────────────────────────────────
 
 function executeMock(scenarioName, inputMd) {
-  // Mock mode: requires scenarios/<name>/mock-output.json — does NOT synthesize fake actual=expected.
-  // Fixes CRITICAL #2: previous version returned synthetic PASS, hiding zero-coverage runs.
   const mockPath = path.join(SCENARIOS_DIR, scenarioName, 'mock-output.json');
   if (!fs.existsSync(mockPath)) {
     throw new Error(
@@ -210,9 +215,137 @@ function executeMock(scenarioName, inputMd) {
   return JSON.parse(fs.readFileSync(mockPath, 'utf8'));
 }
 
+// ─── Real-mode helpers (Issue #11) ─────────────────────────────────────────
+
+function writeTmpSettings(hookPath) {
+  // Build a settings.json that wires PreToolUse → auto-answer-hook.cjs scoped by
+  // matcher "AskUserQuestion". Per Claude Code hook docs (code.claude.com/docs/en/hooks),
+  // the matcher is matched against tool_name; we use exact tool name here.
+  const settings = {
+    hooks: {
+      PreToolUse: [
+        {
+          matcher: 'AskUserQuestion',
+          hooks: [
+            {
+              type: 'command',
+              command: `node "${hookPath.replace(/\\/g, '\\\\')}"`,
+            },
+          ],
+        },
+      ],
+    },
+  };
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'compat-runner-'));
+  const settingsPath = path.join(tmpDir, 'settings.json');
+  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+  return { settingsPath, tmpDir };
+}
+
+function parseStreamJson(stdout) {
+  // Stream-json output is one JSON object per line. We aggregate into a single observable
+  // contract object matching the 5 fields in expected.yaml.
+  const observable = {
+    classification: { type: null, complexity: null, pipeline_variant: null },
+    gates_triggered: [],
+    agents_invoked: new Set(),
+    artifacts_produced: new Set(),
+    verdict: null,
+  };
+
+  const lines = stdout.split('\n').filter((l) => l.trim().length > 0);
+  for (const line of lines) {
+    let evt;
+    try {
+      evt = JSON.parse(line);
+    } catch (e) {
+      continue; // tolerate non-JSON noise lines
+    }
+
+    // 1. Agents — system/init lists subagent_types loaded; tool_use Task blocks call them.
+    if (evt.type === 'system' && evt.subtype === 'init') {
+      if (Array.isArray(evt.agents)) evt.agents.forEach((a) => observable.agents_invoked.add(a));
+    }
+    if (evt.type === 'assistant' && evt.message && Array.isArray(evt.message.content)) {
+      for (const block of evt.message.content) {
+        if (block.type === 'tool_use' && block.name === 'Task') {
+          const sub = block.input && (block.input.subagent_type || block.input.agent_type);
+          if (sub) observable.agents_invoked.add(sub);
+        }
+        // Artifact tracking: Write tool_use with file_path under PIPELINE_DOC_PATH.
+        if (block.type === 'tool_use' && (block.name === 'Write' || block.name === 'Edit')) {
+          const fp = block.input && block.input.file_path;
+          if (fp && /[\\/]Pre-[^\\/]+-action[\\/]/.test(fp)) {
+            observable.artifacts_produced.add(path.basename(fp));
+          }
+        }
+      }
+    }
+
+    // 2. Final result — verdict marker and classification block.
+    if (evt.type === 'result') {
+      const txt = (evt.result && (evt.result.text || JSON.stringify(evt.result))) || '';
+      const m = txt.match(/\bFINAL DECISION:\s*(GO|CONDITIONAL|NO-GO)\b/);
+      if (m) observable.verdict = m[1];
+      const cls = txt.match(/Classification:\s*([\w-]+)\s*\/\s*(SIMPLES|MEDIA|COMPLEXA)/i);
+      if (cls) {
+        observable.classification.type = cls[1].toLowerCase();
+        observable.classification.complexity = cls[2].toUpperCase();
+      }
+      const variant = txt.match(/Pipeline:\s*([\w-]+(?:-light|-heavy|-only)?)/);
+      if (variant) observable.classification.pipeline_variant = variant[1];
+    }
+  }
+
+  return {
+    classification: observable.classification,
+    gates_triggered: observable.gates_triggered,
+    agents_invoked: Array.from(observable.agents_invoked),
+    artifacts_produced: Array.from(observable.artifacts_produced),
+    verdict: observable.verdict,
+  };
+}
+
+function recoverGatesFromArtifact(scenarioName) {
+  // Post-run, scan .pipeline/docs/Pre-*-action/* (cwd) for the most recent session's
+  // gate-decisions.jsonl. Best-effort — if absent, gates_triggered stays empty (will diverge
+  // visibly against expected.yaml so the operator knows to investigate).
+  const pipelineDocs = path.resolve(process.cwd(), '.pipeline', 'docs');
+  if (!fs.existsSync(pipelineDocs)) return [];
+  const subdirs = [];
+  for (const lvl of fs.readdirSync(pipelineDocs)) {
+    const lvlPath = path.join(pipelineDocs, lvl);
+    if (!fs.statSync(lvlPath).isDirectory()) continue;
+    if (!/^Pre-/.test(lvl)) continue;
+    for (const session of fs.readdirSync(lvlPath)) {
+      const sessionPath = path.join(lvlPath, session);
+      if (!fs.statSync(sessionPath).isDirectory()) continue;
+      const gatesFile = path.join(sessionPath, 'gate-decisions.jsonl');
+      if (fs.existsSync(gatesFile)) {
+        subdirs.push({ path: gatesFile, mtime: fs.statSync(gatesFile).mtimeMs });
+      }
+    }
+  }
+  if (subdirs.length === 0) return [];
+  subdirs.sort((a, b) => b.mtime - a.mtime);
+  const latest = subdirs[0].path;
+  const lines = fs.readFileSync(latest, 'utf8').split('\n').filter((l) => l.trim().length > 0);
+  const gates = [];
+  for (const line of lines) {
+    try {
+      const obj = JSON.parse(line);
+      if (obj.gate && obj.hardness && obj.decision) {
+        gates.push({ gate: obj.gate, hardness: obj.hardness, decision: obj.decision });
+      }
+    } catch (e) {
+      // ignore malformed lines
+    }
+  }
+  return gates;
+}
+
 function executeReal(scenarioName, inputMd) {
-  // Real mode: invoke `claude --headless` (TODO — depends on Slice 0 SPIKE-CI-HARNESS resolution)
-  // For now: fail loudly so caller knows real mode isn't wired yet.
+  // Issue #11: real-mode invocation of `claude -p` with PreToolUse auto-answer hook.
   const claudeBin = process.env.CLAUDE_BIN || 'claude';
   const probe = spawnSync(claudeBin, ['--version'], { encoding: 'utf8' });
   if (probe.status !== 0) {
@@ -220,16 +353,71 @@ function executeReal(scenarioName, inputMd) {
       `Real mode requires claude CLI on PATH (or CLAUDE_BIN env var). Probe failed: ${probe.error || probe.stderr || 'no claude binary'}. Use --mock for offline runs.`
     );
   }
-  // Real implementation deferred — capture is non-trivial (TTY interaction, sentinel state, etc.).
-  throw new Error(
-    `Real mode invocation not yet implemented (Slice 4 stub). See tests/compat/README.md "Limitações conhecidas". Use --mock or wire SPIKE-CI-HARNESS resolution.`
-  );
+
+  if (!fs.existsSync(HOOK_PATH)) {
+    throw new Error(
+      `auto-answer-hook.cjs missing at ${HOOK_PATH}. Real mode cannot satisfy AskUserQuestion gates without the hook.`
+    );
+  }
+
+  const { settingsPath, tmpDir } = writeTmpSettings(HOOK_PATH);
+
+  try {
+    const claudeArgs = [
+      '-p',
+      inputMd,
+      '--settings',
+      settingsPath,
+      '--output-format',
+      'stream-json',
+      '--verbose',
+      '--include-partial-messages',
+      '--permission-mode',
+      'bypassPermissions',
+      '--allowedTools',
+      'Read Glob Grep Write Edit AskUserQuestion Task',
+    ];
+
+    const result = spawnSync(claudeBin, claudeArgs, {
+      encoding: 'utf8',
+      timeout: PER_SCENARIO_BUDGET_MS.real,
+      killSignal: 'SIGKILL',
+      maxBuffer: 50 * 1024 * 1024, // 50MB — pipeline output can be large
+    });
+
+    if (result.error) {
+      throw new Error(`claude spawn failed: ${result.error.message}`);
+    }
+    if (result.status === null) {
+      throw new Error(`claude run timed out after ${PER_SCENARIO_BUDGET_MS.real / 1000}s (killed)`);
+    }
+    if (result.status !== 0) {
+      const tail = (result.stderr || '').split('\n').slice(-5).join('\n');
+      throw new Error(`claude exited ${result.status}. Stderr tail:\n${tail}`);
+    }
+
+    const parsed = parseStreamJson(result.stdout);
+    // Recover gates from PIPELINE_DOC_PATH/gate-decisions.jsonl (stream-json text scan can't
+    // reliably reconstruct gate hardness/decision tuples).
+    const recoveredGates = recoverGatesFromArtifact(scenarioName);
+    if (recoveredGates.length > 0 && parsed.gates_triggered.length === 0) {
+      parsed.gates_triggered = recoveredGates;
+    }
+
+    return parsed;
+  } finally {
+    try {
+      fs.unlinkSync(settingsPath);
+      fs.rmdirSync(tmpDir);
+    } catch (e) {
+      // best-effort cleanup
+    }
+  }
 }
 
 // ─── Comparison: observable contract ───────────────────────────────────────
 
 function canonicalize(x) {
-  // Fixes MAJOR #3: JSON.stringify is key-order sensitive. Sort keys before serializing.
   if (x === null || typeof x !== 'object') return JSON.stringify(x);
   if (Array.isArray(x)) return '[' + x.map(canonicalize).join(',') + ']';
   const keys = Object.keys(x).sort();
@@ -247,14 +435,12 @@ function setEqual(a, b) {
 function compare(actual, expected) {
   const diffs = [];
 
-  // 1. classification (deep equal on 3 keys)
   const c = expected.classification || {};
   const a = actual.classification || {};
   for (const k of ['type', 'complexity', 'pipeline_variant']) {
     if (c[k] !== a[k]) diffs.push(`classification.${k}: expected=${c[k]} actual=${a[k]}`);
   }
 
-  // 2. gates_triggered (set equality on {gate, hardness, decision})
   const eg = (expected.gates_triggered || []).map((g) => ({
     gate: g.gate,
     hardness: g.hardness,
@@ -272,7 +458,6 @@ function compare(actual, expected) {
     if (extra.length) diffs.push(`gates_triggered extra: ${extra.map((g) => g.gate).join(', ')}`);
   }
 
-  // 3. agents_invoked (set equality, order is best-effort)
   const ea = expected.agents_invoked || [];
   const aa = actual.agents_invoked || [];
   if (!setEqual(ea, aa)) {
@@ -282,7 +467,6 @@ function compare(actual, expected) {
     if (extra.length) diffs.push(`agents_invoked extra: ${extra.join(', ')}`);
   }
 
-  // 4. artifacts_produced (basenames only, set equality)
   const eart = (expected.artifacts_produced || []).map((p) => path.basename(p));
   const aart = (actual.artifacts_produced || []).map((p) => path.basename(p));
   if (!setEqual(eart, aart)) {
@@ -292,7 +476,6 @@ function compare(actual, expected) {
     if (extra.length) diffs.push(`artifacts_produced extra: ${extra.join(', ')}`);
   }
 
-  // 5. verdict
   if (expected.verdict !== actual.verdict) {
     diffs.push(`verdict: expected=${expected.verdict} actual=${actual.verdict}`);
   }
@@ -317,7 +500,6 @@ function runScenario(name) {
     return { name, status: 'ERROR', diffs: [`yaml parse failed: ${e.message}`], duration_ms: 0 };
   }
 
-  // Skip TEMPLATE expectations (case-insensitive contains check — fixes MINOR #11 fragility)
   if (
     expected.baseline_method &&
     typeof expected.baseline_method === 'string' &&
@@ -362,9 +544,9 @@ function main() {
     const r = runScenario(name);
     results.push(r);
     const dur = `(${(r.duration_ms / 1000).toFixed(1)}s)`;
-    const flag = r.over_budget ? ' ⚠OVER_BUDGET' : '';
+    const flag = r.over_budget ? ' OVER_BUDGET' : '';
     if (r.status === 'PASS') console.log(`PASS ${dur}${flag}`);
-    else if (r.status === 'SKIPPED') console.log(`SKIPPED ${dur} — ${r.diffs[0]}`);
+    else if (r.status === 'SKIPPED') console.log(`SKIPPED ${dur} - ${r.diffs[0]}`);
     else if (r.status === 'DIVERGED') {
       console.log(`DIVERGED ${dur}${flag}`);
       r.diffs.forEach((d) => console.log(`     ${d}`));
@@ -376,7 +558,6 @@ function main() {
 
   const totalDuration = Date.now() - totalStart;
 
-  // Persist results to disk for CI artifact upload (fixes MAJOR #7)
   const resultsFile = path.join(__dirname, 'results.json');
   fs.writeFileSync(
     resultsFile,
@@ -401,20 +582,23 @@ function main() {
   console.log(`  Total:    ${(totalDuration / 1000).toFixed(1)}s (budget ${TOTAL_BUDGET_MS / 1000}s)`);
   console.log(`  Results:  ${resultsFile}`);
 
-  if (totalDuration > TOTAL_BUDGET_MS) console.log(`  ⚠ TOTAL OVER BUDGET`);
+  if (totalDuration > TOTAL_BUDGET_MS) console.log(`  TOTAL OVER BUDGET`);
 
-  // Exit codes (fixes MAJOR #5: zero-PASS-with-only-SKIPPED is not green)
   if (counts.ERROR) process.exit(2);
   if (counts.DIVERGED) process.exit(1);
   if ((counts.PASS || 0) === 0 && (counts.SKIPPED || 0) > 0) {
     if (opts.allowTemplatesSkipped && opts.mock) {
-      console.log(`  ⓘ ALL-SKIPPED + MOCK + --allow-templates-skipped — exit 0 with warning. Capture real baselines for green validation.`);
+      console.log(`  ALL-SKIPPED + MOCK + --allow-templates-skipped - exit 0 with warning. Capture real baselines for green validation.`);
       process.exit(0);
     }
-    console.log(`  ⚠ NO REAL VALIDATION — only SKIPPED scenarios. Capture baselines before claiming green.`);
+    console.log(`  NO REAL VALIDATION - only SKIPPED scenarios. Capture baselines before claiming green.`);
     process.exit(1);
   }
   process.exit(0);
 }
 
-main();
+if (require.main === module) {
+  main();
+} else {
+  module.exports = { parseStreamJson, writeTmpSettings, executeReal, recoverGatesFromArtifact };
+}

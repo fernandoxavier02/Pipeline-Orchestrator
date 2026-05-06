@@ -228,12 +228,12 @@ test('regression: prior entry-points (bugfix/audit/feature) and commands/pipelin
 // content invariant.)
 // ----------------------------------------------------------------------
 
-test('version: .claude-plugin/plugin.json bumped to 4.14.0', () => {
+test('version: .claude-plugin/plugin.json bumped to 4.16.0', () => {
   const file = path.join(REPO_ROOT, '.claude-plugin', 'plugin.json');
   const content = JSON.parse(fs.readFileSync(file, 'utf8'));
   assert.equal(
     content.version,
-    '4.14.0',
-    'plugin.json version must be 4.14.0 for Wave 6-spec release'
+    '4.16.0',
+    'plugin.json version must be 4.16.0 for Wave 8-pre / Issue #11 release'
   );
 });

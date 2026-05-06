@@ -3,6 +3,13 @@ name: Compat Regression
 # Slice 4 — guarantees /pipeline-orchestrator:pipeline observable contract stays stable.
 # Fires on PRs touching files that can affect pipeline behavior.
 # See tests/compat/README.md for the 4-field observable contract definition.
+#
+# Two-branch model (introduced in v4.16.0 / Issue #11):
+#   - mock branch (always runs): fast, deterministic, fixture-based; the PR gate.
+#   - real branch (opt-in via vars.CLAUDE_CLI_AVAILABLE=true): invokes claude CLI with
+#     PreToolUse auto-answer hook (Claude Code v2.1.85+ contract). Costs ~$1-3 per scenario;
+#     in PRs we run only the simplest scenario (bugfix-fixture) as a smoke. Full --all set
+#     is wired only on workflow_dispatch (manual trigger from Actions UI).
 
 on:
   pull_request:
@@ -23,11 +30,11 @@ on:
       - '.claude-plugin/plugin.json'      # MINOR #9 — version + autoDiscover affect classifier
       - 'marketplace.json'                 # MINOR #9 — distribution metadata
       - 'CLAUDE.md'                        # invariants live here, can affect controller behavior
-  workflow_dispatch:    # allow manual trigger from Actions UI
+  workflow_dispatch:    # allow manual trigger from Actions UI (also used by full real-mode --all)
 
 jobs:
-  compat-regression:
-    name: Compat Regression Suite
+  compat-regression-mock:
+    name: Compat Regression Suite (mock)
     runs-on: ubuntu-latest
     timeout-minutes: 6    # 5min budget + 1min slack; runner enforces 5min internally too
 
@@ -46,66 +53,126 @@ jobs:
             echo "::error::tests/compat/runner.cjs missing — Slice 4 not initialized"
             exit 2
           fi
+          if [ ! -f tests/compat/auto-answer-hook.cjs ]; then
+            echo "::error::tests/compat/auto-answer-hook.cjs missing — Issue #11 not initialized"
+            exit 2
+          fi
           node --version
           ls -la tests/compat/v4-baseline/scenarios/
 
       - name: Run compat suite (mock mode)
-        id: compat
-        # As of v4.10.0 (Wave 3 — Compat Baselines), all 5 fixtures have REAL baselines captured
-        # against pipeline v4.10.0 (mock-output.json + expected.yaml). The runner now exits 0
-        # naturally in --mock mode (5/5 PASS), so the v4.9.2-era --allow-templates-skipped flag
-        # is no longer needed. The flag is preserved in runner.cjs as a documented historical
-        # fallback for future cases where someone introduces a new TEMPLATE fixture.
-        #
-        # Real-mode is still gated by CLAUDE_CLI_AVAILABLE (off by default) — see SPIKE-CI-HARNESS
-        # in designs/slice-0/. Real-mode currently is a stub (executeReal throws); switching is a
-        # Slice 4-extended item depending on upstream --ci-auto-confirm support in Claude Code.
+        id: compat-mock
+        # Default branch — always runs. Mock-mode is the PR gate. v4.10.0 graduated all 5
+        # fixtures TEMPLATE→REAL, so --mock now exits 0 naturally with 5/5 PASS.
         run: |
-          MODE="--mock"
-          if [ "${{ vars.CLAUDE_CLI_AVAILABLE }}" = "true" ]; then
-            MODE=""
-            echo "Real mode enabled (claude CLI available on this runner — note: executeReal is a stub as of v4.10.0)"
-          else
-            echo "Mock mode (default; set repo var CLAUDE_CLI_AVAILABLE=true to enable real mode)"
-          fi
-          node tests/compat/runner.cjs --all $MODE --verbose
+          node tests/compat/runner.cjs --all --mock --verbose
 
-      - name: Write PR comment body (avoid heredoc indent bug)
+      - name: Write PR comment body (mock failure)
         if: failure() && github.event_name == 'pull_request'
         run: |
-          # Fixes MAJOR #4: write body to file instead of heredoc inside $() — YAML preserves
-          # indent which breaks heredoc EOF terminator.
           cat > /tmp/pr-comment.md <<'BODY'
-          ## ❌ Compat Regression Failed
+          ## Compat Regression Failed (mock mode)
 
           A pipeline change in this PR caused observable contract drift in at least one scenario.
 
           **Required actions:**
 
           1. Review the diff in the workflow log above.
-          2. **If intentional**: update the relevant `tests/compat/v4-baseline/scenarios/<name>/expected.yaml` in this PR + add a CHANGELOG note explaining the contract change.
+          2. **If intentional**: update the relevant `tests/compat/v4-baseline/scenarios/<name>/expected.yaml` AND `mock-output.json` in this PR + add a CHANGELOG note explaining the contract change.
           3. **If regression**: fix the underlying change before merging.
 
-          See `tests/compat/README.md` for the 4-field observable contract. Run results attached as artifact `compat-results-${{ github.run_id }}`.
+          See `tests/compat/README.md` for the 4-field observable contract. Run results attached as artifact `compat-results-mock-${{ github.run_id }}`.
           BODY
 
-      - name: Post PR comment on failure
+      - name: Post PR comment on mock failure
         if: failure() && github.event_name == 'pull_request'
         run: gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/pr-comment.md
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Upload compat run results
+      - name: Upload mock results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: compat-results-${{ github.run_id }}
-          # Fixes MAJOR #7: upload runner output (results.json), not committed source fixtures
+          name: compat-results-mock-${{ github.run_id }}
           path: tests/compat/results.json
           if-no-files-found: warn
           retention-days: 14
 
-# Branch protection: enable "Require status checks to pass before merging" with this job
-# selected in repo Settings → Branches → branch protection rules. Without that toggle, the
-# job can fail without actually blocking merge — see tests/compat/README.md "Limitações
-# conhecidas" for the manual setup step.
+  compat-regression-real:
+    name: Compat Regression Suite (real - bugfix smoke)
+    # Opt-in branch. Toggle via repo settings → Variables → CLAUDE_CLI_AVAILABLE=true.
+    # Requires secrets.ANTHROPIC_API_KEY to be configured.
+    if: vars.CLAUDE_CLI_AVAILABLE == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8    # one scenario = ~60-120s claude wall-clock + setup overhead
+    needs: compat-regression-mock   # only run if mock passes (don't burn API credits on broken PR)
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Claude Code CLI
+        # The CLI install path is community-maintained; if upstream changes the install
+        # command, update this step. As of 2026-05, the canonical path is npm @anthropic-ai/claude-code.
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude --version
+
+      - name: Run compat suite (real mode, single scenario)
+        id: compat-real
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          RUN_REAL_MODE: '1'
+        # Smoke gate: only bugfix-fixture (simplest scenario, ~$0.50-1 per run, ~60-90s).
+        # Full --all set (~$3-5 per run, ~5-10min) runs only on workflow_dispatch.
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "Manual trigger — running full --all real-mode suite"
+            node tests/compat/runner.cjs --all --verbose
+          else
+            echo "PR trigger — running bugfix-fixture smoke only"
+            node tests/compat/runner.cjs --scenario=bugfix-fixture --verbose
+          fi
+
+      - name: Write PR comment body (real failure)
+        if: failure() && github.event_name == 'pull_request'
+        run: |
+          cat > /tmp/pr-comment-real.md <<'BODY'
+          ## Compat Regression Failed (real mode)
+
+          The real-mode smoke (bugfix-fixture against `claude` CLI v2.1.85+ with PreToolUse auto-answer) failed. Possible causes:
+
+          1. **Pipeline contract drift**: agent / skill / reference changed observable behavior.
+          2. **Hook protocol drift**: Anthropic changed PreToolUse + AskUserQuestion contract — see `tests/compat/auto-answer-hook.cjs` header for the schema we depend on.
+          3. **LLM non-determinism**: a single retry sometimes works (the runner does NOT auto-retry; trigger workflow re-run manually if you suspect flake).
+
+          See `designs/slice-0/SPIKE-CI-HARNESS.md` (status v4.16.0) for the real-mode design. Mock-mode passing + real-mode failing is a strong signal of #2 (mocks are pinned to v4.10.0 contract, real mode pings live LLM + live hook).
+
+          Run results attached as artifact `compat-results-real-${{ github.run_id }}`.
+          BODY
+
+      - name: Post PR comment on real failure
+        if: failure() && github.event_name == 'pull_request'
+        run: gh pr comment ${{ github.event.pull_request.number }} --body-file /tmp/pr-comment-real.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Upload real-mode results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: compat-results-real-${{ github.run_id }}
+          path: tests/compat/results.json
+          if-no-files-found: warn
+          retention-days: 14
+
+# Branch protection: enable "Require status checks to pass before merging" with the mock job
+# (`Compat Regression Suite (mock)`) selected in repo Settings → Branches → branch protection
+# rules. The real job is opt-in and not used as a merge gate (cost + flake risk). See
+# tests/compat/README.md "Limitações conhecidas" for the manual setup step.
