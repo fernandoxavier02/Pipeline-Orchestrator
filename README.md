@@ -42,7 +42,9 @@
 
 ## v4 Breaking Changes
 
-v4.0.0 moves orchestration to an isolated controller agent — the main LLM loses Edit/Write during pipeline sessions, eliminating the "this task is too small for a pipeline" bypass observed in v3.8. See [Migration Guide](docs/MIGRATION-v3-to-v4.md) for upgrade details.
+v4.0.0 moves orchestration to an isolated controller agent — the main LLM loses Edit/Write during pipeline sessions, eliminating the "this task is too small for a pipeline" bypass observed in v3.8. See [Migration Guide v3 → v4](docs/MIGRATION-v3-to-v4.md) for upgrade details.
+
+For the consolidated v4 lineage (v4.0 → v4.14), accumulated breaking changes, FQDN mapping, and DoD-v5 readiness, see [Migration Guide v4 → v5](docs/MIGRATION-v4-to-v5.md) and the [v5 Readiness Report](docs/v5-readiness-report.md).
 
 ## Quality Highlights
 

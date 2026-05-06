@@ -5,6 +5,53 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.15.0] - 2026-05-06
+
+**Minor release WAVE 7-SPEC — V4-TO-V5 MIGRATION DOC + V5 READINESS REPORT**. Pure documentation release that consolidates the v4.0 → v4.14 lineage into a single migration guide and produces an explicit, third-party-verifiable readiness report against the 7-criterion Definition of Done for v5.0 (`designs/pipeline-orchestrator-v5-consolidated.md` §8). No agent / skill / reference / command / hook / test surface is touched. Suite stays GREEN at the v4.14.0 levels: 129 unit + 12 integration + 5 PASS / 1 SKIPPED compat + 8 hooks syntax (exit 0). **Iron Law respected**: ZERO changes to `agents/`, `skills/`, `references/`, `commands/`, `hooks/`, or `tests/`.
+
+### Added
+
+- **`docs/MIGRATION-v4-to-v5.md` (NEW, ~250 lines, 10 sections)** — consolidated migration guide spanning the full v4 lineage. §1 motivation; §2 lineage table v4.0 → v4.14 (one line per release); §3 13 accumulated breaking changes since v3 → v4 (still relevant in v5 prep); §4 upgrade procedure (standard, cold-start, custom paths, no settings change); §5 FQDN mapping for the 4 namespace corrections from `4.9.0` (old `pipeline-orchestrator:quality:adversarial-*` → new `pipeline-orchestrator:executor:type-specific:adversarial-*`); §6 DoD v5.0 status (3 DONE, 2 PARTIAL, 2 OPEN); §7 compatibility matrix for FX Studio / Pulsar / custom forks; §8 what v5.0 will and will NOT change; §9 rollback; §10 forward-deferred items.
+- **`docs/v5-readiness-report.md` (NEW, ~150 lines, 6 sections + TL;DR)** — short readiness snapshot anchored at `v4.15.0`. §1 the 7-criterion table with verification methods + status + evidence; §2 gap analysis with concrete close-out steps for the 4 non-DONE criteria; §3 explicit list of items NOT blocking v5.0 (so contributors don't waste time on them); §4 recommended path to v5.0 in 3 sequential steps (Issue #11 → Wave 8 (TRACE.md + plan-mode auto-trigger) → tag v5.0.0-rc.1 → v5.0.0); §5 risk register; §6 expiry conditions for the report itself.
+
+### Changed
+
+- **`.claude-plugin/plugin.json`** — version `4.14.0` → `4.15.0`; description prepended with the v4.15.0 summary line.
+- **`README.md`** — index linkage to the new `docs/MIGRATION-v4-to-v5.md` added where the file already references `docs/MIGRATION-v3-to-v4.md` (the v4 Breaking Changes section).
+
+### Backward Compatibility
+
+- 100% additive. No existing file is renamed, removed, or restructured. The two new docs cross-reference each other and the existing `docs/MIGRATION-v3-to-v4.md`; no other markdown file gains or loses a link.
+- Pre-existing test counts preserved as upper-bound guarantees: 129 unit + 12 integration + 5 PASS / 1 SKIPPED compat + 8 hooks syntax (none of those surfaces is touched). Suite still exits 0.
+- No frontmatter, no agent contract, no SKILL.md sequence, no gate registry entry, and no JSONL schema is changed.
+
+### Constraints respected (cirurgical scope)
+
+- **`agents/`**: untouched.
+- **`skills/`**: untouched.
+- **`references/`**: untouched.
+- **`commands/`**: untouched.
+- **`hooks/`**: untouched.
+- **`tests/`**: untouched.
+- Modified surfaces: only new files under `docs/`, plus version + description bump in `.claude-plugin/plugin.json`, plus 1 link addition in `README.md`, plus this `CHANGELOG.md` section.
+
+### Pipeline-driven (dogfood)
+
+Wave 7-spec was scoped via `/pipeline-orchestrator:pipeline` itself with `PRE_CLASSIFIED_TYPE=Feature` + `complexity=MEDIA` (docs-only Feature variant). 4-batch plan: A (`docs/MIGRATION-v4-to-v5.md`), B (`docs/v5-readiness-report.md`), C (`CHANGELOG.md` + `plugin.json`), D (`README.md` link + closure sanity). Per-batch adversarial gate was SKIPPED (docs-only, no auth/crypto/data-model/payment touched). Final adversarial gate was offered and DECLINED (matches the v4.14.0 dogfood pattern documented in its CHANGELOG note). Sanity at close: no test surface touched (suite GREEN by construction); markdown link sanity check via Grep — no broken references.
+
+### Known debt — unaffected by this release
+
+The two patches queued before v5.0 are unchanged:
+
+- **`v4.13.1`** — 10 MEDIUM findings from Wave 3 (Compat Baselines) review, scope: hook hardening + test isolation. Not blocking v5.0; not blocking by `v4.15.0`.
+- **`v4.14.1`** — `ARCH-WAVE6-1` test-helper duplication (`shouldEscalate(attempt, batchChanged)` between Wave 5 and Wave 6 test files). Cleanup plan: extract to `tests/_helpers/adversarial-loop-rule.cjs`. Not blocking v5.0; not blocking by `v4.15.0`.
+
+### v5.0 dependency forwarded
+
+`v4.15.0` documents — but does not resolve — the 2 OPEN and 2 PARTIAL DoD criteria. Resolution path is Issue #11 (admin: open v5.1 milestone) followed by Wave 8 (TRACE.md schema + writer + validator + plan-mode auto-trigger + `--no-plan` bypass). Both are described in detail in `docs/v5-readiness-report.md` §2 and §4.
+
+---
+
 ## [4.14.0] - 2026-05-06
 
 **Minor release WAVE 6-SPEC — INTEGRATION TESTS + COMPAT FIXTURE + BAD-VARIANT FIXTURES**. Pure additive release that hardens the Wave 1–5 spec lifecycle stack (4 agents + 3 skill trees + 6 gates + mode_used persistence) with three layers of net: (a) an 8-scenario integration test suite covering the spec-format-gate → spec-content-reviewer → spec-post-impl-validator → spec-closer chain, gate hardness/recovery assertions, and ADVERSARIAL_LOOP_CHECKPOINT counter-reset semantics; (b) a TEMPLATE compat regression fixture (`spec-fixture`) staking out the spec-heavy observable contract for a future dogfooding session to populate with a real baseline; (c) three bad-variant spec fixtures under `tests/fixtures/specs/` (broken JSON, missing traceability, missing artifact) documenting the negative gate decisions spec-format-gate is contracted to emit. **Iron Law respected**: ZERO changes to `agents/`, `skills/`, `references/`, `commands/`, or `hooks/` — only `tests/`, `CHANGELOG.md`, `.claude-plugin/plugin.json` modified. Suite stays GREEN: 129 unit + 12 integration + 5 PASS / 1 SKIPPED compat (exit 0).
