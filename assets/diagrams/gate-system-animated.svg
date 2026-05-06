@@ -1,25 +1,18 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 420" width="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" width="100%">
   <defs>
-    <!-- Background gradient -->
     <linearGradient id="bg3" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#0d1117"/>
       <stop offset="100%" stop-color="#161b22"/>
     </linearGradient>
-
-    <!-- Alert pulse for MANDATORY -->
     <radialGradient id="alertPulse" cx="50%" cy="50%" r="50%">
       <stop offset="0%" stop-color="#dc2626" stop-opacity="0.8">
         <animate attributeName="stop-opacity" values="0.8;0.2;0.8" dur="1.5s" repeatCount="indefinite"/>
       </stop>
       <stop offset="100%" stop-color="#dc2626" stop-opacity="0"/>
     </radialGradient>
-
-    <!-- Glow filter -->
     <filter id="s3" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.5"/>
+      <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.5"/>
     </filter>
-
-    <!-- Scanning line gradient -->
     <linearGradient id="scanLine" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#7C3AED" stop-opacity="0"/>
       <stop offset="50%" stop-color="#7C3AED" stop-opacity="0.5"/>
@@ -27,170 +20,165 @@
     </linearGradient>
   </defs>
 
-  <rect width="1200" height="420" fill="url(#bg3)" rx="12"/>
+  <rect width="1200" height="480" fill="url(#bg3)" rx="12"/>
 
-  <!-- Title -->
-  <text x="600" y="38" text-anchor="middle" fill="#f0f6fc" font-size="24" font-weight="700" letter-spacing="2" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">GATE SYSTEM — DEFENSE IN DEPTH</text>
-  <line x1="380" y1="48" x2="820" y2="48" stroke="#7C3AED" stroke-width="2" opacity="0.6">
+  <text x="600" y="42" text-anchor="middle" fill="#f0f6fc" font-size="40" font-weight="700" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">GATE SYSTEM — DEFENSE IN DEPTH</text>
+  <line x1="300" y1="56" x2="900" y2="56" stroke="#7C3AED" stroke-width="2" opacity="0.6">
     <animate attributeName="opacity" values="0.6;1;0.6" dur="3s" repeatCount="indefinite"/>
   </line>
 
-  <!-- Scanning line across all gates -->
-  <rect x="30" y="60" width="1140" height="4" fill="url(#scanLine)">
-    <animate attributeName="y" values="60;380;60" dur="4s" repeatCount="indefinite"/>
+  <rect x="30" y="70" width="1140" height="5" fill="url(#scanLine)">
+    <animate attributeName="y" values="70;440;70" dur="4s" repeatCount="indefinite"/>
   </rect>
 
   <!-- MANDATORY Gate -->
   <g>
-    <!-- Alert glow behind -->
-    <rect x="35" y="68" width="270" height="270" rx="12" fill="url(#alertPulse)" opacity="0.3">
+    <rect x="35" y="78" width="270" height="320" rx="12" fill="url(#alertPulse)" opacity="0.3">
       <animate attributeName="opacity" values="0.3;0.6;0.3" dur="1.5s" repeatCount="indefinite"/>
     </rect>
-
-    <rect x="35" y="68" width="270" height="270" rx="12" fill="#1a0a0a" stroke="#dc2626" stroke-width="2.5" filter="url(#s3)">
-      <animate attributeName="stroke-width" values="2.5;4;2.5" dur="1.5s" repeatCount="indefinite"/>
+    <rect x="35" y="78" width="270" height="320" rx="12" fill="#1a0a0a" stroke="#dc2626" stroke-width="3" filter="url(#s3)">
+      <animate attributeName="stroke-width" values="3;5;3" dur="1.5s" repeatCount="indefinite"/>
     </rect>
-    <rect x="35" y="68" width="270" height="42" rx="12" fill="#dc2626">
-      <animate attributeName="fill-opacity" values="1;0.8;1" dur="1.5s" repeatCount="indefinite"/>
+    <rect x="35" y="78" width="270" height="50" rx="12" fill="#dc2626">
+      <animate attributeName="fill-opacity" values="1;0.85;1" dur="1.5s" repeatCount="indefinite"/>
     </rect>
-    <rect x="35" y="98" width="270" height="3" fill="#dc2626"/>
-    <text x="170" y="95" text-anchor="middle" fill="#fff" font-size="17" font-weight="800" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">MANDATORY</text>
+    <rect x="35" y="116" width="270" height="4" fill="#dc2626"/>
+    <text x="170" y="112" text-anchor="middle" fill="#fff" font-size="22" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">MANDATORY</text>
 
-    <text x="55" y="132" fill="#fca5a5" font-size="13" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Never skipped</text>
-    <text x="55" y="150" fill="#8b949e" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Not even by --hotfix or --force</text>
+    <text x="55" y="152" fill="#fca5a5" font-size="18" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">Never skipped</text>
+    <text x="55" y="178" fill="#8b949e" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">Not even by --hotfix or --force</text>
 
-    <line x1="55" y1="162" x2="285" y2="162" stroke="#dc2626" stroke-width="0.5" opacity="0.3"/>
+    <line x1="55" y1="196" x2="285" y2="196" stroke="#dc2626" stroke-width="1" opacity="0.3"/>
 
-    <circle cx="70" cy="187" r="6" fill="#dc2626">
-      <animate attributeName="r" values="6;7;6" dur="2s" repeatCount="indefinite"/>
+    <circle cx="72" cy="228" r="8" fill="#dc2626">
+      <animate attributeName="r" values="8;9;8" dur="2s" repeatCount="indefinite"/>
     </circle>
-    <text x="85" y="191" fill="#f0f6fc" font-size="13" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">SSOT Conflict</text>
+    <text x="92" y="234" fill="#f0f6fc" font-size="18" font-family="'Segoe UI',system-ui,sans-serif">SSOT Conflict</text>
 
-    <circle cx="70" cy="217" r="6" fill="#dc2626">
-      <animate attributeName="r" values="6;7;6" dur="2s" begin="0.5s" repeatCount="indefinite"/>
+    <circle cx="72" cy="270" r="8" fill="#dc2626">
+      <animate attributeName="r" values="8;9;8" dur="2s" begin="0.5s" repeatCount="indefinite"/>
     </circle>
-    <text x="85" y="221" fill="#f0f6fc" font-size="13" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Auth/Crypto Review</text>
+    <text x="92" y="276" fill="#f0f6fc" font-size="18" font-family="'Segoe UI',system-ui,sans-serif">Auth/Crypto Review</text>
 
-    <circle cx="70" cy="247" r="6" fill="#dc2626">
-      <animate attributeName="r" values="6;7;6" dur="2s" begin="1s" repeatCount="indefinite"/>
+    <circle cx="72" cy="312" r="8" fill="#dc2626">
+      <animate attributeName="r" values="8;9;8" dur="2s" begin="1s" repeatCount="indefinite"/>
     </circle>
-    <text x="85" y="251" fill="#f0f6fc" font-size="13" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Data Protection</text>
+    <text x="92" y="318" fill="#f0f6fc" font-size="18" font-family="'Segoe UI',system-ui,sans-serif">Data Protection</text>
 
-    <rect x="55" y="275" width="230" height="30" rx="6" fill="#450a0a" stroke="#dc2626" stroke-width="1">
-      <animate attributeName="stroke-width" values="1;2;1" dur="2s" repeatCount="indefinite"/>
+    <rect x="55" y="352" width="230" height="36" rx="6" fill="#450a0a" stroke="#dc2626" stroke-width="1.5">
+      <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="2s" repeatCount="indefinite"/>
     </rect>
-    <text x="170" y="295" text-anchor="middle" fill="#fca5a5" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Skip: IMPOSSIBLE | Override: NONE</text>
+    <text x="170" y="376" text-anchor="middle" fill="#fca5a5" font-size="16" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">Skip: IMPOSSIBLE | Override: NONE</text>
   </g>
 
   <!-- HARD Gate -->
   <g>
-    <rect x="325" y="68" width="270" height="270" rx="12" fill="#1a0f00" stroke="#ea580c" stroke-width="2.5" filter="url(#s3)">
-      <animate attributeName="stroke-width" values="2.5;3.5;2.5" dur="2.5s" repeatCount="indefinite"/>
+    <rect x="325" y="78" width="270" height="320" rx="12" fill="#1a0f00" stroke="#ea580c" stroke-width="3" filter="url(#s3)">
+      <animate attributeName="stroke-width" values="3;4.5;3" dur="2.5s" repeatCount="indefinite"/>
     </rect>
-    <rect x="325" y="68" width="270" height="42" rx="12" fill="#ea580c"/>
-    <rect x="325" y="98" width="270" height="3" fill="#ea580c"/>
-    <text x="460" y="95" text-anchor="middle" fill="#fff" font-size="17" font-weight="800" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">HARD</text>
+    <rect x="325" y="78" width="270" height="50" rx="12" fill="#ea580c"/>
+    <rect x="325" y="116" width="270" height="4" fill="#ea580c"/>
+    <text x="460" y="112" text-anchor="middle" fill="#fff" font-size="22" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">HARD</text>
 
-    <text x="345" y="132" fill="#fdba74" font-size="13" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Blocks until resolved</text>
-    <text x="345" y="150" fill="#8b949e" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Pipeline waits for resolution</text>
+    <text x="345" y="152" fill="#fdba74" font-size="18" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">Blocks until resolved</text>
+    <text x="345" y="178" fill="#8b949e" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">Pipeline waits for resolution</text>
 
-    <line x1="345" y1="162" x2="575" y2="162" stroke="#ea580c" stroke-width="0.5" opacity="0.3"/>
+    <line x1="345" y1="196" x2="575" y2="196" stroke="#ea580c" stroke-width="1" opacity="0.3"/>
 
-    <circle cx="360" cy="187" r="6" fill="#ea580c">
-      <animate attributeName="r" values="6;7;6" dur="2.2s" repeatCount="indefinite"/>
+    <circle cx="362" cy="228" r="8" fill="#ea580c">
+      <animate attributeName="r" values="8;9;8" dur="2.2s" repeatCount="indefinite"/>
     </circle>
-    <text x="375" y="191" fill="#f0f6fc" font-size="13" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Information Gap</text>
+    <text x="382" y="234" fill="#f0f6fc" font-size="18" font-family="'Segoe UI',system-ui,sans-serif">Information Gap</text>
 
-    <circle cx="360" cy="217" r="6" fill="#ea580c">
-      <animate attributeName="r" values="6;7;6" dur="2.2s" begin="0.5s" repeatCount="indefinite"/>
+    <circle cx="362" cy="270" r="8" fill="#ea580c">
+      <animate attributeName="r" values="8;9;8" dur="2.2s" begin="0.5s" repeatCount="indefinite"/>
     </circle>
-    <text x="375" y="221" fill="#f0f6fc" font-size="13" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Test Approval</text>
+    <text x="382" y="276" fill="#f0f6fc" font-size="18" font-family="'Segoe UI',system-ui,sans-serif">Test Approval</text>
 
-    <circle cx="360" cy="247" r="6" fill="#ea580c">
-      <animate attributeName="r" values="6;7;6" dur="2.2s" begin="1s" repeatCount="indefinite"/>
+    <circle cx="362" cy="312" r="8" fill="#ea580c">
+      <animate attributeName="r" values="8;9;8" dur="2.2s" begin="1s" repeatCount="indefinite"/>
     </circle>
-    <text x="375" y="251" fill="#f0f6fc" font-size="13" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Critical Adversarial Findings</text>
+    <text x="382" y="318" fill="#f0f6fc" font-size="18" font-family="'Segoe UI',system-ui,sans-serif">Critical Adversarial Findings</text>
 
-    <rect x="345" y="275" width="230" height="30" rx="6" fill="#431407" stroke="#ea580c" stroke-width="1">
-      <animate attributeName="stroke-width" values="1;2;1" dur="2.5s" repeatCount="indefinite"/>
+    <rect x="345" y="352" width="230" height="36" rx="6" fill="#431407" stroke="#ea580c" stroke-width="1.5">
+      <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="2.5s" repeatCount="indefinite"/>
     </rect>
-    <text x="460" y="295" text-anchor="middle" fill="#fdba74" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Skip: NO | Resolve to continue</text>
+    <text x="460" y="376" text-anchor="middle" fill="#fdba74" font-size="16" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">Skip: NO | Resolve to continue</text>
   </g>
 
   <!-- CIRCUIT BREAKER Gate -->
   <g>
-    <rect x="615" y="68" width="270" height="270" rx="12" fill="#1a1400" stroke="#d97706" stroke-width="2.5" filter="url(#s3)">
-      <animate attributeName="stroke-width" values="2.5;3.5;2.5" dur="3s" repeatCount="indefinite"/>
+    <rect x="615" y="78" width="270" height="320" rx="12" fill="#1a1400" stroke="#d97706" stroke-width="3" filter="url(#s3)">
+      <animate attributeName="stroke-width" values="3;4.5;3" dur="3s" repeatCount="indefinite"/>
     </rect>
-    <rect x="615" y="68" width="270" height="42" rx="12" fill="#d97706"/>
-    <rect x="615" y="98" width="270" height="3" fill="#d97706"/>
-    <text x="750" y="95" text-anchor="middle" fill="#fff" font-size="15" font-weight="800" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">CIRCUIT BREAKER</text>
+    <rect x="615" y="78" width="270" height="50" rx="12" fill="#d97706"/>
+    <rect x="615" y="116" width="270" height="4" fill="#d97706"/>
+    <text x="750" y="112" text-anchor="middle" fill="#fff" font-size="20" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">CIRCUIT BREAKER</text>
 
-    <text x="635" y="132" fill="#fde68a" font-size="13" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Pipeline stops for safety</text>
-    <text x="635" y="150" fill="#8b949e" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Requires explicit user reset</text>
+    <text x="635" y="152" fill="#fde68a" font-size="18" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">Pipeline stops for safety</text>
+    <text x="635" y="178" fill="#8b949e" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">Requires explicit user reset</text>
 
-    <line x1="635" y1="162" x2="865" y2="162" stroke="#d97706" stroke-width="0.5" opacity="0.3"/>
+    <line x1="635" y1="196" x2="865" y2="196" stroke="#d97706" stroke-width="1" opacity="0.3"/>
 
-    <circle cx="650" cy="187" r="6" fill="#d97706">
-      <animate attributeName="r" values="6;7;6" dur="2.5s" repeatCount="indefinite"/>
+    <circle cx="652" cy="228" r="8" fill="#d97706">
+      <animate attributeName="r" values="8;9;8" dur="2.5s" repeatCount="indefinite"/>
     </circle>
-    <text x="665" y="191" fill="#f0f6fc" font-size="13" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">2 Consecutive Failures</text>
+    <text x="672" y="234" fill="#f0f6fc" font-size="18" font-family="'Segoe UI',system-ui,sans-serif">2 Consecutive Failures</text>
 
-    <circle cx="650" cy="217" r="6" fill="#d97706">
-      <animate attributeName="r" values="6;7;6" dur="2.5s" begin="0.5s" repeatCount="indefinite"/>
+    <circle cx="652" cy="270" r="8" fill="#d97706">
+      <animate attributeName="r" values="8;9;8" dur="2.5s" begin="0.5s" repeatCount="indefinite"/>
     </circle>
-    <text x="665" y="221" fill="#f0f6fc" font-size="13" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">3 Attempts Exhausted</text>
+    <text x="672" y="276" fill="#f0f6fc" font-size="18" font-family="'Segoe UI',system-ui,sans-serif">3 Attempts Exhausted</text>
 
-    <circle cx="650" cy="247" r="6" fill="#d97706">
-      <animate attributeName="r" values="6;7;6" dur="2.5s" begin="1s" repeatCount="indefinite"/>
+    <circle cx="652" cy="312" r="8" fill="#d97706">
+      <animate attributeName="r" values="8;9;8" dur="2.5s" begin="1s" repeatCount="indefinite"/>
     </circle>
-    <text x="665" y="251" fill="#f0f6fc" font-size="13" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Pipeline Systemic Failure</text>
+    <text x="672" y="318" fill="#f0f6fc" font-size="18" font-family="'Segoe UI',system-ui,sans-serif">Pipeline Systemic Failure</text>
 
-    <rect x="635" y="275" width="230" height="30" rx="6" fill="#422006" stroke="#d97706" stroke-width="1">
-      <animate attributeName="stroke-width" values="1;2;1" dur="3s" repeatCount="indefinite"/>
+    <rect x="635" y="352" width="230" height="36" rx="6" fill="#422006" stroke="#d97706" stroke-width="1.5">
+      <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="3s" repeatCount="indefinite"/>
     </rect>
-    <text x="750" y="295" text-anchor="middle" fill="#fde68a" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Skip: NO | Reset required</text>
+    <text x="750" y="376" text-anchor="middle" fill="#fde68a" font-size="16" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">Skip: NO | Reset required</text>
   </g>
 
   <!-- SOFT Gate -->
   <g>
-    <rect x="905" y="68" width="265" height="270" rx="12" fill="#0a1a0a" stroke="#65a30d" stroke-width="2.5" filter="url(#s3)">
-      <animate attributeName="stroke-width" values="2.5;3;2.5" dur="4s" repeatCount="indefinite"/>
+    <rect x="905" y="78" width="265" height="320" rx="12" fill="#0a1a0a" stroke="#65a30d" stroke-width="3" filter="url(#s3)">
+      <animate attributeName="stroke-width" values="3;4;3" dur="4s" repeatCount="indefinite"/>
     </rect>
-    <rect x="905" y="68" width="265" height="42" rx="12" fill="#65a30d"/>
-    <rect x="905" y="98" width="265" height="3" fill="#65a30d"/>
-    <text x="1037" y="95" text-anchor="middle" fill="#fff" font-size="17" font-weight="800" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">SOFT</text>
+    <rect x="905" y="78" width="265" height="50" rx="12" fill="#65a30d"/>
+    <rect x="905" y="116" width="265" height="4" fill="#65a30d"/>
+    <text x="1037" y="112" text-anchor="middle" fill="#fff" font-size="22" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">SOFT</text>
 
-    <text x="925" y="132" fill="#bef264" font-size="13" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Recommended, skippable</text>
-    <text x="925" y="150" fill="#8b949e" font-size="11" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Logged + confidence penalty</text>
+    <text x="925" y="152" fill="#bef264" font-size="18" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">Recommended, skippable</text>
+    <text x="925" y="178" fill="#8b949e" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">Logged + confidence penalty</text>
 
-    <line x1="925" y1="162" x2="1145" y2="162" stroke="#65a30d" stroke-width="0.5" opacity="0.3"/>
+    <line x1="925" y1="196" x2="1145" y2="196" stroke="#65a30d" stroke-width="1" opacity="0.3"/>
 
-    <circle cx="940" cy="187" r="6" fill="#65a30d">
-      <animate attributeName="r" values="6;7;6" dur="3s" repeatCount="indefinite"/>
+    <circle cx="942" cy="228" r="8" fill="#65a30d">
+      <animate attributeName="r" values="8;9;8" dur="3s" repeatCount="indefinite"/>
     </circle>
-    <text x="955" y="191" fill="#f0f6fc" font-size="13" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Adversarial Review Gate</text>
+    <text x="962" y="234" fill="#f0f6fc" font-size="18" font-family="'Segoe UI',system-ui,sans-serif">Adversarial Review Gate</text>
 
-    <circle cx="940" cy="217" r="6" fill="#65a30d">
-      <animate attributeName="r" values="6;7;6" dur="3s" begin="0.7s" repeatCount="indefinite"/>
+    <circle cx="942" cy="270" r="8" fill="#65a30d">
+      <animate attributeName="r" values="8;9;8" dur="3s" begin="0.7s" repeatCount="indefinite"/>
     </circle>
-    <text x="955" y="221" fill="#f0f6fc" font-size="13" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Final Adversarial Gate</text>
+    <text x="962" y="276" fill="#f0f6fc" font-size="18" font-family="'Segoe UI',system-ui,sans-serif">Final Adversarial Gate</text>
 
-    <circle cx="940" cy="247" r="6" fill="#65a30d">
-      <animate attributeName="r" values="6;7;6" dur="3s" begin="1.4s" repeatCount="indefinite"/>
+    <circle cx="942" cy="312" r="8" fill="#65a30d">
+      <animate attributeName="r" values="8;9;8" dur="3s" begin="1.4s" repeatCount="indefinite"/>
     </circle>
-    <text x="955" y="251" fill="#f0f6fc" font-size="13" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Closeout Confirmation</text>
+    <text x="962" y="318" fill="#f0f6fc" font-size="18" font-family="'Segoe UI',system-ui,sans-serif">Closeout Confirmation</text>
 
-    <rect x="925" y="275" width="225" height="30" rx="6" fill="#14532d" stroke="#65a30d" stroke-width="1">
-      <animate attributeName="stroke-width" values="1;1.8;1" dur="4s" repeatCount="indefinite"/>
+    <rect x="925" y="352" width="225" height="36" rx="6" fill="#14532d" stroke="#65a30d" stroke-width="1.5">
+      <animate attributeName="stroke-width" values="1.5;2.2;1.5" dur="4s" repeatCount="indefinite"/>
     </rect>
-    <text x="1037" y="295" text-anchor="middle" fill="#bef264" font-size="11" font-weight="700" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Skip: YES (penalty -0.10 to -0.15)</text>
+    <text x="1037" y="376" text-anchor="middle" fill="#bef264" font-size="16" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">Skip: YES (penalty -0.10 to -0.15)</text>
   </g>
 
-  <!-- Bottom connection -->
-  <line x1="170" y1="355" x2="1037" y2="355" stroke="#30363d" stroke-width="1" stroke-dasharray="8,4">
+  <line x1="170" y1="420" x2="1037" y2="420" stroke="#30363d" stroke-width="1" stroke-dasharray="8,4">
     <animate attributeName="stroke-dashoffset" values="0;-12" dur="1s" repeatCount="indefinite"/>
   </line>
-  <text x="600" y="385" text-anchor="middle" fill="#8b949e" font-size="11" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Every gate decision is logged to gate-decisions.jsonl — Final Validator reads the full trail</text>
-  <text x="600" y="405" text-anchor="middle" fill="#6d28d9" font-size="11" font-weight="600" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">Skipped SOFT gates penalize the confidence score → affect the Go/No-Go decision</text>
+  <text x="600" y="452" text-anchor="middle" fill="#8b949e" font-size="15" font-weight="600" font-family="'Segoe UI',system-ui,sans-serif">Every gate decision is logged to gate-decisions.jsonl — Final Validator reads the full trail</text>
+  <text x="600" y="476" text-anchor="middle" fill="#6d28d9" font-size="15" font-weight="600" font-family="'Segoe UI',system-ui,sans-serif">Skipped SOFT gates penalize the confidence score → affect the Go/No-Go decision</text>
 </svg>
