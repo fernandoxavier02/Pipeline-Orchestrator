@@ -378,6 +378,10 @@ MIT License — see [LICENSE](LICENSE) for details.
 
 <div align="center">
   <br/>
+  <a href="https://fxstudioai.com">
+    <img src="assets/logos/fx-studio-ai-logo.png" alt="FX Studio AI" width="240"/>
+  </a>
+  <br/><br/>
   <strong>Built by <a href="https://github.com/fernandoxavier02">Fernando Xavier</a></strong>
   <br/>
   <a href="https://fxstudioai.com">FX Studio AI</a> — Business Automation with AI
