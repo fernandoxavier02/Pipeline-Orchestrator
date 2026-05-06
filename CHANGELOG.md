@@ -5,6 +5,43 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.13.0] - 2026-05-05
+
+**Minor release WAVE 5-SPEC — GATES INVARIANTS & MODE PERSISTENCE**. Closes the ARCH-1 drift identified in the v4.11.0 adversarial review: the 6 spec gates that `pipeline-controller.md` declared via Inline Invariants were not in the `references/gates.md` Registry, leaving SSOT incoherent. This release reconciles both surfaces, extends the Inline Invariants list from 15 to 21 gate names (full registry now 22 entries), adds a Spec row to the Pipeline Routing Matrix in `references/complexity-matrix.md`, declares the optional `mode_used` field (`slim` | `full` | `audit`) in `references/spec-context-schema.md`, and wires `spec-closer.md` to write that field to `spec.json` based on `pipeline_variant`. **Backward compatible**: all changes additive; pre-v4.13.0 specs lack `mode_used` and that absence triggers no gate.
+
+### Added
+
+- **6 spec gates in `references/gates.md`** Registry: `SPEC_ARTIFACT_MISSING` (MANDATORY), `SPEC_FORMAT_GATE_FAIL`, `SPEC_CONTENT_REVIEW_NOGO`, `SPEC_AC_TRACEABILITY_GAP`, `SPEC_POST_IMPL_FAIL` (HARD), `ADVERSARIAL_LOOP_CHECKPOINT` (SOFT-with-escalation, per-batch counter scope). Registry table grew from 16 to 22 entries.
+- **Inline Invariants in `commands/pipeline.md`** updated to include the 6 new gates: list grew from 15 to 21 names; full registry prose updated to "22-gate table".
+- **Pipeline Routing Matrix in `references/complexity-matrix.md`**: new row for `type=Spec` mapping to `spec-light` (MEDIA) and `spec-heavy` (COMPLEXA), with note clarifying `spec-audit-only` is phase-triggered (tasks 100% complete + `spec.json.phase != "closed"`).
+- **`mode_used` field in `spec.json`** declared in `references/spec-context-schema.md` (optional; values: `slim` | `full` | `audit`; written by spec-closer at closure time).
+- **`agents/executor/spec-closer.md`** writes `mode_used` to `spec.json` based on `pipeline_variant` (`spec-light` → `slim`, `spec-heavy` → `full`, `spec-audit-only` → `audit`). Throws `ERR_UNKNOWN_VARIANT` on unknown variants in v4.13.0+ closes (defensive).
+- **`tests/unit/spec-gates-and-mode-persistence.test.js` (NEW, 16 tests)** — covers: gate hardness/recovery lookup against the 22-gate registry; per-batch escalation rule for `ADVERSARIAL_LOOP_CHECKPOINT` (every-3 cadence; counter resets on `batch_changed=true`); inline-invariants subset baseline (every v4.12.0 gate preserved in v4.13.0; the 6 new gates are absent in v4.12.0); variant → mode mapping (3 happy + 2 defensive). Suite total: 113 → 129 GREEN.
+
+### Changed
+
+- **ARCH-1 drift closed**: `pipeline-controller.md` Inline Invariants and `references/gates.md` Registry are now in sync for spec gates. The drift was originally surfaced in the v4.11.0 adversarial review as a SSOT incoherence (Inline Invariants listed 6 spec gates the Registry table did not document).
+- **CONSENSUS-1 drift closed (final adversarial)**: `commands/pipeline.md` inline gate list extended from 21 → 22 to include `COMPLEXITY_GATE` (SOFT). The gate was always present in `references/gates.md` but had been omitted from the inline list per a pre-existing convention; that convention is now retired so inline (22) equals registry (22). `tests/unit/spec-gates-and-mode-persistence.test.js` Scenario 3b updated from `=== 21` to `=== 22`; v4.12.0 baseline frozen at 15. Suite stays at 129/129 GREEN.
+- **CONSENSUS-2 contract gap closed (final adversarial)**: `agents/executor/spec-closer.md` INPUTS block now declares `pipeline_variant` (required for v4.13.0+ closes), with cross-reference to the MODE PERSISTENCE section that consumes it. Closes the gap where MODE PERSISTENCE referenced an INPUT field the contract did not declare.
+
+### Backward Compatibility
+
+- All changes additive. Specs created before v4.13.0 lack the `mode_used` field — that absence is **expected** and triggers no gate. No migration required.
+- Pre-existing 113 unit tests + 5 compat baselines unchanged. Suite total: 129 GREEN.
+- Non-spec pipeline behavior unchanged (the new Spec routing row only activates when `type=Spec`).
+
+### Constraints respected (cirurgical scope)
+
+- Only `agents/executor/spec-closer.md` modified in `agents/`. All other agent files untouched.
+- `skills/`, `references/pipelines/`, `references/audit-trail.md`, and `skills/spec/SKILL.md` untouched.
+- Documentation surfaces touched: `references/gates.md`, `commands/pipeline.md`, `references/complexity-matrix.md`, `references/spec-context-schema.md`, `CHANGELOG.md`, `CLAUDE.md`, `.claude-plugin/plugin.json`.
+
+### Pipeline-driven (dogfood)
+
+Wave 5-spec was scoped via `/pipeline-orchestrator:pipeline` itself. COMPLEXA, `implement-heavy` variant, 5 batches (A: gates registry; B: Inline Invariants list; C: complexity-matrix routing row; D: spec-closer mode_used wiring; E: release admin). Batches A–C CLEAN no fix loops. Batch D fix loop applied (1 round) per adversarial review. 16/16 new tests + 113/113 pre-existing tests GREEN at sanity.
+
+---
+
 ## [4.12.0] - 2026-05-05
 
 **Minor release WAVE 4-SPEC — `/spec` THIN ENTRY-POINT + 3 PIPELINE COMPOSITION REFS**. Adds the manual-only `skills/spec/SKILL.md` entry-point so users who already know their input is a Kiro spec can short-circuit type-detection (mirrors the v4.3.0+ pattern set by `skills/bugfix`, `skills/audit`, `skills/feature`). Three new pipeline composition reflexes (`references/pipelines/spec-light.md`, `spec-heavy.md`, `spec-audit-only.md`) document team composition + step-by-step flow with 1:1 fidelity to their backing SKILL.md `sequence_lock` — drift is caught by a new cross-ref test. **Purely additive — zero behavior change for `/pipeline-orchestrator:pipeline` or any existing entry-point.**

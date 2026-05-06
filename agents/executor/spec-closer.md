@@ -64,6 +64,7 @@ SPEC_CLOSER_INPUT:
   pipeline_doc_path: "<absolute path, e.g. .pipeline/docs/<run-id>/>"
   spec_path: "<absolute path to spec dir, e.g. .kiro/specs/<feature>/>"
   mode: "full | audit-only"             # full = phases 1..6 active; audit-only = phase 3 skipped
+  pipeline_variant: "spec-light | spec-heavy | spec-audit-only"   # required for v4.13.0+ closes; consumed by MODE PERSISTENCE step below to derive `mode_used` written to spec.json. Absence is acceptable only for legacy specs (pre-v4.13.0).
   phase_results:
     phase_1: "PASS | WARN | FAIL"        # Format Gate (FAIL impossible by precondition)
     phase_2: "PASS | WARN | FAIL"        # Content Review (FAIL impossible by precondition)
@@ -74,6 +75,8 @@ SPEC_CLOSER_INPUT:
   confidence_score_path: "<pipeline_doc_path>/confidence-score.yaml"
   prior_gate_decisions_path: "<pipeline_doc_path>/gate-decisions.jsonl"
 ```
+
+> See **MODE PERSISTENCE** section below for `pipeline_variant` → `mode_used` mapping and unknown-variant handling (`ERR_UNKNOWN_VARIANT`).
 
 ---
 
@@ -180,6 +183,26 @@ Example: audit-only with all WARN → raw = 10+15+18+7+3 = 53, normalized = 70.6
 
 ---
 
+## MODE PERSISTENCE — `mode_used` derivation
+
+### Write `mode_used` to `spec.json`
+
+Before persisting the final close verdict, derive `mode_used` from the `pipeline_variant` provided in `SPEC_CLOSER_INPUT` (or from sentinel state if available):
+
+| pipeline_variant | mode_used |
+|---|---|
+| `spec-light` | `slim` |
+| `spec-heavy` | `full` |
+| `spec-audit-only` | `audit` |
+
+If `pipeline_variant` is missing or maps to none of the above, raise `ERR_UNKNOWN_VARIANT` and abort the close (do NOT silently skip the field; absence is acceptable for legacy specs but never for newly closed specs in v4.13.0+).
+
+Include `mode_used` in the spec.json write payload alongside the existing fields.
+
+The mapping is mirrored in `tests/unit/spec-gates-and-mode-persistence.test.js` as the `mapVariantToModeUsed` pure function — that test is the executable contract for this mapping.
+
+---
+
 ## DELIVERABLES
 
 ### 1. `pipeline-report-technical.md`
@@ -226,6 +249,7 @@ Append/replace fields (preserve other fields):
     "raw_score": 93,
     "normalized_score": 93
   },
+  "mode_used": "full",
   "reports": [
     "pipeline-report-technical.md",
     "pipeline-report-executive.md"
@@ -235,6 +259,8 @@ Append/replace fields (preserve other fields):
 ```
 
 For `mode == "audit-only"`: `raw_score` is out of 75, `normalized_score` and `score` are out of 100 (post-normalization).
+
+The `mode_used` field is the persistent record of which spec lifecycle variant produced this spec. Mapping (see "MODE PERSISTENCE" section above): `spec-light` → `"slim"`, `spec-heavy` → `"full"`, `spec-audit-only` → `"audit"`. Optional in pre-v4.13.0 specs; mandatory for newly closed specs in v4.13.0+.
 
 ### 4. `gate-decisions.jsonl` append
 

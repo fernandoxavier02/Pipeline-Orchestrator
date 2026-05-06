@@ -57,8 +57,17 @@ Values at exact boundaries (e.g., exactly 3 files, exactly 30 lines) are classif
 | **User Story** | DIRETO | user-story-light | user-story-heavy |
 | **Audit** | DIRETO | audit-light | audit-heavy |
 | **UX Simulation** | DIRETO | ux-sim-light | ux-sim-heavy |
+| **Spec** | DIRETO | spec-light | spec-heavy |
 
 DIRETO = Direct execution without pipeline (build + test only, max 2 files, < 30 lines).
+
+> **Note on `spec-audit-only`:** The `spec-audit-only` variant is selected by phase trigger (when `tasks.md` is 100% complete AND `spec.json.phase != "closed"`), NOT by complexity. It runs the audit-only sequence regardless of the original spec complexity classification.
+
+### Variant selection criteria for Spec
+
+- **spec-light** — small/medium specs; default for `Spec` type at MEDIA complexity.
+- **spec-heavy** — domain-rich or sensitive-data specs (auth, crypto, payment, PII), or COMPLEXA classification.
+- **spec-audit-only** — phase trigger only (`tasks.md` 100% complete AND `spec.json.phase != "closed"`). Independent of complexity routing above.
 
 ---
 

@@ -1,6 +1,6 @@
 # Gate System Reference
 
-> **SSOT** for gate definitions — hardness taxonomy and the 16-gate registry. `commands/pipeline.md` Grep-redirects here when it needs the full table with trigger conditions and recovery actions. Operational audit mechanics (Phase Transition Summary block template, Gate Decision Log JSONL format + parse/sanitization rules) live in `references/audit-trail.md` — they evolve independently from gate definitions. If you change gate hardness levels or registry rows, update this file; downstream tooling parses it.
+> **SSOT** for gate definitions — hardness taxonomy and the 22-gate registry. `commands/pipeline.md` Grep-redirects here when it needs the full table with trigger conditions and recovery actions. Operational audit mechanics (Phase Transition Summary block template, Gate Decision Log JSONL format + parse/sanitization rules) live in `references/audit-trail.md` — they evolve independently from gate definitions. If you change gate hardness levels or registry rows, update this file; downstream tooling parses it.
 
 ---
 
@@ -37,6 +37,19 @@ Each gate has a formal **hardness** level that determines enforcement behavior:
 | FINAL_ADVERSARIAL_GATE | **SOFT** | Post-sanity, pre-validator | **ASK** user (recommended) | Must approve/skip |
 | FINAL_ADVERSARIAL_REWORK | **HARD** | Final adversarial reports CRITICAL findings | **ASK** user (A: fix batch / B: proceed / C: discard) | Fix batch or proceed with penalty |
 | CLOSEOUT_CONFIRM | **SOFT** | Push+PR or Discard | **PAUSE** — confirm | User confirms |
+
+### Spec pipeline gates (Wave 5-spec, v4.13.0)
+
+| Gate | Hardness | Trigger | Action | Recovery |
+|------|----------|---------|--------|----------|
+| SPEC_ARTIFACT_MISSING | **MANDATORY** | Spec detected but one or more required artifacts (requirements.md / design.md / tasks.md) is missing from `.kiro/specs/<id>/` | **TOTAL BLOCK** — list missing artifacts, halt pipeline | User must create missing artifacts before retry |
+| SPEC_FORMAT_GATE_FAIL | **HARD** | spec-format-gate agent emits NO-GO (less than 22 of 25 format checks pass) | **BLOCK** — fix spec artifacts and re-run format gate | AskUserQuestion: Edit / Bypass / Abort |
+| SPEC_CONTENT_REVIEW_NOGO | **HARD** | spec-content-reviewer (Heavy variant) emits NO-GO (>=1 critical finding) | **BLOCK** Phase 1.5 | AskUserQuestion: Edit / Justified Bypass / Abort |
+| SPEC_AC_TRACEABILITY_GAP | **HARD** | quality-gate-router fails to derive >=1 ATDD scenario per Acceptance Criterion (less than 100% AC coverage) | **BLOCK** TDD phase | AskUserQuestion: Add manually / Re-extract / Mark AC non-testable |
+| SPEC_POST_IMPL_FAIL | **HARD** | spec-post-impl-validator score below 75% after adversarial loop exhausted | **BLOCK** | AskUserQuestion: New fix batch (1x) / Accept warnings (limited) / Abort |
+| ADVERSARIAL_LOOP_CHECKPOINT | **SOFT** (with escalation) | Every 3 fix-loop attempts within a single spec batch without reaching CLEAN adversarial result. Counter resets when batch transitions | **ASK** | AskUserQuestion: Continue (next 3) / Escalate to Heavy variant / Accept warnings / Abort |
+
+> **Note on "SOFT (with escalation)":** the hardness taxonomy describes LEVELS, not GATES. `ADVERSARIAL_LOOP_CHECKPOINT` is fundamentally a SOFT gate (user can continue), but its repeated triggering within a single batch is itself a signal that recovery should escalate (e.g., switch to Heavy variant). The escalation is a recovery-action pattern, not a new hardness level.
 
 **Rules (definitions only — operational write mechanics are in `references/audit-trail.md`):**
 1. When a SOFT gate is skipped, the decision MUST be logged with `decision: "SKIPPED"`. The `final-validator` MUST check this log and factor skipped gates into the GO/CONDITIONAL/NO-GO decision. (Write path mechanics: see `references/audit-trail.md`.)
