@@ -5,6 +5,42 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [4.12.0] - 2026-05-05
+
+**Minor release WAVE 4-SPEC — `/spec` THIN ENTRY-POINT + 3 PIPELINE COMPOSITION REFS**. Adds the manual-only `skills/spec/SKILL.md` entry-point so users who already know their input is a Kiro spec can short-circuit type-detection (mirrors the v4.3.0+ pattern set by `skills/bugfix`, `skills/audit`, `skills/feature`). Three new pipeline composition reflexes (`references/pipelines/spec-light.md`, `spec-heavy.md`, `spec-audit-only.md`) document team composition + step-by-step flow with 1:1 fidelity to their backing SKILL.md `sequence_lock` — drift is caught by a new cross-ref test. **Purely additive — zero behavior change for `/pipeline-orchestrator:pipeline` or any existing entry-point.**
+
+### Added
+
+- **`skills/spec/SKILL.md`** — thin manual-only entry-point with `disable-model-invocation: true`. Inspects `$ARGUMENTS` for `--light` / `--heavy` / `--audit-only` flags; with a flag, dispatches `Skill(skill: "pipeline-orchestrator:spec-{variant}")` directly. Without a flag, delegates to `pipeline-controller` prefixed with `PRE_CLASSIFIED_TYPE=Spec\n\n`, letting the Wave 3-spec 4-signal classifier pick the variant.
+- **`references/pipelines/spec-light.md`** — team composition + 6-step flow matching `skills/spec-light/SKILL.md` `sequence: [1..6]` with 4 `**[GATE]**` markers matching `gates_at: [1,2,3,4]`.
+- **`references/pipelines/spec-heavy.md`** — team composition + 9-step flow matching `skills/spec-heavy/SKILL.md` `sequence: [1..9]` with 5 `**[GATE]**` markers matching `gates_at: [1,2,3,4,5]`.
+- **`references/pipelines/spec-audit-only.md`** — team composition + 5-step flow matching `skills/spec-audit-only/SKILL.md` `sequence: [1..5]` with 3 `**[GATE]**` markers matching `gates_at: [1,2,3]`. Documents the read-only Iron Law (no production writes outside spec artifacts).
+- **`tests/unit/spec-entry-point-and-pipelines.test.js` (NEW, 10 tests)** — happy path (skills/spec/SKILL.md frontmatter + flag-routing prose); 6 cross-ref tests (per variant: step count = SKILL.md sequence length; gate count = SKILL.md gates_at length); edge test (each pipeline ref points to its matching backing skill); regression test (skills/bugfix, skills/audit, skills/feature, commands/pipeline.md still exist); version test (plugin.json bumped to 4.12.0). Suite 103 → 113 GREEN.
+
+### Changed
+
+- **`.claude-plugin/plugin.json`** — version `4.11.0` → `4.12.0`; description updated with v4.12.0 entry.
+- **`CLAUDE.md`** — version lineage extended with `v4.11.0 → v4.12.0 (Wave 4-spec — /spec thin entry-point + 3 pipeline composition refs)`.
+
+### Backward Compatibility
+
+`/pipeline-orchestrator:pipeline` (full classifier) is unchanged. Existing entry-points (`skills/bugfix`, `skills/audit`, `skills/feature`) and their backing variant skills are untouched. The 3 `skills/spec-{light,heavy,audit-only}/` skill trees from Wave 2 are not modified — the new pipeline composition refs read them as SSOT.
+
+### Constraints respected (cirurgical scope)
+
+- No changes to `agents/`
+- No changes to `skills/spec-light/`, `skills/spec-heavy/`, `skills/spec-audit-only/`
+- No changes to `references/gates.md`
+- No changes to `commands/pipeline.md`
+- TDD: 1 happy + 1 edge + 1 regression (plus 6 cross-ref + 1 version = 10 total)
+- Compat regression preserved (5/5 PASS unchanged)
+
+### Pipeline-driven (dogfood)
+
+Wave 4-spec was scoped via `/pipeline-orchestrator:pipeline` itself (Phase 0 task-orchestrator surfaced GAP-1 about `commands/spec.md` vs `skills/spec/SKILL.md` path; user resolved in favor of canonical `skills/` path). MEDIA complexity, feature-light variant. 0 fix loops, 0 adversarial findings, 113/113 unit + 5/5 compat green at sanity.
+
+---
+
 ## [4.11.0] - 2026-05-05
 
 **Minor release WAVE 3-SPEC — SPEC CLASSIFIER ROUTING**. Wires `type=Spec` as a first-class 6th task type into the 4 core pipeline agents (task-orchestrator + pipeline-controller + sentinel + quality-gate-router) so the 3 spec skill trees from Wave 2 (`spec-light`, `spec-heavy`, `spec-audit-only`) become reachable from the main `/pipeline` entry-point. Backward compat MANDATORY: non-spec pipelines route identically to v4.10.0 (regression tests catch drift).
