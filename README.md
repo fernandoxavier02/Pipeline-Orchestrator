@@ -32,6 +32,49 @@
 
 ---
 
+## The Problem We Solve
+
+Today there is an abundance of tools to structure, plan, and specify software projects — Jira, Linear, Notion, Confluence, architecture decision records, and specification templates. They help teams decide *what* to build and *why*. But when it comes to the actual execution — translating those plans into production code safely — the industry relies on human discipline. And discipline degrades under pressure, time constraints, and long-running sessions.
+
+Pipeline Orchestrator is an **end-to-end execution governance layer** that sits between your plan and your production code. It does not replace your planning tools. It closes the gap between "we have a spec" and "we shipped it safely."
+
+### Why Execution Breaks Down
+
+Long-running coding sessions suffer from a predictable degradation pattern:
+
+- **Context accumulation** — the implementer holds too much state, misses contradictions
+- **Confirmation bias** — the same mind that wrote the code reviews it, approving its own blind spots
+- **Drifting requirements** — after hour three, the code no longer matches the original intent
+- **Missing edge cases** — race conditions, auth bypasses, and SSOT conflicts slip through because no one attacked the code
+
+Traditional CI/CD catches syntax errors and regressions. It does not catch architectural drift, security holes introduced in batch 7, or the fact that your implementation no longer matches the acceptance criteria you wrote in batch 1.
+
+### How Pipeline Orchestrator Fixes It
+
+**Periodic Workflow Reviews (Gates)** — The pipeline inserts mandatory checkpoints at every phase transition. Not ceremonial checkboxes: MANDATORY gates that cannot be skipped even with `--hotfix`, HARD gates that block until resolved, CIRCUIT BREAKER gates that halt the pipeline after 2 consecutive failures, and SOFT gates that log every skip and penalize your confidence score. The workflow is reviewed *while it runs*, not after it finishes.
+
+**Adversarial Independence** — Every batch of code is reviewed by agents that receive **zero implementation context**. They do not know what you intended. They see only the result. They attack from security, architecture, and quality angles — simultaneously, in parallel — the way a real attacker or a hostile senior engineer would. This eliminates confirmation bias because the reviewer never shared the author's assumptions.
+
+**Context Isolation** — The implementer's reasoning is never shared with reviewers. The final adversarial team is spawned in a single message with three parallel Agent calls, ensuring no sequential contamination. Each reviewer loads only relevant security checklists from `references/checklists/` and evaluates the code blind.
+
+**Confidence Scoring** — The pipeline accumulates an objective quality signal across all phases: classification clarity, information completeness, design alignment, plan coverage, TDD coverage, and implementation quality. Skipped SOFT gates apply a penalty. The final score drives a Go/No-Go decision:
+
+```
+GO:          >= 0.80
+CONDITIONAL: >= 0.60
+NO-GO:       <  0.60
+```
+
+No gut feelings. No "it looks fine to me." A number.
+
+**TRACE.md — Glass Box Audit Trail** — Every pipeline run emits a complete audit trail to `.pipeline-orchestrator/runs/<id>/TRACE.md`. Classification, pipeline definition, execution log, final verdict with confidence score and gate penalties. Attach it to your PR. Validate it with a standalone script. Auditable, reproducible, accountable.
+
+**TDD by Default** — Tests are written BEFORE implementation (RED phase), approved by you, and validated after every batch. Not optional. Not an afterthought. If the pipeline touches code, it must prove the code works before claiming it works.
+
+**Proportional Rigor** — A one-line typo fix does not get the same ceremony as a payment system rewrite. The pipeline automatically scales its depth by complexity: SIMPLES (light), MEDIA (moderate), or COMPLEXA (full adversarial team, 5 sentinel checkpoints, deep review). Zero configuration needed.
+
+---
+
 ## What's New in v5.0
 
 Version 5.0 is the first major release of Pipeline Orchestrator. Three years of iteration converged into this architecture:
