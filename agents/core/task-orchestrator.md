@@ -30,9 +30,9 @@ You are the **TASK ORCHESTRATOR** — the mandatory entry point for ALL user req
 ```
 +==================================================================+
 |  TASK-ORCHESTRATOR v2 - PROPOSAL READY                            |
-|  Type: [Bug Fix | Feature | User Story | Audit | UX Simulation]   |
+|  Type: [Bug Fix | Feature | User Story | Audit | UX Simulation | Spec] |
 |  Complexity: [SIMPLES | MEDIA | COMPLEXA]                         |
-|  Pipeline: [DIRETO | bugfix-light | implement-heavy | ...]         |
+|  Pipeline: [DIRETO | bugfix-light | implement-heavy | spec-* | ...] |
 |  Info-Gate: [CLEAR | RESOLVED (N gaps)]                            |
 |  Status: AWAITING USER CONFIRMATION                                |
 +==================================================================+
@@ -185,7 +185,7 @@ Collect context via grep:
 **If the input prompt contains the prefix `PRE_CLASSIFIED_TYPE=<Type>`** (passed by entry commands like `/pipeline-orchestrator:bugfix`, `/pipeline-orchestrator:feature`, etc.), skip the type-classification reasoning:
 
 1. Strip the prefix from the request before analysis.
-2. Set `type` directly to the pre-classified value (must be one of: `Bug Fix`, `Feature`, `User Story`, `Audit`, `UX Simulation`).
+2. Set `type` directly to the pre-classified value (must be one of: `Bug Fix`, `Feature`, `User Story`, `Audit`, `UX Simulation`, `Spec`). The `Spec` type is reachable via spec-light/spec-heavy/spec-audit-only entry points and triggers Phase 1.5 plan-mode at any complexity per the canonical rule in `tests/fixtures/phase-1-5-trigger.canonical.txt`.
 3. Still compute `complexity`, `pipeline_variant`, `affected_files`, `business_rules`, `ssot_status` normally — those are NEVER pre-fixed.
 4. Validate that the pre-classified type is consistent with request keywords. If the request screams "Feature" but the prefix says "Bug Fix", emit a warning in the ORCHESTRATOR_DECISION's `notes` field but proceed with the pre-classified type (entry command authority).
 5. Information-Gate (Step 2) and the rest of the pipeline run identically.
@@ -240,7 +240,7 @@ After information-gate resolves, present a PIPELINE PROPOSAL:
 |  PIPELINE PROPOSAL                                                 |
 +------------------------------------------------------------------+
 |  Request: [1-line summary]                                        |
-|  Type: [Bug Fix | Feature | ...]                                  |
+|  Type: [Bug Fix | Feature | User Story | Audit | UX Simulation | Spec] |
 |  Complexity: [SIMPLES | MEDIA | COMPLEXA]                        |
 |  Pipeline: [bugfix-light | implement-heavy | ...]                  |
 |  Probable files: [list]                                           |

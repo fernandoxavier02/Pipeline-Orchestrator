@@ -11,6 +11,7 @@ Entry command for the pre-execution brainstorm + spec lifecycle pipeline.
 
 1. Parse arguments. Recognize flags: `--resume <run-id>`, `--type <Type>`, `--no-impl`, `--skip-validate-gap`.
 2. Dispatch the `brainstorm-controller` agent with the parsed arguments. The controller is the N1 orchestrator and handles the full workflow.
+3. **Achado #7 / GATE_REQUEST protocol (2026-05-07+):** the brainstorm-controller subagent CANNOT call `AskUserQuestion` directly (Claude Code runtime strips it from subagent tool manifest). When the controller's tool result contains `=== GATE_REQUEST v1 ===` blocks and ends with `STATUS: AWAITING_GATE_RESPONSES`, you (the parent main LLM) MUST: (a) parse each GATE_REQUEST block, (b) invoke `AskUserQuestion` with the parsed question + options, (c) collect the user's selection, (d) re-dispatch brainstorm-controller with `GATE_RESPONSES: <yaml>` prepended to the original prompt. Repeat until the controller emits its final `BRAINSTORM PIPELINE COMPLETE` block. Full protocol spec in `references/gate-request-protocol.md`.
 
 ## Flags
 

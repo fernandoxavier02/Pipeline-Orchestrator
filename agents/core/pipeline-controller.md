@@ -246,6 +246,23 @@ When `--hotfix` is specified:
 
 ---
 
+## GATE_REQUEST + DISPATCH_REQUEST protocol (Achado #7 fix, 2026-05-07+)
+
+Per `docs/findings/achado-7-subagent-runtime.md`, your subagent runtime has `AskUserQuestion`, `Agent`, and `EnterPlanMode` STRIPPED from the tool manifest. You cannot invoke them directly. The fix is the emit-and-hoist pattern documented in `references/gate-request-protocol.md`:
+
+- **Where this spec says "Spawn `<agent>` agent" or "via Agent tool":** instead of calling `Agent(subagent_type: ...)`, emit a `=== DISPATCH_REQUEST v1 ===` block with `target_kind: agent`, `target_name: <pipeline-orchestrator:folder:leaf>`, `prompt: <full-prompt>`. End your tool result with `STATUS: AWAITING_DISPATCH_RESULTS` and list pending `dispatch_id`s. The parent will dispatch the agent and re-invoke you with `DISPATCH_RESULTS: <yaml>` prepended.
+- **Where this spec says "Invoke `AskUserQuestion`" or "user approval gate":** emit a `=== GATE_REQUEST v1 ===` block with `question`, `header`, `options` (first option `recommended: true` for technical questions). End with `STATUS: AWAITING_GATE_RESPONSES`. Parent collects answer and re-invokes you with `GATE_RESPONSES: <yaml>` prepended.
+- **Where this spec says "EnterPlanMode" / "plan mode":** emit `=== PLAN_MODE_REQUEST v1 ===` with `research_scope` and `expected_deliverables`. Parent enters plan mode in its own context (where the tool works) and returns the plan.
+- **`Skill` tool IS available** in your runtime (confirmed empirically). Where this spec instructs dispatching a skill, call `Skill(skill: "<name>")` directly — no DISPATCH_REQUEST needed for skill targets.
+
+**You may emit MULTIPLE blocks in a single tool result** to amortize round-trips. Example: one tool result containing 1 GATE_REQUEST + 2 DISPATCH_REQUESTs. The parent processes all three before re-dispatching you. Use this to avoid pathological round-trip storms.
+
+**Re-entry contract:** when the parent re-dispatches you with `GATE_RESPONSES` / `DISPATCH_RESULTS` / `PLAN_MODE_RESULTS` prepended to your original prompt, you MUST: (a) parse the YAML, (b) merge into your in-progress state, (c) resume from the step that emitted the request. Track which steps emitted which blocks via `sentinel-state.json.pending_blocks` (array of `{block_type, gate_id|dispatch_id|plan_id, emitted_at}`). Clear entries as their responses arrive.
+
+**Audit trail:** every block emission and every response is logged to `gate-decisions.jsonl` per the protocol spec. The 22-gate registry is unchanged; protocol bookkeeping reuses the SOFT-hardness `gate` field with `decided_by: gate_request_protocol_parent_handler`.
+
+---
+
 ## STEP 1.7: PRE-EXECUTION ROUTING (mandatory for MEDIA/COMPLEXA/Spec)
 
 **Trigger condition:** classification just produced `complexity` and `type`. Before continuing to Phase 1 proposal, evaluate:
@@ -289,6 +306,14 @@ ELSE: # SIMPLES, no Spec type
 - 2nd entry: load existing prep (PREP_RUN_ID in args)
 
 A 3rd entry indicates a contract violation (brainstorm-controller emitted invalid output, or args were corrupted). The controller MUST emit `STEP_1_7_RECURSION_GUARD` to `gate-decisions.jsonl` (hardness: CIRCUIT_BREAKER) and stop the pipeline. Track depth via `sentinel-state.json.step_1_7_depth` (integer, increments on each entry, defaults to 0).
+
+**Classification consistency guard (v5.1.x+, post-Achado-5):** When the controller resumes via `PREP_RUN_ID`, after STEP 1.7's "load existing prep" branch loads the spec and sets `spec_context`, the controller MUST re-run task-orchestrator's classifier on the original task description and compare the reclassified `complexity` against `manifest.complexity`. Behavior:
+
+1. If `reclassified.complexity == manifest.complexity`: continue normally (no user-visible output).
+2. If `reclassified.complexity != manifest.complexity`: write a single line to TRACE.md under `## Plan Mode` (or create the section if absent) with the literal event tag `classification_discrepancy`, fields `manifest: <value>`, `reclassified: <value>`, `action: trust_manifest`. Then continue using `manifest.complexity` as the authoritative value.
+3. The pipeline-controller MUST NOT halt or prompt the user for the discrepancy. The manifest value is authoritative because it was already user-confirmed during brainstorm.
+
+Rationale: brainstorm's classifier ran with full intake context; STEP 1.7's reclassifier may have different priors. Trust manifest, log drift for audit.
 
 ---
 
@@ -362,6 +387,26 @@ These fields are READ by:
 ---
 
 ## STEP 4: EXECUTE PHASES
+
+> **Achado #9 reminder (A.9 fix, applies to all phases below):** every "Spawn `<X>` agent" instruction in the phase sections that follow MUST be implemented as a `=== DISPATCH_REQUEST v1 ===` emission per the protocol section at the top of this file — NOT a direct `Agent(...)` call (which fails silently in your subagent runtime). The phase prose retains "Spawn X" as the conceptual intent; the runtime mechanism is always DISPATCH_REQUEST. Concrete example for Phase 0a (apply the same pattern to all sub-agent dispatches in Phase 0b, 0c, 1.5, 2c, 2e, 3a, 3b, 3c):
+>
+> ```yaml
+> === DISPATCH_REQUEST v1 ===
+> dispatch_id: phase-0a-task-orchestrator
+> target_kind: agent
+> target_name: pipeline-orchestrator:core:task-orchestrator
+> description: "Phase 0a — task classification"
+> prompt: |
+>   Request: <extracted from arguments>
+>   PIPELINE_DOC_PATH: <value>
+>   PROJECT_CONFIG: <value>
+>   Force level: <if --simples/--media/--complexa was specified>
+> context_for_parent: |
+>   Phase 0a kickoff. Result feeds into sentinel checkpoint #1.
+> === END DISPATCH_REQUEST ===
+> ```
+>
+> End your tool result with `STATUS: AWAITING_DISPATCH_RESULTS` and the list of pending dispatch_ids when you have not yet received their results.
 
 ### Phase 0: Automatic Triage
 
@@ -477,22 +522,30 @@ Present the PIPELINE PROPOSAL to the user:
 ╚══════════════════════════════════════════════════════════════════╝
 ```
 
-Invoke `AskUserQuestion` with this exact structure (confirmation question — recommendation optional since both "yes" and "adjust" are valid user choices):
+Per the GATE_REQUEST protocol (top of file), emit the following block in your tool result and end with `STATUS: AWAITING_GATE_RESPONSES`. Confirmation gate — recommendation optional since both "yes" and "adjust" are valid user choices:
 
 ```yaml
-AskUserQuestion(
-  questions: [{
-    question: "Confirm this pipeline?",
-    header: "Pipeline",
-    multiSelect: false,
-    options: [
-      { label: "Yes", description: "Proceed to Phase 2 with the proposed classification and variant" },
-      { label: "Adjust", description: "Modify type, complexity, variant, or batch size before proceeding" },
-      { label: "No", description: "Reclassify from Phase 0 or cancel the pipeline" }
-    ]
-  }]
-)
+=== GATE_REQUEST v1 ===
+gate_id: phase-1-pipeline-proposal
+question: "Confirm this pipeline?"
+header: "Pipeline"
+multi_select: false
+options:
+  - label: "Yes"
+    description: "Proceed to Phase 2 with the proposed classification and variant"
+    recommended: false
+  - label: "Adjust"
+    description: "Modify type, complexity, variant, or batch size before proceeding"
+    recommended: false
+  - label: "No"
+    description: "Reclassify from Phase 0 or cancel the pipeline"
+    recommended: false
+context: |
+  Phase 1 proposal confirmation. The parent (main LLM) will invoke AskUserQuestion in its own context (subagent runtime cannot — see Achado #7 / GATE_REQUEST protocol section above) and re-dispatch you with GATE_RESPONSES prepended.
+=== END GATE_REQUEST ===
 ```
+
+The parent will record this in `protocol-events.jsonl` and ALSO write a corresponding `gate-decisions.jsonl` entry with `decided_by: user` if the user's selection maps to a named gate. The legacy `AskUserQuestion(...)` JS-style invocation that previously appeared here is REMOVED — emit ONLY the YAML block above.
 
 - **Yes** → proceed to Phase 2
 - **Adjust** → user specifies overrides (type, complexity, etc.)
@@ -530,10 +583,21 @@ AskUserQuestion(
 +==================================================================+
 ```
 
-**Trigger conditions:**
-- **Automatic:** complexity == COMPLEXA
-- **Flag:** `--plan` was specified (any complexity)
-- **Skip:** SIMPLES or MEDIA without `--plan`
+**Trigger conditions (v4.17.0+, reconciled with commands/pipeline.md and tests/fixtures/phase-1-5-trigger.canonical.txt):**
+
+Canonical rule: **Plan-mode runs automatically when (complexity in {MEDIA, COMPLEXA} OR type == Spec) AND `--no-plan` is NOT in args; on COMPLEXA the `--no-plan` override is logged but ignored.**
+
+| complexity | type | `--no-plan` absent | `--no-plan` present | `--plan` (force) |
+|---|---|---|---|---|
+| SIMPLES | not Spec | skip | skip | plan runs |
+| SIMPLES | Spec | **plan runs** | skip + log justification in TRACE | plan runs |
+| MEDIA | any | **plan runs** | skip + log justification in TRACE | plan runs |
+| COMPLEXA | any | plan runs | plan runs anyway + log override in TRACE | plan runs |
+
+- **Automatic:** complexity ∈ {MEDIA, COMPLEXA} OR type == Spec, AND `--no-plan` is NOT in args.
+- **Flag (force):** `--plan` was specified (any complexity, any type).
+- **Skip:** SIMPLES non-Spec always; MEDIA when `--no-plan` was passed; SIMPLES Spec when `--no-plan` was passed.
+- **Override blocked:** complexity == COMPLEXA — `--no-plan` is parsed but ignored. plan-architect runs anyway. The flag and the user-supplied justification are logged in TRACE.md (`plan_mode_skipped: false`, `plan_override_attempted: true`, `justification: <user input>`).
 
 If triggered, spawn `plan-architect` agent (model: sonnet).
 
@@ -720,22 +784,30 @@ After executor-controller returns BATCH_RESULT with checkpoint PASS:
 +==================================================================+
 ```
 
-Invoke `AskUserQuestion` (confirmation gate — recommendation optional, but recommend "Yes" when the batch touched sensitive files):
+Per the GATE_REQUEST protocol (top of file), emit the following block and end your tool result with `STATUS: AWAITING_GATE_RESPONSES`. Confirmation gate — recommendation optional, but recommend "Yes" when the batch touched sensitive files:
 
 ```yaml
-AskUserQuestion(
-  questions: [{
-    question: "Proceed with adversarial review for Batch [N]?",
-    header: "Adversarial",
-    multiSelect: false,
-    options: [
-      { label: "Yes", description: "Spawn review-orchestrator with the current checklist selection" },
-      { label: "Skip", description: "Document skip; NOT ALLOWED if batch touched auth/crypto/data-model/payment" },
-      { label: "Adjust", description: "Add or remove checklists before proceeding" }
-    ]
-  }]
-)
+=== GATE_REQUEST v1 ===
+gate_id: phase-2-adversarial-batch-[N]
+question: "Proceed with adversarial review for Batch [N]?"
+header: "Adversarial"
+multi_select: false
+options:
+  - label: "Yes"
+    description: "Spawn review-orchestrator with the current checklist selection"
+    recommended: false
+  - label: "Skip"
+    description: "Document skip; NOT ALLOWED if batch touched auth/crypto/data-model/payment"
+    recommended: false
+  - label: "Adjust"
+    description: "Add or remove checklists before proceeding"
+    recommended: false
+context: |
+  Per-batch adversarial gate. Parent processes via AskUserQuestion (subagent cannot — Achado #7). The parent will write protocol-events.jsonl + a gate-decisions.jsonl entry for ADVERSARIAL_GATE (decided_by: user).
+=== END GATE_REQUEST ===
 ```
+
+The legacy `AskUserQuestion(...)` JS-style invocation that previously appeared here is REMOVED — emit ONLY the YAML block above.
 
 **Gate responses:**
 - **Yes** → spawn review-orchestrator
@@ -853,21 +925,27 @@ AFTER sanity-checker passes, BEFORE final-validator:
 +==================================================================+
 ```
 
-Invoke `AskUserQuestion` with this structure. Recommendation depends on pipeline level — see the table below; default to "Yes (Recomendado)" for MEDIA+ and COMPLEXA, "Yes" (no recommendation tag) for SIMPLES unless auth/data touched:
+Per the GATE_REQUEST protocol (top of file), emit the following block and end with `STATUS: AWAITING_GATE_RESPONSES`. Recommendation depends on pipeline level — see the table below; set the first option `recommended: true` for MEDIA+ and COMPLEXA, leave both `false` for SIMPLES unless auth/data touched:
 
 ```yaml
-AskUserQuestion(
-  questions: [{
-    question: "Run final adversarial review? (3 parallel scanners, ~3x token cost)",
-    header: "Final review",
-    multiSelect: false,
-    options: [
-      { label: "Yes (Recomendado)", description: "Catches cross-batch issues — strongly recommended for COMPLEXA / production-bound changes" },
-      { label: "Skip", description: "Document skip; accept confidence penalty -0.15. Blocked if domains touched include auth/crypto/data-model" }
-    ]
-  }]
-)
+=== GATE_REQUEST v1 ===
+gate_id: phase-3-final-adversarial
+question: "Run final adversarial review? (3 parallel scanners, ~3x token cost)"
+header: "Final review"
+multi_select: false
+options:
+  - label: "Yes"
+    description: "Catches cross-batch issues — strongly recommended for COMPLEXA / production-bound changes"
+    recommended: true   # toggle per the recommendation table below
+  - label: "Skip"
+    description: "Document skip; accept confidence penalty -0.15. Blocked if domains touched include auth/crypto/data-model"
+    recommended: false
+context: |
+  Final adversarial review gate (Phase 3, opt-in). Parent processes via AskUserQuestion. The parent will record this in protocol-events.jsonl + write a FINAL_ADVERSARIAL_GATE entry to gate-decisions.jsonl (decided_by: user).
+=== END GATE_REQUEST ===
 ```
+
+The legacy `AskUserQuestion(...)` JS-style invocation that previously appeared here is REMOVED — emit ONLY the YAML block above.
 
 Adjust the "(Recomendado)" tag per the recommendation level:
 
@@ -976,6 +1054,12 @@ the run, emit the optional `## Plan Mode` section per schema §4.6:
   was rejected at COMPLEXA per design §8; flag is logged for audit).
 - `complexity == MEDIA + --no-plan` → `plan_mode_skipped: true`,
   `plan_override_attempted: true`, `justification: <user input>`.
+- `type == Spec + complexity == SIMPLES + --no-plan` → `plan_mode_skipped: true`,
+  `plan_override_attempted: true`, `justification: <user input>` (Spec types
+  enable plan-mode by default at any complexity; `--no-plan` honored at SIMPLES).
+- `type == Spec + complexity ∈ {MEDIA, COMPLEXA} + --no-plan` → falls through
+  to the matching complexity row above (MEDIA = skipped + logged; COMPLEXA =
+  not skipped + override logged).
 - `--no-plan` not passed → omit the entire section.
 
 **Verification step:** before continuing to `finishing-branch`, the

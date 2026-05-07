@@ -5,6 +5,44 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.2.0-rc.1] - 2026-05-07 — Achados 1-7 reconciliation + GATE_REQUEST protocol
+
+**Patch-equivalent: pure documentation drift fixes + new contract tests + architectural disclosure.** No behavioral code changes (the Phase 1.5 trigger expansion to `type == Spec` is documented in spec but not yet wired into a runtime classifier — see Achado 7 caveat).
+
+### Fixed (Achados 1, 2, 3, 6)
+
+- **Achado 1 — Phase 1.5 trigger drift between agent file and slash-command spec.** `agents/core/pipeline-controller.md` lines 533-536 reconciled with `commands/pipeline.md` Phase 1.5 detail. Both surfaces now declare the v4.17.0+ rule `(complexity in {MEDIA, COMPLEXA} OR type == Spec) AND --no-plan NOT in args`. Each surface cross-references `tests/fixtures/phase-1-5-trigger.canonical.txt` as SSOT.
+- **Achado 2 — Internal contradiction inside `commands/pipeline.md`.** Table-of-Contents bullet (line ~23) and ASCII overview box (line ~197) updated to the new auto-behavior wording. They no longer claim "(COMPLEXA or --plan)" while the body says otherwise.
+- **Achado 3 — Orphan TRACE Plan-mode override block.** Block at `agents/core/pipeline-controller.md` lines ~972-979 expanded to enumerate the `type == Spec` rows (SIMPLES Spec + --no-plan honored; MEDIA/COMPLEXA Spec + --no-plan falls through to complexity row). Aligned with §4.6 of `references/trace-schema/v1.md`.
+- **Achado 6 — Phase 1.5 trigger silent on `type == Spec`.** Trigger string in both authoritative surfaces now explicitly includes `OR type == Spec`. Coverage matrix in agent file Phase 1.5 details all four (complexity × type=Spec) cells.
+
+### Added (Achados 4, 5)
+
+- **Achado 4 — Brainstorm-to-pipeline plan flag propagation.** `agents/core/brainstorm-controller.md` STEP A.1 now persists `plan_flag` (`"plan"` | `"no-plan"` | `null`) in `manifest.notes.options`. STEP E "Run pipeline now" branch reads the persisted value at handoff and appends the matching CLI flag to the pipeline-controller spawn args. Original CLI flag intent now propagates end-to-end across the brainstorm-handoff boundary.
+- **Achado 5 — STEP 1.7 classification consistency guard.** `agents/core/pipeline-controller.md` STEP 1.7 now specifies that on `PREP_RUN_ID` resume, the controller re-classifies and compares `reclassified.complexity` against `manifest.complexity`. On mismatch: log a `classification_discrepancy` event to TRACE.md (`manifest`, `reclassified`, `action: trust_manifest`) and continue using the manifest value. Never halts, never prompts.
+
+### Disclosed + Root cause confirmed (Achado 7 — architectural finding, fix path chosen, implementation deferred)
+
+- **Achado 7 — Subagent runtime tool-inventory limitation. ROOT CAUSE CONFIRMED 2026-05-07T23:50Z** via empirical probe (general-purpose subagent dispatched specifically to test reachability of each suspected tool). Confirmed: `AskUserQuestion`, `Agent`, and `EnterPlanMode` are stripped from the subagent's tool manifest at the runtime level by Claude Code's harness — not denied, not deferred-but-resolvable, simply absent. `Skill`, `Task*` family, `WebFetch`, `WebSearch` all confirmed reachable inside subagents. Mitigation path chosen: **M-2 (Skill dispatch) + M-1 partial (hoisted gates pattern)**. Subagents that previously did `Agent(subagent_type: ...)` will use `Skill(skill: ...)` (Skill is available); user-decision gates that previously did AskUserQuestion will emit a `GATE_REQUEST` block to the parent context. Implementation deferred to v5.2 (~25-40h estimated). See `docs/findings/achado-7-subagent-runtime.md` for the empirical evidence table, the implementation outline, and the remaining open questions.
+
+### Tests
+
+- `tests/fixtures/phase-1-5-trigger.canonical.txt` — single source of truth for the Phase 1.5 trigger string.
+- `tests/contracts/phase-1-5-trigger-string.test.cjs` — 8 tests asserting all 5 surfaces reference the canonical fixture and include `type == Spec`. **Catches drift on every CI run.**
+- `tests/brainstorm-controller-flag-propagation.test.cjs` — 5 tests covering plan_flag persistence, propagation, and the null/empty case.
+- `tests/pipeline-controller-step-1-7-guard.test.cjs` — 6 tests covering the guard subsection, the `classification_discrepancy` event, the `trust_manifest` action, the no-halt/no-prompt invariant, and recursion-bound preservation.
+- Suite delta: 166/0/1 → **185/0/1** (+19 tests across 3 new files; zero regressions).
+
+### Migration
+
+- `docs/MIGRATION-v5.0-to-v5.1.md` extended with a new "Phase 1.5 trigger reconciliation" section documenting v4.16.0 vs v4.17.0+ vs current behavior, with one before/after example for `--no-plan` on COMPLEXA.
+
+### Known limitations
+
+- The Phase 1.5 expansion to `type == Spec` is wired into `agents/core/task-orchestrator.md` (post-Achado-6 follow-up: the type enum on lines 33, 188, 243 now includes `Spec`, and the pre-classified-type list at Step 1a accepts it). Runtime classifier behavior for type=Spec activates Phase 1.5 plan-mode at any complexity per the canonical fixture.
+- `pre-approvals.yaml` (workaround for Achado 7 in resume executions) is documented in `pipeline-runs/001-fix-6-contract-drift-findings/supplement-achado-7.md` as a temporary pattern. It will be superseded by the v5.2 GATE_REQUEST formalism once Achado 7 is implemented.
+- The empirical probe artifact (subagent reachability table) lives in the v5.2 milestone planning notes only — not promoted to a regression test until v5.2 lands the architectural fix.
+
 ## [5.1.0] - 2026-05-06
 
 **Minor release — Brainstorm-pipeline + Kiro skill clone.** v5.1.0 makes spec-first development the default. The plugin now owns the full spec lifecycle (8 cloned skills) and `/pipeline` will not run a non-trivial task until a spec exists in a per-run directory. Implemented in 6 batches over a single session, all TDD-driven; the suite grew from 166 to ~260+ green tests with zero regressions.

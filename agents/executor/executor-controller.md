@@ -152,6 +152,30 @@ Based on the team resolved in Step 0, dispatch the appropriate agent chain:
 - `Agent({ subagent_type: "bugfix-diagnostic-agent", prompt: "..." })`
 - All typed agents in `agents/executor/type-specific/` are auto-discovered by the plugin.
 
+> **Achado #7 runtime adaptation (2026-05-07+):** the `Agent` tool is stripped from your subagent runtime by the Claude Code harness — calls fail silently. Per `references/gate-request-protocol.md`, replace every `Agent(...)` call site with a `=== DISPATCH_REQUEST v1 ===` block emission. End your tool result with `STATUS: AWAITING_DISPATCH_RESULTS` and list pending `dispatch_id`s. The parent (main LLM) dispatches the agent on your behalf and re-invokes you with `DISPATCH_RESULTS: <yaml>` prepended. Same applies to any `Agent({subagent_type: "executor-implementer-task" | "executor-spec-reviewer" | "executor-quality-reviewer" | type-specific specialists})` call site below — they ALL must use DISPATCH_REQUEST. Skills (if any) continue to use the `Skill` tool directly.
+>
+> Concrete example for dispatching `executor-implementer-task` for a single task in the current batch (apply same pattern to spec-reviewer, quality-reviewer, type-specific specialists):
+>
+> ```yaml
+> === DISPATCH_REQUEST v1 ===
+> dispatch_id: batch-<N>-task-<M>-implementer
+> target_kind: agent
+> target_name: pipeline-orchestrator:executor:executor-implementer-task
+> description: "Batch <N> task <M> — implementation"
+> prompt: |
+>   TASK_ID: <M>
+>   TASK_DESCRIPTION: <verbatim from IMPLEMENTATION_PLAN>
+>   FILES_TO_MODIFY: <list>
+>   PIPELINE_DOC_PATH: <value>
+>   PROJECT_CONFIG: <value>
+>   COMPLEXITY: <value>
+> context_for_parent: |
+>   Phase 2 batch <N> task <M>. After result, controller proceeds to spec-reviewer dispatch for the same task.
+> === END DISPATCH_REQUEST ===
+> ```
+>
+> Multiple parallel-eligible tasks within a batch MAY be emitted as separate DISPATCH_REQUEST blocks in a single tool result, allowing the parent to dispatch them in parallel. End the tool result with `STATUS: AWAITING_DISPATCH_RESULTS` and list all pending dispatch_ids.
+
 #### 1-SKIP: Report-Only Pipeline Skip
 
 For report-only types (Audit, UX Simulation, Adversarial Review review-only mode):

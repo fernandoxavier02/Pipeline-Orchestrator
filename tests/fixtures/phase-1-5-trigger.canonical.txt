@@ -1,0 +1,1 @@
+Plan-mode runs automatically when (complexity in {MEDIA, COMPLEXA} OR type == Spec) AND --no-plan is NOT in args; on COMPLEXA the --no-plan override is logged but ignored.
