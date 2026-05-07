@@ -246,6 +246,46 @@ When `--hotfix` is specified:
 
 ---
 
+## STEP 1.7: PRE-EXECUTION ROUTING (mandatory for MEDIA/COMPLEXA/Spec)
+
+**Trigger condition:** classification just produced `complexity` and `type`. Before continuing to Phase 1 proposal, evaluate:
+
+```
+IF arguments contain "PREP_RUN_ID=<slug>":
+    # User (or upstream) already ran brainstorm. Load and continue.
+    Read pipeline-runs/<slug>/manifest.yaml.
+    Validate status == "ready" AND spec_lifecycle_completed == true.
+    If invalid: emit error, stop pipeline.
+    Load 01-spec/{spec.json, requirements.md, design.md, research.md, tasks.md} into pipeline context.
+    Set spec_context = those artifacts.
+    Set linked_pipeline_doc_path from manifest.
+    Continue to STEP 2.
+
+ELSE IF complexity in {MEDIA, COMPLEXA} OR type == "Spec":
+    IF arguments contain "--no-prep":
+        # Escape hatch. Log + bypass brainstorm.
+        Log to .pipeline/state/no-prep-overrides.jsonl: {timestamp, prompt, complexity, type}
+        Continue to STEP 2 (no brainstorm).
+    ELSE:
+        # Mandatory brainstorm dispatch.
+        Spawn agents/core/brainstorm-controller via Agent tool with:
+          - the original task description (verbatim)
+          - --type <type> (pre-classified)
+        Wait for the BRAINSTORM PIPELINE COMPLETE block.
+        If status != "ready": stop pipeline, report partial brainstorm.
+        Extract run_id from the COMPLETE block.
+        Re-enter STEP 1.7 with PREP_RUN_ID=<run_id> appended to arguments.
+
+ELSE: # SIMPLES, no Spec type
+    Continue to STEP 2 (no brainstorm).
+```
+
+**Audit logging:** Every STEP 1.7 decision (load-existing, dispatch-brainstorm, no-prep-override, simples-bypass) MUST be logged to `gate-decisions.jsonl` as a `STEP_1_7_ROUTING` gate entry with `hardness: HARD` and `decision` set per the branch taken.
+
+**Re-entry safety:** If the brainstorm dispatched at this step itself fails or is cancelled, the controller exits with status `partial` (does NOT auto-retry). The user re-invokes the pipeline.
+
+---
+
 ## STEP 2: DETECT PROJECT CONFIGURATION
 
 Before calling any agent, detect or load project configuration:
