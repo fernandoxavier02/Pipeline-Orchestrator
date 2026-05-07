@@ -114,13 +114,13 @@ Before writing `tasks.md`, run one lightweight independent sanity review of the 
 - If auto-approve flag (`-y`) is true:
   - Set `approvals.tasks.approved: true` in spec.json
   - Display task summary (task count, major groups, parallel markers)
-  - Respond: "Tasks generated and auto-approved. Start implementation with `/kiro-impl {feature}`"
+  - Respond: "Tasks generated and auto-approved. Start implementation by handing off to `/pipeline-orchestrator:pipeline` (brainstorm-controller does this automatically at step-08)"
 - Otherwise (interactive):
   - Display a summary of the generated tasks (task count, major groups, parallel markers)
   - Ask the user: "Tasks generated. Approve and proceed to implementation?"
   - If the user approves:
     - Set `approvals.tasks.approved: true` in spec.json
-    - Respond: "Tasks approved. Start implementation with `/kiro-impl {feature}`"
+    - Respond: "Tasks approved. Start implementation by handing off to `/pipeline-orchestrator:pipeline` (brainstorm-controller does this automatically at step-08)"
   - If the user wants changes:
     - Keep `approvals.tasks.approved: false`
     - Respond with guidance on what to adjust and re-run
@@ -186,5 +186,5 @@ Provide brief summary in the language specified in spec.json:
 ### Next Phase: Implementation
 
 Tasks are approved in Step 4 via user confirmation. Once approved:
-- Autonomous implementation: `/kiro-impl {feature}`
-- Specific tasks only: `/kiro-impl {feature} 1.1,1.2`
+- Autonomous implementation: handed off to `/pipeline-orchestrator:pipeline` via brainstorm-controller step-08 handoff
+- Specific tasks only: not supported in v5.1 — the pipeline implements all tasks in tasks.md

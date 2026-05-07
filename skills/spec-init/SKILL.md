@@ -13,10 +13,10 @@ disable-model-invocation: true
 Generate a unique feature name from the project description ($ARGUMENTS) and initialize the specification structure.
 
 ## Execution Steps
-1. **Check for Brief**: If `pipeline-runs/<run_id>/01-spec/brief.md` exists (created by `/kiro-discovery`), read it. The brief contains problem, approach, scope, and constraints from the discovery session. Use this to pre-fill the project description and skip clarification questions that the brief already answers.
+1. **Check for Brief**: The brainstorm-controller (agents/core/brainstorm-controller.md) handles intake; this skill assumes the prompt is already concrete and skips discovery-style clarification.
 2. **Clarify Intent**: The Project Description in requirements.md must contain three elements: (a) who has the problem, (b) current situation, (c) what should change. If a brief.md exists and covers these, skip to step 3. Otherwise, ask the user to clarify before proceeding. Ask as many questions as needed; do not fill in gaps with your own assumptions.
-3. **Check Uniqueness**: Verify `.kiro/specs/` for naming conflicts. If the directory already exists with only `brief.md` (no `spec.json`), use that directory (discovery created it).
-4. **Create Directory**: `.kiro/specs/[feature-name]/` (skip if already exists from discovery)
+3. **Check Uniqueness**: Verify `pipeline-runs/` for run-id collisions. If the directory already exists with only `brief.md` (no `spec.json`), use that directory (discovery created it).
+4. **Create Directory**: `pipeline-runs/<run_id>/01-spec/` (skip if already exists from discovery)
 5. **Initialize Files Using Templates**:
    - Read `references/spec-templates/init.json`
    - Read `references/spec-templates/requirements-init.md`
