@@ -31,3 +31,15 @@ for (const c of CLONES) {
     assert.equal(kiroCmdMatches.length, 0, `${c}: ${kiroCmdMatches.length} kiro cmd refs`);
   });
 }
+
+for (const c of CLONES) {
+  test(`clone ${c} body H1 does not start with kiro-`, () => {
+    const skillPath = path.join('skills', c, 'SKILL.md');
+    const content = fs.readFileSync(skillPath, 'utf8');
+    // Strip frontmatter to find the body's first H1.
+    const body = content.replace(/^---\n[\s\S]*?\n---\n/, '');
+    const h1 = body.match(/^# (.+)$/m);
+    assert.ok(h1, `${c}: no H1 in body`);
+    assert.doesNotMatch(h1[1], /^kiro-/, `${c}: H1 still says "${h1[1]}" (kiro- prefix)`);
+  });
+}
