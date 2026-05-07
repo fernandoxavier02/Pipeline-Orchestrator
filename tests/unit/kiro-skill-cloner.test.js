@@ -56,3 +56,11 @@ test('clone is run-id-agnostic when runId is the placeholder token <run_id>', ()
   const out = cloner.clone(SOURCE, { newName: 'spec-design' });
   assert.match(out, /pipeline-runs\/<run_id>\/01-spec\/spec\.json/);
 });
+
+test('accepts an injected PathRewriter', () => {
+  const { PathRewriter } = require('../../lib/path-rewriter.cjs');
+  const customRewriter = new PathRewriter('999-custom');
+  const cloner = new KiroSkillCloner({ rewriter: customRewriter });
+  const out = cloner.clone(SOURCE, { newName: 'spec-design' });
+  assert.match(out, /pipeline-runs\/999-custom\/01-spec\/spec\.json/);
+});
