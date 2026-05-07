@@ -173,8 +173,8 @@
     <rect x="1200" y="325" width="150" height="95" rx="8" fill="#422006" stroke="#f59e0b" stroke-width="1.5">
       <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="3s" begin="3.1s" repeatCount="indefinite"/>
     </rect>
-    <text x="1275" y="360" text-anchor="middle" fill="#fde68a" font-size="22" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">Final Adversarial</text>
-    <text x="1275" y="387" text-anchor="middle" fill="#fde68a" font-size="22" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">Orchestrator</text>
+    <text x="1275" y="360" text-anchor="middle" fill="#fde68a" font-size="18" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">Final Adversarial</text>
+    <text x="1275" y="387" text-anchor="middle" fill="#fde68a" font-size="18" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">Orchestrator</text>
     <text x="1275" y="413" text-anchor="middle" fill="#f59e0b" font-size="18" font-family="'Segoe UI',system-ui,sans-serif">3 parallel agents</text>
   </g>
 
@@ -199,10 +199,10 @@
     </rect>
     <rect x="45" y="515" width="250" height="38" rx="8" fill="#422006"/>
     <text x="170" y="543" text-anchor="middle" fill="#fde68a" font-size="24" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">AUDIT (4 agents)</text>
-    <text x="65" y="580" fill="#c4b5fd" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">audit-intake</text>
-    <text x="65" y="610" fill="#c4b5fd" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">audit-domain-analyzer</text>
-    <text x="65" y="640" fill="#c4b5fd" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">audit-compliance-checker</text>
-    <text x="65" y="670" fill="#c4b5fd" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">audit-risk-matrix-generator</text>
+    <text x="65" y="580" fill="#c4b5fd" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">audit-intake</text>
+    <text x="65" y="610" fill="#c4b5fd" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">audit-domain-analyzer</text>
+    <text x="65" y="640" fill="#c4b5fd" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">audit-compliance-checker</text>
+    <text x="65" y="670" fill="#c4b5fd" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">audit-risk-matrix-generator</text>
     <line x1="170" y1="695" x2="170" y2="710" stroke="#f59e0b" stroke-width="1"/>
     <text x="170" y="738" text-anchor="middle" fill="#f59e0b" font-size="20" font-weight="600" font-family="'Segoe UI',system-ui,sans-serif">report only</text>
     <text x="170" y="765" text-anchor="middle" fill="#f59e0b" font-size="20" font-weight="600" font-family="'Segoe UI',system-ui,sans-serif">(doesn't change code)</text>
@@ -213,9 +213,9 @@
     </rect>
     <rect x="310" y="515" width="250" height="38" rx="8" fill="#7f1d1d"/>
     <text x="435" y="543" text-anchor="middle" fill="#fca5a5" font-size="24" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">BUGFIX (3 agents)</text>
-    <text x="330" y="580" fill="#c4b5fd" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">bugfix-diagnostic</text>
-    <text x="330" y="610" fill="#c4b5fd" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">bugfix-root-cause</text>
-    <text x="330" y="640" fill="#c4b5fd" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">bugfix-regression-tester</text>
+    <text x="330" y="580" fill="#c4b5fd" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">bugfix-diagnostic</text>
+    <text x="330" y="610" fill="#c4b5fd" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">bugfix-root-cause</text>
+    <text x="330" y="640" fill="#c4b5fd" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">bugfix-regression-tester</text>
     <line x1="435" y1="695" x2="435" y2="710" stroke="#ef4444" stroke-width="1"/>
     <text x="435" y="738" text-anchor="middle" fill="#ef4444" font-size="20" font-weight="600" font-family="'Segoe UI',system-ui,sans-serif">changes code</text>
     <text x="435" y="765" text-anchor="middle" fill="#ef4444" font-size="20" font-weight="600" font-family="'Segoe UI',system-ui,sans-serif">(TDD mandatory)</text>
@@ -226,9 +226,9 @@
     </rect>
     <rect x="575" y="515" width="250" height="38" rx="8" fill="#14532d"/>
     <text x="700" y="543" text-anchor="middle" fill="#86efac" font-size="24" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">FEATURE (3 agents)</text>
-    <text x="595" y="580" fill="#c4b5fd" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">feature-slice-planner</text>
-    <text x="595" y="610" fill="#c4b5fd" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">feature-implementer</text>
-    <text x="595" y="640" fill="#c4b5fd" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">feature-integration-validator</text>
+    <text x="595" y="580" fill="#c4b5fd" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">feature-slice-planner</text>
+    <text x="595" y="610" fill="#c4b5fd" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">feature-implementer</text>
+    <text x="595" y="640" fill="#c4b5fd" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">feature-integration-validator</text>
     <line x1="700" y1="695" x2="700" y2="710" stroke="#22C55E" stroke-width="1"/>
     <text x="700" y="738" text-anchor="middle" fill="#22C55E" font-size="20" font-weight="600" font-family="'Segoe UI',system-ui,sans-serif">changes code</text>
     <text x="700" y="765" text-anchor="middle" fill="#22C55E" font-size="20" font-weight="600" font-family="'Segoe UI',system-ui,sans-serif">(TDD mandatory)</text>
@@ -239,9 +239,9 @@
     </rect>
     <rect x="840" y="515" width="250" height="38" rx="8" fill="#831843"/>
     <text x="965" y="543" text-anchor="middle" fill="#f9a8d4" font-size="24" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">UX SIM (3 agents)</text>
-    <text x="860" y="580" fill="#c4b5fd" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">ux-simulator</text>
-    <text x="860" y="610" fill="#c4b5fd" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">ux-accessibility-auditor</text>
-    <text x="860" y="640" fill="#c4b5fd" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">ux-qa-validator</text>
+    <text x="860" y="580" fill="#c4b5fd" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">ux-simulator</text>
+    <text x="860" y="610" fill="#c4b5fd" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">ux-accessibility-auditor</text>
+    <text x="860" y="640" fill="#c4b5fd" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">ux-qa-validator</text>
     <text x="860" y="675" fill="#ec4899" font-size="18" font-style="italic" font-family="'Segoe UI',system-ui,sans-serif">simulator ‖ a11y = parallel</text>
     <line x1="965" y1="695" x2="965" y2="710" stroke="#ec4899" stroke-width="1"/>
     <text x="965" y="738" text-anchor="middle" fill="#ec4899" font-size="20" font-weight="600" font-family="'Segoe UI',system-ui,sans-serif">report only</text>
@@ -253,10 +253,10 @@
     </rect>
     <rect x="1105" y="515" width="250" height="38" rx="8" fill="#3b0764"/>
     <text x="1230" y="543" text-anchor="middle" fill="#d8b4fe" font-size="24" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">ADVERSARIAL (4)</text>
-    <text x="1125" y="580" fill="#c4b5fd" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">review-coordinator</text>
-    <text x="1125" y="610" fill="#c4b5fd" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">security-scanner</text>
-    <text x="1125" y="640" fill="#c4b5fd" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">architecture-critic</text>
-    <text x="1125" y="670" fill="#c4b5fd" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">quality-reviewer</text>
+    <text x="1125" y="580" fill="#c4b5fd" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">review-coordinator</text>
+    <text x="1125" y="610" fill="#c4b5fd" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">security-scanner</text>
+    <text x="1125" y="640" fill="#c4b5fd" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">architecture-critic</text>
+    <text x="1125" y="670" fill="#c4b5fd" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">quality-reviewer</text>
     <text x="1125" y="700" fill="#8b5cf6" font-size="18" font-style="italic" font-family="'Segoe UI',system-ui,sans-serif">3 scanners ‖ parallel</text>
     <line x1="1230" y1="720" x2="1230" y2="735" stroke="#8b5cf6" stroke-width="1"/>
     <text x="1230" y="762" text-anchor="middle" fill="#8b5cf6" font-size="20" font-weight="600" font-family="'Segoe UI',system-ui,sans-serif">review +/- fix</text>
@@ -269,5 +269,5 @@
   <rect x="400" y="855" width="600" height="36" rx="18" fill="#1a1a2e" stroke="#7C3AED" stroke-width="1.5" stroke-dasharray="4,2">
     <animate attributeName="stroke-dashoffset" values="0;-6" dur="0.8s" repeatCount="indefinite"/>
   </rect>
-  <text x="700" y="880" text-anchor="middle" fill="#c4b5fd" font-size="22" font-weight="600" font-family="'Segoe UI',system-ui,sans-serif">Context Isolation — Reviewers NEVER see the implementer's reasoning</text>
+  <text x="700" y="880" text-anchor="middle" fill="#c4b5fd" font-size="16" font-weight="600" font-family="'Segoe UI',system-ui,sans-serif">Context Isolation — Reviewers NEVER see the implementer's reasoning</text>
 </svg>

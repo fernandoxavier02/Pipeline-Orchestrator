@@ -48,7 +48,7 @@
       <animate attributeName="stroke-width" values="2.5;4;2.5" dur="4s" repeatCount="indefinite"/>
     </rect>
     <text x="70" y="130" fill="#7C3AED" font-size="32" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">PHASE 0 — TRIAGE &amp; CONFIRM</text>
-    <text x="500" y="130" fill="#6d28d9" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">Classify → Detect gaps → User approval</text>
+    <text x="500" y="144" fill="#6d28d9" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">Classify → Detect gaps → User approval</text>
 
     <rect x="70" y="150" width="240" height="120" rx="10" fill="#2d2150" stroke="#8b5cf6" stroke-width="1.5">
       <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="3s" begin="0s" repeatCount="indefinite"/>
@@ -89,7 +89,7 @@
       <animate attributeName="stroke-width" values="2.5;4;2.5" dur="4s" begin="1s" repeatCount="indefinite"/>
     </rect>
     <text x="70" y="360" fill="#22C55E" font-size="32" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">PHASE 1 — PLAN &amp; PREPARE</text>
-    <text x="520" y="360" fill="#16a34a" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">Plan Architect + Quality Gate Router</text>
+    <text x="520" y="374" fill="#16a34a" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">Plan Architect + Quality Gate Router</text>
 
     <rect x="70" y="380" width="340" height="95" rx="10" fill="#14532d" stroke="#22C55E" stroke-width="1.5">
       <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="3s" begin="1.2s" repeatCount="indefinite"/>
@@ -122,7 +122,7 @@
       <animate attributeName="stroke-width" values="2.5;4;2.5" dur="4s" begin="2s" repeatCount="indefinite"/>
     </rect>
     <text x="70" y="565" fill="#f59e0b" font-size="32" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">PHASE 2 — EXECUTE &amp; REVIEW</text>
-    <text x="560" y="565" fill="#d97706" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">Batches → Adversarial Review → Fix Loop</text>
+    <text x="560" y="579" fill="#d97706" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">Batches → Adversarial Review → Fix Loop</text>
 
     <rect x="70" y="585" width="220" height="135" rx="10" fill="#422006" stroke="#f59e0b" stroke-width="1.5">
       <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="3s" begin="2.2s" repeatCount="indefinite"/>
@@ -149,7 +149,7 @@
       <animate attributeName="stroke-dashoffset" values="0;-8" dur="1s" repeatCount="indefinite"/>
     </rect>
     <text x="980" y="620" text-anchor="middle" fill="#f9a8d4" font-size="24" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">Final Adversarial Team</text>
-    <text x="980" y="655" text-anchor="middle" fill="#ec4899" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">3 scanners ‖ parallel, zero context</text>
+    <text x="980" y="655" text-anchor="middle" fill="#ec4899" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">3 scanners, zero context</text>
     <text x="980" y="685" text-anchor="middle" fill="#f472b6" font-size="18" font-family="'Segoe UI',system-ui,sans-serif">Security + Architecture + Quality</text>
   </g>
 
@@ -163,7 +163,7 @@
       <animate attributeName="stroke-width" values="2.5;4;2.5" dur="4s" begin="3s" repeatCount="indefinite"/>
     </rect>
     <text x="70" y="810" fill="#ec4899" font-size="32" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">PHASE 3 — VALIDATE &amp; CLOSE</text>
-    <text x="540" y="810" fill="#be185d" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">Sanity Check → Final Validator → TRACE.md</text>
+    <text x="540" y="824" fill="#be185d" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">Sanity Check → Final Validator → TRACE.md</text>
 
     <rect x="70" y="830" width="280" height="90" rx="10" fill="#2d2150" stroke="#ec4899" stroke-width="1.5">
       <animate attributeName="stroke-width" values="1.5;2.5;1.5" dur="3s" begin="3.2s" repeatCount="indefinite"/>
@@ -181,7 +181,8 @@
       <animate attributeName="stroke-dashoffset" values="0;-8" dur="1s" repeatCount="indefinite"/>
     </rect>
     <text x="915" y="865" text-anchor="middle" fill="#c4b5fd" font-size="24" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">TRACE.md Audit Trail</text>
-    <text x="915" y="895" text-anchor="middle" fill="#8b5cf6" font-size="20" font-family="'Segoe UI',system-ui,sans-serif">Complete execution log emitted to .pipeline-orchestrator/runs/</text>
+    <text x="915" y="885" text-anchor="middle" fill="#8b5cf6" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">Complete execution log emitted to</text>
+    <text x="915" y="905" text-anchor="middle" fill="#8b5cf6" font-size="16" font-family="'Segoe UI',system-ui,sans-serif">.pipeline-orchestrator/runs/</text>
   </g>
 
   <line x1="50" y1="960" x2="1150" y2="960" stroke="#7C3AED" stroke-width="1" opacity="0.3">
