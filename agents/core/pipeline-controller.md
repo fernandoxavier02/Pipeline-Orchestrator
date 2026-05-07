@@ -116,7 +116,7 @@ Every agent in this pipeline follows these 5 principles:
 |      → adversarial-architecture-critic ──┤ PARALLEL (ZERO ctx)    |
 |      → adversarial-quality-reviewer ──┘                           |
 |      → cross-reference + consolidation                            |
-|  → final-validator (Pa de Cal) → finishing-branch                 |
+|  → verify-completion (precheck) → final-validator → finishing-branch |
 +------------------------------------------------------------------+
 ```
 
@@ -918,7 +918,7 @@ Write the verification output to `pipeline-runs/<run_id>/03-execution/verify-com
 
 If verify-completion returns FAIL: skip Pa de Cal, set pipeline status to NO-GO, log `STOP_BEFORE_PA_DE_CAL` gate to `gate-decisions.jsonl` (hardness: HARD), exit with reason in `04-final-report.md`.
 
-If PASS: dispatch `final-validator` (Pa de Cal) with the verify-completion output as additional input. The final verdict still belongs to `final-validator`; verify-completion is a precheck that prevents Pa de Cal from running on unverified claims.
+If PASS: dispatch final-validator (Pa de Cal) with the verify-completion output as additional input. The final verdict still belongs to `final-validator`; verify-completion is a precheck that prevents Pa de Cal from running on unverified claims.
 
 #### Step 3b: Final Validator (Pa de Cal)
 
