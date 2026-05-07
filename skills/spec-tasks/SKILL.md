@@ -177,7 +177,7 @@ Provide brief summary in the language specified in spec.json:
 - **Suggested Action**: "Refine requirements.md or design.md, then re-run `/pipeline-orchestrator:spec-tasks {feature}`"
 
 **Template/Rules Missing**:
-- **User Message**: "Template or rules files missing in `.kiro/settings/`"
+- **User Message**: "Template or rules files missing in `references/spec-templates/`"
 - **Fallback**: Use inline basic structure with warning
 - **Suggested Action**: "Check repository setup or restore template files"
 - **Missing Numeric Requirement IDs**:
