@@ -6,7 +6,7 @@ argument-hint: <task-id>
 disable-model-invocation: true
 ---
 
-# kiro-review
+# review
 
 ## Overview
 

@@ -6,7 +6,7 @@ argument-hint: <claim-type> <claim>
 disable-model-invocation: true
 ---
 
-# kiro-verify-completion
+# verify-completion
 
 ## Overview
 

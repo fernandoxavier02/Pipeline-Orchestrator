@@ -8,7 +8,7 @@ metadata:
 disable-model-invocation: true
 ---
 
-# kiro-spec-tasks Skill
+# spec-tasks
 
 ## Core Mission
 - **Success Criteria**:

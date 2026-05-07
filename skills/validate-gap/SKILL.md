@@ -8,7 +8,7 @@ metadata:
 disable-model-invocation: true
 ---
 
-# kiro-validate-gap Skill
+# validate-gap
 
 ## Role
 You are a specialized skill for analyzing the implementation gap between requirements and existing codebase to inform implementation strategy.

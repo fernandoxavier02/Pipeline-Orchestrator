@@ -8,7 +8,7 @@ metadata:
 disable-model-invocation: true
 ---
 
-# kiro-validate-design Skill
+# validate-design
 
 ## Role
 You are a specialized skill for conducting interactive quality review of technical design to ensure readiness for implementation.

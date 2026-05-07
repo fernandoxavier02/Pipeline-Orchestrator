@@ -8,7 +8,7 @@ metadata:
 disable-model-invocation: true
 ---
 
-# kiro-spec-design Skill
+# spec-design
 
 ## Core Mission
 - **Success Criteria**:
