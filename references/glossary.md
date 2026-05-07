@@ -83,3 +83,21 @@ Terms used throughout the Pipeline Orchestrator plugin.
 **Non-Invention Rule** — The principle that missing information must never be filled with assumptions. When critical details are absent, the pipeline STOPS and asks the user instead of guessing.
 
 **Verification-Before-Claim** — Every assertion that something "works" or "passes" must include the actual command executed and its output. No "should work" or "probably fixed."
+
+---
+
+## Brainstorm Pipeline (v5.1.0)
+
+**Brainstorm** — The mandatory front-end command (`/pipeline-orchestrator:brainstorm`) introduced in v5.1.0. Runs the full Kiro-style spec lifecycle (init → requirements → design → tasks → validate-design → validate-gap) inside a per-run directory before any implementation pipeline can be invoked. Replaces the prior loose `.kiro/specs/<feature>/` flow with a self-contained, auditable artifact tree.
+
+**Per-Run Directory** — `pipeline-runs/<NNN>-<slug>/` — the canonical working tree for a single brainstorm + implementation cycle. Contains 5 fixed subfolders: `00-brainstorm/` (lifecycle conversation/decisions), `01-spec/` (requirements.md, design.md, tasks.md, spec.json), `02-validations/` (validate-design + validate-gap reports), `03-execution/` (per-batch implementation + review artifacts), `attachments/` (screenshots, fixtures, supporting files), plus a `manifest.yaml` at the root tracking schema_version, run_id, status, phase, type, complexity, and handoff state.
+
+**Run ID** — `<NNN>-<slug>` — the human-readable identifier for a per-run directory. `NNN` is a zero-padded sequential number (allocated atomically by `RunDirectory.allocate()` to avoid collisions when multiple runs are interleaved). `slug` is derived from the user's prompt via `slugify()` (max 5 ASCII words, stop-words filtered). Collision resolution appends `-2`, `-3`, etc. when the same slug is reused.
+
+**Cloned Skills** — The 8 spec-lifecycle skills brought into the plugin in v5.1.0 (`spec-init`, `spec-requirements`, `spec-design`, `spec-tasks`, `validate-design`, `validate-gap`, `review`, `verify-completion`). Cloned from the `kiro-*` skill collection so the plugin no longer depends on the user's external Kiro installation. The cloner (`lib/kiro-skill-cloner.cjs`) rewrites paths from `.kiro/specs/<feature>/` to `pipeline-runs/<run_id>/01-spec/` at clone time.
+
+**Handoff** — The transition step at the end of `/brainstorm` where the user is asked (via `AskUserQuestion`) whether to proceed into `/pipeline` immediately, save the run-dir for later, or abort. The decision is logged in `manifest.yaml.handoff_decision` and (when proceeding) `manifest.yaml.linked_pipeline_doc_path` is set so the implementation pipeline can locate the spec.
+
+**STEP 1.7 Routing** — The pre-execution branch in `commands/pipeline.md` that decides whether the current `/pipeline` invocation should: (a) load an existing run-dir referenced by argument, (b) dispatch a fresh `/brainstorm` because no spec exists, (c) honor a `--no-prep` override, or (d) bypass for SIMPLES tasks. The decision is logged via gate `STEP_1_7_ROUTING`. A circuit breaker (`STEP_1_7_RECURSION_GUARD`) halts the pipeline if STEP 1.7 is entered ≥3 times in a single invocation.
+
+**STOP_BEFORE_PA_DE_CAL** — The HARD gate emitted in v5.1.0 when `verify-completion` returns FAIL before `final-validator` would issue Pa de Cal. The pipeline halts, status is set to NO-GO, and `04-final-report.md` records the verify-completion findings. Recovery: user fixes the gaps and re-runs.

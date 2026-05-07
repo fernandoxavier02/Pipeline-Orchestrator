@@ -90,6 +90,30 @@ For migration from earlier versions, see <a href="docs/MIGRATION-v4-to-v5.md">MI
 
 ---
 
+## What's New in v5.1
+
+Version 5.1 makes spec-first development the default. The plugin now ships with its own spec lifecycle — no external Kiro install required — and `/pipeline` will not run a non-trivial task until a spec exists.
+
+| Feature | What Changed |
+|---------|-----------|
+| **`/brainstorm` command** | New mandatory front-end. Runs init &rarr; requirements &rarr; design &rarr; tasks &rarr; validate-design &rarr; validate-gap &rarr; handoff inside a fresh per-run directory, then either chains into `/pipeline` or saves the run for later |
+| **Per-run directory** | `pipeline-runs/<NNN>-<slug>/` replaces the loose `.kiro/specs/<feature>/` layout. Five fixed subfolders (`00-brainstorm`, `01-spec`, `02-validations`, `03-execution`, `attachments`) plus `manifest.yaml` give every run a complete audit trail in one place |
+| **Self-contained spec skills** | 8 spec-lifecycle skills (`spec-init`, `spec-requirements`, `spec-design`, `spec-tasks`, `validate-design`, `validate-gap`, `review`, `verify-completion`) cloned into `skills/`. The plugin no longer depends on the user's Kiro install |
+| **STEP 1.7 routing** | `/pipeline` now decides up-front whether to load an existing run-dir, dispatch `/brainstorm`, honor `--no-prep`, or bypass for SIMPLES tasks. Logged via gate `STEP_1_7_ROUTING`; a circuit breaker prevents recursion |
+| **Pa de Cal pre-validation** | `verify-completion` runs before `final-validator`. If it returns FAIL, the new `STOP_BEFORE_PA_DE_CAL` gate halts the pipeline and writes a NO-GO `04-final-report.md` instead of letting Pa de Cal sign off on a broken state |
+| **Per-task review skill** | The cloned `review` skill is now plugged into the executor's per-batch adversarial step, replacing the ad-hoc inline review prompt |
+
+For users coming from v5.0 with existing `.kiro/specs/<feature>/` content, see <a href="docs/migration-v5.0-to-v5.1.md">migration-v5.0-to-v5.1</a>.
+
+```bash
+# v5.1 happy path
+/pipeline-orchestrator:brainstorm "add OAuth login with refresh tokens"
+# (lifecycle runs; user approves at gates; hands off to /pipeline)
+/pipeline   # picks up the just-created run-dir automatically
+```
+
+---
+
 ## The Problem
 
 You ship code. Tests pass. Linter is green. The PR looks clean.
