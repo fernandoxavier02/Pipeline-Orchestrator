@@ -12,7 +12,7 @@ description: |
   Manual-only invocation via /pipeline-orchestrator:spec-light.
 disable-model-invocation: true
 allowed-tools: [Task, Read, Grep, Glob, AskUserQuestion, Edit, Write, Bash]
-argument-hint: "[spec feature name or path to .kiro/specs/<feature>/]"
+argument-hint: "[spec feature name or path to pipeline-runs/<run_id>/01-spec/]"
 sequence: [1, 2, 3, 4, 5, 6]
 sequence_lock: true
 gates_at: [1, 2, 3, 4]
@@ -22,13 +22,15 @@ stop_rule_max_failures: 2
 
 # Spec Lifecycle Skill (Light) — 6 prescriptive steps
 
-6 prescriptive steps for the Spec Lifecycle in Light mode. Each step file declares its execution contract (sequence, ownership, gates) via frontmatter consumed by the orchestrator. Project-neutral wording — designed to work in any codebase that follows the spec layout under `.kiro/specs/<feature>/`.
+6 prescriptive steps for the Spec Lifecycle in Light mode. Each step file declares its execution contract (sequence, ownership, gates) via frontmatter consumed by the orchestrator. Project-neutral wording — designed to work in any codebase that follows the spec layout under `pipeline-runs/<run_id>/01-spec/`.
 
 ## Quando usar
 
-Use **spec-light** quando voce ja tem uma spec escrita em `.kiro/specs/<feature>/` (com `requirements.md`, `design.md`, `tasks.md`, `spec.json`) de risco pequeno-a-medio e quer velocidade com disciplina: confia no conteudo da spec (sem content-review profundo), valida formato em 25 checks, deriva cenarios ATDD a partir dos AC, executa TDD em Vertical Slices com loop adversarial, e fecha com auditoria de congruencia em 6 eixos.
+Use **spec-light** quando voce ja tem uma spec escrita em `pipeline-runs/<run_id>/01-spec/` (com `requirements.md`, `design.md`, `tasks.md`, `spec.json`) de risco pequeno-a-medio e quer velocidade com disciplina: confia no conteudo da spec (sem content-review profundo), valida formato em 25 checks, deriva cenarios ATDD a partir dos AC, executa TDD em Vertical Slices com loop adversarial, e fecha com auditoria de congruencia em 6 eixos.
 
 Se durante a analise surgirem indicios de domain/contratos complexos, integracoes criticas, persistencia sensivel ou impacto amplo em UX, sinalize e escale para `spec-heavy` (que adiciona content-review, architecture audit e security review).
+
+**Precondition (v5.1.0+):** este skill consome `pipeline-runs/<run_id>/01-spec/`. Para tarefas MEDIA/COMPLEXA/Spec, o `pipeline-controller` STEP 1.7 dispara `/pipeline-orchestrator:brainstorm` automaticamente para gerar a spec; este skill é então invocado pelo `pipeline-variant` dispatch com `<run_id>` resolvido. Invocação direta (`/pipeline-orchestrator:spec-light <feature>`) requer um run-dir já existente — caso contrário o skill aborta no primeiro Read com erro contextualizado.
 
 ## Sequencia canonica
 

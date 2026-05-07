@@ -14,7 +14,7 @@ description: |
   tolerance). Manual-only invocation via /pipeline-orchestrator:spec-heavy.
 disable-model-invocation: true
 allowed-tools: [Task, Read, Grep, Glob, AskUserQuestion, Edit, Write, Bash]
-argument-hint: "[spec feature name or path to .kiro/specs/<feature>/]"
+argument-hint: "[spec feature name or path to pipeline-runs/<run_id>/01-spec/]"
 sequence: [1, 2, 3, 4, 5, 6, 7, 8, 9]
 sequence_lock: true
 gates_at: [1, 2, 3, 4, 5]
@@ -24,13 +24,15 @@ stop_rule_max_failures: 3
 
 # Spec Lifecycle Skill (Heavy) — 9 prescriptive steps
 
-9 prescriptive steps for the Spec Lifecycle in Heavy mode. Each step file declares its execution contract (sequence, ownership, gates) via frontmatter consumed by the orchestrator. Project-neutral wording — designed to work in any codebase that follows the spec layout under `.kiro/specs/<feature>/`.
+9 prescriptive steps for the Spec Lifecycle in Heavy mode. Each step file declares its execution contract (sequence, ownership, gates) via frontmatter consumed by the orchestrator. Project-neutral wording — designed to work in any codebase that follows the spec layout under `pipeline-runs/<run_id>/01-spec/`.
 
 ## Quando usar
 
 Use **spec-heavy** quando a spec descreve uma feature/melhoria com impacto relevante (dominio rico, dados sensiveis, contratos expostos, integracoes externas, multiplos fluxos, jobs, mobile), ou quando voce quer maxima previsibilidade antes de implementar. A diferenca para `spec-light`: este pipeline NAO confia automaticamente no conteudo da spec — ele audita conteudo (step 02, 12 eixos), arquitetura (step 06, SOLID/DRY/YAGNI/SSOT) e seguranca (step 07, 8 eixos red-team) alem dos passos comuns ao Light.
 
 Se a spec for de risco pequeno-a-medio e voce confia no conteudo, prefira `spec-light` (mais rapido, sem content-review e sem adversarial paralelo).
+
+**Precondition (v5.1.0+):** este skill consome `pipeline-runs/<run_id>/01-spec/`. Para tarefas MEDIA/COMPLEXA/Spec, o `pipeline-controller` STEP 1.7 dispara `/pipeline-orchestrator:brainstorm` automaticamente para gerar a spec; este skill é então invocado pelo `pipeline-variant` dispatch com `<run_id>` resolvido. Invocação direta (`/pipeline-orchestrator:spec-heavy <feature>`) requer um run-dir já existente — caso contrário o skill aborta no primeiro Read com erro contextualizado.
 
 ## Sequencia canonica
 

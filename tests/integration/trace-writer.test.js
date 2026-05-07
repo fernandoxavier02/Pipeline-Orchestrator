@@ -156,17 +156,19 @@ test('Batch A: pipeline-controller.md documents persist_runs opt-out', () => {
   );
 });
 
-test('Batch A: Iron Law — gate registry (references/gates.md) untouched at 22 gates', () => {
-  // Pre-Wave-8 gate registry SSOT: references/gates.md has 22 gate rows.
-  // Wave 8-spec must not add, remove, or rename any. Reusing existing names
-  // (e.g., for log entries) is allowed; introducing a new name is not.
+test('Batch A: Iron Law — gate registry (references/gates.md) at 25 gates (v5.1.0)', () => {
+  // v5.1.0 gate registry SSOT: references/gates.md has 25 gate rows.
+  // 22 baseline (v4.13.0+) + 3 v5.1.0 routing gates (STEP_1_7_ROUTING,
+  // STEP_1_7_RECURSION_GUARD, STOP_BEFORE_PA_DE_CAL).
+  // Reusing existing names (e.g., for log entries) is allowed;
+  // introducing a new name without bumping this lock is not.
   const gatesMdPath = path.join(REPO_ROOT, 'references', 'gates.md');
   const content = fs.readFileSync(gatesMdPath, 'utf8');
-  const gateRowRegex = /^\| [A-Z_]{4,} \|/gm;
+  const gateRowRegex = /^\| [A-Z_0-9]{4,} \|/gm;
   const matches = content.match(gateRowRegex) || [];
   assert.equal(
     matches.length,
-    22,
-    `references/gates.md must remain at 22 gate registry rows (got ${matches.length})`
+    25,
+    `references/gates.md must remain at 25 gate registry rows (got ${matches.length})`
   );
 });

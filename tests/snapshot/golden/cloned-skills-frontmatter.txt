@@ -1,0 +1,78 @@
+# spec-init
+name: spec-init
+description: Initialize a new specification with detailed project description
+allowed-tools: Bash, Read, Write, Glob, AskUserQuestion
+argument-hint: <project-description>
+disable-model-invocation: true
+
+---
+
+# spec-requirements
+name: spec-requirements
+description: Generate EARS-format requirements based on project description and steering context. Use when generating requirements from project description.
+allowed-tools: Read, Write, Edit, Glob, Grep, Agent, WebSearch, WebFetch, AskUserQuestion
+metadata:
+  shared-rules: "ears-format.md, requirements-review-gate.md"
+disable-model-invocation: true
+
+---
+
+# spec-design
+name: spec-design
+description: Generate comprehensive technical design translating requirements (WHAT) into architecture (HOW) with discovery process. Use when creating architecture from requirements.
+allowed-tools: Read, Write, Edit, Grep, Glob, WebSearch, WebFetch, Agent
+argument-hint: <feature-name> [-y]
+metadata:
+  shared-rules: "design-principles.md, design-discovery-full.md, design-discovery-light.md, design-synthesis.md, design-review-gate.md"
+disable-model-invocation: true
+
+---
+
+# spec-tasks
+name: spec-tasks
+description: Generate implementation tasks from requirements and design. Use when creating actionable task lists.
+allowed-tools: Read, Write, Edit, Glob, Grep, Agent
+argument-hint: <feature-name> [-y] [--sequential]
+metadata:
+  shared-rules: "tasks-generation.md, tasks-parallel-analysis.md"
+disable-model-invocation: true
+
+---
+
+# validate-design
+name: validate-design
+description: Interactive technical design quality review and validation. Use when reviewing design before implementation.
+allowed-tools: Read, Grep, Glob, AskUserQuestion
+argument-hint: <feature-name>
+metadata:
+  shared-rules: "design-review.md"
+disable-model-invocation: true
+
+---
+
+# validate-gap
+name: validate-gap
+description: Analyze implementation gap between requirements and existing codebase. Use when planning integration with existing systems.
+allowed-tools: Read, Write, Grep, Glob, WebSearch, WebFetch
+argument-hint: <feature-name>
+metadata:
+  shared-rules: "gap-analysis.md"
+disable-model-invocation: true
+
+---
+
+# review
+name: review
+description: Review a task implementation against approved specs, task boundaries, and verification evidence. Use after an implementer finishes a task, after remediation, or before accepting a task as complete.
+allowed-tools: Read, Bash, Grep, Glob
+argument-hint: <task-id>
+disable-model-invocation: true
+
+---
+
+# verify-completion
+name: verify-completion
+description: Verify completion and success claims with fresh evidence. Use before claiming a task is complete, a fix works, tests pass, or a feature is ready for GO.
+allowed-tools: Read, Bash, Grep, Glob
+argument-hint: <claim-type> <claim>
+disable-model-invocation: true

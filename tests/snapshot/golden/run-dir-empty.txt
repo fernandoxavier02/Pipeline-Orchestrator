@@ -1,0 +1,6 @@
+00-brainstorm/
+01-spec/
+02-validations/
+03-execution/
+attachments/
+manifest.yaml
