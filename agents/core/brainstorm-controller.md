@@ -36,12 +36,31 @@ Arguments shape:
 - `--no-impl` — skip step-08 handoff if Phase 1 completes.
 - `--skip-validate-gap` — skip step-04.
 
+### STEP A.1 — Flag precedence and persistence
+
+Effective flags for the run are stored in `manifest.notes.options` (a JSON-encoded object inside the `notes` string field — read it back via `JSON.parse(notes_options_marker)`).
+
+**On fresh allocation:** persist the parsed flags to `manifest.notes` before STEP B (e.g., `notes: '{"options":{"no_impl":false,"skip_validate_gap":false,"type":null}}'`).
+
+**On --resume:** read persisted flags from `manifest.notes`. Then merge with new CLI flags using "newer wins":
+- If user passes a flag on resume CLI → it overrides persisted (record override in `notes` audit trail).
+- If user omits a flag on resume CLI → persisted value is used.
+
+**Precedence example:**
+- Run created with `--no-impl`. manifest persists `no_impl=true`. User resumes WITHOUT --no-impl: persisted wins → still skip step-08 (this prevents an unwanted handoff prompt on resume).
+- User resumes WITH `--no-impl`: same as persisted, no-op.
+- Run created without flags. User resumes WITH `--no-impl`: CLI overrides → step-08 now skipped, override logged in `notes` as `'override:no_impl=true at <iso-timestamp>'`.
+
+This contract makes resume idempotent against the original session's intent.
+
 ### STEP B: Allocate or load run directory
 
 If `--resume`:
 1. Read `pipeline-runs/<run-id>/manifest.yaml`.
 2. Validate schema (use `lib/run-manifest.cjs` parsing rules — defer to schema validation in step agents).
 3. Set `start_at_step = manifest.step_completed + 1`.
+
+**Terminal guard:** if `manifest.status` is `ready` AND `manifest.step_completed >= 8`, the run already completed. Do NOT re-enter STEP C. Emit RUN_COMPLETE with the existing manifest values, append `notes: 'resumed-already-complete'` audit log, and exit. The user can inspect `04-final-report.md` for the prior outcome.
 
 Else:
 1. Spawn a node helper or compute inline: next monotonic `<NNN>` from `pipeline-runs/`. Generate slug from prompt (kebab-case, max 5 words, collision suffix).
@@ -51,10 +70,24 @@ Else:
 
 ### STEP C: Sequence steps
 
-Execute steps in order, starting from `start_at_step`. After each step, update `manifest.yaml`:
-- `step_completed` ← step number just finished
-- `updated_at` ← current ISO timestamp
-- `phase` ← see table below
+Execute steps in order, starting from `start_at_step`.
+
+**Manifest transition protocol (atomic-ish):**
+
+For each step `N` in the table:
+
+1. **Pre-step (mark in_progress):** write `manifest.yaml` with `notes` updated to include `'in_progress_step=N at <iso>'`. Keep `step_completed` at its current value (N-1).
+2. **Run step N** (dispatch agent or skill).
+3. **Post-step (commit completion):** if step succeeded, update `manifest.yaml`:
+   - `step_completed ← N`
+   - `updated_at ← now-iso`
+   - `phase ← per the step→phase mapping in STEP C table`
+   - Strip `in_progress_step=` from `notes` (or replace with `last_completed_step=N at <iso>`).
+4. **On crash recovery (--resume):** if `notes` still contains `in_progress_step=N` AND `step_completed < N`, the previous attempt crashed mid-step. Two recovery options:
+   - (a) If step N is idempotent (e.g., spec-init, validate-gap), re-run it. Output overwrites prior partial.
+   - (b) If step N is destructive (e.g., spec-design appending feedback sections), prompt user via AskUserQuestion: "Step N crashed mid-execution. Re-run (overwrites partial output) or skip-and-continue (assume partial is acceptable)?"
+
+This is partial atomicity — not a true 2-phase commit (Write tool is not transactional), but it gives `--resume` the information needed to detect mid-step crashes and decide recovery.
 
 | Step | Phase | Agent / Skill | Skip if |
 |---|---|---|---|
