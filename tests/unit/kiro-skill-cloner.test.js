@@ -64,3 +64,11 @@ test('accepts an injected PathRewriter', () => {
   const out = cloner.clone(SOURCE, { newName: 'spec-design' });
   assert.match(out, /pipeline-runs\/999-custom\/01-spec\/spec\.json/);
 });
+
+test('clone rewrites the body H1 identity to the new name', () => {
+  const src = `---\nname: kiro-spec-design\nallowed-tools: Read\n---\n\n# kiro-spec-design Skill\n\nbody.`;
+  const cloner = new KiroSkillCloner({ runId: '<run_id>' });
+  const out = cloner.clone(src, { newName: 'spec-design' });
+  assert.match(out, /^# spec-design$/m);
+  assert.doesNotMatch(out, /^# kiro-spec-design/m);
+});
