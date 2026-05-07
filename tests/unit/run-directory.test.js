@@ -47,7 +47,7 @@ test('manifest.yaml is initialized with status=ready phase=0 step_completed=null
   const root = makeTmpRoot();
   const r = RunDirectory.allocate(root, 'x');
   const yaml = fs.readFileSync(path.join(r.absPath, 'manifest.yaml'), 'utf8');
-  assert.match(yaml, /status: ready/);
+  assert.match(yaml, /status: "ready"/);
   assert.match(yaml, /phase: 0/);
   assert.match(yaml, /step_completed: null/);
 });

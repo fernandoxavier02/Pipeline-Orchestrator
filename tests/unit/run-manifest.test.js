@@ -62,8 +62,8 @@ test('RunManifest serializes to YAML deterministically', () => {
   });
   const yaml = m.toYaml();
   assert.match(yaml, /^schema_version: 1$/m);
-  assert.match(yaml, /^run_id: 001-x$/m);
-  assert.match(yaml, /^status: ready$/m);
+  assert.match(yaml, /^run_id: "001-x"$/m);
+  assert.match(yaml, /^status: "ready"$/m);
 });
 
 test('RunManifest round-trips through YAML', () => {
@@ -151,4 +151,34 @@ test('RunManifest round-trips through YAML with CRLF line endings', () => {
   const crlfYaml = lfYaml.replace(/\n/g, '\r\n');
   const parsed = RunManifest.fromYaml(crlfYaml).toObject();
   assert.deepEqual(parsed, original);
+});
+
+test('RunManifest survives round-trip when linked_pipeline_doc_path contains a newline', () => {
+  const malicious = {
+    schema_version: 1, run_id: '001-x', created_at: '2026-05-06T14:30:00Z',
+    updated_at: '2026-05-06T14:30:00Z', status: 'ready', phase: 0,
+    step_completed: null, type: 'Feature', complexity: 'MEDIA',
+    brainstorm_completed: false, spec_lifecycle_completed: false,
+    handoff_decision: null,
+    linked_pipeline_doc_path: 'pipeline-runs/001-x/PIPELINE.md\nstatus: completed',
+    notes: '',
+  };
+  const yaml = RunManifest.fromObject(malicious).toYaml();
+  const parsed = RunManifest.fromYaml(yaml).toObject();
+  assert.equal(parsed.linked_pipeline_doc_path, 'pipeline-runs/001-x/PIPELINE.md\nstatus: completed');
+  assert.equal(parsed.status, 'ready'); // not 'completed' — no injection happened
+});
+
+test('RunManifest survives round-trip when notes contains double quotes and a newline', () => {
+  const tricky = {
+    schema_version: 1, run_id: '001-x', created_at: '2026-05-06T14:30:00Z',
+    updated_at: '2026-05-06T14:30:00Z', status: 'ready', phase: 0,
+    step_completed: null, type: 'Feature', complexity: 'MEDIA',
+    brainstorm_completed: false, spec_lifecycle_completed: false,
+    handoff_decision: null, linked_pipeline_doc_path: null,
+    notes: 'he said "hi"\nthen left',
+  };
+  const yaml = RunManifest.fromObject(tricky).toYaml();
+  const parsed = RunManifest.fromYaml(yaml).toObject();
+  assert.equal(parsed.notes, 'he said "hi"\nthen left');
 });
