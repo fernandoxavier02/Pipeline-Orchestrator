@@ -55,3 +55,11 @@ test('rejects construction with empty run_id', () => {
   assert.throws(() => new PathRewriter(''), /run_id required/);
   assert.throws(() => new PathRewriter(null), /run_id required/);
 });
+
+test('does NOT rewrite kiro commands with hyphenated suffix not in whitelist', () => {
+  const r = new PathRewriter('001-x');
+  // /kiro-spec-init-v2 is NOT a known command — must not be partial-rewritten
+  assert.equal(r.rewrite('/kiro-spec-init-v2'), '/kiro-spec-init-v2');
+  // But /kiro-spec-init followed by other text IS rewritten (the prefix-match is intentional via \b)
+  assert.equal(r.rewrite('/kiro-spec-init now'), '/pipeline-orchestrator:spec-init now');
+});
