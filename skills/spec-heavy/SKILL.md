@@ -14,7 +14,7 @@ description: |
   tolerance). Manual-only invocation via /pipeline-orchestrator:spec-heavy.
 disable-model-invocation: true
 allowed-tools: [Task, Read, Grep, Glob, AskUserQuestion, Edit, Write, Bash]
-argument-hint: "[spec feature name or path to .kiro/specs/<feature>/]"
+argument-hint: "[spec feature name or path to pipeline-runs/<run_id>/01-spec/]"
 sequence: [1, 2, 3, 4, 5, 6, 7, 8, 9]
 sequence_lock: true
 gates_at: [1, 2, 3, 4, 5]
@@ -24,7 +24,7 @@ stop_rule_max_failures: 3
 
 # Spec Lifecycle Skill (Heavy) — 9 prescriptive steps
 
-9 prescriptive steps for the Spec Lifecycle in Heavy mode. Each step file declares its execution contract (sequence, ownership, gates) via frontmatter consumed by the orchestrator. Project-neutral wording — designed to work in any codebase that follows the spec layout under `.kiro/specs/<feature>/`.
+9 prescriptive steps for the Spec Lifecycle in Heavy mode. Each step file declares its execution contract (sequence, ownership, gates) via frontmatter consumed by the orchestrator. Project-neutral wording — designed to work in any codebase that follows the spec layout under `pipeline-runs/<run_id>/01-spec/`.
 
 ## Quando usar
 
