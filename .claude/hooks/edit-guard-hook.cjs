@@ -355,12 +355,18 @@ function shouldBlock(filePath, pipelineDir) {
 
   const normalizedFile = path.resolve(pipelineDir, filePath);
   const pipelinePath = path.resolve(path.join(pipelineDir, '.pipeline'));
+  // v5.1.0: per-run directory pipeline-runs/<NNN>-<slug>/ is whitelisted
+  // alongside .pipeline/ — controllers and executor agents need to write
+  // 00-brainstorm/, 01-spec/, 02-validations/, 03-execution/ artifacts.
+  const pipelineRunsPath = path.resolve(path.join(pipelineDir, 'pipeline-runs'));
   const norm = process.platform === 'win32' ? (s) => s.toLowerCase() : (s) => s;
   const nf = norm(normalizedFile);
   const np = norm(pipelinePath);
+  const npr = norm(pipelineRunsPath);
   const isInsidePipeline = nf === np || nf.startsWith(np + path.sep);
+  const isInsidePipelineRuns = nf === npr || nf.startsWith(npr + path.sep);
 
-  if (isInsidePipeline) return { block: false };
+  if (isInsidePipeline || isInsidePipelineRuns) return { block: false };
 
   // F-001: exec-window cooperative authorization for N2 executor agents.
   // When an active, non-expired exec-window exists for the locked session_id,
