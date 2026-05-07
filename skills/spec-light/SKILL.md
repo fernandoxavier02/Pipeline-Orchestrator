@@ -30,6 +30,8 @@ Use **spec-light** quando voce ja tem uma spec escrita em `pipeline-runs/<run_id
 
 Se durante a analise surgirem indicios de domain/contratos complexos, integracoes criticas, persistencia sensivel ou impacto amplo em UX, sinalize e escale para `spec-heavy` (que adiciona content-review, architecture audit e security review).
 
+**Precondition (v5.1.0+):** este skill consome `pipeline-runs/<run_id>/01-spec/`. Para tarefas MEDIA/COMPLEXA/Spec, o `pipeline-controller` STEP 1.7 dispara `/pipeline-orchestrator:brainstorm` automaticamente para gerar a spec; este skill é então invocado pelo `pipeline-variant` dispatch com `<run_id>` resolvido. Invocação direta (`/pipeline-orchestrator:spec-light <feature>`) requer um run-dir já existente — caso contrário o skill aborta no primeiro Read com erro contextualizado.
+
 ## Sequencia canonica
 
 1. **[GATE]** Format Gate (`steps/01-format-gate.md`)

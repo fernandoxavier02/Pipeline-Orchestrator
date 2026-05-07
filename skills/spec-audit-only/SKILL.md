@@ -33,6 +33,8 @@ Use **spec-audit-only** quando voce ja tem uma spec implementada (status `post_i
 
 A diferenca para `spec-heavy`: este pipeline NAO tem fase de implementacao — ele audita o que ja existe. Findings da fase 3 (adversarial-loop) so podem virar correcoes de congruencia (atualizar spec.json, corrigir traceability, alinhar documentacao com o codigo entregue), nunca novas features. Se o audit identificar gaps que exigem codigo novo, escalar para `spec-light` ou `spec-heavy` em ciclo separado.
 
+**Precondition (v5.1.0+):** este skill consome `pipeline-runs/<run_id>/01-spec/`. Para tarefas MEDIA/COMPLEXA/Spec, o `pipeline-controller` STEP 1.7 dispara `/pipeline-orchestrator:brainstorm` automaticamente para gerar a spec; este skill é então invocado pelo `pipeline-variant` dispatch com `<run_id>` resolvido. Invocação direta (`/pipeline-orchestrator:spec-audit-only <feature>`) requer um run-dir já existente — caso contrário o skill aborta no primeiro Read com erro contextualizado.
+
 ## Sequencia canonica
 
 1. **[GATE]** Format Gate (`steps/01-format-gate.md`)

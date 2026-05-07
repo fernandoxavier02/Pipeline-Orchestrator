@@ -51,6 +51,13 @@ Each gate has a formal **hardness** level that determines enforcement behavior:
 
 > **Note on "SOFT (with escalation)":** the hardness taxonomy describes LEVELS, not GATES. `ADVERSARIAL_LOOP_CHECKPOINT` is fundamentally a SOFT gate (user can continue), but its repeated triggering within a single batch is itself a signal that recovery should escalate (e.g., switch to Heavy variant). The escalation is a recovery-action pattern, not a new hardness level.
 
+### Pipeline routing gates (v5.1.0)
+
+| Gate | Hardness | Trigger | Action | Recovery |
+|------|----------|---------|--------|----------|
+| STEP_1_7_ROUTING | **HARD** | Pipeline pre-execution routing decision (load-existing / dispatch-brainstorm / no-prep-override / simples-bypass). Emitted once per pipeline invocation in STEP 1.7. | **LOG** decision to `gate-decisions.jsonl` and continue per the chosen branch | Audit-only — no recovery; the decision itself is the routing outcome |
+| STEP_1_7_RECURSION_GUARD | **CIRCUIT_BREAKER** | STEP 1.7 entered >=3 times for the same pipeline invocation (depth tracked via `sentinel-state.json.step_1_7_depth`); halt to prevent infinite loop | **STOP pipeline** | User must investigate brainstorm-controller output / argument corruption; reset and re-invoke |
+
 **Rules (definitions only — operational write mechanics are in `references/audit-trail.md`):**
 1. When a SOFT gate is skipped, the decision MUST be logged with `decision: "SKIPPED"`. The `final-validator` MUST check this log and factor skipped gates into the GO/CONDITIONAL/NO-GO decision. (Write path mechanics: see `references/audit-trail.md`.)
 

@@ -32,6 +32,8 @@ Use **spec-heavy** quando a spec descreve uma feature/melhoria com impacto relev
 
 Se a spec for de risco pequeno-a-medio e voce confia no conteudo, prefira `spec-light` (mais rapido, sem content-review e sem adversarial paralelo).
 
+**Precondition (v5.1.0+):** este skill consome `pipeline-runs/<run_id>/01-spec/`. Para tarefas MEDIA/COMPLEXA/Spec, o `pipeline-controller` STEP 1.7 dispara `/pipeline-orchestrator:brainstorm` automaticamente para gerar a spec; este skill é então invocado pelo `pipeline-variant` dispatch com `<run_id>` resolvido. Invocação direta (`/pipeline-orchestrator:spec-heavy <feature>`) requer um run-dir já existente — caso contrário o skill aborta no primeiro Read com erro contextualizado.
+
 ## Sequencia canonica
 
 1. **[GATE]** Format Gate (`steps/01-format-gate.md`)
