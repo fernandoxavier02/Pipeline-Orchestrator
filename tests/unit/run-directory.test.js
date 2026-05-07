@@ -63,3 +63,11 @@ test('slug strips diacritics and special chars', () => {
   const r = RunDirectory.allocate(root, 'corrigir botão de login (urgente!)');
   assert.match(r.slug, /^[a-z0-9-]+$/);
 });
+
+test('slug falls back to "run" when prompt is all stop words', () => {
+  const root = makeTmpRoot();
+  const r = RunDirectory.allocate(root, 'a the of in to for');
+  assert.equal(r.slug, 'run');
+  assert.equal(r.runId, '001-run');
+  assert.match(r.slug, /^[a-z0-9-]+$/);
+});
