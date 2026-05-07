@@ -200,6 +200,25 @@ If implementer returns questions:
 3. If needs user input: escalate via AskUserQuestion
 4. Re-dispatch implementer with answers
 
+### Per-task Step 2.5: Adversarial review (`pipeline-orchestrator:review`)
+
+After the implementer reports READY_FOR_REVIEW and before `spec-reviewer` runs, dispatch the cloned `pipeline-orchestrator:review` skill via the Skill tool. Pass:
+
+- The exact task text from `pipeline-runs/<run_id>/01-spec/tasks.md` (task ID + body).
+- The relevant requirement IDs from `pipeline-runs/<run_id>/01-spec/requirements.md`.
+- The relevant design section refs from `pipeline-runs/<run_id>/01-spec/design.md`.
+- The implementer's status report.
+- Validation commands (build, test) discovered for this task type.
+
+Write the review output to `pipeline-runs/<run_id>/03-execution/batch-<NNN>/review.md`.
+
+If the review verdict is REJECT:
+- Pass findings to `executor-fix` (existing fix-loop, max 3 attempts).
+- Re-dispatch review after each fix attempt.
+- If still REJECT after 3 attempts: invoke STOP RULE (escalate).
+
+If the review verdict is APPROVE: continue to spec-reviewer (existing flow).
+
 #### 1d. Per-Task: Dispatch Spec Reviewer
 
 After implementer completes, dispatch `executor-spec-reviewer`:
