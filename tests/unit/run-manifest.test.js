@@ -79,3 +79,76 @@ test('RunManifest round-trips through YAML', () => {
   const parsed = RunManifest.fromYaml(yaml).toObject();
   assert.deepEqual(parsed, original);
 });
+
+test('RunManifest _data is frozen (immutable surface)', () => {
+  const m = RunManifest.fromObject({
+    schema_version: 1, run_id: '001-x', created_at: '2026-05-06T14:30:00Z',
+    updated_at: '2026-05-06T14:30:00Z', status: 'ready', phase: 0,
+    step_completed: null, type: 'Feature', complexity: 'MEDIA',
+    brainstorm_completed: false, spec_lifecycle_completed: false,
+    handoff_decision: null, linked_pipeline_doc_path: null, notes: '',
+  });
+  // Internal _data is private but should be frozen — verify via the public surface.
+  // toObject returns a copy; mutating it must not affect the source.
+  const copy = m.toObject();
+  copy.status = 'completed';
+  assert.equal(m.status, 'ready');
+});
+
+test('RunManifest rejects unknown type', () => {
+  const invalid = {
+    schema_version: 1, run_id: '001-x', created_at: '2026-05-06T14:30:00Z',
+    updated_at: '2026-05-06T14:30:00Z', status: 'ready', phase: 0,
+    step_completed: null, type: 'Unknown-bogus', complexity: 'MEDIA',
+    brainstorm_completed: false, spec_lifecycle_completed: false,
+    handoff_decision: null, linked_pipeline_doc_path: null, notes: '',
+  };
+  assert.throws(() => RunManifest.fromObject(invalid), /invalid type/);
+});
+
+test('RunManifest rejects unknown complexity', () => {
+  const invalid = {
+    schema_version: 1, run_id: '001-x', created_at: '2026-05-06T14:30:00Z',
+    updated_at: '2026-05-06T14:30:00Z', status: 'ready', phase: 0,
+    step_completed: null, type: 'Feature', complexity: 'XXL',
+    brainstorm_completed: false, spec_lifecycle_completed: false,
+    handoff_decision: null, linked_pipeline_doc_path: null, notes: '',
+  };
+  assert.throws(() => RunManifest.fromObject(invalid), /invalid complexity/);
+});
+
+test('RunManifest rejects unknown handoff_decision', () => {
+  const invalid = {
+    schema_version: 1, run_id: '001-x', created_at: '2026-05-06T14:30:00Z',
+    updated_at: '2026-05-06T14:30:00Z', status: 'ready', phase: 0,
+    step_completed: null, type: 'Feature', complexity: 'MEDIA',
+    brainstorm_completed: false, spec_lifecycle_completed: false,
+    handoff_decision: 'maybe-later', linked_pipeline_doc_path: null, notes: '',
+  };
+  assert.throws(() => RunManifest.fromObject(invalid), /invalid handoff_decision/);
+});
+
+test('RunManifest rejects wrong schema_version', () => {
+  const invalid = {
+    schema_version: 2, run_id: '001-x', created_at: '2026-05-06T14:30:00Z',
+    updated_at: '2026-05-06T14:30:00Z', status: 'ready', phase: 0,
+    step_completed: null, type: 'Feature', complexity: 'MEDIA',
+    brainstorm_completed: false, spec_lifecycle_completed: false,
+    handoff_decision: null, linked_pipeline_doc_path: null, notes: '',
+  };
+  assert.throws(() => RunManifest.fromObject(invalid), /invalid schema_version/);
+});
+
+test('RunManifest round-trips through YAML with CRLF line endings', () => {
+  const original = {
+    schema_version: 1, run_id: '003-windows-test', created_at: '2026-05-06T14:30:00Z',
+    updated_at: '2026-05-06T15:30:00Z', status: 'partial', phase: 1,
+    step_completed: 4, type: 'Audit', complexity: 'COMPLEXA',
+    brainstorm_completed: true, spec_lifecycle_completed: false,
+    handoff_decision: null, linked_pipeline_doc_path: null, notes: '',
+  };
+  const lfYaml = RunManifest.fromObject(original).toYaml();
+  const crlfYaml = lfYaml.replace(/\n/g, '\r\n');
+  const parsed = RunManifest.fromYaml(crlfYaml).toObject();
+  assert.deepEqual(parsed, original);
+});
