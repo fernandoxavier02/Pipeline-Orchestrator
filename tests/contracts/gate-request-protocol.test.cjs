@@ -240,3 +240,71 @@ test('A.12: executor-controller has concrete DISPATCH_REQUEST example for implem
   assert.match(text, /=== DISPATCH_REQUEST v1 ===[\s\S]+?=== END DISPATCH_REQUEST ===/,
     'must include a complete DISPATCH_REQUEST block (start + end markers)');
 });
+
+// ----- v5.2.0-rc.2 fixes (5 SKILLs + brainstorm step agents + 9 pipeline-controller dispatch sites) -----
+
+test('v5.2.0-rc.2 / Batch 1: all 5 public SKILLs have GATE_REQUEST handler', () => {
+  const skills = [
+    'skills/audit/SKILL.md',
+    'skills/bugfix/SKILL.md',
+    'skills/feature/SKILL.md',
+    'skills/spec/SKILL.md',
+    'skills/pipeline/SKILL.md',
+  ];
+  for (const s of skills) {
+    const text = read(s);
+    assert.match(text, /Achado #7 GATE_REQUEST handler/i,
+      `${s} must include the Achado #7 GATE_REQUEST handler section`);
+    assert.match(text, /references\/gate-request-protocol\.md/,
+      `${s} must cite the protocol SSOT path`);
+    assert.match(text, /AWAITING_GATE_RESPONSES.*AWAITING_DISPATCH_RESULTS|AWAITING_DISPATCH_RESULTS.*AWAITING_GATE_RESPONSES/s,
+      `${s} must reference both AWAITING_GATE_RESPONSES and AWAITING_DISPATCH_RESULTS`);
+    assert.match(text, /protocol-events\.jsonl/,
+      `${s} must reference protocol-events.jsonl`);
+    assert.match(text, /Never silently default/i,
+      `${s} must explicitly forbid silent defaulting`);
+  }
+});
+
+test('v5.2.0-rc.2 / Batch 2: brainstorm-controller has DISPATCH_REQUEST adoption for step agents', () => {
+  const text = read('agents/core/brainstorm-controller.md');
+  assert.match(text, /DISPATCH_REQUEST protocol.*REQUIRED|REQUIRED.*DISPATCH_REQUEST/,
+    'must declare DISPATCH_REQUEST is required for step agents');
+  assert.match(text, /step-00-intake.*Agent|Agent.*step-00-intake/i,
+    'must reference step-00-intake explicitly');
+  assert.match(text, /step-01-explore.*Agent|Agent.*step-01-explore/i,
+    'must reference step-01-explore explicitly');
+  assert.match(text, /dispatch_id:\s*brainstorm-step-00-intake/,
+    'must include concrete DISPATCH_REQUEST example for step-00-intake');
+});
+
+test('v5.2.0-rc.2 / Batch 3: pipeline-controller covers all 9 dispatch sites + sentinel', () => {
+  const text = read('agents/core/pipeline-controller.md');
+  const expected = [
+    'phase-0a-task-orchestrator',
+    'phase-0b-information-gate',
+    'phase-0c-design-interrogator',
+    'phase-1-5-plan-architect',
+    'phase-2c-executor-controller',
+    'phase-2e-batch',
+    'phase-3a-sanity-checker',
+    'phase-3b-final-validator',
+    'phase-3c-finishing-branch',
+    'sentinel',
+  ];
+  for (const dispatchId of expected) {
+    assert.match(text, new RegExp(`dispatch_id:\\s*${dispatchId}`),
+      `pipeline-controller must include dispatch_id starting with "${dispatchId}"`);
+  }
+  // Total DISPATCH_REQUEST blocks should be at least 10 (one per site, possibly more for batched examples).
+  const blocks = (text.match(/=== DISPATCH_REQUEST v1 ===/g) || []).length;
+  assert.ok(blocks >= 10, `must include at least 10 DISPATCH_REQUEST examples (one per site); found ${blocks}`);
+});
+
+test('v5.2.0-rc.2: every DISPATCH_REQUEST example has a unique dispatch_id pattern', () => {
+  const text = read('agents/core/pipeline-controller.md');
+  const ids = [...text.matchAll(/dispatch_id:\s*([\w-<>]+)/g)].map(m => m[1]);
+  const unique = new Set(ids);
+  assert.strictEqual(ids.length, unique.size,
+    `every dispatch_id must be unique; got ${ids.join(', ')}`);
+});

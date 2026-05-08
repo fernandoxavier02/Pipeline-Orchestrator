@@ -5,6 +5,10 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [5.2.0-rc.2] - 2026-05-07 — Achado #7 protocol adoption expanded
+
+**RC follow-up to v5.2.0-rc.1.** Closes the 3 protocol-coverage lacunas identified in the post-rc.1 adversarial verification: (1) the 5 public SKILL entry-points (`/audit`, `/bugfix`, `/feature`, `/spec`, `/pipeline`) now include the GATE_REQUEST handler instructions for the parent main LLM (previously only `commands/pipeline.md` and `commands/brainstorm.md` had them); (2) brainstorm-controller now declares DISPATCH_REQUEST adoption for `agents/brainstorm/step-00-intake.md` and `agents/brainstorm/step-01-explore.md` with concrete examples (previously these Agent dispatches would silently fail per Achado #7); (3) pipeline-controller now includes 10 concrete DISPATCH_REQUEST examples covering all 9 sub-agent dispatch sites (Phase 0a/0b/0c, 1.5, 2c/2e, 3a/3b/3c) plus sentinel checkpoints (previously only Phase 0a had a concrete example, the other 8 sites relied on the abstract "Achado #9 reminder" rule). +4 contract regression tests. One v5.2.0-rc.1 test regression also fixed: a `verify-completion-pre-pa-de-cal.test.js` indexOf-based ordering check broke when a new DISPATCH_REQUEST example for Phase 3b mentioned "final-validator (Pa de Cal)" earlier in the file; resolved by renaming the example description to "Pa-de-Cal verdict" to avoid the substring collision.
+
 ## [5.2.0-rc.1] - 2026-05-07 — Achados 1-7 reconciliation + GATE_REQUEST protocol
 
 **Patch-equivalent: pure documentation drift fixes + new contract tests + architectural disclosure.** No behavioral code changes (the Phase 1.5 trigger expansion to `type == Spec` is documented in spec but not yet wired into a runtime classifier — see Achado 7 caveat).

@@ -407,6 +407,157 @@ These fields are READ by:
 > ```
 >
 > End your tool result with `STATUS: AWAITING_DISPATCH_RESULTS` and the list of pending dispatch_ids when you have not yet received their results.
+>
+> **Concrete examples for the 7 other sub-agent dispatch sites (v5.2.0-rc.2+):**
+>
+> **Phase 0b — information-gate:**
+> ```yaml
+> === DISPATCH_REQUEST v1 ===
+> dispatch_id: phase-0b-information-gate
+> target_kind: agent
+> target_name: pipeline-orchestrator:core:information-gate
+> description: "Phase 0b — gap detection (macro-gate)"
+> prompt: |
+>   CLASSIFICATION: <from Phase 0a>
+>   PIPELINE_DOC_PATH: <value>
+> === END DISPATCH_REQUEST ===
+> ```
+>
+> **Phase 0c — design-interrogator (conditional, COMPLEXA or --grill):**
+> ```yaml
+> === DISPATCH_REQUEST v1 ===
+> dispatch_id: phase-0c-design-interrogator
+> target_kind: agent
+> target_name: pipeline-orchestrator:core:design-interrogator
+> description: "Phase 0c — design decision tree walk"
+> prompt: |
+>   CLASSIFICATION: <from Phase 0a>
+>   INFORMATION_GATE: <from Phase 0b>
+>   PIPELINE_DOC_PATH: <value>
+>   PROJECT_CONFIG: <value>
+> === END DISPATCH_REQUEST ===
+> ```
+>
+> **Phase 1.5 — plan-architect (auto when MEDIA/COMPLEXA/Spec, no --no-plan):**
+> ```yaml
+> === DISPATCH_REQUEST v1 ===
+> dispatch_id: phase-1-5-plan-architect
+> target_kind: agent
+> target_name: pipeline-orchestrator:quality:plan-architect
+> description: "Phase 1.5 — implementation plan in Plan Mode"
+> prompt: |
+>   CLASSIFICATION: <from Phase 0a>
+>   INFORMATION_GATE: <from Phase 0b>
+>   DESIGN_INTERROGATION: <from Phase 0c, if run>
+>   PIPELINE_DOC_PATH: <value>
+>   PROJECT_CONFIG: <value>
+> === END DISPATCH_REQUEST ===
+> ```
+> Note: plan-architect's internal EnterPlanMode call also fails in subagent runtime. Plan-architect MUST itself emit a `=== PLAN_MODE_REQUEST v1 ===` block; the parent enters plan mode in its own context. See `references/gate-request-protocol.md` PLAN_MODE_REQUEST schema.
+>
+> **Phase 2c — executor-controller (Phase 2 batch execution kickoff):**
+> ```yaml
+> === DISPATCH_REQUEST v1 ===
+> dispatch_id: phase-2c-executor-controller
+> target_kind: agent
+> target_name: pipeline-orchestrator:executor:executor-controller
+> description: "Phase 2c — batch execution"
+> prompt: |
+>   IMPLEMENTATION_PLAN: <from Phase 1.5>
+>   PIPELINE_DOC_PATH: <value>
+>   PROJECT_CONFIG: <value>
+>   COMPLEXITY: <value>
+>   ALL_CONTEXT_FROM_PHASES_0_1: <consolidated>
+> context_for_parent: |
+>   Phase 2 kickoff. executor-controller will itself emit DISPATCH_REQUEST blocks for implementer/reviewer chain (per agents/executor/executor-controller.md Achado #7 adaptation). Be ready to process nested DISPATCH_REQUESTs.
+> === END DISPATCH_REQUEST ===
+> ```
+>
+> **Phase 2e — review-orchestrator (per-batch independent review):**
+> ```yaml
+> === DISPATCH_REQUEST v1 ===
+> dispatch_id: phase-2e-batch-<N>-review-orchestrator
+> target_kind: agent
+> target_name: pipeline-orchestrator:quality:review-orchestrator
+> description: "Phase 2e — independent review for batch <N>"
+> prompt: |
+>   REVIEW_CONTEXT:
+>     batch: <N>
+>     batch_total: <total>
+>     complexity: <value>
+>     files_modified: <list>
+>     files_created: <list>
+>     test_files: <list>
+>     pipeline_doc_path: <value>
+>     project_config: <value>
+>     domains_touched: <list>
+> context_for_parent: |
+>   Independent review. DO NOT pass implementation summaries — review-orchestrator must work from code alone (zero implementation context invariant).
+> === END DISPATCH_REQUEST ===
+> ```
+>
+> **Phase 3a — sanity-checker:**
+> ```yaml
+> === DISPATCH_REQUEST v1 ===
+> dispatch_id: phase-3a-sanity-checker
+> target_kind: agent
+> target_name: pipeline-orchestrator:core:sanity-checker
+> description: "Phase 3a — build + test + regression depending on level"
+> prompt: |
+>   COMPLEXITY: <value>
+>   PROJECT_CONFIG: <value>
+>   PIPELINE_DOC_PATH: <value>
+>   ALL_FILES_MODIFIED: <list>
+> === END DISPATCH_REQUEST ===
+> ```
+>
+> **Phase 3b — final-validator dispatch (Pa-de-Cal verdict):**
+> ```yaml
+> === DISPATCH_REQUEST v1 ===
+> dispatch_id: phase-3b-final-validator
+> target_kind: agent
+> target_name: pipeline-orchestrator:core:final-validator
+> description: "Phase 3b — Pa-de-Cal GO/CONDITIONAL/NO-GO"
+> prompt: |
+>   COMPLEXITY: <value>
+>   PIPELINE_DOC_PATH: <value>
+>   FINAL_ADVERSARIAL_REPORT: <if Step 3b-pre ran>
+>   ALL_PHASE_RESULTS: <consolidated>
+> === END DISPATCH_REQUEST ===
+> ```
+>
+> **Phase 3c — finishing-branch (closeout):**
+> ```yaml
+> === DISPATCH_REQUEST v1 ===
+> dispatch_id: phase-3c-finishing-branch
+> target_kind: agent
+> target_name: pipeline-orchestrator:core:finishing-branch
+> description: "Phase 3c — closeout (commit/push/PR/discard)"
+> prompt: |
+>   FINAL_DECISION: <GO|CONDITIONAL|NO-GO from Phase 3b>
+>   PIPELINE_DOC_PATH: <value>
+>   PROJECT_CONFIG: <value>
+> context_for_parent: |
+>   This dispatch will likely emit nested GATE_REQUEST blocks for closeout choice (commit local / push+PR / keep / discard). Process them per protocol.
+> === END DISPATCH_REQUEST ===
+> ```
+>
+> **Sentinel checkpoint dispatches (Phase 0a sentinel + Phase 2→3 transition):**
+> ```yaml
+> === DISPATCH_REQUEST v1 ===
+> dispatch_id: sentinel-<checkpoint>-<phase>
+> target_kind: agent
+> target_name: pipeline-orchestrator:core:sentinel
+> description: "Sentinel coherence validation at <checkpoint>"
+> prompt: |
+>   mode: <ORCHESTRATOR_VALIDATION | COHERENCE_VALIDATION>
+>   state_file_path: <PIPELINE_DOC_PATH>/sentinel-state.json
+>   trigger: <event>
+>   transition: <e.g., phase_2_to_3>
+> === END DISPATCH_REQUEST ===
+> ```
+>
+> All dispatches above MAY be batched into a single tool result when their inputs are independent (e.g., never batch Phase 0a + Phase 0b — Phase 0b depends on Phase 0a's CLASSIFICATION). The 3 final adversarial scanners in Phase 3b-pre, however, MUST be batched (per Iron Law #9 Parallel reviewers — emit 3 DISPATCH_REQUEST blocks in one tool result for independence).
 
 ### Phase 0: Automatic Triage
 

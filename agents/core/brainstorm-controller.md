@@ -196,9 +196,33 @@ After emitting all 7 (or batched), end with `STATUS: AWAITING_GATE_RESPONSES` an
 
 When the parent re-dispatches you with `GATE_RESPONSES:` prepended, parse the YAML and continue STEP C from where you stopped. Persist each user-confirmed answer to `02-explore.md` (or the relevant artifact) and to `manifest.notes` with the `gate_id` for audit trace.
 
-## DISPATCH_REQUEST protocol — NOT NEEDED HERE
+## DISPATCH_REQUEST protocol — REQUIRED for step-00-intake and step-01-explore (v5.2.0-rc.2+)
 
-Your only sub-dispatches are `pipeline-orchestrator:spec-init`, `:spec-requirements`, `:spec-design`, `:spec-tasks`, `:validate-design`, `:validate-gap` — all of which are **skills**, NOT agents. The empirical probe confirmed `Skill` tool IS available in subagent runtime. Continue using `Skill(skill: "pipeline-orchestrator:<name>")` directly. No DISPATCH_REQUEST emission needed for these.
+**Skill dispatches stay direct:** `pipeline-orchestrator:spec-init`, `:spec-requirements`, `:spec-design`, `:spec-tasks`, `:validate-design`, `:validate-gap` — all of these are **skills**, NOT agents. The empirical probe confirmed `Skill` tool IS available in subagent runtime. Continue using `Skill(skill: "pipeline-orchestrator:<name>")` directly. No DISPATCH_REQUEST emission needed for these.
+
+**Agent dispatches MUST use DISPATCH_REQUEST:** `agents/brainstorm/step-00-intake.md` and `agents/brainstorm/step-01-explore.md` are AGENTS (not skills). The `Agent` tool is stripped from your subagent runtime — direct `Agent(...)` calls fail silently. Per `references/gate-request-protocol.md`, replace each Agent dispatch with a `=== DISPATCH_REQUEST v1 ===` block emission. End your tool result with `STATUS: AWAITING_DISPATCH_RESULTS` and list pending `dispatch_id`s. The parent (main LLM) dispatches the agent on your behalf and re-invokes you with `DISPATCH_RESULTS: <yaml>` prepended.
+
+Concrete example for step-00-intake (apply same pattern to step-01-explore):
+
+```yaml
+=== DISPATCH_REQUEST v1 ===
+dispatch_id: brainstorm-step-00-intake
+target_kind: agent
+target_name: pipeline-orchestrator:core:step-00-intake
+description: "Brainstorm step 0 — capture prompt + git state + candidate files"
+prompt: |
+  TASK_DESCRIPTION: <verbatim user task>
+  RUN_DIR: pipeline-runs/<run_id>/
+  PRE_CLASSIFIED_TYPE: <if --type was passed>
+  PIPELINE_DOC_PATH: <value>
+context_for_parent: |
+  Step 0 of brainstorm 9-step lifecycle. Output feeds into step-01-explore.
+=== END DISPATCH_REQUEST ===
+```
+
+For step-01-explore, the dispatch_id is `brainstorm-step-01-explore` and the prompt carries the intake artifact path. Both step dispatches MUST be sequential (step-01 depends on step-00 output). Do NOT batch them in one tool result unless you can synthesize step-01 input without step-00's actual return value (you typically cannot).
+
+**Subagent runtime contract (re-stated for clarity):** any `Agent(...)` invocation will silently fail. ALL dispatches to agents under `agents/brainstorm/` MUST use DISPATCH_REQUEST. Skill dispatches are unaffected.
 
 ## Error handling
 

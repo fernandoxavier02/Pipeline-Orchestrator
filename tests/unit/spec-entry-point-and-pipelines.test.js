@@ -226,16 +226,19 @@ test('regression: prior entry-points (bugfix/audit/feature) and commands/pipelin
 // release-admin batch alongside plugin.json itself; bumped in Wave 6-spec / v4.14.0
 // release-admin batch; bumped in Wave 8-pre / v4.16.0; bumped in Wave 8-spec /
 // v4.17.0; promoted to v5.0.0 (same content as v5.0.0-rc.1); bumped to 5.1.0
-// for the brainstorm-pipeline + Kiro skill clone release — version is a
-// release-admin concern, not a Wave 4-spec content invariant.)
+// for the brainstorm-pipeline + Kiro skill clone release; bumped to 5.2.0-rc.2
+// for Achados 1-7 reconciliation + GATE_REQUEST/DISPATCH_REQUEST protocol
+// adoption across 5 SKILLs + brainstorm-controller step agents + 9
+// pipeline-controller dispatch sites — version is a release-admin concern,
+// not a Wave 4-spec content invariant.)
 // ----------------------------------------------------------------------
 
-test('version: .claude-plugin/plugin.json bumped to 5.1.0', () => {
+test('version: .claude-plugin/plugin.json bumped to 5.2.0-rc.2', () => {
   const file = path.join(REPO_ROOT, '.claude-plugin', 'plugin.json');
   const content = JSON.parse(fs.readFileSync(file, 'utf8'));
   assert.equal(
     content.version,
-    '5.1.0',
-    'plugin.json version must be 5.1.0 for the v5.1.0 release (brainstorm pipeline + Kiro skill clone)'
+    '5.2.0-rc.2',
+    'plugin.json version must be 5.2.0-rc.2 for the v5.2.0-rc.2 release (Achado #7 protocol adoption expanded across 5 SKILLs + step agents + 9 dispatch sites)'
   );
 });
