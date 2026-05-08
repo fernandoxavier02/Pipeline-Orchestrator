@@ -233,12 +233,12 @@ test('regression: prior entry-points (bugfix/audit/feature) and commands/pipelin
 // not a Wave 4-spec content invariant.)
 // ----------------------------------------------------------------------
 
-test('version: .claude-plugin/plugin.json bumped to 5.2.0-rc.2', () => {
+test('version: .claude-plugin/plugin.json bumped to 5.2.0', () => {
   const file = path.join(REPO_ROOT, '.claude-plugin', 'plugin.json');
   const content = JSON.parse(fs.readFileSync(file, 'utf8'));
   assert.equal(
     content.version,
-    '5.2.0-rc.2',
-    'plugin.json version must be 5.2.0-rc.2 for the v5.2.0-rc.2 release (Achado #7 protocol adoption expanded across 5 SKILLs + step agents + 9 dispatch sites)'
+    '5.2.0',
+    'plugin.json version must be 5.2.0 (promoted from v5.2.0-rc.2 with same content; user authorized direct promotion for marketplace distribution to all consumers)'
   );
 });
