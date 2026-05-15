@@ -169,28 +169,7 @@ pipeline-orchestrator-validate-trace ./.pipeline-orchestrator/runs/123/TRACE.md
 npm install -g https://github.com/fernandoxavier02/Pipeline-Orchestrator/releases/download/v6.0.0/fx-studio-ai-pipeline-orchestrator-6.0.0.tgz
 ```
 
-> npm package and Claude Code marketplace ship the **same artifact** (git ref `v6.0.0`). Use whichever fits your workflow.
-
-Programmatic use:
-
-```js
-// Whole API surface
-const po = require('@fx-studio-ai/pipeline-orchestrator');
-po.safeAppendJsonl('./gate-decisions.jsonl', { gate: 'SSOT_CONFLICT', ... });
-
-// Or import specific libraries
-const { signState, verifyState } = require('@fx-studio-ai/pipeline-orchestrator/sentinel-state-signer');
-const { parsePipelineLocalFile } = require('@fx-studio-ai/pipeline-orchestrator/pipeline-local-parser');
-```
-
-CLI:
-
-```bash
-pipeline-orchestrator-validate-trace ./.pipeline-orchestrator/runs/123/TRACE.md
-# Exit 0 if valid, exit 1 with stderr diff if invalid
-```
-
-> The npm package and the Claude Code marketplace package are **the same artifact** (same git ref `v6.0.0`). Use whichever fits your workflow — they don't conflict.
+> npm package and Claude Code marketplace ship the **same artifact** (git ref `v6.0.0`). Use whichever fits your workflow — they don't conflict.
 
 ---
 
