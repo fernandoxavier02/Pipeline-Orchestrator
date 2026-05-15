@@ -266,7 +266,7 @@ Analyze `<arguments>` to determine mode:
 |---------|------|-------------|
 | `/pipeline [task]` | **FULL** | All 4 phases through Pa de Cal |
 | `/pipeline diagnostic [task]` | **DIAGNOSTIC** | Stops after Phase 1 (classification only) |
-| `/pipeline continue` | **CONTINUE** | Resumes from Phase 2 using existing docs (STALE_CONTEXT gate if >24h) |
+| `/pipeline continue` | **CONTINUE** | Resumes from Phase 2 using existing docs (STALE_CONTEXT gate if >24h; see `references/stale-thresholds.md` for the canonical STALE_SPAWN/STALE_HEARTBEAT/STALE_CONTEXT distinction) |
 | `/pipeline --simples [task]` | FULL + force SIMPLES | Override classification |
 | `/pipeline --media [task]` | FULL + force MEDIA | Override classification |
 | `/pipeline --complexa [task]` | FULL + force COMPLEXA | Override classification |

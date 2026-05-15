@@ -244,7 +244,7 @@ SENTINEL_VERDICT:
 
 A `sentinel-state.json` is considered **orphan** when:
 - `pipeline_active: true` AND
-- `last_updated` is older than 24h (TTL threshold) OR no `last_updated` field present
+- `last_updated` is older than **24h** — this is the STALE_CONTEXT threshold per `references/stale-thresholds.md`. Distinct from STALE_SPAWN (5 min, sentinel-hook) and STALE_HEARTBEAT (10 min, session-lock-hook + edit-guard-hook). See the doc for the decision tree when multiple "stale" signals fire simultaneously. — OR no `last_updated` field present
 
 Orphan state causes the sentinel-hook to block legitimate new pipelines because `expected_next` from a stale pipeline misroutes the sequence check (audit B1-001 documented this exact failure: 9-day-old wave8-spec state blocked v5.3.0 audit run).
 

@@ -29,7 +29,7 @@ Each gate has a formal **hardness** level that determines enforcement behavior:
 | COMPLEXITY_GATE | **SOFT** | User overrides classifier (`--simples` on COMPLEXA task, etc.) OR classifier confidence below threshold | **ASK** — confirm override or accept classifier | User confirms override (logged) or accepts classification |
 | STOP_RULE | **CIRCUIT_BREAKER** | 2 consecutive failures | **STOP pipeline** | Escalate to user |
 | FIX_LOOP_EXHAUSTED | **CIRCUIT_BREAKER** | 3 fix attempts failed | **STOP pipeline** | Propose alternatives |
-| STALE_CONTEXT | **SOFT** | `/pipeline continue` with context > 24h | **ASK** — revalidate? | Re-run Phase 0 or proceed |
+| STALE_CONTEXT | **SOFT** (HARD if COMPLEXA + sensitive domain) | `/pipeline continue` with context > 24h. See `references/stale-thresholds.md` for nomenclature (STALE_SPAWN 5min, STALE_HEARTBEAT 10min, STALE_CONTEXT 24h are three distinct concepts) | **ASK** — revalidate? | Re-run Phase 0 or proceed |
 | MICRO_GATE_GAP | **HARD** | Per-task missing info | **STOP** task | Report gap, ask user |
 | CHECKPOINT_FAIL | **HARD** | Build/test fails | Return to executor | Fix and re-validate |
 | ADVERSARIAL_BLOCK | **HARD** | Critical findings | Fix loop (max 3) | Fix or escalate |
