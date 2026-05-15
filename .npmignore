@@ -1,0 +1,46 @@
+# Inverse of files[] in package.json — list what NOT to publish
+
+# Working state (never publish)
+.pipeline/
+.kiro/
+pipeline-runs/
+.claude/worktrees/
+node_modules/
+
+# Tests are kept inside the package for `npm test` to work, but
+# heavy fixtures and runtime artifacts are excluded:
+tests/compat/results.json
+tests/compat/v4-baseline/scenarios/*/mock-output.json
+tests/fixtures/specs/auth-flow-*/
+
+# Dev / CI artifacts
+.github/
+.codex/
+.gitignore
+.gitattributes
+.DS_Store
+*.local.md
+*.tgz
+
+# Audit reports and design docs are valuable but bulk — keep selective:
+# (CHANGELOG.md + README.md + docs/audits/ + docs/diagrams/ ARE published per package.json files[])
+docs/pipeline-reviews/
+docs/superpowers/
+docs/findings/
+designs/legacy/
+designs/slice-0/
+
+# Plans / notes (working docs)
+notes/
+plans/
+.specs/scratchpad/
+
+# Editor / OS
+.vscode/
+.idea/
+Thumbs.db
+
+# Backup files
+*.bak
+*.orig
+*~

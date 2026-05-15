@@ -116,17 +116,54 @@ Fixed: `information-gate`, `plan-architect`, `design-interrogator`, `pre-tester`
 
 ## Install
 
+### Option 1 — Claude Code marketplace (recommended)
+
 ```bash
 # In Claude Code
 /plugin marketplace add fernandoxavier02/Pipeline-Orchestrator
 /plugin install pipeline-orchestrator
-```
-
-Or, if you already have v5.x installed:
-
-```bash
+# Or, if upgrading from v5.x:
 /plugin update pipeline-orchestrator
 ```
+
+This is the **primary distribution channel**. You get all 22 skills, 45 agents, 8 hooks, 3 security libraries, audit reports, and visual docs — installed under `~/.claude/plugins/cache/.../v6.0.0/` and ready to use.
+
+### Option 2 — npm (for external tooling integration)
+
+The plugin is **also** published as an npm package. Use this when you want to:
+
+- Reuse the 3 security libraries (`jsonl-sanitizer`, `sentinel-state-signer`, `pipeline-local-parser`) in your own Node tooling
+- Run `validate-trace` in CI without cloning the whole plugin
+- Embed the audit reports / visual docs in another distribution
+
+```bash
+# Global install — exposes pipeline-orchestrator-validate-trace CLI
+npm install -g @fx-studio-ai/pipeline-orchestrator
+
+# As a dependency in your project
+npm install --save-dev @fx-studio-ai/pipeline-orchestrator
+```
+
+Programmatic use:
+
+```js
+// Whole API surface
+const po = require('@fx-studio-ai/pipeline-orchestrator');
+po.safeAppendJsonl('./gate-decisions.jsonl', { gate: 'SSOT_CONFLICT', ... });
+
+// Or import specific libraries
+const { signState, verifyState } = require('@fx-studio-ai/pipeline-orchestrator/sentinel-state-signer');
+const { parsePipelineLocalFile } = require('@fx-studio-ai/pipeline-orchestrator/pipeline-local-parser');
+```
+
+CLI:
+
+```bash
+pipeline-orchestrator-validate-trace ./.pipeline-orchestrator/runs/123/TRACE.md
+# Exit 0 if valid, exit 1 with stderr diff if invalid
+```
+
+> The npm package and the Claude Code marketplace package are **the same artifact** (same git ref `v6.0.0`). Use whichever fits your workflow — they don't conflict.
 
 ---
 
