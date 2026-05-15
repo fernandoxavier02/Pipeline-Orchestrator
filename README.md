@@ -128,18 +128,134 @@ Or, if you already have v5.x installed:
 /plugin update pipeline-orchestrator
 ```
 
-After install you get six top-level commands:
+---
 
-| Command | Mode |
-|---------|------|
-| `/pipeline-orchestrator:pipeline [task]` | FULL — all four phases through Pa de Cal |
-| `/pipeline-orchestrator:pipeline diagnostic [task]` | DIAGNOSTIC — classify only, no execution |
-| `/pipeline-orchestrator:pipeline continue` | CONTINUE — resume a paused pipeline |
-| `/pipeline-orchestrator:pipeline review-only` | REVIEW-ONLY — adversarial team on dirty tree |
-| `/pipeline-orchestrator:pipeline --hotfix [task]` | HOTFIX — emergency bypass, reduced scope |
-| `/pipeline-orchestrator:brainstorm [task]` | BRAINSTORM — 9-step spec lifecycle pre-execution |
+## Entry Points — pick the right command for the task
 
-Plus flags for fine control: `--grill`, `--plan`, `--no-plan`, `--force-level=SIMPLES|MEDIA|COMPLEXA`, `--light`, `--heavy`.
+The plugin ships **15 top-level commands**. Use the general-purpose `/pipeline` when you want auto-classification, or pick a **type-specific entry-point** when you already know the work type — they pre-classify and skip a round of triage.
+
+### General-purpose
+
+| Command | When to use |
+|---------|---------------|
+| `/pipeline-orchestrator:pipeline [task]` | Default. Auto-classifies type + complexity, runs the right variant. |
+| `/pipeline-orchestrator:pipeline diagnostic [task]` | Just classify the task. No code touched. Estimate cost & scope. |
+| `/pipeline-orchestrator:pipeline continue` | Resume a paused pipeline. Triggers STALE_CONTEXT gate if >24h. |
+| `/pipeline-orchestrator:pipeline review-only` | Run the final adversarial team on the current dirty tree. Report only. |
+| `/pipeline-orchestrator:pipeline --hotfix [task]` | Emergency bypass. Reduced scope, NOT reduced safety. |
+| `/pipeline-orchestrator:brainstorm [task]` | Pre-execution spec lifecycle (9 steps: intake → explore → spec-init → requirements → design → tasks → validate-gap → validate-design → handoff). |
+
+### 🔍 Audit — investigate existing code
+
+| Command | When to use | Steps |
+|---------|---------------|-------|
+| `/pipeline-orchestrator:audit [task]` | Auto-classify audit complexity, then dispatch the right variant | classifier-dispatched |
+| `/pipeline-orchestrator:audit-light [task]` | 1 area · 1 depth level · single auditor | **9-step prescriptive** |
+| `/pipeline-orchestrator:audit-heavy [task]` | Full system · multi-axis · regulator-grade audit | **9-step prescriptive** |
+
+**Example:**
+
+```
+/pipeline-orchestrator:audit-heavy Audit the payment service for OWASP Top 10
+                                    vulnerabilities, focusing on auth, injection,
+                                    and PCI-DSS compliance gaps. Produce a risk
+                                    matrix with priority backlog.
+```
+
+Outputs: `AuditIntake → DOMAIN_ANALYSIS → COMPLIANCE_REPORT → RISK_MATRIX → audit-report.md` with VERIFIED/HYPOTHESIS/DESIGN tags per finding and file:line evidence.
+
+### 🐛 Bug Fix — investigate, root-cause, regress-test
+
+| Command | When to use | Steps |
+|---------|---------------|-------|
+| `/pipeline-orchestrator:bugfix [task]` | Auto-classify bug complexity | classifier-dispatched |
+| `/pipeline-orchestrator:bugfix-light [task]` | Max 2 files · ~50 lines diff | **8-step prescriptive** |
+| `/pipeline-orchestrator:bugfix-heavy [task]` | Cross-cutting · production incidents · race conditions | **11-step prescriptive** |
+
+**Example:**
+
+```
+/pipeline-orchestrator:bugfix-heavy POST /api/checkout returns 500 sporadically
+                                     in production. Logs show TypeError. Suspect
+                                     race condition in cart service.
+```
+
+Pipeline: `bugfix-diagnostic-agent` (terrain map + ranked hypotheses) → `bugfix-root-cause-analyzer` (confirms cause + evidence chain) → executor implements fix → `bugfix-regression-tester` (test fails on revert, passes on fix) → final-validator.
+
+### ✨ Feature — implement new functionality with vertical slices
+
+| Command | When to use | Variant |
+|---------|---------------|---------|
+| `/pipeline-orchestrator:feature [task]` | Auto-classify feature complexity | classifier-dispatched |
+| `/pipeline-orchestrator:feature-light [task]` | Single slice · small surface | feature-light |
+| `/pipeline-orchestrator:feature-heavy [task]` | Multi-slice · cross-layer (UI + service + data) | feature-heavy |
+
+**Example:**
+
+```
+/pipeline-orchestrator:feature-heavy Add a "lease summary by counterparty" endpoint
+                                      GET /api/contracts/lease-summary that
+                                      aggregates contracts with date filters.
+                                      Requires auth. Paginated.
+```
+
+Pipeline: `feature-vertical-slice-planner` (slices ranked by value + risk, with [ASSUMPTION] tags) → `feature-implementer` (per-slice TDD) → `feature-integration-validator` (cross-slice cohesion) → adversarial review → Pa de Cal.
+
+### 🎨 UX Simulation — predict user friction before shipping
+
+The `/pipeline` classifier dispatches the UX team when type is `UX Simulation`:
+
+```
+/pipeline-orchestrator:pipeline Simulate the UX of a first-time user creating
+                                 their first lease contract. Identify friction
+                                 points, accessibility violations, and edge cases.
+```
+
+Pipeline: `ux-simulator` (persona matrix + journey maps + friction catalog) ‖ `ux-accessibility-auditor` (WCAG 2.1 AA + keyboard nav + contrast) → `ux-qa-validator` (priority matrix + action items).
+
+### 📋 Spec — full specification lifecycle (Kiro-style)
+
+| Command | When to use | Variant |
+|---------|---------------|---------|
+| `/pipeline-orchestrator:spec [task]` | Auto-classify spec complexity | classifier-dispatched |
+| `/pipeline-orchestrator:spec-light [task]` | Lightweight spec · 6 steps | mode_used=slim |
+| `/pipeline-orchestrator:spec-heavy [task]` | Full spec with 9-step lifecycle | mode_used=full |
+| `/pipeline-orchestrator:spec-audit-only [task]` | Audit existing spec — no impl | mode_used=audit |
+
+**Example:**
+
+```
+/pipeline-orchestrator:spec-heavy Specify a multi-tenant audit log system: append-only
+                                   events, retention policy, per-tenant isolation,
+                                   query API. Output requirements.md + design.md +
+                                   tasks.md + spec.json.
+```
+
+Pipeline: `spec-init → spec-requirements (EARS format) → validate-gap → spec-design → validate-design → spec-tasks → spec-format-gate → spec-content-reviewer → spec-post-impl-validator → spec-closer`.
+
+### Auxiliary skills (dispatched by the pipeline, also callable directly)
+
+| Command | Function |
+|---------|-----------|
+| `/pipeline-orchestrator:spec-init [task]` | Initialize a new spec with project description |
+| `/pipeline-orchestrator:spec-requirements [task]` | Generate EARS-format requirements |
+| `/pipeline-orchestrator:spec-design [task]` | Architecture from requirements |
+| `/pipeline-orchestrator:spec-tasks [task]` | Implementation tasks from design |
+| `/pipeline-orchestrator:validate-design [task]` | Quality review of design.md |
+| `/pipeline-orchestrator:validate-gap [task]` | Implementation gap analysis |
+| `/pipeline-orchestrator:review [task]` | Review task implementation against spec |
+| `/pipeline-orchestrator:verify-completion [task]` | Verify completion claims with fresh evidence |
+
+### Flags for fine control
+
+| Flag | Effect |
+|------|--------|
+| `--grill` | Force `design-interrogator` to walk the decision tree, even on SIMPLES |
+| `--plan` | Force `plan-architect` (Phase 1.5) on any complexity |
+| `--no-plan` | Skip Phase 1.5 on MEDIA (ignored on COMPLEXA — logged in TRACE) |
+| `--force-level=SIMPLES\|MEDIA\|COMPLEXA` | Override classifier verdict |
+| `--light` / `--heavy` | Force variant on Bug Fix |
+| `--strict` | Disable fast-path for trivial cases |
 
 ---
 
