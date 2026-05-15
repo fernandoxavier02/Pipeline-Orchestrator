@@ -65,7 +65,49 @@ Each gate has a formal **hardness** level that determines enforcement behavior:
 
 ---
 
+## Mandatory Gates by Complexity
+
+> Which gates are MANDATORY to trigger (at least once during a run) for each complexity bucket. The `fidelity-reporter` library (`lib/fidelity-reporter.cjs`) consumes this table to compute the fidelity score = `mandatory_triggered / mandatory_expected`. The table is parsed by `tests/regression/v6.1.0/F1_gates_mandatory_section.cjs` — adding/removing rows or columns will break that test on purpose (the table and the JS constant must stay in sync).
+>
+> Reading: a `✓` in a complexity column means "this gate is part of the mandatory set for that complexity". Empty cell = not mandatory (still allowed to trigger; just not required). Spec-pipeline rows have `✓` in the rightmost "Spec (+)" column to indicate they are additionally mandatory when `type=Spec`.
+
+| Gate | SIMPLES | MEDIA | COMPLEXA | Spec (+) |
+|------|---------|-------|----------|----------|
+| INFO_GATE_BLOCKED | ✓ | ✓ | ✓ |  |
+| TDD_APPROVAL | ✓ | ✓ | ✓ |  |
+| CHECKPOINT_FAIL | ✓ | ✓ | ✓ |  |
+| COMPLEXITY_GATE | ✓ | ✓ | ✓ |  |
+| CLOSEOUT_CONFIRM | ✓ | ✓ | ✓ |  |
+| PLAN_REJECTED |  | ✓ | ✓ |  |
+| MICRO_GATE_GAP |  | ✓ | ✓ |  |
+| ADVERSARIAL_GATE |  | ✓ | ✓ |  |
+| ADVERSARIAL_BLOCK |  | ✓ | ✓ |  |
+| STOP_RULE |  | ✓ | ✓ |  |
+| FINAL_ADVERSARIAL_GATE |  |  | ✓ |  |
+| FINAL_ADVERSARIAL_REWORK |  |  | ✓ |  |
+| FIX_LOOP_EXHAUSTED |  |  | ✓ |  |
+| ADVERSARIAL_GATE_MANDATORY |  |  | ✓ |  |
+| SSOT_CONFLICT |  |  | ✓ |  |
+| STALE_CONTEXT |  |  | ✓ |  |
+| SPEC_ARTIFACT_MISSING |  |  |  | ✓ |
+| SPEC_FORMAT_GATE_FAIL |  |  |  | ✓ |
+| SPEC_CONTENT_REVIEW_NOGO |  |  |  | ✓ |
+| SPEC_AC_TRACEABILITY_GAP |  |  |  | ✓ |
+| SPEC_POST_IMPL_FAIL |  |  |  | ✓ |
+| ADVERSARIAL_LOOP_CHECKPOINT |  |  |  | ✓ |
+
+**Counts:**
+- SIMPLES: 5 (the structural minimum: every code-changing run needs intake validation + TDD approval + checkpoint signal + complexity confirmation + closeout)
+- MEDIA: 10 (SIMPLES set + planning gate + per-task micro-gate + adversarial pair + stop rule)
+- COMPLEXA: 16 (MEDIA set + final adversarial pair + fix-loop circuit breaker + mandatory adversarial domain trigger + SSOT/STALE invariants)
+- Spec (+): +6 when `type=Spec`, regardless of complexity (the Wave 5 spec-pipeline gates from the registry above)
+
+**Cumulative rule:** higher complexity SUPERSETS lower complexity. Anything mandatory for SIMPLES is mandatory for MEDIA and COMPLEXA. Anything mandatory for MEDIA is mandatory for COMPLEXA. Spec (+) gates are additive on top of whatever complexity bucket applies.
+
+---
+
 ## See Also
 
-- **`references/audit-trail.md`** — Phase Transition Summary block template + Gate Decision Log JSONL format with its 8 parse/sanitization rules. Pipeline controllers grep that file for transition/log formats.
+- **`references/audit-trail.md`** — Phase Transition Summary block template + Gate Decision Log JSONL format with its 8 parse/sanitization rules. Pipeline controllers grep that file for transition/log formats. Also documents the cross-run `run-log.jsonl` accumulated log consumed by the fidelity reporter.
+- **`references/fidelity-report-schema.md`** — output spec for the per-run `fidelity-report.md` + `fidelity-report.json` files produced by `lib/fidelity-reporter.cjs`.
 - **`commands/pipeline.md`** — the authoritative pipeline flow. The Inline Invariants block there overrides any Grep-loaded content from this file if they disagree (tampering defense).

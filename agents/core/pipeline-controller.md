@@ -1160,6 +1160,48 @@ Criteria by level:
 
 **Decision:** GO | CONDITIONAL | NO-GO
 
+#### Step 3b-fidelity: Generate Fidelity Report + Append Run-Log (v6.1.0+)
+
+After `final-validator` returns its verdict but BEFORE Step 3b-post (TRACE.md), the controller produces two artifacts so every run leaves a fidelity footprint behind: a per-run report inside `{PIPELINE_DOC_PATH}/` and one summary line in the cross-run `.pipeline/run-log.jsonl`.
+
+**1. Per-run fidelity report.** Invoke `lib/fidelity-reporter.cjs`:
+
+```js
+const { generateFidelityReport } = require('<repoRoot>/lib/fidelity-reporter.cjs');
+const fid = generateFidelityReport({
+  pipelineDocPath: <PIPELINE_DOC_PATH>,
+  complexity:      <SIMPLES|MEDIA|COMPLEXA>,
+  type:            <classification>,
+  repoRoot:        <repoRoot>,
+  variant:         <variant from team-registry, optional>,
+  runId:           <run_id slug>,
+});
+```
+
+This reads `{PIPELINE_DOC_PATH}/gate-decisions.jsonl`, computes `fidelity_score = mandatory_triggered / mandatory_expected` (mandatory set from `references/gates.md` "Mandatory Gates by Complexity"), and writes `fidelity-report.md` + `fidelity-report.json` next to the per-run gate log. Schema: `references/fidelity-report-schema.md`.
+
+**2. Append cross-run summary line.** Invoke `lib/run-log.cjs`:
+
+```js
+const { appendRunLog } = require('<repoRoot>/lib/run-log.cjs');
+appendRunLog(<repoRoot>, {
+  run_id:                <run_id slug>,
+  timestamp_start:       <Phase 0 start ISO>,
+  timestamp_end:         <now ISO>,
+  type:                  <classification>,
+  complexity:            <SIMPLES|MEDIA|COMPLEXA>,
+  variant:               <variant or empty string>,
+  total_gates_triggered: fid.mandatoryTriggered,
+  total_gates_expected:  fid.mandatoryExpected,
+  fidelity_score:        fid.fidelityScore,
+  duration_seconds:      <floor((end - start) / 1000)>,
+  final_decision:        <GO|CONDITIONAL|NO-GO from final-validator>,
+  pipeline_doc_path:     <PIPELINE_DOC_PATH relative to repoRoot>,
+});
+```
+
+**SOFT error policy.** Both calls are SOFT-fail. If `fid.ok === false` or `appendRunLog(...)` returns `ok: false`, emit a single warning line in the controller log (`fidelity-reporter or run-log append failed: <error>`) but DO NOT abort the run and DO NOT downgrade the final-validator verdict. The Pa de Cal block still surfaces `Fidelity:` with whatever value is available (use `n/a` when missing).
+
 #### Step 3b-post: Emit TRACE.md (Wave 8-spec / v4.17.0+)
 
 After `final-validator` returns its GO/CONDITIONAL/NO-GO verdict and BEFORE
@@ -1427,6 +1469,7 @@ Every agent saves their phase file to PIPELINE_DOC_PATH:
 |    Plan: [score|N/A]  TDD: [score]  Quality: [score]              |
 |    Gate penalty: [score]  Sanity: [score]                          |
 |  Gate Decisions: [N] total, [N] SOFT skipped                       |
+|  Fidelity: [score 0.00-1.00 | n/a] ([triggered]/[expected] mandatory) |
 |  Files Modified: [list]                                            |
 |  Tests Created: [list]                                             |
 |  Vulnerabilities: [none | list]                                    |

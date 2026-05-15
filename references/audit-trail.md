@@ -96,3 +96,45 @@ Every gate decision MUST be appended to `{PIPELINE_DOC_PATH}/gate-decisions.json
 ### Key rule
 
 `spec_grade` (produced by `spec-closer`) is **cosmetic only** — it's a human-readable letter grade for the closure summary block. It is NEVER a substitute for the pipeline verdict. The `final-validator` GO/CONDITIONAL/NO-GO verdict is what determines whether the pipeline ships.
+
+---
+
+## Cross-Run Accumulated Log (run-log.jsonl)
+
+> Distinct from `gate-decisions.jsonl`. `gate-decisions.jsonl` is **per-run** (lives inside the run's `{PIPELINE_DOC_PATH}/` folder, captures every gate trigger within that one pipeline invocation). `run-log.jsonl` is **cross-run** (lives at the repo level, accumulates one summary line per completed run so trends like "fidelity drift over the last 30 days" are queryable without scanning every run folder).
+
+**Location:** `<repoRoot>/.pipeline/run-log.jsonl`
+
+**Write policy:** ONLY `lib/run-log.cjs` (helper module) appends to this file. The pipeline controller and final-validator are the only call sites authorized to invoke `appendRunLog(...)`. Subagents NEVER write here directly — same single-writer invariant as `gate-decisions.jsonl`. The helper reuses `sanitizeDetail` from `lib/jsonl-sanitizer.cjs` to keep round-trip parsing safe (newlines/tabs stripped, length capped, JSON-serialized strictly).
+
+**Read API:** `lib/run-log.cjs` also exposes `readRunLog(repoRoot)` which returns an array of parsed entries (empty array when the file does not exist). Malformed lines are skipped silently — the helper never throws on bad input.
+
+**Format (one JSON object per line, 12 required fields):**
+
+```jsonl
+{"run_id":"run-2026-05-15-fidelity","timestamp_start":"2026-05-15T13:00:00Z","timestamp_end":"2026-05-15T13:42:00Z","type":"Feature","complexity":"COMPLEXA","variant":"feature-heavy","total_gates_triggered":18,"total_gates_expected":22,"fidelity_score":0.8182,"duration_seconds":2520,"final_decision":"GO","pipeline_doc_path":".pipeline/docs/Pre-Heavy-action/2026-05-15-fidelity-report-and-log/"}
+```
+
+**Required fields (in canonical order):**
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `run_id` | string | Unique identifier for the run (typically the pipeline-doc folder slug) |
+| `timestamp_start` | ISO 8601 string | When the controller marked Phase 0 as started |
+| `timestamp_end` | ISO 8601 string | When the controller (or final-validator) emitted PIPELINE COMPLETE |
+| `type` | string | Classification: `Bug Fix` \| `Feature` \| `Spec` \| `Audit` \| `UX Simulation` \| `Adversarial Review` |
+| `complexity` | string | `SIMPLES` \| `MEDIA` \| `COMPLEXA` |
+| `variant` | string | Variant used (e.g., `feature-heavy`, `feature-light`, `bugfix`, `spec-heavy`) |
+| `total_gates_triggered` | number | Count of mandatory gates that actually fired during the run |
+| `total_gates_expected` | number | Count of mandatory gates expected (from the gates-by-complexity table for the chosen complexity, plus Spec (+) when applicable) |
+| `fidelity_score` | number \| null | `total_gates_triggered / total_gates_expected` in [0,1], or `null` when no gate data was found |
+| `duration_seconds` | number | `(timestamp_end - timestamp_start)` in seconds, floored |
+| `final_decision` | string | `GO` \| `CONDITIONAL` \| `NO-GO` (verdict from `final-validator`) — sanitized via `sanitizeDetail` so injected newlines/quotes cannot break JSONL parsing |
+| `pipeline_doc_path` | string | Repo-relative path to the run's pipeline-doc folder, so the per-run `gate-decisions.jsonl` and `fidelity-report.*` can be located later |
+
+**Rules:**
+1. Append-only. Existing lines are NEVER mutated. A correction means appending a new line with a different `run_id` or annotation, not editing an old one.
+2. One line per completed run. Aborted runs MAY append a line with `final_decision: "ABORTED"` for traceability.
+3. The helper auto-creates `.pipeline/` and the file when missing — first call on a fresh repo is safe.
+4. Single-writer invariant: only `lib/run-log.cjs::appendRunLog` writes. Any other code path that needs to write must be refactored to go through the helper.
+5. The aggregate consumer of this file is `lib/fidelity-reporter.cjs` (computes the per-run fidelity number) and downstream trend analyses (not yet implemented at v6.1.0).

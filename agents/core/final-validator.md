@@ -100,6 +100,7 @@ Grep: `Grep -A 2 "Pa de Cal criteria" references/complexity-matrix.md`
 |  Regression: [PASS / FAIL / N/A]                                   |
 |  Confidence: [score] ([>= 0.80 | >= 0.60 | < 0.60])               |
 |  Gates: [N] total, [N] skipped (SOFT)                              |
+|  Fidelity: [score 0.00-1.00 | n/a] ([triggered]/[expected] mandatory) |
 |                                                                    |
 |  FINAL DECISION: [GO | CONDITIONAL | NO-GO]                       |
 |  [Justification]                                                   |
@@ -165,6 +166,13 @@ PA_DE_CAL:
     total_triggered: "[N]"
     soft_skipped: "[N]"
     skipped_gates: ["list of skipped gate names"]
+  fidelity:
+    score: "[0.00 - 1.00 | null]"
+    mandatory_triggered: "[N]"
+    mandatory_expected: "[N]"
+    global_fidelity_pct: "[0.00 - 100.00 | null]"
+    report_md: "[{PIPELINE_DOC_PATH}/fidelity-report.md]"
+    report_json: "[{PIPELINE_DOC_PATH}/fidelity-report.json]"
   files_modified: ["list"]
   tests_created: ["list"]
   pending_items: []  # if CONDITIONAL

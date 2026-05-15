@@ -26,11 +26,23 @@ const runAll = !onlyRegression && !onlyHooks;
 const suites = [];
 
 if (runAll || onlyRegression) {
-  const regDir = path.join(ROOT, 'tests/regression/v6.0.0');
-  if (fs.existsSync(regDir)) {
-    const files = fs.readdirSync(regDir).filter((f) => f.endsWith('.cjs')).sort();
-    for (const f of files) {
-      suites.push({ label: `regression/${f}`, path: path.join(regDir, f) });
+  // Dynamic discovery: walk tests/regression/ and pick every v<semver>
+  // directory (e.g., v6.0.0, v6.1.0). Non-semver siblings (helpers/,
+  // fixtures/, .gitkeep) are rejected by the regex. Pre-release suffixes
+  // like v6.0.0-rc.1 are intentionally rejected — keep discovery strict.
+  const regRoot = path.join(ROOT, 'tests/regression');
+  const SEMVER_RE = /^v\d+\.\d+\.\d+$/;
+  if (fs.existsSync(regRoot)) {
+    const versionDirs = fs.readdirSync(regRoot, { withFileTypes: true })
+      .filter((d) => d.isDirectory() && SEMVER_RE.test(d.name))
+      .map((d) => d.name)
+      .sort();
+    for (const versionDir of versionDirs) {
+      const regDir = path.join(regRoot, versionDir);
+      const files = fs.readdirSync(regDir).filter((f) => f.endsWith('.cjs')).sort();
+      for (const f of files) {
+        suites.push({ label: `regression/${versionDir}/${f}`, path: path.join(regDir, f) });
+      }
     }
   }
 }
