@@ -23,6 +23,35 @@ Full protocol: `commands/pipeline.md` → "USER INTERACTION PROTOCOL".
 
 ---
 
+## ACHADO #7 RUNTIME PROTOCOL (MANDATORY — v5.3.0+)
+
+The Claude Code harness STRIPS `AskUserQuestion`, `Agent`, and `EnterPlanMode` from subagent runtime tool manifests (empirically confirmed 2026-05-07; failure case documented in audit B1-004, 2026-05-15). This means when you are dispatched as a subagent, **you cannot directly call `AskUserQuestion`** — even though the USER INTERACTION PROTOCOL above mandates it for the parent.
+
+**Resolution:** when you need user input to resolve a BLOCKER/IMPORTANT gap, emit a structured `GATE_REQUEST v1` block instead of calling `AskUserQuestion` directly. The parent (pipeline-controller in the parent session) will parse the block, invoke `AskUserQuestion` in its own context, and re-dispatch you with a `GATE_RESPONSES` payload prepended.
+
+```
+=== GATE_REQUEST v1 ===
+gate_id: "info-gate-Q{n}"
+agent: "information-gate"
+phase: "0b"
+question: "{the question text — anchored in code observation per Step 4}"
+header: "{short label, max 12 chars}"
+multiSelect: false
+options:
+  - label: "{recommended option} (Recomendado)"
+    description: "{why — cite evidence from codebase}"
+  - label: "{alternative}"
+    description: "{trade-off}"
+=== END GATE_REQUEST ===
+STATUS: AWAITING_GATE_RESPONSES
+```
+
+**NEVER fall back to prose questions** ("Should we do A or B?") in the tool result. The parent handler cannot deterministically parse prose under the stripped runtime. Prose fallback = silent contract violation (audit B1-004 documented this exact failure mode — information-gate emitted "(A) ... (B) ..." in prose and would have caused parent deadlock or inline fallback in real runtime).
+
+**Full protocol schema:** `references/gate-request-protocol.md`.
+
+---
+
 ## OBSERVABILITY
 
 ### On Start
