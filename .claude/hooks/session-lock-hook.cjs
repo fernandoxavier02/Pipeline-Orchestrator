@@ -10,11 +10,22 @@ const path = require('node:path');
 // session lock — pipeline ran without protection.
 const PIPELINE_REGEX = /^\/pipeline-orchestrator:(pipeline|bugfix|feature|userstory|audit|ux)(\s|$)/i;
 const SESSION_ID_REGEX = /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
+// STALE_HEARTBEAT_THRESHOLD_MS — 10 minutes (v5.3.0+ canonical name).
+//
 // A live session updates last_seen_at on every UserPromptSubmit. If a foreign
 // lock has not been seen for this long, the owning Claude Code process is
 // presumed dead (crash, kill, OS reboot) and we mark it completed so edits
 // are no longer blocked. Without this, locks survived until expires_at (2h).
-const STALE_THRESHOLD_MS = 10 * 60 * 1000;
+//
+// NOMENCLATURE (per references/stale-thresholds.md):
+//   - STALE_SPAWN (5 min, sentinel-hook): controller forgot Write between spawns
+//   - STALE_HEARTBEAT (10 min, THIS file + edit-guard-hook): lock owner is dead
+//   - STALE_CONTEXT (24 h, gate registry): /pipeline continue on old context
+// Three distinct concepts. See references/stale-thresholds.md for decision tree.
+//
+// Backwards compat: STALE_THRESHOLD_MS exported as alias for one release.
+const STALE_HEARTBEAT_THRESHOLD_MS = 10 * 60 * 1000;
+const STALE_THRESHOLD_MS = STALE_HEARTBEAT_THRESHOLD_MS; // deprecated alias, do not use in new code
 
 function detectPipelineInvocation(text) {
   if (typeof text !== 'string' || text.length === 0) return false;
@@ -99,7 +110,7 @@ function refreshHeartbeatAndGC(baseDir, currentSessionId) {
     // Pre-patch locks (no last_seen_at) are left alone so the existing
     // expires_at + Stop-hook contract continues to govern them.
     if (typeof lock.last_seen_at !== 'number') continue;
-    if (now - lock.last_seen_at > STALE_THRESHOLD_MS) {
+    if (now - lock.last_seen_at > STALE_HEARTBEAT_THRESHOLD_MS) {
       lock.status = 'completed';
       lock.completed_at = now;
       lock.completed_reason = 'stale_heartbeat';
@@ -161,5 +172,6 @@ module.exports = {
   handleUserPromptSubmit,
   isValidSessionId,
   refreshHeartbeatAndGC,
-  STALE_THRESHOLD_MS,
+  STALE_HEARTBEAT_THRESHOLD_MS,
+  STALE_THRESHOLD_MS, // deprecated alias, removal scheduled for v5.4.0
 };

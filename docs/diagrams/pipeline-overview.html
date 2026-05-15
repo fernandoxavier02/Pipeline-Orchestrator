@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pipeline Overview · Pipeline Orchestrator v6.0.0</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="_shared/design-system.css">
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-brand">
+      <div class="nav-brand-mark">P</div>
+      Pipeline Orchestrator <span class="text-tertiary" style="font-weight:400; font-size:13px;">v6.0.0</span>
+    </div>
+    <div class="nav-links">
+      <a href="index.html">Index</a>
+      <a href="pipeline-overview.html">Overview</a>
+      <a href="achado-7-protocol.html">Protocol</a>
+      <a href="gate-hierarchy.html">Gates</a>
+      <a href="audit-history.html">Audit</a>
+    </div>
+  </nav>
+
+  <div class="page">
+    <div class="hero">
+      <div class="hero-badge">Pipeline Overview</div>
+      <h1>4 phases. 26 agents. 22 gates.</h1>
+      <p>From a single command to a production-ready commit, the pipeline takes your request through automatic triage, user confirmation, conditional planning, batched execution with TDD and adversarial review, and a final Go/No-Go closure.</p>
+    </div>
+
+    <h2 class="section-heading">The four phases</h2>
+    <p class="text-secondary" style="margin-bottom: var(--space-6); max-width: 800px;">
+      Each phase has a single output that becomes the input of the next. The pipeline never moves
+      forward without a structured handoff — every transition crosses at least one gate.
+    </p>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1200 700" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="phase0-grad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#7C3AED" stop-opacity="0.9"/>
+            <stop offset="100%" stop-color="#5B21B6" stop-opacity="0.9"/>
+          </linearGradient>
+          <linearGradient id="phase1-grad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#0EA5E9" stop-opacity="0.9"/>
+            <stop offset="100%" stop-color="#0369A1" stop-opacity="0.9"/>
+          </linearGradient>
+          <linearGradient id="phase2-grad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.9"/>
+            <stop offset="100%" stop-color="#B45309" stop-opacity="0.9"/>
+          </linearGradient>
+          <linearGradient id="phase3-grad" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#22C55E" stop-opacity="0.9"/>
+            <stop offset="100%" stop-color="#15803D" stop-opacity="0.9"/>
+          </linearGradient>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/>
+          </marker>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+
+        <!-- Background grid -->
+        <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1C2238" stroke-width="0.5"/>
+        </pattern>
+        <rect width="1200" height="700" fill="url(#grid)" opacity="0.3"/>
+
+        <!-- Entry: user request -->
+        <g>
+          <rect x="40" y="40" width="200" height="60" rx="12" fill="#1C2238" stroke="#7C3AED" stroke-width="2"/>
+          <text x="140" y="68" text-anchor="middle" fill="#A78BFA" font-family="Inter" font-size="11" font-weight="600" letter-spacing="1">USER REQUEST</text>
+          <text x="140" y="88" text-anchor="middle" fill="#F1F5F9" font-family="JetBrains Mono" font-size="13">/pipeline [task]</text>
+        </g>
+        <line x1="240" y1="70" x2="280" y2="70" stroke="#94A3B8" stroke-width="2" marker-end="url(#arrow)"/>
+
+        <!-- Phase 0: Triage -->
+        <g filter="url(#glow)">
+          <rect x="280" y="30" width="220" height="120" rx="14" fill="url(#phase0-grad)" stroke="#A78BFA" stroke-width="1"/>
+          <text x="390" y="60" text-anchor="middle" fill="white" font-family="Inter" font-size="11" font-weight="700" letter-spacing="1">PHASE 0</text>
+          <text x="390" y="82" text-anchor="middle" fill="white" font-family="Inter" font-size="18" font-weight="700">Automatic Triage</text>
+          <text x="390" y="105" text-anchor="middle" fill="#E9D5FF" font-family="JetBrains Mono" font-size="11">task-orchestrator</text>
+          <text x="390" y="120" text-anchor="middle" fill="#E9D5FF" font-family="JetBrains Mono" font-size="11">→ information-gate</text>
+          <text x="390" y="135" text-anchor="middle" fill="#E9D5FF" font-family="JetBrains Mono" font-size="11">→ design-interrogator?</text>
+        </g>
+        <line x1="500" y1="90" x2="540" y2="90" stroke="#94A3B8" stroke-width="2" marker-end="url(#arrow)"/>
+
+        <!-- Phase 1: Proposal -->
+        <g filter="url(#glow)">
+          <rect x="540" y="30" width="220" height="120" rx="14" fill="url(#phase1-grad)" stroke="#38BDF8" stroke-width="1"/>
+          <text x="650" y="60" text-anchor="middle" fill="white" font-family="Inter" font-size="11" font-weight="700" letter-spacing="1">PHASE 1</text>
+          <text x="650" y="82" text-anchor="middle" fill="white" font-family="Inter" font-size="18" font-weight="700">Proposal</text>
+          <text x="650" y="105" text-anchor="middle" fill="#BAE6FD" font-family="JetBrains Mono" font-size="11">classify → confirm</text>
+          <text x="650" y="120" text-anchor="middle" fill="#BAE6FD" font-family="JetBrains Mono" font-size="11">via AskUserQuestion</text>
+          <text x="650" y="135" text-anchor="middle" fill="#BAE6FD" font-family="JetBrains Mono" font-size="11">yes / adjust / no</text>
+        </g>
+        <line x1="760" y1="90" x2="800" y2="90" stroke="#94A3B8" stroke-width="2" marker-end="url(#arrow)"/>
+
+        <!-- Phase 1.5: Planning -->
+        <g>
+          <rect x="800" y="30" width="220" height="120" rx="14" fill="#131829" stroke="#0EA5E9" stroke-width="2" stroke-dasharray="6,3"/>
+          <text x="910" y="60" text-anchor="middle" fill="#38BDF8" font-family="Inter" font-size="11" font-weight="700" letter-spacing="1">PHASE 1.5 (CONDITIONAL)</text>
+          <text x="910" y="82" text-anchor="middle" fill="#F1F5F9" font-family="Inter" font-size="18" font-weight="700">Planning</text>
+          <text x="910" y="105" text-anchor="middle" fill="#94A3B8" font-family="JetBrains Mono" font-size="11">plan-architect</text>
+          <text x="910" y="120" text-anchor="middle" fill="#94A3B8" font-family="JetBrains Mono" font-size="11">in Plan Mode</text>
+          <text x="910" y="135" text-anchor="middle" fill="#94A3B8" font-family="JetBrains Mono" font-size="11">MEDIA/COMPLEXA/Spec</text>
+        </g>
+
+        <!-- Arrow down from Phase 1.5 to Phase 2 -->
+        <path d="M 910 150 Q 910 200 650 280" fill="none" stroke="#94A3B8" stroke-width="2" marker-end="url(#arrow)"/>
+
+        <!-- Phase 2: Execution -->
+        <g filter="url(#glow)">
+          <rect x="200" y="260" width="800" height="220" rx="14" fill="url(#phase2-grad)" stroke="#FBBF24" stroke-width="1"/>
+          <text x="600" y="290" text-anchor="middle" fill="white" font-family="Inter" font-size="11" font-weight="700" letter-spacing="1">PHASE 2</text>
+          <text x="600" y="312" text-anchor="middle" fill="white" font-family="Inter" font-size="18" font-weight="700">Batched Execution + Adversarial Loop</text>
+
+          <!-- Per-batch sub-flow -->
+          <g>
+            <rect x="240" y="340" width="160" height="50" rx="8" fill="rgba(0,0,0,0.3)" stroke="#FBBF24" stroke-width="1"/>
+            <text x="320" y="362" text-anchor="middle" fill="white" font-family="Inter" font-size="13" font-weight="600">TDD red</text>
+            <text x="320" y="378" text-anchor="middle" fill="#FEF3C7" font-family="JetBrains Mono" font-size="10">pre-tester</text>
+          </g>
+          <line x1="400" y1="365" x2="440" y2="365" stroke="white" stroke-width="2" marker-end="url(#arrow)"/>
+
+          <g>
+            <rect x="440" y="340" width="160" height="50" rx="8" fill="rgba(0,0,0,0.3)" stroke="#FBBF24" stroke-width="1"/>
+            <text x="520" y="362" text-anchor="middle" fill="white" font-family="Inter" font-size="13" font-weight="600">implement</text>
+            <text x="520" y="378" text-anchor="middle" fill="#FEF3C7" font-family="JetBrains Mono" font-size="10">implementer + reviewers</text>
+          </g>
+          <line x1="600" y1="365" x2="640" y2="365" stroke="white" stroke-width="2" marker-end="url(#arrow)"/>
+
+          <g>
+            <rect x="640" y="340" width="160" height="50" rx="8" fill="rgba(0,0,0,0.3)" stroke="#FBBF24" stroke-width="1"/>
+            <text x="720" y="362" text-anchor="middle" fill="white" font-family="Inter" font-size="13" font-weight="600">checkpoint</text>
+            <text x="720" y="378" text-anchor="middle" fill="#FEF3C7" font-family="JetBrains Mono" font-size="10">build + test</text>
+          </g>
+          <line x1="800" y1="365" x2="840" y2="365" stroke="white" stroke-width="2" marker-end="url(#arrow)"/>
+
+          <g>
+            <rect x="840" y="340" width="140" height="50" rx="8" fill="rgba(0,0,0,0.3)" stroke="#FBBF24" stroke-width="1"/>
+            <text x="910" y="362" text-anchor="middle" fill="white" font-family="Inter" font-size="13" font-weight="600">adversarial</text>
+            <text x="910" y="378" text-anchor="middle" fill="#FEF3C7" font-family="JetBrains Mono" font-size="10">3 parallel</text>
+          </g>
+
+          <!-- Fix loop -->
+          <path d="M 910 390 Q 910 430 600 430 Q 320 430 320 390" fill="none" stroke="#F87171" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrow)"/>
+          <text x="600" y="455" text-anchor="middle" fill="#FEF3C7" font-family="Inter" font-size="11" font-style="italic">fix loop (max 3 attempts) — FIX_LOOP_EXHAUSTED if zero converge</text>
+        </g>
+
+        <!-- Arrow to Phase 3 -->
+        <path d="M 600 480 Q 600 520 600 540" fill="none" stroke="#94A3B8" stroke-width="2" marker-end="url(#arrow)"/>
+
+        <!-- Phase 3: Closure -->
+        <g filter="url(#glow)">
+          <rect x="200" y="540" width="800" height="120" rx="14" fill="url(#phase3-grad)" stroke="#4ADE80" stroke-width="1"/>
+          <text x="600" y="570" text-anchor="middle" fill="white" font-family="Inter" font-size="11" font-weight="700" letter-spacing="1">PHASE 3</text>
+          <text x="600" y="592" text-anchor="middle" fill="white" font-family="Inter" font-size="18" font-weight="700">Closure (Pa de Cal)</text>
+
+          <g>
+            <rect x="240" y="610" width="140" height="36" rx="8" fill="rgba(0,0,0,0.3)" stroke="#4ADE80" stroke-width="1"/>
+            <text x="310" y="634" text-anchor="middle" fill="white" font-family="Inter" font-size="12" font-weight="600">sanity-checker</text>
+          </g>
+          <line x1="380" y1="628" x2="420" y2="628" stroke="white" stroke-width="2" marker-end="url(#arrow)"/>
+          <g>
+            <rect x="420" y="610" width="180" height="36" rx="8" fill="rgba(0,0,0,0.3)" stroke="#4ADE80" stroke-width="1"/>
+            <text x="510" y="634" text-anchor="middle" fill="white" font-family="Inter" font-size="12" font-weight="600">final-adversarial × 3</text>
+          </g>
+          <line x1="600" y1="628" x2="640" y2="628" stroke="white" stroke-width="2" marker-end="url(#arrow)"/>
+          <g>
+            <rect x="640" y="610" width="140" height="36" rx="8" fill="rgba(0,0,0,0.3)" stroke="#4ADE80" stroke-width="1"/>
+            <text x="710" y="634" text-anchor="middle" fill="white" font-family="Inter" font-size="12" font-weight="600">final-validator</text>
+          </g>
+          <line x1="780" y1="628" x2="820" y2="628" stroke="white" stroke-width="2" marker-end="url(#arrow)"/>
+          <g>
+            <rect x="820" y="610" width="140" height="36" rx="8" fill="rgba(0,0,0,0.3)" stroke="#4ADE80" stroke-width="1"/>
+            <text x="890" y="634" text-anchor="middle" fill="white" font-family="Inter" font-size="12" font-weight="600">finishing-branch</text>
+          </g>
+        </g>
+
+      </svg>
+    </div>
+
+    <h2 class="section-heading">Phase-by-phase</h2>
+
+    <div class="grid grid-cols-2 gap-6">
+      <div class="card">
+        <div style="display:flex; align-items:center; gap:var(--space-3); margin-bottom: var(--space-3);">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--violet);"></div>
+          <span class="badge badge-info">Phase 0</span>
+        </div>
+        <div class="card-title">Automatic Triage</div>
+        <p class="text-secondary">The <code>task-orchestrator</code> classifies the request: type, complexity, pipeline variant, affected files. The <code>information-gate</code> detects missing facts and may block. For <code>COMPLEXA</code> or <code>--grill</code>, the <code>design-interrogator</code> walks the decision tree before any code is touched.</p>
+        <div style="margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-subtle);">
+          <span class="badge badge-mandatory">SSOT_CONFLICT</span>
+          <span class="badge badge-hard">INFO_GATE_BLOCKED</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; align-items:center; gap:var(--space-3); margin-bottom: var(--space-3);">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--cyan);"></div>
+          <span class="badge badge-info">Phase 1</span>
+        </div>
+        <div class="card-title">Proposal &amp; Confirmation</div>
+        <p class="text-secondary">The pipeline presents you the classification — type, complexity, the agent team it will spawn, the gates it will enforce. You confirm, adjust, or reject. No code is touched until this gate passes.</p>
+        <div style="margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-subtle);">
+          <span class="badge badge-soft">COMPLEXITY_GATE</span>
+          <span class="badge badge-info">phase-1-pipeline-proposal</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; align-items:center; gap:var(--space-3); margin-bottom: var(--space-3);">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--amber);"></div>
+          <span class="badge badge-info">Phase 2</span>
+        </div>
+        <div class="card-title">Batched Execution with TDD &amp; Adversarial Loop</div>
+        <p class="text-secondary">Tasks are split into batches (1 task for COMPLEXA, 2-3 for MEDIA, all-at-once for SIMPLES). Each task goes through TDD red → implementer → spec-reviewer → quality-reviewer → checkpoint-validator → adversarial review with three independent reviewers. Findings trigger a fix loop bounded to 3 attempts.</p>
+        <div style="margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-subtle);">
+          <span class="badge badge-hard">TDD_APPROVAL</span>
+          <span class="badge badge-hard">CHECKPOINT_FAIL</span>
+          <span class="badge badge-hard">ADVERSARIAL_BLOCK</span>
+          <span class="badge badge-circuit">FIX_LOOP_EXHAUSTED</span>
+        </div>
+      </div>
+
+      <div class="card">
+        <div style="display:flex; align-items:center; gap:var(--space-3); margin-bottom: var(--space-3);">
+          <div style="width:8px;height:8px;border-radius:50%;background:var(--green);"></div>
+          <span class="badge badge-info">Phase 3</span>
+        </div>
+        <div class="card-title">Closure (Pa de Cal)</div>
+        <p class="text-secondary">Sanity check (full build + test + regression), three independent adversarial reviewers run in parallel with zero shared context, final-validator emits Go / Conditional / No-Go with the confidence score, and finishing-branch offers four closeout options: commit, push+PR, keep, discard.</p>
+        <div style="margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-subtle);">
+          <span class="badge badge-soft">FINAL_ADVERSARIAL_GATE</span>
+          <span class="badge badge-soft">CLOSEOUT_CONFIRM</span>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="section-heading">Complexity routing</h2>
+    <p class="text-secondary">The pipeline scales depth automatically. A typo fix does not get the same ceremony as a payment system rewrite.</p>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 1100 320" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="simples-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#22C55E" stop-opacity="0.9"/>
+            <stop offset="100%" stop-color="#15803D" stop-opacity="0.9"/>
+          </linearGradient>
+          <linearGradient id="media-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#F59E0B" stop-opacity="0.9"/>
+            <stop offset="100%" stop-color="#B45309" stop-opacity="0.9"/>
+          </linearGradient>
+          <linearGradient id="complexa-grad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#EF4444" stop-opacity="0.9"/>
+            <stop offset="100%" stop-color="#B91C1C" stop-opacity="0.9"/>
+          </linearGradient>
+        </defs>
+
+        <!-- SIMPLES -->
+        <g>
+          <rect x="40" y="40" width="320" height="240" rx="14" fill="url(#simples-grad)" opacity="0.9"/>
+          <text x="200" y="80" text-anchor="middle" fill="white" font-family="Inter" font-size="20" font-weight="700">SIMPLES</text>
+          <text x="200" y="105" text-anchor="middle" fill="#DCFCE7" font-family="Inter" font-size="13">1-2 files · &lt;30 lines · 1 domain</text>
+          <line x1="80" y1="125" x2="320" y2="125" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+          <text x="60" y="150" fill="white" font-family="JetBrains Mono" font-size="12">Batch size</text>
+          <text x="340" y="150" text-anchor="end" fill="white" font-family="JetBrains Mono" font-size="12" font-weight="600">all-at-once</text>
+          <text x="60" y="175" fill="white" font-family="JetBrains Mono" font-size="12">Plan mode</text>
+          <text x="340" y="175" text-anchor="end" fill="white" font-family="JetBrains Mono" font-size="12" font-weight="600">skipped</text>
+          <text x="60" y="200" fill="white" font-family="JetBrains Mono" font-size="12">Adversarial</text>
+          <text x="340" y="200" text-anchor="end" fill="white" font-family="JetBrains Mono" font-size="12" font-weight="600">2 checklists</text>
+          <text x="60" y="225" fill="white" font-family="JetBrains Mono" font-size="12">Sentinel checks</text>
+          <text x="340" y="225" text-anchor="end" fill="white" font-family="JetBrains Mono" font-size="12" font-weight="600">2 of 5</text>
+          <text x="60" y="250" fill="white" font-family="JetBrains Mono" font-size="12">Wall-clock</text>
+          <text x="340" y="250" text-anchor="end" fill="white" font-family="JetBrains Mono" font-size="12" font-weight="600">~5-15 min</text>
+        </g>
+
+        <!-- MEDIA -->
+        <g>
+          <rect x="390" y="40" width="320" height="240" rx="14" fill="url(#media-grad)" opacity="0.9"/>
+          <text x="550" y="80" text-anchor="middle" fill="white" font-family="Inter" font-size="20" font-weight="700">MEDIA</text>
+          <text x="550" y="105" text-anchor="middle" fill="#FEF3C7" font-family="Inter" font-size="13">3-5 files · 30-100 lines · 2 domains</text>
+          <line x1="430" y1="125" x2="670" y2="125" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+          <text x="410" y="150" fill="white" font-family="JetBrains Mono" font-size="12">Batch size</text>
+          <text x="690" y="150" text-anchor="end" fill="white" font-family="JetBrains Mono" font-size="12" font-weight="600">2-3 tasks</text>
+          <text x="410" y="175" fill="white" font-family="JetBrains Mono" font-size="12">Plan mode</text>
+          <text x="690" y="175" text-anchor="end" fill="white" font-family="JetBrains Mono" font-size="12" font-weight="600">automatic</text>
+          <text x="410" y="200" fill="white" font-family="JetBrains Mono" font-size="12">Adversarial</text>
+          <text x="690" y="200" text-anchor="end" fill="white" font-family="JetBrains Mono" font-size="12" font-weight="600">5 checklists</text>
+          <text x="410" y="225" fill="white" font-family="JetBrains Mono" font-size="12">Sentinel checks</text>
+          <text x="690" y="225" text-anchor="end" fill="white" font-family="JetBrains Mono" font-size="12" font-weight="600">3-5 of 5</text>
+          <text x="410" y="250" fill="white" font-family="JetBrains Mono" font-size="12">Wall-clock</text>
+          <text x="690" y="250" text-anchor="end" fill="white" font-family="JetBrains Mono" font-size="12" font-weight="600">~30-60 min</text>
+        </g>
+
+        <!-- COMPLEXA -->
+        <g>
+          <rect x="740" y="40" width="320" height="240" rx="14" fill="url(#complexa-grad)" opacity="0.9"/>
+          <text x="900" y="80" text-anchor="middle" fill="white" font-family="Inter" font-size="20" font-weight="700">COMPLEXA</text>
+          <text x="900" y="105" text-anchor="middle" fill="#FEE2E2" font-family="Inter" font-size="13">6+ files · &gt;100 lines · 3+ domains</text>
+          <line x1="780" y1="125" x2="1020" y2="125" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+          <text x="760" y="150" fill="white" font-family="JetBrains Mono" font-size="12">Batch size</text>
+          <text x="1040" y="150" text-anchor="end" fill="white" font-family="JetBrains Mono" font-size="12" font-weight="600">1 task</text>
+          <text x="760" y="175" fill="white" font-family="JetBrains Mono" font-size="12">Plan mode</text>
+          <text x="1040" y="175" text-anchor="end" fill="white" font-family="JetBrains Mono" font-size="12" font-weight="600">mandatory</text>
+          <text x="760" y="200" fill="white" font-family="JetBrains Mono" font-size="12">Adversarial</text>
+          <text x="1040" y="200" text-anchor="end" fill="white" font-family="JetBrains Mono" font-size="12" font-weight="600">7 checklists</text>
+          <text x="760" y="225" fill="white" font-family="JetBrains Mono" font-size="12">Sentinel checks</text>
+          <text x="1040" y="225" text-anchor="end" fill="white" font-family="JetBrains Mono" font-size="12" font-weight="600">all 5</text>
+          <text x="760" y="250" fill="white" font-family="JetBrains Mono" font-size="12">Wall-clock</text>
+          <text x="1040" y="250" text-anchor="end" fill="white" font-family="JetBrains Mono" font-size="12" font-weight="600">~90-180 min</text>
+        </g>
+      </svg>
+    </div>
+
+    <h2 class="section-heading">Execution modes</h2>
+    <p class="text-secondary">Beyond complexity, the pipeline accepts execution mode flags that change WHICH phases run.</p>
+
+    <div class="grid grid-cols-2 gap-6">
+      <div class="card">
+        <div class="card-title text-violet">FULL</div>
+        <div class="card-subtitle text-mono">/pipeline-orchestrator:pipeline [task]</div>
+        <p class="text-secondary">Default. All four phases: 0 → 1 → 1.5 → 2 → 3. Use for anything you intend to ship.</p>
+      </div>
+      <div class="card">
+        <div class="card-title text-cyan">DIAGNOSTIC</div>
+        <div class="card-subtitle text-mono">/pipeline-orchestrator:pipeline diagnostic [task]</div>
+        <p class="text-secondary">Stops after Phase 1. Classification only. Nothing is implemented. Useful for "I want to know what this task would cost".</p>
+      </div>
+      <div class="card">
+        <div class="card-title text-amber">CONTINUE</div>
+        <div class="card-subtitle text-mono">/pipeline-orchestrator:pipeline continue</div>
+        <p class="text-secondary">Resume a paused pipeline. Triggers STALE_CONTEXT gate if context is &gt; 24h (escalates to HARD on COMPLEXA + sensitive domain).</p>
+      </div>
+      <div class="card">
+        <div class="card-title text-green">REVIEW-ONLY</div>
+        <div class="card-subtitle text-mono">/pipeline-orchestrator:pipeline review-only</div>
+        <p class="text-secondary">Run only the final adversarial team on the current uncommitted dirty tree. Three reviewers in parallel, zero-context. Report only — no fixes.</p>
+      </div>
+      <div class="card">
+        <div class="card-title text-red">HOTFIX</div>
+        <div class="card-subtitle text-mono">/pipeline-orchestrator:pipeline --hotfix [task]</div>
+        <p class="text-secondary">Emergency bypass. Streamlined Phase 0 (BLOCKER questions only), 1 task batch, 2 adversarial checklists, minimal TDD. <strong>Reduces scope, not safety</strong>.</p>
+      </div>
+      <div class="card">
+        <div class="card-title text-violet">BRAINSTORM</div>
+        <div class="card-subtitle text-mono">/pipeline-orchestrator:brainstorm [task]</div>
+        <p class="text-secondary">Pre-execution flow: 9 steps from intake to spec lifecycle (init / requirements / design / tasks / validate). Hands off to /pipeline or saves as standalone spec.</p>
+      </div>
+    </div>
+
+    <h2 class="section-heading">Related diagrams</h2>
+    <div class="grid grid-cols-3 gap-6">
+      <a href="achado-7-protocol.html" class="card" style="text-decoration:none;color:inherit;">
+        <div class="card-title text-cyan">Achado #7 Protocol →</div>
+        <p class="text-secondary" style="margin-top:var(--space-3);">How subagents talk to the parent when AskUserQuestion / Agent / EnterPlanMode are stripped from the runtime.</p>
+      </a>
+      <a href="gate-hierarchy.html" class="card" style="text-decoration:none;color:inherit;">
+        <div class="card-title text-amber">22-Gate Hierarchy →</div>
+        <p class="text-secondary" style="margin-top:var(--space-3);">All 22 gates by hardness: MANDATORY, HARD, CIRCUIT_BREAKER, SOFT. When each fires.</p>
+      </a>
+      <a href="audit-history.html" class="card" style="text-decoration:none;color:inherit;">
+        <div class="card-title text-green">Audit History →</div>
+        <p class="text-secondary" style="margin-top:var(--space-3);">From v5.2.0 audit baseline to v6.0.0 release: 12/12 CRITICAL findings, 4 hardening waves.</p>
+      </a>
+    </div>
+  </div>
+
+  <footer>
+    <p>Pipeline Orchestrator v6.0.0 · <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator">GitHub</a> · MIT License</p>
+  </footer>
+</body>
+</html>

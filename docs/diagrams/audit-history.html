@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Audit History · Pipeline Orchestrator v6.0.0</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="_shared/design-system.css">
+  <style>
+    .timeline {
+      position: relative;
+      padding-left: 40px;
+      margin: var(--space-8) 0;
+    }
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 14px;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: linear-gradient(180deg, var(--violet), var(--cyan), var(--amber), var(--green));
+      border-radius: var(--radius-full);
+    }
+    .timeline-event {
+      position: relative;
+      margin-bottom: var(--space-8);
+    }
+    .timeline-event::before {
+      content: '';
+      position: absolute;
+      left: -32px;
+      top: 24px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--bg-elevated);
+      border: 3px solid var(--violet);
+      box-shadow: 0 0 16px rgba(124, 58, 237, 0.6);
+    }
+    .timeline-event.phase-b::before { border-color: var(--violet); box-shadow: 0 0 16px rgba(124, 58, 237, 0.6); }
+    .timeline-event.phase-d::before { border-color: var(--cyan); box-shadow: 0 0 16px rgba(14, 165, 233, 0.6); }
+    .timeline-event.phase-h::before { border-color: var(--amber); box-shadow: 0 0 16px rgba(245, 158, 11, 0.6); }
+    .timeline-event.phase-i::before { border-color: var(--green); box-shadow: 0 0 16px rgba(34, 197, 94, 0.6); }
+    .stat-card {
+      text-align: center;
+      padding: var(--space-6);
+    }
+    .stat-number {
+      font-size: 48px;
+      font-weight: 800;
+      line-height: 1;
+      background: linear-gradient(135deg, var(--violet-2), var(--cyan-2));
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: var(--space-2);
+    }
+    .stat-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-tertiary);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <div class="nav-brand">
+      <div class="nav-brand-mark">P</div>
+      Pipeline Orchestrator <span class="text-tertiary" style="font-weight:400; font-size:13px;">v6.0.0</span>
+    </div>
+    <div class="nav-links">
+      <a href="index.html">Index</a>
+      <a href="pipeline-overview.html">Overview</a>
+      <a href="achado-7-protocol.html">Protocol</a>
+      <a href="gate-hierarchy.html">Gates</a>
+      <a href="audit-history.html">Audit</a>
+    </div>
+  </nav>
+
+  <div class="page">
+    <div class="hero">
+      <div class="hero-badge">Audit History · 2026-05-15</div>
+      <h1>From 30% to 95%.</h1>
+      <p>A comprehensive audit of v5.2.0 over the IFRS 16 reference project, followed by four hardening waves. All 12 CRITICAL findings resolved. 22/22 gates exercised in runtime. 39 regression tests now permanent.</p>
+    </div>
+
+    <div class="grid grid-cols-4 gap-6" style="margin-bottom: var(--space-12);">
+      <div class="card stat-card">
+        <div class="stat-number">12 / 12</div>
+        <div class="stat-label">CRITICAL findings fixed</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-number">22 / 22</div>
+        <div class="stat-label">Gates exercised runtime</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-number">26 / 26</div>
+        <div class="stat-label">Subagents dispatched</div>
+      </div>
+      <div class="card stat-card">
+        <div class="stat-number">39</div>
+        <div class="stat-label">Regression tests added</div>
+      </div>
+    </div>
+
+    <h2 class="section-heading">The audit method</h2>
+    <p class="text-secondary" style="max-width: 800px;">
+      The pipeline-orchestrator plugin was audited against itself using a real project (IFRS 16
+      lease-accounting webapp) as the test bench. Seven scenarios across seven git worktrees,
+      then a deep second pass over the 70% surface that the first pass missed.
+    </p>
+
+    <h2 class="section-heading">Timeline</h2>
+    <div class="timeline">
+      <div class="timeline-event phase-b">
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: var(--space-3);">
+            <div>
+              <span class="badge badge-info">Phase B</span>
+              <span class="text-tertiary" style="margin-left: var(--space-2);">Initial Audit</span>
+            </div>
+            <span class="text-mono text-tertiary">~5 hours</span>
+          </div>
+          <div class="card-title">Seven scenarios, seven worktrees</div>
+          <p class="text-secondary">
+            Each pipeline mode dispatched against the IFRS 16 project in an isolated git worktree:
+            DIAGNOSTIC, REVIEW-ONLY, HOTFIX, --grill, FULL light (MEDIA), brainstorm with handoff,
+            FULL heavy (COMPLEXA forced).
+          </p>
+          <p class="text-secondary" style="margin-top: var(--space-3);">
+            <strong>Key findings:</strong> B1-001 orphan sentinel state (9-day-old wave8-spec
+            blocked new execution), B1-004 <code>information-gate</code> falls back to prose,
+            B5-001 <code>plan-architect</code> writes plans inline without research, B1-002
+            <code>pipeline-controller</code> not dispatchable as subagent.
+          </p>
+          <div style="margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-subtle);">
+            <span class="text-mono text-tertiary" style="font-size: 11px;">RESULT</span><br>
+            <span class="text-secondary">7 EVAL_REPORTs · 4 CRITICAL findings · coverage 30%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="timeline-event phase-d">
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: var(--space-3);">
+            <div>
+              <span class="badge badge-info">Phase D</span>
+              <span class="text-tertiary" style="margin-left: var(--space-2);">Corrections</span>
+            </div>
+            <span class="text-mono text-tertiary">~3 hours</span>
+          </div>
+          <div class="card-title">D2 / D2-follow-up / D2-extension</div>
+          <p class="text-secondary">
+            <code>information-gate.md</code> and <code>plan-architect.md</code> received explicit
+            "ACHADO #7 RUNTIME PROTOCOL" sections with worked YAML examples. Redteam panel
+            (Auditor Anthropic + Engineer Claude Code + Adversarial Reviewer) found schema drift
+            in my own examples (<code>multiSelect</code> camelCase vs SSOT <code>multi_select</code>
+            snake_case) and identified 14 sibling subagents with the same root cause.
+          </p>
+          <p class="text-secondary" style="margin-top: var(--space-3);">
+            <strong>Commits:</strong> <code>aef7943</code> (D2 initial), <code>5c46851</code>
+            (schema fix), <code>5619bbf</code> (extended to 14 siblings + D9 orphan cleanup spec).
+          </p>
+          <div style="margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-subtle);">
+            <span class="text-mono text-tertiary" style="font-size: 11px;">RESULT</span><br>
+            <span class="text-secondary">16 subagents declare protocol explicitly · 30 regression tests · coverage 45%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="timeline-event phase-h">
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: var(--space-3);">
+            <div>
+              <span class="badge badge-info">Phase H</span>
+              <span class="text-tertiary" style="margin-left: var(--space-2);">Deep Audit</span>
+            </div>
+            <span class="text-mono text-tertiary">~4 hours</span>
+          </div>
+          <div class="card-title">The 70% the first pass missed</div>
+          <p class="text-secondary">
+            Eight hooks read end-to-end. Official hook test suite revealed
+            <code>dispatch-guard</code> table missing <code>brainstorm-controller</code>.
+            Three more subagents (<code>sanity-checker</code>, <code>checkpoint-validator</code>,
+            <code>bugfix-regression-tester</code>) caught falling back to prose despite the
+            D2-extension append — fix required prominent top-of-file notes, not just appended
+            sections. Anti-injection POCs demonstrated against the actual plugin:
+            <code>pipeline.local.md</code> with <code>build_command: "rm -rf /"</code>
+            and JSONL log entry containing literal quotes that broke parse.
+          </p>
+          <p class="text-secondary" style="margin-top: var(--space-3);">
+            <strong>New findings:</strong> H1-002 sentinel-hook fail-open admitted by design,
+            H1-003 STALE_THRESHOLD drift across three values (5min/10min/24h), H6-001 JSONL
+            injection, H6-002 pipeline.local.md no strict parser.
+          </p>
+          <p class="text-secondary" style="margin-top: var(--space-3);">
+            <strong>Commit:</strong> <code>7fb479f</code> (D2-extension-v2 + dispatch-guard fix).
+          </p>
+          <div style="margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-subtle);">
+            <span class="text-mono text-tertiary" style="font-size: 11px;">RESULT</span><br>
+            <span class="text-secondary">All hook test suites GREEN · 11 CRITICAL findings (8 fixed) · coverage 80%</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="timeline-event phase-i">
+        <div class="card">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: var(--space-3);">
+            <div>
+              <span class="badge badge-info">Phase I</span>
+              <span class="text-tertiary" style="margin-left: var(--space-2);">Final Mitigations</span>
+            </div>
+            <span class="text-mono text-tertiary">~3 hours</span>
+          </div>
+          <div class="card-title">Close the remaining 20%</div>
+          <p class="text-secondary">
+            10 untested registry gates exercised in runtime: <code>PLAN_REJECTED</code>,
+            <code>CHECKPOINT_FAIL</code>, <code>ADVERSARIAL_BLOCK</code>, <code>STOP_RULE</code>,
+            <code>STEP_1_7_RECURSION_GUARD</code>, <code>STALE_CONTEXT</code>, plus 4 spec gates.
+            Six skill variants tested via their base agents. CONTINUE mode validated end-to-end.
+          </p>
+          <p class="text-secondary" style="margin-top: var(--space-3);">
+            <strong>Three new security libraries shipped:</strong>
+          </p>
+          <ul style="margin-top: var(--space-2); padding-left: var(--space-6); color: var(--text-secondary);">
+            <li><code>lib/sentinel-state-signer.cjs</code> — HMAC-SHA256 signature against the fail-open</li>
+            <li><code>lib/jsonl-sanitizer.cjs</code> — safe append + 200-char truncate + round-trip validation</li>
+            <li><code>lib/pipeline-local-parser.cjs</code> — strict YAML frontmatter + shell-injection guard + path-traversal guard</li>
+          </ul>
+          <p class="text-secondary" style="margin-top: var(--space-3);">
+            <strong>STALE drift resolved (I7):</strong> new SSOT
+            <code>references/stale-thresholds.md</code> documents three distinct concepts —
+            <code>STALE_SPAWN</code> (5min), <code>STALE_HEARTBEAT</code> (10min),
+            <code>STALE_CONTEXT</code> (24h). Hooks renamed to canonical constants with
+            backward-compat aliases.
+          </p>
+          <p class="text-secondary" style="margin-top: var(--space-3);">
+            <strong>Commits:</strong> <code>1223c97</code> (Fase I libs + audits archived),
+            <code>2ca169b</code> (I7 STALE reconciliation).
+          </p>
+          <div style="margin-top: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--border-subtle);">
+            <span class="text-mono text-tertiary" style="font-size: 11px;">RESULT</span><br>
+            <span class="text-secondary">12/12 CRITICAL findings fixed · 22/22 gates runtime · 39 regression tests · coverage 95%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="section-heading">Findings table</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Severity</th>
+          <th>Description</th>
+          <th>Fix</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="text-mono">B1-001</td>
+          <td><span class="badge badge-mandatory">CRITICAL</span></td>
+          <td>Orphan sentinel state blocks new pipelines (no TTL, no cleanup)</td>
+          <td>D9 — ORPHAN_CLEANUP mode + 24h TTL contract in <code>sentinel.md</code></td>
+        </tr>
+        <tr>
+          <td class="text-mono">B1-004</td>
+          <td><span class="badge badge-mandatory">CRITICAL</span></td>
+          <td>information-gate prose fallback when input ambiguous</td>
+          <td>D2 — ACHADO #7 RUNTIME PROTOCOL section added</td>
+        </tr>
+        <tr>
+          <td class="text-mono">B5-001</td>
+          <td><span class="badge badge-mandatory">CRITICAL</span></td>
+          <td>plan-architect writes plans inline without research</td>
+          <td>D2 — PLAN_MODE_REQUEST v1 contract enforced</td>
+        </tr>
+        <tr>
+          <td class="text-mono">F3-1</td>
+          <td><span class="badge badge-mandatory">CRITICAL</span></td>
+          <td>Schema drift in worked examples (camelCase, suffix instead of field)</td>
+          <td>D2-follow-up — schema-correct examples in 16 subagents</td>
+        </tr>
+        <tr>
+          <td class="text-mono">F3-3</td>
+          <td><span class="badge badge-mandatory">CRITICAL</span></td>
+          <td>14 sibling subagents share the same fallback bug</td>
+          <td>D2-extension — same section applied to 14 subagents</td>
+        </tr>
+        <tr>
+          <td class="text-mono">H1-NEW-001</td>
+          <td><span class="badge badge-mandatory">CRITICAL</span></td>
+          <td>sanity-checker still prose-fallback (append insufficient)</td>
+          <td>D2-extension-v2 — prominent top-of-file note</td>
+        </tr>
+        <tr>
+          <td class="text-mono">H1-NEW-002</td>
+          <td><span class="badge badge-mandatory">CRITICAL</span></td>
+          <td>checkpoint-validator missing from D2-extension list</td>
+          <td>D2-extension-v2 — added + top-of-file note</td>
+        </tr>
+        <tr>
+          <td class="text-mono">H1-NEW-003</td>
+          <td><span class="badge badge-mandatory">CRITICAL</span></td>
+          <td>bugfix-regression-tester prose fallback</td>
+          <td>D2-extension-v2 — top-of-file note added</td>
+        </tr>
+        <tr>
+          <td class="text-mono">H1-002</td>
+          <td><span class="badge badge-mandatory">CRITICAL</span></td>
+          <td>sentinel-hook fail-open admitted by docstring</td>
+          <td>I4 — <code>lib/sentinel-state-signer.cjs</code> HMAC signature</td>
+        </tr>
+        <tr>
+          <td class="text-mono">H6-001</td>
+          <td><span class="badge badge-mandatory">CRITICAL</span></td>
+          <td>JSONL <code>detail</code> field unsanitized (POC broke parse with quotes)</td>
+          <td>I5 — <code>lib/jsonl-sanitizer.cjs</code> safe append API</td>
+        </tr>
+        <tr>
+          <td class="text-mono">H6-002</td>
+          <td><span class="badge badge-hard">HIGH</span></td>
+          <td>pipeline.local.md no parser (RCE via build_command)</td>
+          <td>I6 — <code>lib/pipeline-local-parser.cjs</code> sandbox parser</td>
+        </tr>
+        <tr>
+          <td class="text-mono">H1-001</td>
+          <td><span class="badge badge-hard">HIGH</span></td>
+          <td>dispatch-guard table missing 3 entries (suite was failing)</td>
+          <td>Fase H — entries added, suite now 13/13 PASS</td>
+        </tr>
+        <tr>
+          <td class="text-mono">H1-003</td>
+          <td><span class="badge badge-hard">HIGH</span></td>
+          <td>STALE_THRESHOLD drift across 3 values (5min/10min/24h)</td>
+          <td>I7 — SSOT <code>stale-thresholds.md</code> + canonical names</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2 class="section-heading">Retracted findings (transparency)</h2>
+    <div class="card" style="background: rgba(245, 158, 11, 0.05); border-color: rgba(245, 158, 11, 0.2);">
+      <div class="card-title text-amber">H8-NEW-001 — validate-trace exit code</div>
+      <p class="text-secondary">
+        The auditor (me) reported that <code>scripts/validate-trace.cjs</code> always returned
+        exit 0 even on validation failure. The report was wrong: the test command used a pipe
+        (<code>| head -5</code>) which captured <code>head</code>'s exit code, not node's.
+        Isolated re-test confirmed the script correctly returns exit 1 on failure.
+        Finding withdrawn and documented in the Fase I report.
+      </p>
+    </div>
+
+    <h2 class="section-heading">Archived reports</h2>
+    <p class="text-secondary">Full audit trail in <code>docs/audits/2026-05-15-ifrs16-deep-audit/</code>:</p>
+
+    <table>
+      <thead>
+        <tr><th>File</th><th>Purpose</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="text-mono">INDEX.md</td><td>Reading order + executive summary</td></tr>
+        <tr><td class="text-mono">_canonical_contract.md</td><td>Audit ground truth (22 gates, 45 agents)</td></tr>
+        <tr><td class="text-mono">_decision_table.md</td><td>Unified gate response policy</td></tr>
+        <tr><td class="text-mono">FINAL_CONSOLIDATED_REPORT.md</td><td>Phase B+D matrix (7×N gates, 7×45 dispatch)</td></tr>
+        <tr><td class="text-mono">PANEL_FINAL.md</td><td>3-persona panel consolidation</td></tr>
+        <tr><td class="text-mono">FASE_H_FINDINGS.md</td><td>Hooks audit + anti-injection POCs</td></tr>
+        <tr><td class="text-mono">FASE_H_ADDENDUM.md</td><td>Runtime dispatches Phase 3 + fix loop + skills</td></tr>
+        <tr><td class="text-mono">FASE_H_FINAL.md</td><td>Coverage consolidation + false-positive retraction</td></tr>
+        <tr><td class="text-mono">FASE_I_FINAL.md</td><td>Residual coverage + 3 security libraries</td></tr>
+        <tr><td class="text-mono">COMPARISON_v5.2_vs_v5.3.md</td><td>Pre/post comparison + runtime evidence</td></tr>
+      </tbody>
+    </table>
+
+    <h2 class="section-heading">Related diagrams</h2>
+    <div class="grid grid-cols-3 gap-6">
+      <a href="pipeline-overview.html" class="card" style="text-decoration:none;color:inherit;">
+        <div class="card-title text-violet">Pipeline Overview →</div>
+        <p class="text-secondary" style="margin-top:var(--space-3);">The 4-phase flow that was audited.</p>
+      </a>
+      <a href="achado-7-protocol.html" class="card" style="text-decoration:none;color:inherit;">
+        <div class="card-title text-cyan">Achado #7 Protocol →</div>
+        <p class="text-secondary" style="margin-top:var(--space-3);">The structural finding that motivated 8 of the 12 CRITICAL fixes.</p>
+      </a>
+      <a href="gate-hierarchy.html" class="card" style="text-decoration:none;color:inherit;">
+        <div class="card-title text-amber">22-Gate Hierarchy →</div>
+        <p class="text-secondary" style="margin-top:var(--space-3);">All 22 gates exercised in runtime during the audit.</p>
+      </a>
+    </div>
+  </div>
+
+  <footer>
+    <p>Pipeline Orchestrator v6.0.0 · <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator">GitHub</a> · MIT License</p>
+  </footer>
+</body>
+</html>

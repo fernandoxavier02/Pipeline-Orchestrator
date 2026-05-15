@@ -259,3 +259,72 @@ This artifact is the input for `feature-integration-validator` and must be prese
 - **No assumptions:** Do NOT assume default values for business logic, pricing, limits, or security rules
 - **No silent defaults:** If a value isn't specified, it's a gap -- not an opportunity to pick a "reasonable default"
 - **Minimal diff:** Preserve existing architecture, style, and conventions. Smallest change that works.
+---
+
+## ACHADO #7 RUNTIME PROTOCOL (MANDATORY — v5.3.0+)
+
+The Claude Code harness STRIPS `AskUserQuestion`, `Agent`, `EnterPlanMode`, and `ExitPlanMode` from subagent runtime tool manifests (empirically confirmed 2026-05-07; failure cases B1-004, B5-001, panel F3-3 audit 2026-05-15). When this agent is dispatched as a subagent, those tools are NOT available — the spec sections above that mandate `AskUserQuestion`/`EnterPlanMode` apply to the PARENT (pipeline-controller), not to you the subagent.
+
+**Resolution — when you need user input or plan-mode research, emit the appropriate structured block instead of calling the tool directly:**
+
+For user decisions (replaces `AskUserQuestion`):
+
+```
+=== GATE_REQUEST v1 ===
+gate_id: "<unique-id-this-emission>"     # e.g., "<agent-name>-Q1" — concrete, never literal {n}
+agent: "<this agent's leaf name>"
+phase: "<your phase>"
+question: "<concrete question, anchored in code/file evidence>"
+header: "<short chip label, max 12 chars>"
+multi_select: false                       # snake_case per SSOT references/gate-request-protocol.md
+options:
+  - label: "<recommended option>"
+    description: "<why — cite evidence>"
+    recommended: true                     # separate field, NOT a suffix in label
+  - label: "<alternative>"
+    description: "<trade-off>"
+    recommended: false
+=== END GATE_REQUEST ===
+STATUS: AWAITING_GATE_RESPONSES
+```
+
+For plan-mode research (replaces `EnterPlanMode`):
+
+```
+=== PLAN_MODE_REQUEST v1 ===
+plan_id: "<concrete-id-never-literal-{run_id}>"
+agent: "<this agent's leaf name>"
+phase: "<your phase>"
+research_scope: |
+  <prose: which files to read, which patterns to grep, which globs to scan>
+expected_deliverables:                    # REQUIRED per SSOT — never omit
+  - "<deliverable 1>"
+  - "<deliverable 2>"
+=== END PLAN_MODE_REQUEST ===
+STATUS: AWAITING_PLAN_MODE_RESULTS
+```
+
+For dispatching sub-subagents (replaces `Agent`):
+
+```
+=== DISPATCH_REQUEST v1 ===
+dispatch_id: "<concrete-id>"
+target_kind: agent                         # or "skill"
+target_name: "pipeline-orchestrator:<folder>:<leaf>"
+prompt: |
+  <verbatim prompt to pass to the target>
+=== END DISPATCH_REQUEST ===
+STATUS: AWAITING_DISPATCH_RESULTS
+```
+
+**Critical rules** (drift = silent parent fallback to inline = the very bug this section fixes):
+
+- Use `multi_select` (snake_case), NOT `multiSelect` (camelCase)
+- Use `recommended: true|false` field per option, NOT a `(Recomendado)` suffix in the label
+- Always include `expected_deliverables` in PLAN_MODE_REQUEST
+- Replace ALL `{placeholders}` with concrete values — never emit literal `{n}`, `{run_id}`, `{paths from ...}`
+- NEVER fall back to prose questions ("Should we do A or B?") — parent cannot parse prose
+- NEVER call `AskUserQuestion`, `Agent`, `EnterPlanMode` directly — they are stripped
+- Wait for the corresponding response payload (`GATE_RESPONSES` / `PLAN_MODE_RESULTS` / `DISPATCH_RESULTS`) before continuing; do NOT proceed inline
+
+**Full protocol schema and audit trail format:** `references/gate-request-protocol.md`.

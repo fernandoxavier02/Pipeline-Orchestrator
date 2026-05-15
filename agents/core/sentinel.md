@@ -237,3 +237,67 @@ SENTINEL_VERDICT:
 4. **Time budget:** Complete validation in under 30 seconds. Read only the files you need.
 5. **Single SENTINEL_VERDICT:** Emit exactly one YAML block per invocation.
 6. **Spec checkpoint guard (Wave 3-spec):** All 5 SPEC PIPELINE CHECKPOINTS above are gated on `pipeline_variant.startsWith("spec-")`. NEVER fire spec-only checkpoints on non-spec variants — emit `activated: false` with the guard-skip reason.
+
+---
+
+## ORPHAN STATE CLEANUP MODE (D9 — v5.3.0+)
+
+A `sentinel-state.json` is considered **orphan** when:
+- `pipeline_active: true` AND
+- `last_updated` is older than **24h** — this is the STALE_CONTEXT threshold per `references/stale-thresholds.md`. Distinct from STALE_SPAWN (5 min, sentinel-hook) and STALE_HEARTBEAT (10 min, session-lock-hook + edit-guard-hook). See the doc for the decision tree when multiple "stale" signals fire simultaneously. — OR no `last_updated` field present
+
+Orphan state causes the sentinel-hook to block legitimate new pipelines because `expected_next` from a stale pipeline misroutes the sequence check (audit B1-001 documented this exact failure: 9-day-old wave8-spec state blocked v5.3.0 audit run).
+
+### When this mode fires
+
+The parent (pipeline-controller) invokes you with `mode: ORPHAN_CLEANUP` BEFORE creating a new `sentinel-state.json` for a fresh pipeline. Triggers:
+
+1. `SessionStart` hook detects existing `.pipeline/docs/**/sentinel-state.json` from prior session
+2. Manual cleanup via `/pipeline-orchestrator:pipeline --cleanup-orphans`
+3. Periodic check during Phase 0 pre-flight (within pipeline-controller STEP 3)
+
+### What you do
+
+1. **Scan** all `.pipeline/docs/**/sentinel-state.json` under the working tree
+2. For each, parse and check the orphan criteria above
+3. Compute `age_hours = (now - last_updated) / 3600`
+4. Classify each as:
+   - **LIVE** (`pipeline_active: true` AND age < 24h): leave alone
+   - **CLEAN** (`pipeline_active: false`): leave alone — already archived
+   - **ORPHAN** (`pipeline_active: true` AND age >= 24h): candidate for archive
+
+### Output
+
+Emit `SENTINEL_VERDICT` with `mode: ORPHAN_CLEANUP` and per-state classification:
+
+```yaml
+SENTINEL_VERDICT:
+  mode: ORPHAN_CLEANUP
+  status: CORRECTED
+  scanned: <N>
+  orphans:
+    - state_file: "<absolute path>"
+      pipeline_id: "<id>"
+      age_hours: <float>
+      last_phase_completed: "<phase>"
+      last_gate: "<gate>"
+      recommended_action: "archive"   # set pipeline_active=false + add closeout_reason field
+  live:
+    - state_file: "<path>"
+      pipeline_id: "<id>"
+  notes: "<any anomalies — schema_version mismatch, malformed JSON, etc.>"
+```
+
+If an orphan is detected, the parent should emit a `GATE_REQUEST v1` to the user asking permission to archive (default: yes, recommended), OR auto-archive if running unattended with `--cleanup-orphans-auto` flag.
+
+### Lock file pattern (optional D9 extension)
+
+For future implementation: when a pipeline is active, write a sibling `sentinel-state.json.lock` containing `pid + start_ts + claude_session_id`. SessionStart cleanup distinguishes:
+- Lock holder still alive → state is LIVE (do not archive)
+- Lock holder dead (PID not found) → state is ORPHAN regardless of age
+
+Lock file pattern requires hook support (not in pure agent scope) — track as separate D9-extension issue.
+
+### Audit reference
+
+Achado B1-001 (CRITICAL) — 2026-05-15: orphan state from 2026-05-06 wave8-spec blocked new pipeline. Manual archive workaround via Edit of `pipeline_active: false`. D9 automates this.

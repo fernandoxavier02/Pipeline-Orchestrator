@@ -6,11 +6,22 @@ const SESSION_ID_RE = /^[A-Za-z0-9._-]{1,64}$/;
 const MAX_TTL_MINUTES = 60;
 const OPENED_AT_SKEW_MS = 5000; // tolerate 5s clock skew for opened_at sanity check
 const PAIRING_TOLERANCE_MS = 60000; // NI-3: +/- 60s audit-log timestamp tolerance
+// STALE_HEARTBEAT_THRESHOLD_MS — 10 minutes (v5.3.0+ canonical name).
+//
 // Defense-in-depth: even if session-lock-hook's GC pass has not yet run,
 // reject locks whose last_seen_at heartbeat is older than this. Locks lacking
 // last_seen_at (legacy/pre-patch format) bypass this check and continue to
 // rely on expires_at + Stop-hook cleanup, preserving backwards compatibility.
-const STALE_HEARTBEAT_MS = 10 * 60 * 1000;
+//
+// NOMENCLATURE (per references/stale-thresholds.md):
+//   - STALE_SPAWN (5 min, sentinel-hook): controller forgot Write between spawns
+//   - STALE_HEARTBEAT (10 min, THIS file + session-lock-hook): lock owner is dead
+//   - STALE_CONTEXT (24 h, gate registry): /pipeline continue on old context
+// Three distinct concepts. See references/stale-thresholds.md for decision tree.
+//
+// Backwards compat: STALE_HEARTBEAT_MS exported as alias for one release.
+const STALE_HEARTBEAT_THRESHOLD_MS = 10 * 60 * 1000;
+const STALE_HEARTBEAT_MS = STALE_HEARTBEAT_THRESHOLD_MS; // deprecated alias, do not use in new code
 
 function getActiveLock(pipelineDir) {
   const sessionsDir = path.join(pipelineDir, '.pipeline', 'sessions');
@@ -31,7 +42,7 @@ function getActiveLock(pipelineDir) {
         // Stale-heartbeat skip: if the lock advertises last_seen_at, enforce it.
         // Missing last_seen_at means pre-patch lock — fall through to legacy path.
         if (typeof lock.last_seen_at === 'number' &&
-            now - lock.last_seen_at > STALE_HEARTBEAT_MS) {
+            now - lock.last_seen_at > STALE_HEARTBEAT_THRESHOLD_MS) {
           continue;
         }
         candidates.push(lock);
@@ -441,4 +452,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, openExecWindow, closeExecWindow, findPairingEntry, appendAuditEntry, MAX_TTL_MINUTES, PAIRING_TOLERANCE_MS, STALE_HEARTBEAT_MS };
+module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, openExecWindow, closeExecWindow, findPairingEntry, appendAuditEntry, MAX_TTL_MINUTES, PAIRING_TOLERANCE_MS, STALE_HEARTBEAT_THRESHOLD_MS, STALE_HEARTBEAT_MS /* deprecated alias, removal scheduled for v5.4.0 */ };

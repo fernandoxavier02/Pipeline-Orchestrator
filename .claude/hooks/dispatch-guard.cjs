@@ -37,8 +37,9 @@ const enforcement = require('./skill-frontmatter-parser.cjs');
 // are added/removed/moved. The hook's regression tests assume the invariants
 // listed in references/glossary.md's "Agent Naming Convention".
 const AGENT_LEAF_TO_FQN = Object.freeze({
-  // core/ (9 agents)
+  // core/ (10 agents — added brainstorm-controller in v5.3.0 fix H1-001)
   'pipeline-controller': 'pipeline-orchestrator:core:pipeline-controller',
+  'brainstorm-controller': 'pipeline-orchestrator:core:brainstorm-controller',
   'task-orchestrator': 'pipeline-orchestrator:core:task-orchestrator',
   'information-gate': 'pipeline-orchestrator:core:information-gate',
   'sentinel': 'pipeline-orchestrator:core:sentinel',
@@ -77,6 +78,10 @@ const AGENT_LEAF_TO_FQN = Object.freeze({
   'ux-simulator': 'pipeline-orchestrator:executor:type-specific:ux-simulator',
   'ux-accessibility-auditor': 'pipeline-orchestrator:executor:type-specific:ux-accessibility-auditor',
   'ux-qa-validator': 'pipeline-orchestrator:executor:type-specific:ux-qa-validator',
+
+  // brainstorm/ step agents (2 — added v5.3.0 fix H1-001-extension)
+  'step-00-intake': 'pipeline-orchestrator:brainstorm:brainstorm-step-00-intake',
+  'step-01-explore': 'pipeline-orchestrator:brainstorm:brainstorm-step-01-explore',
 
   // quality/ (7 agents)
   'review-orchestrator': 'pipeline-orchestrator:quality:review-orchestrator',

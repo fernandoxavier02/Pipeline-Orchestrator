@@ -245,15 +245,25 @@ function handleInput(raw) {
   // Returns true only when deny was emitted; warn returns false and we continue.
   if (applyEnforcement(state)) return process.exit(0);
 
-  // 9. Stale state detection (collected, NOT early-return — divergence check must ALWAYS run)
-  const STALE_THRESHOLD_MS = 300_000; // 300 seconds (5 minutes) — opus agents can take >60s per spawn
+  // 9. STALE_SPAWN detection (collected, NOT early-return — divergence check must ALWAYS run)
+  //
+  // NOMENCLATURE (v5.3.0+ canonical per references/stale-thresholds.md):
+  //   - STALE_SPAWN  (5 min, this hook): controller forgot to update state.json between spawns
+  //   - STALE_HEARTBEAT (10 min, session-lock-hook + edit-guard-hook): lock owner is dead
+  //   - STALE_CONTEXT (24 h, gate registry): /pipeline continue on old context
+  // These are THREE DISTINCT concepts — see references/stale-thresholds.md for decision tree.
+  //
+  // Backwards compat: STALE_THRESHOLD_MS exported as alias for one release (v5.3.0 deprecated;
+  // remove v5.4.0).
+  const STALE_SPAWN_THRESHOLD_MS = 300_000; // 5 min — opus agents can take >60s per spawn
+  const STALE_THRESHOLD_MS = STALE_SPAWN_THRESHOLD_MS; // deprecated alias, do not use in new code
   const lastUpdated = state.last_updated ? new Date(state.last_updated).getTime() : 0;
   const elapsed = Date.now() - lastUpdated;
   let staleWarning = null;
 
-  if (lastUpdated > 0 && elapsed > STALE_THRESHOLD_MS) {
+  if (lastUpdated > 0 && elapsed > STALE_SPAWN_THRESHOLD_MS) {
     const elapsedSec = Math.round(elapsed / 1000);
-    const thresholdSec = Math.round(STALE_THRESHOLD_MS / 1000);
+    const thresholdSec = Math.round(STALE_SPAWN_THRESHOLD_MS / 1000);
     staleWarning =
       `SENTINEL WARNING: State file is ${elapsedSec}s old (threshold: ${thresholdSec}s). ` +
       `The controller may have forgotten to update sentinel-state.json before this spawn. ` +
