@@ -80,6 +80,24 @@ From ORCHESTRATOR_DECISION, understand:
 
 After AC scenarios, ADD regression and edge-case scenarios per the Spec row of TEST MINIMUMS below (1 per AC + 2 regression + 2 edge cases).
 
+#### Step 1b: non-spec ATDD normalization (v6.1.0+)
+
+**Activation:** apply this branch when ALL of the following hold:
+- `ORCHESTRATOR_DECISION.complexity` is `MEDIA` or `COMPLEXA`.
+- The run is NOT a spec run (i.e. Step 1a did not activate spec mode — equivalently, `acceptance_criteria` was empty or absent and `type` is not `Spec`).
+
+**Bypass:** Step 1b does NOT apply (skip entirely) when ANY of:
+- `complexity` is `SIMPLES` — Step 1b is bypassed; only TEST MINIMUMS Light row applies.
+- `type=Spec` OR `Array.isArray(spec_context.acceptance_criteria) && spec_context.acceptance_criteria.length > 0` (the same canonical guard Step 1a uses on line 71) — spec runs are excluded; Step 1a already covers AC-seeded ATDD with its own EARS handling.
+
+**Edge case (type=Spec + MEDIA/COMPLEXA + empty `acceptance_criteria`):** this combination is HANDLED upstream by gate `SPEC_AC_TRACEABILITY_GAP` (see `references/gates.md`), which blocks the pipeline BEFORE Step 1b runs. Therefore Step 1b correctly assumes any spec run reaching it has populated `acceptance_criteria` (and Step 1a will have activated). No special handling required here.
+
+**Format:** in this branch, scenarios MUST be authored in BDD `Given / When / Then` form (plain language, no code). EARS-style `And` / `But` continuations are allowed and encouraged to chain conditions or expectations — e.g. `Given X / And Y / When Z / Then W / But not V`. `And` extends the previous keyword's clause; `But` introduces a negative expectation or exception.
+
+**Counting:** record how many ATDD scenarios were produced under this branch (`scenario_count`) and whether any `And`/`But` continuations were used (`ears_continuations_used`). Both go into the OUTPUT YAML under `non_spec_atdd`.
+
+**Output flag:** set `non_spec_atdd.applied: true` whenever Step 1b activates. When bypassed (SIMPLES or spec run), set `non_spec_atdd.applied: false` and leave counts at zero.
+
 ### Step 2: Generate Test Scenarios
 
 Write scenarios in **plain language** (no code, no jargon):
@@ -150,6 +168,11 @@ QUALITY_GATE_APPROVED:
     acs_covered: ["AC#1", "AC#2"]
     bullet_normalized: ["AC#N"]   # list of AC ids that arrived as non-EARS bullets
     warnings: []                   # surfaced normalization warnings, if any
+  # non_spec_atdd (only when Step 1b activated — MEDIA/COMPLEXA non-spec ATDD)
+  non_spec_atdd:
+    applied: false                 # true when Step 1b activated for this run
+    scenario_count: 0              # number of Given/When/Then scenarios produced
+    ears_continuations_used: false # true if any And/But continuations were used
 ```
 
 ---

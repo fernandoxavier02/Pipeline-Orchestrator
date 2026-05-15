@@ -109,6 +109,43 @@ Decompose the feature into vertical slices:
    - Integration points with other slices
    - Risk level (low/medium/high)
 
+### Step 3b: BDD Gherkin Artifact Emission (per slice)
+
+**MANDATORY:** For every slice defined in Step 3, you MUST emit one Gherkin `.feature` artifact capturing the slice's behavior in Given/When/Then form. This is the BDD contract that bridges acceptance criteria (Step 3) to executable behavior (downstream implementer + tester).
+
+**Path pattern (flat, zero-padded):**
+
+```
+.pipeline/artifacts/bdd/SLICE-NN.feature
+```
+
+Where `NN` is the zero-padded slice index (e.g., `SLICE-01.feature`, `SLICE-02.feature`, ..., `SLICE-10.feature`). The directory is flat — no nested sub-folders per slice.
+
+**Gherkin minimum template:**
+
+Every `.feature` file MUST contain at minimum:
+
+```gherkin
+Feature: <slice description, one line>
+
+  Scenario: <primary acceptance scenario for this slice>
+    Given <precondition derived from terrain/state>
+    When <action that exercises the slice>
+    Then <observable outcome that satisfies the acceptance criterion>
+```
+
+Rules:
+
+1. Exactly one `Feature:` heading at the top, matching the slice description.
+2. At least one `Scenario:` block; additional scenarios MAY be added to cover edge cases or each acceptance criterion individually.
+3. Each scenario MUST contain at least one `Given`, one `When`, and one `Then` step. `And`/`But` continuations are permitted.
+4. Derive scenarios from the slice's `acceptance_criteria` (Step 3) — do NOT invent behavior not implied by the criteria. If a criterion cannot be expressed in Given/When/Then form, return NEEDS_INFO instead of guessing.
+5. The artifact is a **read-only planning output** in this step — you emit it as a planned file in your output; actual write happens via the executor-controller's artifact-persist routine. You yourself remain read-only (Iron Law preserved).
+
+**Per-slice yaml field:** Each slice block in the OUTPUT MUST carry a `bdd_artifact` field with the path string above.
+
+**Top-level yaml field:** The top-level `VSA_PLAN` MUST carry `bdd_artifacts_emitted` (integer) equal to the count of `.feature` files planned (one per slice).
+
 ### Step 4: Architecture Approach
 
 Define the implementation approach:
@@ -157,9 +194,12 @@ VSA_PLAN:
       files_in_scope: ["list of files"]
       dependencies: ["other slice IDs this depends on"]
       risk_level: "low|medium|high"
+      bdd_artifact: ".pipeline/artifacts/bdd/SLICE-01.feature"
     - id: "SLICE-02"
       description: "..."
-      # ... same structure
+      # ... same structure, including bdd_artifact
+      bdd_artifact: ".pipeline/artifacts/bdd/SLICE-02.feature"
+  bdd_artifacts_emitted: 2  # integer count of .feature files (one per slice)
   arch_approach:
     patterns: ["patterns to follow"]
     minimal_diff_strategy: "[how to minimize changes]"
