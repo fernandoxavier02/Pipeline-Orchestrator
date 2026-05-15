@@ -17,3 +17,4 @@ pipeline-runs/
 
 # npm pack tarballs — published to GitHub Releases instead
 *.tgz
+.npmrc
