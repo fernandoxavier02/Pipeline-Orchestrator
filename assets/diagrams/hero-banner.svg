@@ -79,7 +79,7 @@
     <rect x="-65" y="0" width="130" height="32" rx="16" fill="#7C3AED" opacity="0.9">
       <animate attributeName="opacity" values="0.9;1;0.9" dur="3s" repeatCount="indefinite"/>
     </rect>
-    <text x="0" y="22" text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="16" font-weight="700" fill="#fff">v5.0.0</text>
+    <text x="0" y="22" text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="16" font-weight="700" fill="#fff">v6.0.0</text>
   </g>
 
   <text x="450" y="232" text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="22" fill="#8b949e" font-weight="400" letter-spacing="1">
