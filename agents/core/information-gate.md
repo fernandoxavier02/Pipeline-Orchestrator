@@ -31,20 +31,29 @@ The Claude Code harness STRIPS `AskUserQuestion`, `Agent`, and `EnterPlanMode` f
 
 ```
 === GATE_REQUEST v1 ===
-gate_id: "info-gate-Q{n}"
+gate_id: "info-gate-Q1"            # sequential unique id; replace "Q1" per question
 agent: "information-gate"
 phase: "0b"
-question: "{the question text — anchored in code observation per Step 4}"
-header: "{short label, max 12 chars}"
-multiSelect: false
+question: "Looking at backend/app/routers/payments.py:42, I see Stripe webhook signature is verified but no idempotency key. Should I add idempotency check or rely on Stripe's at-least-once delivery?"
+header: "Idempotency"               # short chip label (max 12 chars)
+multi_select: false                 # snake_case per SSOT references/gate-request-protocol.md
 options:
-  - label: "{recommended option} (Recomendado)"
-    description: "{why — cite evidence from codebase}"
-  - label: "{alternative}"
-    description: "{trade-off}"
+  - label: "Add idempotency check using event.id"
+    description: "Defense-in-depth against Stripe retries during outages. Pattern already in payments_service.py:87."
+    recommended: true               # exactly one option may be recommended
+  - label: "Rely on at-least-once semantics"
+    description: "Simpler; trust Stripe's dedup. Acceptable if downstream is idempotent."
+    recommended: false
 === END GATE_REQUEST ===
 STATUS: AWAITING_GATE_RESPONSES
 ```
+
+**Critical schema rules** (drift = silent parser failure in parent):
+- Use `multi_select` (snake_case), NOT `multiSelect`
+- Use `recommended: true|false` field per option, NOT a "(Recomendado)" suffix in label
+- `gate_id` must be unique per emission — never copy `Q{n}` literally
+- Fill `header` with concrete chip label, never leave the `{...}` placeholder string verbatim
+- Wait for `GATE_RESPONSES` payload before continuing; do NOT proceed inline
 
 **NEVER fall back to prose questions** ("Should we do A or B?") in the tool result. The parent handler cannot deterministically parse prose under the stripped runtime. Prose fallback = silent contract violation (audit B1-004 documented this exact failure mode — information-gate emitted "(A) ... (B) ..." in prose and would have caused parent deadlock or inline fallback in real runtime).
 

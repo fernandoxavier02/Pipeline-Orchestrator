@@ -29,18 +29,29 @@ The Claude Code harness STRIPS `EnterPlanMode`, `ExitPlanMode`, `AskUserQuestion
 
 ```
 === PLAN_MODE_REQUEST v1 ===
-plan_id: "plan-architect-{run_id}"
+plan_id: "plan-architect-2026-05-15-redis-cache"  # concrete, NEVER literal "{run_id}"
 agent: "plan-architect"
 phase: "1.5"
-research_scope:
-  files_to_read: [{paths from classification.affected_files}]
-  patterns_to_grep: [{conventions, integration points}]
-  globs: [{glob patterns for related modules}]
+research_scope: |
+  Read backend/app/services/remeasurement_service.py end-to-end.
+  Grep -n "calculate_pv|PlanType|PlanTypeEnum" across backend/app/.
+  Glob backend/app/routers/*.py and identify how payments router uses PlanType.
+expected_deliverables:               # SSOT-required field — never omit
+  - "List of affected files (create/modify) with line ranges"
+  - "Dependency-sorted task list with pattern references"
+  - "Risk assessment (high/medium/low + mitigations)"
+  - "Test file paths per task"
 plan_template: |
-  Use the template in Step 2 of this spec to format IMPLEMENTATION_PLAN output.
+  Use the IMPLEMENTATION_PLAN YAML template in Step 2 of this spec.
 === END PLAN_MODE_REQUEST ===
 STATUS: AWAITING_PLAN_MODE_RESULTS
 ```
+
+**Critical schema rules** (drift = silent parent fallback to inline):
+- `expected_deliverables` is REQUIRED per `references/gate-request-protocol.md` schema — never omit
+- Fill `plan_id` with a concrete identifier (e.g., `plan-architect-<phase-doc-slug>`) — NEVER literal `{run_id}`
+- `research_scope` is a literal block instruction string for the parent's plan-mode work, not a structured field list — write it as prose with concrete file paths and grep patterns
+- Wait for `PLAN_MODE_RESULTS` payload before continuing; do NOT write the plan inline
 
 After receiving `PLAN_MODE_RESULTS`, format Step 2 output (IMPLEMENTATION_PLAN YAML) and then emit a `GATE_REQUEST v1` block for user approval (approve / adjust / reject) — see information-gate.md or design-interrogator.md for GATE_REQUEST format.
 
