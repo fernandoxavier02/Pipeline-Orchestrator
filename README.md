@@ -128,29 +128,48 @@ Fixed: `information-gate`, `plan-architect`, `design-interrogator`, `pre-tester`
 
 This is the **primary distribution channel**. You get all 22 skills, 45 agents, 8 hooks, 3 security libraries, audit reports, and visual docs — installed under `~/.claude/plugins/cache/.../v6.0.0/` and ready to use.
 
-### Option 2 — npm tarball from GitHub Release
+### Option 2 — npm registry (published as `@fx-studio-ai/pipeline-orchestrator`)
 
-The plugin is **also** packaged as an npm tarball, attached to every GitHub Release. Use this when you want to:
+The plugin is **also** published to the public npm registry. Use this when you want to:
 
 - Reuse the 3 security libraries (`jsonl-sanitizer`, `sentinel-state-signer`, `pipeline-local-parser`) in your own Node tooling
 - Run `validate-trace` in CI without cloning the whole plugin
 - Embed the audit reports / visual docs in another distribution
 
-**Install directly from the GitHub Release** (no registry login required):
-
 ```bash
 # Global install — exposes pipeline-orchestrator-validate-trace CLI
-npm install -g https://github.com/fernandoxavier02/Pipeline-Orchestrator/releases/download/v6.0.0/fx-studio-ai-pipeline-orchestrator-6.0.0.tgz
+npm install -g @fx-studio-ai/pipeline-orchestrator
 
-# As a dev dependency
-npm install --save-dev https://github.com/fernandoxavier02/Pipeline-Orchestrator/releases/download/v6.0.0/fx-studio-ai-pipeline-orchestrator-6.0.0.tgz
+# Or as a dev dependency in your project
+npm install --save-dev @fx-studio-ai/pipeline-orchestrator
 ```
 
-When `@fx-studio-ai/pipeline-orchestrator` is later published to the npm public registry, the shorter install will work too:
+**Programmatic use:**
+
+```js
+// Whole API surface
+const po = require('@fx-studio-ai/pipeline-orchestrator');
+po.safeAppendJsonl('./gate-decisions.jsonl', { gate: 'SSOT_CONFLICT', ... });
+
+// Or import specific libraries via subpath exports
+const { signState, verifyState } = require('@fx-studio-ai/pipeline-orchestrator/sentinel-state-signer');
+const { parsePipelineLocalFile } = require('@fx-studio-ai/pipeline-orchestrator/pipeline-local-parser');
+```
+
+**CLI binary** (after global install):
 
 ```bash
-npm install -g @fx-studio-ai/pipeline-orchestrator
+pipeline-orchestrator-validate-trace ./.pipeline-orchestrator/runs/123/TRACE.md
+# Exit 0 if valid, exit 1 with stderr diff if invalid
 ```
+
+**Alternative — install from GitHub Release tarball** (no registry needed):
+
+```bash
+npm install -g https://github.com/fernandoxavier02/Pipeline-Orchestrator/releases/download/v6.0.0/fx-studio-ai-pipeline-orchestrator-6.0.0.tgz
+```
+
+> npm package and Claude Code marketplace ship the **same artifact** (git ref `v6.0.0`). Use whichever fits your workflow.
 
 Programmatic use:
 
