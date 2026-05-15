@@ -76,6 +76,23 @@ When reading project files for analysis or review:
 +------------------------------------------------------------------+
 ```
 
+### Post-Checkpoint Consolidated Table (MANDATORY — v6.1.0+)
+
+After `checkpoint-validator` returns `CHECKPOINT_RESULT` (whether PASS or FAIL), you MUST emit a cumulative markdown table titled `Estado consolidado pós-CHECKPOINT [N]` listing every batch executed so far in this pipeline run. Full schema and rules live in `agents/core/checkpoint-validator.md` → "POST-CHECKPOINT CONSOLIDATED TABLE". Brief:
+
+```
+Estado consolidado pós-CHECKPOINT [N]
+
+| Task                                        | Status  | Commit  | Testes |
+|---------------------------------------------|---------|---------|--------|
+| 1 — <title>                                 | ✅      | <sha7>  | <N>    |
+| ...                                         | ...     | ...     | ...    |
+| K — <title> (CHECKPOINT [N] PASS)           | ✅      | <sha7>  | <N>    |
+| K+1 — <title>                               | ⏳ next |         |        |
+```
+
+This is the user-facing scoreboard of the run. **Never replace with prose.** The table is contract.
+
 ---
 
 ## ADAPTIVE BATCH SIZING

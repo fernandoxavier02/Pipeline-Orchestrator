@@ -177,6 +177,52 @@ CHECKPOINT_RESULT:
 
 ---
 
+## POST-CHECKPOINT CONSOLIDATED TABLE (MANDATORY — v6.1.0+)
+
+**After every CHECKPOINT_RESULT with `status: PASS`**, you MUST emit a cumulative markdown table titled `Estado consolidado pós-CHECKPOINT [N]` listing **every batch already executed in the current pipeline run** (not only the one just validated). On `status: FAIL`, emit the same table reflecting state up to the failed batch (mark the failed row's Status with ❌ + error tag).
+
+This is a contract — not a "nice to have". The table is the user-facing scoreboard of the run and replaces ad-hoc prose summaries. The orchestrator (`executor-controller`) mirrors this block; both must produce it.
+
+### Schema (markdown table — fixed column order)
+
+| Column | Source | Format |
+|---|---|---|
+| **Task** | Task ID from PLAN.md (e.g., `1 — Install + ADRs + workspace`) | `<N> — <short task title>` |
+| **Status** | Cumulative checkpoint state per batch | `✅` (PASS) / `❌ <fail-tag>` (FAIL) / `⏳ next` (pending, next up) / `⏳` (pending, later) |
+| **Commit** | Atomic commit SHA produced by the batch | Short SHA (7 chars). Empty if not yet committed. |
+| **Testes** | Cumulative passing test count after this batch's checkpoint | Integer (full suite count). Use `—` for pending batches. |
+
+### Required emission template
+
+```
+Estado consolidado pós-CHECKPOINT [N]
+
+| Task                                        | Status  | Commit  | Testes |
+|---------------------------------------------|---------|---------|--------|
+| 1 — <title>                                 | ✅      | <sha7>  | <N>    |
+| 2 — <title>                                 | ✅      | <sha7>  | <N>    |
+| ...                                         | ...     | ...     | ...    |
+| K — <title> (CHECKPOINT [N])                | ✅      | <sha7>  | <N>    |
+| K+1 — <title>                               | ⏳ next |         |        |
+| K+2 — <title>                               | ⏳      |         |        |
+```
+
+### Rules
+
+1. **Always cumulative** — every batch since batch 1, not only the current one.
+2. **Commit column reflects atomic commits** — if `executor-controller` produced multiple commits in a batch, use the last (release-tagging) commit. If commit was deferred (review pending), leave empty.
+3. **Tests column is the full passing count after the batch's regression promotion** — pulled from `CHECKPOINT_RESULT.tests.passed` (full suite, not delta).
+4. **Pending batches stay visible** — list every task in the plan, mark `⏳ next` for the immediately upcoming one and `⏳` for the rest.
+5. **CHECKPOINT N label** — append `(CHECKPOINT [N] part [k])` or `(CHECKPOINT [N] PASS)` to the row that triggered the checkpoint, so the reader can tie batches to checkpoint events.
+6. **Failure tag** — on FAIL, replace `✅` with `❌ <STOP_RULE | BUILD_FAIL | TEST_FAIL | REGRESSION>`.
+7. **No prose substitute** — never replace the table with bullets or prose. The table is the contract.
+
+### Why this is mandatory
+
+The user reads this table to understand "where are we, how many tests are green, what's next" at a glance. Without it, batch-by-batch YAML output forces the reader to reconstruct state mentally across messages — exactly the failure mode this contract eliminates.
+
+---
+
 ## TDD PROMOTION & REGRESSION TRACKING
 
 After a batch passes ALL checks, its TDD tests are **promoted** to the regression suite.
