@@ -14,3 +14,6 @@ pipeline-runs/
 
 # Local Claude Code worktrees managed by superpowers/git-worktrees skill
 .claude/worktrees/
+
+# npm pack tarballs — published to GitHub Releases instead
+*.tgz
