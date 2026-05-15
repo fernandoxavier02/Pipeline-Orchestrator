@@ -5,6 +5,82 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.0.0] - 2026-05-15 — Comprehensive Audit + Hardening (MAJOR)
+
+**Major release.** First full external audit cycle (over the IFRS 16 reference project) plus three hardening waves (Fase D / Fase H / Fase I). All 12 CRITICAL findings resolved, audit surface coverage went from 30% to 95%, three new security mitigation libraries shipped, regression suite expanded to 39 tests, full visual documentation overhaul.
+
+### Why this is a major version bump
+
+- Behavioral contract change: **16 subagents now declare the Achado #7 RUNTIME PROTOCOL section explicitly** (was: 2 of 19 in v5.2.0). Subagents that previously fell back to prose questions when their input was ambiguous now MUST emit structured `GATE_REQUEST v1` / `PLAN_MODE_REQUEST v1` blocks. Consumers that parsed prose output need to migrate to the structured payloads.
+- Constant rename: `STALE_THRESHOLD_MS` and `STALE_HEARTBEAT_MS` renamed to canonical `STALE_SPAWN_THRESHOLD_MS` / `STALE_HEARTBEAT_THRESHOLD_MS`. Old names preserved as deprecated aliases through v6.0.x; removal scheduled for v6.1.0.
+- New SSOT documents: `references/stale-thresholds.md`, `docs/audits/2026-05-15-ifrs16-deep-audit/`, `docs/diagrams/`.
+
+### Added
+
+- **`lib/sentinel-state-signer.cjs`** (I4) — HMAC-SHA256 integrity signature for `sentinel-state.json`. Mitigates audit finding H1-002 (sentinel-hook fail-open admitted by design). Auto-generated 32-byte key at `~/.claude/plugins/cache/.../v6.0.0/.hmac-key` (chmod 600). Strict and migration modes. Uses `crypto.timingSafeEqual` against timing attacks.
+- **`lib/jsonl-sanitizer.cjs`** (I5) — Safe append API for `gate-decisions.jsonl` and `protocol-events.jsonl`. Mitigates audit findings B1-005 and H6-001 (JSONL injection demonstrated breaking parse). Allowlist of 8 / 15 keys, strict `JSON.stringify`, 200-char truncation per Inline Invariant 2, round-trip validation before write, drops unknown keys silently.
+- **`lib/pipeline-local-parser.cjs`** (I6) — Strict parser for `.claude/pipeline.local.md`. Mitigates audit finding H6-002 (RCE potential via shell metacharacters in `build_command`). Parses only YAML frontmatter, whitelists 5 keys, shell-injection guard, path-traversal guard. Validated against real adversarial POC during Fase I.
+- **`references/stale-thresholds.md`** (I7) — SSOT canonical for the three distinct "stale" concepts: STALE_SPAWN (5 min, sentinel-hook) / STALE_HEARTBEAT (10 min, session-lock + edit-guard) / STALE_CONTEXT (24 h, gate registry). Includes decision tree for diagnosing which concept fired.
+- **`docs/diagrams/`** — Visual documentation overhaul. Standalone HTML files renderable in any browser: pipeline overview, Achado #7 protocol, gate hierarchy, audit history timeline.
+- **`docs/audits/2026-05-15-ifrs16-deep-audit/`** — 9 archived reports from the comprehensive audit (canonical contract, decision table, FINAL_CONSOLIDATED_REPORT, PANEL_FINAL, FASE_H_FINDINGS, FASE_H_ADDENDUM, FASE_H_FINAL, FASE_I_FINAL, COMPARISON_v5.2_vs_v5.3, INDEX).
+
+### Fixed — 12 CRITICAL audit findings (100%)
+
+- **B1-001** (D9) — Orphan sentinel state cross-session contamination. Added ORPHAN_CLEANUP mode + 24h TTL contract in `agents/core/sentinel.md`.
+- **B1-004** (D2) — `information-gate` falling back to prose when gap requires user decision. Added ACHADO #7 RUNTIME PROTOCOL section to `agents/core/information-gate.md`.
+- **B5-001** (D2) — `plan-architect` writing plan inline instead of emitting `PLAN_MODE_REQUEST v1`. Added ACHADO #7 RUNTIME PROTOCOL section to `agents/quality/plan-architect.md`.
+- **F3-1** (D2-follow-up, panel adversarial finding) — Schema drift in worked examples (`multiSelect` camelCase, `(Recomendado)` suffix instead of `recommended: true` field, missing `expected_deliverables`). Corrected examples in 16 subagents.
+- **F3-3** (D2-extension, panel adversarial finding) — 14 sibling subagents shared the same protocol-fallback bug. Applied same ACHADO #7 section to `design-interrogator`, `pre-tester`, `executor-fix`, `executor-implementer-task`, `spec-closer`, `feature-implementer`, `bugfix-diagnostic-agent`, `bugfix-root-cause-analyzer`, `bugfix-regression-tester`, `ux-simulator`, `ux-accessibility-auditor`, `ux-qa-validator`, `architecture-reviewer`, `sanity-checker`.
+- **H1-NEW-001 / H1-NEW-002 / H1-NEW-003** (D2-extension-v2, second-pass audit) — `sanity-checker`, `checkpoint-validator`, and `bugfix-regression-tester` still fell back to prose despite D2-extension append. Added explicit ACHADO #7 PROSE-FALLBACK GUARD note at the **top** of each spec (LLMs prioritize top-of-file). Empirically validated in runtime re-test.
+- **H1-002** (I4) — sentinel-hook fail-open by design. Mitigated by HMAC signature library.
+- **H6-001** (I5) — JSONL injection (POC demonstrated parse break with quotes). Mitigated by sanitizer library.
+- **H6-002** (I6) — `pipeline.local.md` accepted shell injection (`build_command: "echo PWNED && rm -rf /"` would execute). Mitigated by sandbox parser library, validated against the real POC.
+
+### Fixed — HIGH findings
+
+- **H1-001** — `dispatch-guard.cjs` table `AGENT_LEAF_TO_FQN` was missing `brainstorm-controller`, `step-00-intake`, `step-01-explore`. The hook's own test suite was failing. Added the 3 entries; suite went from 6/7 to 13/13 PASS.
+- **H1-003** (I7) — STALE_THRESHOLD drift across hooks (5 min) vs registry (24 h). Created SSOT `references/stale-thresholds.md`, renamed constants to canonical names, added cross-references in `references/gates.md`, `commands/pipeline.md`, `agents/core/sentinel.md`.
+
+### Tests
+
+- **39 regression tests** total in `tests/regression/v6.0.0/`:
+  - `D2_test_subagent_protocol.cjs` — 16 tests (1 per subagent) validating Achado #7 section + schema rules + placeholder leak detection
+  - `D9_test_orphan_cleanup_spec.cjs` — 1 test
+  - `I4_I5_I6_lib_test.cjs` — 14 tests covering signer + sanitizer + parser
+  - `I7_stale_thresholds_consistency.cjs` — 8 tests covering SSOT + canonical names + cross-refs
+- **Hook test suite** — 7/7 PASS (was 6/7 in v5.2.0; dispatch-guard now green).
+- Two BDD Gherkin feature files documenting expected runtime behavior.
+- Audit coverage milestone: **22/22 gate registry entries exercised in runtime** (was 5/22 in v5.2.0).
+
+### Runtime evidence (Fase G)
+
+After applying D2, re-dispatched `information-gate` with the original B1-004 scenario. Subagent now emits `GATE_REQUEST v1` block with `multi_select: false`, `recommended: true` field, AWAITING_GATE_RESPONSES status. Re-dispatched `plan-architect` with B5-001 scenario; subagent emits `PLAN_MODE_REQUEST v1` with concrete `plan_id`, `expected_deliverables`, `research_scope`, and explicitly states *"plan will NOT be emitted inline"*.
+
+### Breaking changes
+
+1. **Subagent output format** — Subagents that previously emitted prose questions now emit structured YAML blocks. Consumers parsing tool results must look for `=== GATE_REQUEST v1 ===` / `=== PLAN_MODE_REQUEST v1 ===` / `=== DISPATCH_REQUEST v1 ===` blocks.
+2. **Constant rename** — `STALE_THRESHOLD_MS` → `STALE_SPAWN_THRESHOLD_MS` (sentinel-hook), `STALE_HEARTBEAT_MS` → `STALE_HEARTBEAT_THRESHOLD_MS` (edit-guard-hook). Old names exported as deprecated aliases through v6.0.x; removal scheduled for v6.1.0.
+3. Worked-example schema in 16 subagents now uses `multi_select` (snake_case) and `recommended: true` field. Consumers generating these blocks programmatically must update to the canonical shape.
+
+### Migration
+
+No code changes required for normal users invoking `/pipeline-orchestrator:pipeline` or `/pipeline-orchestrator:brainstorm`. The plugin behaves as before; the changes harden the runtime contract.
+
+External tools that **parse subagent output** must migrate from prose-style A/B questions to structured YAML blocks. See `references/gate-request-protocol.md` for the canonical schema.
+
+External tools that **import hook constants** should switch from `STALE_THRESHOLD_MS` / `STALE_HEARTBEAT_MS` to the canonical `STALE_*_THRESHOLD_MS` names.
+
+### Audit artifacts
+
+Full audit trail in `docs/audits/2026-05-15-ifrs16-deep-audit/`:
+- `INDEX.md` — reading order + summary
+- `_canonical_contract.md` — audit ground truth
+- `FINAL_CONSOLIDATED_REPORT.md` — phase B+D matrix
+- `PANEL_FINAL.md` — 3-persona consolidation (Anthropic Senior Auditor + Claude Code Engineer + Redteam)
+- `FASE_H_FINDINGS.md`, `FASE_H_ADDENDUM.md`, `FASE_H_FINAL.md` — second-pass deep audit
+- `FASE_I_FINAL.md` — residual coverage + 3 security libraries
+- `COMPARISON_v5.2_vs_v5.3.md` — pre/post comparison with runtime evidence
+
 ## [5.2.0] - 2026-05-08 — Achados 1-7 reconciliation + GATE_REQUEST/DISPATCH_REQUEST protocol (PROMOTED FROM rc.2)
 
 **Minor release.** Promoted from v5.2.0-rc.2 with identical content. User authorized direct promotion for distribution to all marketplace consumers — `/plugins update` (default mode) on any client now receives this version automatically. The 5 follow-ups deferred to v5.2 final (A.4 state persistence, A.5 orphan-lock auto-cleanup, A.6 runtime test framework, A.13 dispatch_id retry collision, A.14 exec-window protocol migration) are **acknowledged known limitations**, not blockers — they degrade gracefully in current usage.
