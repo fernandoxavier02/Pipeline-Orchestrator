@@ -170,7 +170,7 @@ QUALITY_GATE_APPROVED:
     warnings: []                   # surfaced normalization warnings, if any
   # non_spec_atdd (only when Step 1b activated — MEDIA/COMPLEXA non-spec ATDD)
   non_spec_atdd:
-    applied: false                 # true when Step 1b activated for this run
+    applied: false                 # MUST equal (scenario_count > 0); retained for explicit clarity. Future: v6.2 may deprecate in favor of scenario_count alone.
     scenario_count: 0              # number of Given/When/Then scenarios produced
     ears_continuations_used: false # true if any And/But continuations were used
 ```

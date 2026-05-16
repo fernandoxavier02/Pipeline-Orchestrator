@@ -1,6 +1,6 @@
 {
   "name": "@fx-studio-ai/pipeline-orchestrator",
-  "version": "6.0.0",
+  "version": "6.1.0",
   "description": "End-to-end execution governance for Claude Code. Multi-agent pipeline with TDD, adversarial review, 22-gate registry, glass-box TRACE.md audit trail. Ships with 22 skills, 45 agents, 8 hooks, 3 security libraries.",
   "keywords": [
     "claude-code",

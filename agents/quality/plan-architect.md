@@ -155,6 +155,23 @@ Create a structured plan with:
 - **High risk:** [areas that could break existing behavior]
 - **Migration needed:** [yes/no — schema, data, config]
 - **Rollback strategy:** [how to undo if things go wrong]
+
+### Bounded Contexts (COMPLEXA only)
+
+COMPLEXA pipelines MUST include a Bounded Contexts section per a DDD (Domain-Driven Design) lightweight model. SIMPLES and MEDIA plans are exempt from this section.
+
+The table is intentionally lightweight — exactly 3 columns, no Owner/Team/Status extras. The goal is to surface domain boundaries and their core invariants, not full DDD strategic design.
+
+| Context | Aggregate Root | Key Invariants |
+|---------|----------------|----------------|
+| <name>  | <aggregate>    | <invariant 1; invariant 2; ...> |
+
+**How to fill:**
+- **Context** — bounded context name (e.g., `payments`, `billing`, `remeasurement`)
+- **Aggregate Root** — the entity that owns transactional consistency in that context (e.g., `Payment`, `Invoice`, `LeaseContract`)
+- **Key Invariants** — semicolon-separated business rules that the aggregate enforces (e.g., `amount > 0; status transitions only via approve()/cancel(); paid_at set only on settled`)
+
+One row per bounded context the plan touches. If the plan crosses contexts, list each context separately and note cross-context coupling in the Risk Assessment section above.
 ```
 
 ### Step 3: Present Plan to User
@@ -200,6 +217,14 @@ IMPLEMENTATION_PLAN:
     - area: "[description]"
       severity: "high | medium | low"
       mitigation: "[strategy]"
+  # COMPLEXA only — SOFT enforcement (Rule 10).
+  # Missing this field on COMPLEXA emits a BOUNDED_CONTEXT_MISSING event (no hard block).
+  bounded_contexts:
+    - context_name: "[e.g., payments]"
+      aggregate_root: "[e.g., Payment]"
+      invariants:
+        - "[e.g., amount > 0]"
+        - "[e.g., status transitions only via approve()/cancel()]"
 ```
 
 ---
@@ -215,6 +240,14 @@ IMPLEMENTATION_PLAN:
 7. **Existing abstractions first** — prefer reusing existing helpers over creating new ones
 8. **Risk transparency** — call out what could break
 9. **Time-box:** SIMPLES tasks with --plan should have max 5 tasks in the plan
+10. **Bounded Contexts (COMPLEXA only — SOFT enforcement):** COMPLEXA plans MUST include a Bounded Contexts section (DDD lightweight model — 3 columns: Context | Aggregate Root | Key Invariants) and a matching `bounded_contexts:` array in the IMPLEMENTATION_PLAN YAML. Enforcement is SOFT — when the section or YAML array is missing on a COMPLEXA plan, the pipeline emits a `BOUNDED_CONTEXT_MISSING` event into the audit trail and proceeds (no hard block). This is intentionally NOT a registered gate row in `references/gates.md` — it is a SOFT advisory event only. SIMPLES and MEDIA plans are exempt and emit no event.
+
+    **Emission contract** (informational — plan-architect is read-only and does NOT emit; the parent does):
+    - **Emitter:** `pipeline-controller`, after parsing the IMPLEMENTATION_PLAN YAML returned by plan-architect, when `complexity == "COMPLEXA"` AND the `bounded_contexts` field is absent or empty.
+    - **Channel:** `{PIPELINE_DOC_PATH}/protocol-events.jsonl` (NOT `gate-decisions.jsonl` — this event is intentionally not a registered gate, preserving the locked 22-gate count enforced by D7-S8 against `references/gates.md`).
+    - **Schema:** `{event: "BOUNDED_CONTEXT_MISSING", phase: "1.5", gate_id: "bounded-context-missing-batch-<N>", target_kind: "plan", target_name: <plan_path>, violation_type: "soft-advisory", timestamp: <ISO 8601>, decided_by: "pipeline-controller", detail: "COMPLEXA plan missing bounded_contexts section"}` — all fields conform to `ALLOWED_PROTOCOL_EVENT_KEYS` in `lib/jsonl-sanitizer.cjs:44-49`. Semantic mapping: `hardness: SOFT` → `violation_type: "soft-advisory"`; `batch: <N>` → embedded in `gate_id`; `plan_path` → `target_kind: "plan"` + `target_name: <path>`.
+    - **Lifecycle:** WARNING only — pipeline continues without blocking; the event exists for audit trail / coaching review and shows up in post-run reports.
+    - **Status:** SPEC-ONLY (v6.1.0) — producer not yet wired; pipeline-controller emission routine slated for v6.2. See CHANGELOG v6.1.0 forward dependencies.
 
 ---
 

@@ -140,7 +140,7 @@ Rules:
 2. At least one `Scenario:` block; additional scenarios MAY be added to cover edge cases or each acceptance criterion individually.
 3. Each scenario MUST contain at least one `Given`, one `When`, and one `Then` step. `And`/`But` continuations are permitted.
 4. Derive scenarios from the slice's `acceptance_criteria` (Step 3) — do NOT invent behavior not implied by the criteria. If a criterion cannot be expressed in Given/When/Then form, return NEEDS_INFO instead of guessing.
-5. The artifact is a **read-only planning output** in this step — you emit it as a planned file in your output; actual write happens via the executor-controller's artifact-persist routine. You yourself remain read-only (Iron Law preserved).
+5. The artifact is a **read-only planning output** in this step — you emit it as a planned file in your output; actual write will happen via the executor-controller's artifact-persist routine (v6.2 forward dependency — not yet wired; for v6.1.0 the artifact path is a planned output only, no file is created at slice-planning time). You yourself remain read-only (Iron Law preserved).
 
 **Per-slice yaml field:** Each slice block in the OUTPUT MUST carry a `bdd_artifact` field with the path string above.
 

@@ -5,6 +5,28 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.1.0] - 2026-05-15 — ATDD/BDD/DDD Workflow Contracts (MINOR)
+
+**Minor release.** Adds three lightweight workflow contracts on top of the v6.0.0 hardening base, all SOFT-enforced and proportional to complexity. Producer-side wiring only — downstream consumers tracked as forward dependencies for v6.2.
+
+### Added
+
+- **D5 (ATDD)**: non-spec Given/When/Then normalization in quality-gate-router (Step 1b, MEDIA/COMPLEXA only, EARS And/But continuations allowed; SIMPLES/Spec exempt). Field `non_spec_atdd.applied` set when `scenario_count > 0`.
+- **D6 (BDD)**: Gherkin artifact emission per slice in feature-vertical-slice-planner (Step 3b, flat naming `.pipeline/artifacts/bdd/SLICE-NN.feature`). Adds `bdd_artifact` field to slice planning output.
+- **D7 (DDD)**: Bounded Contexts section in plan-architect (lightweight 3-column COMPLEXA-only contract, SOFT enforcement via `BOUNDED_CONTEXT_MISSING` event in `protocol-events.jsonl` using the canonical schema). MEDIA/SIMPLES exempt.
+- **4 new regression tests** in `tests/regression/v6.1.0/`:
+  - `D5_atdd_quality_gate_router.cjs` (10 scenarios — Given/When/Then normalization + EARS And/But)
+  - `D6_bdd_gherkin_output_contract.cjs` (8 scenarios — flat naming + bdd_artifact field shape)
+  - `D7_ddd_bounded_contexts_contract.cjs` (9 scenarios — 3-column contract + SOFT event emission)
+  - `B4_cross_cutting_docs.cjs` (10 scenarios — CHANGELOG/CLAUDE.md/plugin.json wiring + regression guards)
+
+### Forward dependencies / known limitations
+
+- `bdd_artifact` field is producer-only — no downstream consumer wired (v6.2 target).
+- `gherkin_content` per slice + executor-controller persist routine missing (v6.2 target).
+- `SLICE-NN` zero-pad capped at 2 digits; behavior undocumented at >=100 slices.
+- Batch 1 MINORs deferred: regex tightness in D5-S2/S5 assertions; `bdd_artifact` has no consumer (A2_R1 noted above); `non_spec_atdd.applied` is redundant with `scenario_count > 0`; ARCH naming consistency (`non_spec_atdd` vs `spec_context_scenarios`).
+
 ## [6.0.0] - 2026-05-15 — Comprehensive Audit + Hardening (MAJOR)
 
 **Major release.** First full external audit cycle (over the IFRS 16 reference project) plus three hardening waves (Fase D / Fase H / Fase I). All 12 CRITICAL findings resolved, audit surface coverage went from 30% to 95%, three new security mitigation libraries shipped, regression suite expanded to 39 tests, full visual documentation overhaul.

@@ -5,11 +5,11 @@
 </div>
 
 <div align="center">
-  <img src="assets/diagrams/hero-banner.svg" alt="Pipeline Orchestrator v6.0.0" width="100%"/>
+  <img src="assets/diagrams/hero-banner.svg" alt="Pipeline Orchestrator v6.1.0" width="100%"/>
 </div>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-6.0.0-7C3AED?style=for-the-badge&logo=git&logoColor=white" alt="Version" />
+  <img src="https://img.shields.io/badge/version-6.1.0-7C3AED?style=for-the-badge&logo=git&logoColor=white" alt="Version" />
   <img src="https://img.shields.io/badge/agents-26-0EA5E9?style=for-the-badge" alt="Agents" />
   <img src="https://img.shields.io/badge/gates-22%2F22-22C55E?style=for-the-badge" alt="Gates" />
   <img src="https://img.shields.io/badge/coverage-95%25-F59E0B?style=for-the-badge" alt="Coverage" />
@@ -77,18 +77,31 @@ No gut feelings. No "it looks fine to me." A number.
 
 ---
 
-## What's New in v6.0.0
+## What's New in v6.1.0
+
+### v6.1.0 (2026-05-15) — Minor: ATDD/BDD/DDD workflow contracts
+
+- **D5** ATDD non-spec branch in `quality-gate-router` (Step 1b, EARS `And`/`But` continuations, MEDIA/COMPLEXA only)
+- **D6** BDD Gherkin emission per slice in `feature-vertical-slice-planner` (Step 3b, flat `.pipeline/artifacts/bdd/SLICE-NN.feature` naming)
+- **D7** DDD Bounded Contexts in `plan-architect` (lightweight 3-column table, COMPLEXA-only, SOFT enforcement via `BOUNDED_CONTEXT_MISSING` audit event — not a registered gate, 22-gate count preserved)
+- 4 new regression test files in `tests/regression/v6.1.0/` (D5 / D6 / D7 / B4) — total 12 regression files (8 v6.0.0 + 4 v6.1.0), 37+ new assertions
+- **SOFT enforcement posture** — contracts are output requirements, not hard blocks; legacy pipelines without these artifacts still work
+
+v6.1.0 builds on v6.0.0 by adding 4 workflow contracts (D5/D6/D7) and 4 regression tests; 22-gate count + Achado #7 protocol unchanged.
+
+### v6.0.0 (2026-05-15) — Major: comprehensive audit + hardening
 
 Version 6.0.0 is a **MAJOR** release following a comprehensive external audit of v5.2.0 over the IFRS 16 reference project. Four hardening waves (Fase B / Fase D / Fase H / Fase I) resolved **all 12 CRITICAL findings**, exercised **22 of 22 registry gates in runtime**, and shipped three new security mitigation libraries.
 
-| Metric | v5.2.0 | v6.0.0 |
-|--------|--------|--------|
-| Subagents with explicit Achado #7 protocol | 2 of 19 | **16 of 19** |
-| Gates exercised in runtime | 5 of 22 | **22 of 22** |
-| Hook test suites green | 6 of 7 | **7 of 7** |
-| Regression tests | 13 | **39** |
-| Audit coverage | 30% | **95%** |
-| CRITICAL findings open | 4 acknowledged | **0** |
+| Metric | v5.2.0 | v6.0.0 | v6.1.0 |
+|--------|--------|--------|--------|
+| Subagents with explicit Achado #7 protocol | 2 of 19 | **16 of 19** | 16 of 19 |
+| Gates exercised in runtime | 5 of 22 | **22 of 22** | 22 of 22 |
+| Hook test suites green | 6 of 7 | **7 of 7** | 7 of 7 |
+| Regression test files | 13 | **8 (v6.0.0)** | **12 (8 + 4 v6.1.0)** |
+| Audit coverage | 30% | **95%** | 95% |
+| CRITICAL findings open | 4 acknowledged | **0** | 0 |
+| Workflow contracts (ATDD/BDD/DDD) | 0 | 0 | **4 added** |
 
 ### New security libraries (`lib/`)
 
@@ -126,7 +139,7 @@ Fixed: `information-gate`, `plan-architect`, `design-interrogator`, `pre-tester`
 /plugin update pipeline-orchestrator
 ```
 
-This is the **primary distribution channel**. You get all 22 skills, 45 agents, 8 hooks, 3 security libraries, audit reports, and visual docs — installed under `~/.claude/plugins/cache/.../v6.0.0/` and ready to use.
+This is the **primary distribution channel**. You get all 22 skills, 45 agents, 8 hooks, 3 security libraries, audit reports, and visual docs — installed under `~/.claude/plugins/cache/.../v6.1.0/` and ready to use.
 
 ### Option 2 — npm registry (published as `@fx-studio-ai/pipeline-orchestrator`)
 
@@ -166,10 +179,10 @@ pipeline-orchestrator-validate-trace ./.pipeline-orchestrator/runs/123/TRACE.md
 **Alternative — install from GitHub Release tarball** (no registry needed):
 
 ```bash
-npm install -g https://github.com/fernandoxavier02/Pipeline-Orchestrator/releases/download/v6.0.0/fx-studio-ai-pipeline-orchestrator-6.0.0.tgz
+npm install -g https://github.com/fernandoxavier02/Pipeline-Orchestrator/releases/download/v6.1.0/fx-studio-ai-pipeline-orchestrator-6.1.0.tgz
 ```
 
-> npm package and Claude Code marketplace ship the **same artifact** (git ref `v6.0.0`). Use whichever fits your workflow — they don't conflict.
+> npm package and Claude Code marketplace ship the **same artifact** (git ref `v6.1.0`). Use whichever fits your workflow — they don't conflict.
 
 ---
 
@@ -505,6 +518,6 @@ MIT © FX Studio AI
 ---
 
 <div align="center">
-  <p><strong>Pipeline Orchestrator v6.0.0</strong> · 2026-05-15</p>
+  <p><strong>Pipeline Orchestrator v6.1.0</strong> · 2026-05-15</p>
   <p>Built by <a href="https://github.com/fernandoxavier02">FX Studio AI</a> · <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator">Source on GitHub</a></p>
 </div>
