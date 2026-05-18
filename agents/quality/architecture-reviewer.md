@@ -105,6 +105,30 @@ For each NEW function/class created:
 | **New constant duplicates existing** | Grep for same value/concept | DUPLICATION: constant already defined at [file:line] |
 | **New type duplicates existing** | Grep for similar type/interface | DUPLICATION: type already exists at [file:line] |
 
+### Step 3b: Implementation Discipline Checks (v6.2.0+)
+
+In addition to Step 3 (Abstraction Reuse), the reviewer MUST run the
+following explicit checks per file in the batch. These come from
+`references/implementation-discipline.md` (§1 scope, §2 minimal diff, §3
+anti-overengineering, §9 blocking, §10 non-blocking). Findings are emitted
+in the standard ARCHITECTURE_FINDING format below using the existing
+`DUPLICATION` / `ARCHITECTURE` / `PATTERN` categories — no new finding
+type is needed.
+
+| # | Check | Trigger | Default severity (per SSOT) | Suggested category |
+|---|-------|---------|-----------------------------|--------------------|
+| 1 | **New abstraction without a second real use case** — `grep`/`Glob` the project for callers of every newly introduced class/interface/helper/wrapper; if only one call site exists (production), this is premature abstraction. | exactly one caller for the new abstraction | NEEDS_REDUCTION (Important) | ARCHITECTURE |
+| 2 | **New file where a local change was sufficient** — verify whether the new file could have been an edit to an existing file in the same module. If yes, flag. | new file has fewer than ~20 lines and is only imported from one existing in-scope file | NEEDS_REDUCTION (Important) | ARCHITECTURE |
+| 3 | **Duplicated helper / type / constant** — grep the project for the same name OR the same signature OR the same value/concept; if a match is found, flag. | grep hit on similar signature, identical literal, or equivalent concept | NEEDS_REDUCTION → REJECTED if duplicates a public contract (Important) | DUPLICATION |
+| 4 | **Architecture layer created without necessity** — new folder, new "package", or new internal module that has no second consumer today. | only the batch itself imports the new layer | NEEDS_REDUCTION (Important) | ARCHITECTURE |
+| 5 | **Refactor unrelated to batch scope** — diffs in files that were not required by the task and were not in `CHANGE_CONTRACT.allowed_files`. | edit lives in a file the task did not name | REJECTED (Important — escalates) | ARCHITECTURE |
+| 6 | **Semantic duplication** — same business rule expressed twice with different surface syntax (e.g., one helper, one inline; one regex, one parser doing the same job). Grep for the rule, not just the names. | two implementations of the same observable behavior | NEEDS_REDUCTION (Important) | DUPLICATION |
+| 7 | **Public contract drift** — exported symbol renamed/removed, function signature changed, HTTP route shape changed, event/topic schema changed, or a previously private symbol is now exported. | diff hunk touches an `export`, route declaration, or topic schema | REJECTED unless `CHANGE_CONTRACT.escalation_required_if` lists `public_api_contract_change_without_approval` | ARCHITECTURE |
+
+For every fired check, emit an `ARCHITECTURE_FINDING` (see Finding Format
+below) with the matching category. Evidence MUST include the grep command
+and its actual output per SSOT §7.
+
 ### Step 4: Structural Integrity Check
 
 | Check | How | Finding if fails |
@@ -164,6 +188,11 @@ ARCHITECTURE_REVIEW:
 4. **No implementation** — You ONLY review and report. executor-fix does the work.
 5. **Proportional** — Don't nitpick style on MEDIA; focus on duplication and patterns
 6. **Context efficient** — Use grep, never read entire files for pattern detection
+7. **Implementation Discipline SSOT** — Step 3b checks are sourced from
+   `references/implementation-discipline.md`. When in doubt about severity
+   or verdict mapping, quote the SSOT (PASS / NEEDS_REDUCTION / REJECTED
+   per §8). No new finding category is needed — the existing
+   DUPLICATION / ARCHITECTURE / PATTERN tags cover the discipline checks.
 
 ---
 

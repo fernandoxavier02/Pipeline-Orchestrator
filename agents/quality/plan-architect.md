@@ -217,6 +217,42 @@ IMPLEMENTATION_PLAN:
     - area: "[description]"
       severity: "high | medium | low"
       mitigation: "[strategy]"
+  # MANDATORY for every plan (v6.2.0+ — Implementation Discipline Layer).
+  # Defines the smallest safe change. See `references/implementation-discipline.md`.
+  # Every implementer SCOPE LOCK CHECK and every quality-reviewer
+  # DIFF_DISCIPLINE_REVIEW reads this contract; drift triggers REJECTED.
+  CHANGE_CONTRACT:
+    allowed_files: []              # files the implementer MAY modify
+    allowed_new_files: []          # files the implementer MAY create
+    forbidden_files:               # touching any of these = REJECTED
+      - "package.json"
+      - "package-lock.json"
+      - "pnpm-lock.yaml"
+      - "yarn.lock"
+      - ".env"
+      - ".env.*"
+      - ".github/workflows/*"
+    forbidden_change_types:
+      - "unrequested_feature"
+      - "unrelated_refactor"
+      - "new_dependency_without_approval"
+      - "public_api_contract_change_without_approval"
+      - "schema_migration_without_approval"
+      - "sensitive_config_change_without_approval"
+      - "test_weakened_to_fit_implementation"
+    diff_budget:
+      # Advisory ceilings — plan-architect MUST overwrite these with a real
+      # number derived from the planned task size. The literal 0 below is a
+      # template sentinel ("not yet filled in"); the implementer treats an
+      # unfilled budget as "ask before exceeding the smallest reasonable diff
+      # implied by allowed_files". Reviewers MUST refuse a CHANGE_CONTRACT
+      # that still carries the sentinel zeros at execution time (escalate
+      # back to plan-architect via QUESTIONS).
+      max_files_expected: 0        # REPLACE with planned file count — see SSOT §2
+      max_lines_expected: 0        # REPLACE with planned line count
+      new_abstractions_allowed: false
+      new_modules_allowed: false
+    escalation_required_if: []     # list any planned exceptions (new dep, contract change, migration, ...)
   # COMPLEXA only — SOFT enforcement (Rule 10).
   # Missing this field on COMPLEXA emits a BOUNDED_CONTEXT_MISSING event (no hard block).
   bounded_contexts:
@@ -248,6 +284,19 @@ IMPLEMENTATION_PLAN:
     - **Schema:** `{event: "BOUNDED_CONTEXT_MISSING", phase: "1.5", gate_id: "bounded-context-missing-batch-<N>", target_kind: "plan", target_name: <plan_path>, violation_type: "soft-advisory", timestamp: <ISO 8601>, decided_by: "pipeline-controller", detail: "COMPLEXA plan missing bounded_contexts section"}` — all fields conform to `ALLOWED_PROTOCOL_EVENT_KEYS` in `lib/jsonl-sanitizer.cjs:44-49`. Semantic mapping: `hardness: SOFT` → `violation_type: "soft-advisory"`; `batch: <N>` → embedded in `gate_id`; `plan_path` → `target_kind: "plan"` + `target_name: <path>`.
     - **Lifecycle:** WARNING only — pipeline continues without blocking; the event exists for audit trail / coaching review and shows up in post-run reports.
     - **Status:** SPEC-ONLY (v6.1.0) — producer not yet wired; pipeline-controller emission routine slated for v6.2. See CHANGELOG v6.1.0 forward dependencies.
+
+11. **Implementation Discipline / CHANGE_CONTRACT (MANDATORY for every plan — v6.2.0+):**
+    Every IMPLEMENTATION_PLAN MUST carry a `CHANGE_CONTRACT` block (see Step 2
+    YAML template). The plan-architect MUST define the **smallest safe change**
+    that completes the task and explicitly state — in the prose `Overview` and
+    in the YAML — when **new files, new abstractions, new dependencies, public
+    contract changes, sensitive config changes, or schema migrations are NOT
+    allowed**. Default posture is "not allowed"; allow only what the task
+    actually requires, and list any exception in `escalation_required_if` so
+    the user can approve it. The full discipline rules and verdict alphabet
+    (PASS / NEEDS_REDUCTION / REJECTED) live in
+    `references/implementation-discipline.md` — quote that file as the SSOT
+    when the user asks why a vector is forbidden.
 
 ---
 

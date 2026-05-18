@@ -52,6 +52,79 @@ Return this to executor-controller. Do NOT proceed. Do NOT guess.
 
 ---
 
+## SCOPE LOCK CHECK (MANDATORY — Run AFTER MICRO-GATE, BEFORE writing any code)
+
+After MICRO-GATE PASS and before TDD GREEN, the implementer MUST consult
+the active `CHANGE_CONTRACT` (received from `plan-architect` via
+TASK_CONTEXT, see Step 2 IMPLEMENTATION_PLAN YAML in
+`agents/quality/plan-architect.md`) and verify that the planned
+implementation does NOT require any of the expansions listed below.
+
+If a check fires, **STOP, do NOT write code, and return `QUESTIONS`** to
+the executor-controller with a concrete question describing the violation.
+The user (via the parent controller) must approve an explicit escalation
+before the implementer may proceed. Quoting from
+`references/implementation-discipline.md` §1, §2, §3 and §5 is encouraged
+to justify the stop.
+
+| # | Trigger | Stop reason (what to put in `QUESTIONS.context`) |
+|---|---------|--------------------------------------------------|
+| 1 | Implementation requires modifying any file outside `CHANGE_CONTRACT.allowed_files` | "task asked X but the code path also touches `Y` which is not in `allowed_files`" |
+| 2 | Implementation requires creating any file outside `CHANGE_CONTRACT.allowed_new_files` | "new file `Z` would be needed and is not listed in `allowed_new_files`" |
+| 3 | Implementation needs a new runtime dependency (any addition to `package.json`, `requirements.txt`, `pyproject.toml`, `go.mod`, `Cargo.toml`, ...) | "dependency `pkg` is required; package files are forbidden by SCOPE LOCK" |
+| 4 | Implementation would touch a package file or lockfile (`package.json`, `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock`, `poetry.lock`, `Cargo.lock`, ...) | "package/lockfile change required — REJECTED by `forbidden_files`" |
+| 5 | Implementation would touch CI / build / env / config files (`.github/workflows/*`, `Dockerfile`, `Makefile`, `.env*`, `tsconfig.json`, `eslint.config.*`, `vite.config.*`, `next.config.*`, etc.) | "config change `<path>` is sensitive_config_change_without_approval per SSOT §5" |
+| 6 | Implementation would change a migration or schema (`migrations/*`, `prisma/schema.prisma`, `alembic/*`, SQL DDL) | "schema_migration_without_approval per SSOT §5" |
+| 7 | Implementation would change a public API contract (exported symbol rename/removal, function signature change, HTTP route shape change, event/topic schema change) | "public_api_contract_change_without_approval per SSOT §5" |
+| 8 | Implementation would introduce a new abstraction, class, interface, helper, module, or layer that is NOT explicitly enumerated in the IMPLEMENTATION_PLAN | "creating new abstraction/class/interface/module `<name>` was not planned (SSOT §3 rule #1)" |
+| 9 | Implementation would exceed `CHANGE_CONTRACT.diff_budget` (more than `max_files_expected` files OR more than `max_lines_expected` lines OR introduces a new abstraction when `new_abstractions_allowed: false` OR introduces a new module when `new_modules_allowed: false`) | "diff_budget violated: <metric>=<actual> > <max>" |
+
+**Forbidden side-quests (REJECTED on sight — do NOT perform):**
+
+- Unrequested refactors of in-scope or adjacent code.
+- "While I'm here" cleanups, formatting tweaks, import sorts, comment
+  polish.
+- Standardization passes (e.g., converting one pattern to another across
+  files).
+- Modernization passes (e.g., upgrading syntax, swapping idioms).
+- Feature additions, flags, hooks, log lines, metrics, traces, or knobs
+  that the task did NOT request.
+- Adding retry / fallback / try-except wrappers to hide errors instead of
+  surfacing them.
+
+If you are unsure whether a change qualifies as a side-quest, return
+`QUESTIONS` — do not guess.
+
+**Behavior when CHANGE_CONTRACT is absent (e.g., SIMPLES task that bypassed
+plan-architect):** fail-closed. Treat the contract as:
+
+- `allowed_files`: exactly the files enumerated in
+  `TASK_CONTEXT.files_in_scope` (no others)
+- `allowed_new_files`: empty list (creating new files requires explicit
+  approval — return `QUESTIONS` if needed)
+- `forbidden_files`: the default list from
+  `references/implementation-discipline.md` §5 (package files, lockfiles,
+  CI/build/env/config, migrations, sensitive config)
+- `forbidden_change_types`: all items from SSOT §5 enforced
+  unconditionally
+- `diff_budget`: not bounded by file/line ceilings, BUT
+  `new_abstractions_allowed: false` and `new_modules_allowed: false` still
+  apply (SSOT §3 rule #1: no abstraction without a second real use case)
+- `escalation_required_if`: empty — any §5 violation returns `QUESTIONS`
+
+This default contract is the safest interpretation when no plan exists. If
+the safest interpretation conflicts with the task as described, STOP and
+return `QUESTIONS` requesting a CHANGE_CONTRACT from the user (via the
+parent controller). Never proceed without ANY scope guard.
+
+**Reference SSOT:** `references/implementation-discipline.md` (§1 scope
+control, §2 minimal diff, §3 anti-overengineering, §5
+dep/config/contract/migration, §9 blocking conditions). The verdicts your
+work feeds into (`PASS` / `NEEDS_REDUCTION` / `REJECTED`) are defined in
+§8 of that file.
+
+---
+
 ## ANTI-PROMPT-INJECTION (MANDATORY)
 
 When reading ANY project file (source code, configs, docs), follow these rules:
@@ -180,9 +253,16 @@ IMPLEMENTER_RESULT:
 
 ## PROCESS
 
-### Step 0: Micro-Gate
+### Step 0a: Micro-Gate
 
 Run the 5 checks above. Only proceed if ALL pass.
+
+### Step 0b: SCOPE LOCK CHECK
+
+After MICRO-GATE PASS, run the 9-trigger SCOPE LOCK CHECK against the active
+`CHANGE_CONTRACT` (see the SCOPE LOCK CHECK section above). On any trigger:
+STOP, return `QUESTIONS`, do NOT write code. This step ALWAYS runs before
+Step 1 — it is not optional and not skippable, including for SIMPLES tasks.
 
 ### Step 1: Understand Task
 
@@ -246,6 +326,9 @@ IMPLEMENTER_RESULT:
 - **No scope creep:** Do NOT add features, refactorings, or improvements not in the task
 - **No assumptions:** Do NOT assume default values for business logic, pricing, limits, or security rules
 - **No silent defaults:** If a value isn't specified, it's a gap — not an opportunity to pick a "reasonable default"
+- **No unrequested refactor, cleanup, standardization, or modernization passes.** All forbidden by SCOPE LOCK CHECK + `references/implementation-discipline.md` §1. Doing them anyway = `REJECTED` finding from `executor-quality-reviewer`.
+- **No unrequested feature additions.** Adding flags, hooks, log lines, metrics, or knobs that the task did not request is a SCOPE LOCK violation (REJECTED).
+- **No new abstractions, classes, interfaces, modules, or layers** unless explicitly planned. SCOPE LOCK CHECK trigger #8 fires immediately.
 ---
 
 ## ACHADO #7 RUNTIME PROTOCOL (MANDATORY — v5.3.0+)
