@@ -1,0 +1,717 @@
+{
+  "started_at": "2026-05-18T22:08:52.383Z",
+  "finished_at": "2026-05-18T22:09:11.488Z",
+  "ifrs_root": "/root/projetos/IFRS 16",
+  "temp_branch": "codex/e2e-pipeline-orchestrator-fix-20260518",
+  "base_head": "86c8766de21780617eb85e7576f5aac58082e50d",
+  "base_status_before": "## main...origin/main\n M backend/app/routers/admin.py\n M backend/app/routers/auth.py\n M backend/tests/locustfile.py\n M backend/tests/test_sessions.py\n M backend/tests/test_sessions_e2e.py\n M backend/tests/unit/test_admin_router_branches.py\n M backend/tests/unit/test_auth_router_branches.py\n M docs/VERIFICACAO_ASSINATURA_TESTE.md\n M docs/features/README_TESTES_SESSOES.md\n M docs/features/SISTEMA_SESSOES_SIMULTANEAS.md\n M frontend/legacy/assets/js/auth-flow.js\n M frontend/legacy/assets/js/auth.js\n M frontend/legacy/assets/js/companies.js\n M frontend/legacy/assets/js/contracts.js\n M frontend/legacy/assets/js/document-manager.js\n M frontend/legacy/assets/js/route-protection.js\n M frontend/legacy/assets/js/session-manager.js\n",
+  "spec_exists": false,
+  "source_canonical": "/root/projetos/pipeline-orchestrator/repo",
+  "plugin_under_test": "/root/projetos/pipeline-orchestrator-codex/repo",
+  "matrix": [
+    {
+      "modality": "full",
+      "interpreted_mode": "full",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-08-54-171Z-ifrs16-e2e-full"
+    },
+    {
+      "modality": "diagnostic",
+      "interpreted_mode": "diagnostic",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-08-54-585Z-ifrs16-e2e-diagnostic"
+    },
+    {
+      "modality": "continue",
+      "interpreted_mode": "continue",
+      "variant": "plan-skipped",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [],
+      "gates_persisted": [
+        "CONTINUE_STATE"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 0,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "BLOCKED",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-08-55-020Z-continue"
+    },
+    {
+      "modality": "review-only",
+      "interpreted_mode": "review-only",
+      "variant": "plan-skipped",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [],
+      "gates_persisted": [
+        "AGENT_RUNTIME"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 0,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "BLOCKED",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-08-55-516Z-review-only"
+    },
+    {
+      "modality": "--simples",
+      "interpreted_mode": "--simples",
+      "variant": "plan-skipped",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-08-56-021Z-ifrs16-e2e-simples"
+    },
+    {
+      "modality": "--media",
+      "interpreted_mode": "--media",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-08-56-518Z-ifrs16-e2e-media"
+    },
+    {
+      "modality": "--complexa",
+      "interpreted_mode": "--complexa",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-08-57-024Z-ifrs16-e2e-complexa"
+    },
+    {
+      "modality": "--plan",
+      "interpreted_mode": "--plan",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-08-57-516Z-ifrs16-e2e-plan"
+    },
+    {
+      "modality": "--grill",
+      "interpreted_mode": "--grill",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-08-58-018Z-ifrs16-e2e-grill"
+    },
+    {
+      "modality": "--hotfix",
+      "interpreted_mode": "--hotfix",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-08-58-470Z-ifrs16-e2e-hotfix"
+    },
+    {
+      "modality": "audit",
+      "interpreted_mode": "audit",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-08-58-950Z-ifrs16-e2e-audit"
+    },
+    {
+      "modality": "audit-light",
+      "interpreted_mode": "audit-light",
+      "variant": "plan-skipped",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-08-59-512Z-ifrs16-e2e-audit-light"
+    },
+    {
+      "modality": "audit-heavy",
+      "interpreted_mode": "audit-heavy",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-09-00-238Z-ifrs16-e2e-audit-heavy"
+    },
+    {
+      "modality": "audit-only",
+      "interpreted_mode": "audit-only",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-09-01-059Z-ifrs16-e2e-audit-only"
+    },
+    {
+      "modality": "bugfix",
+      "interpreted_mode": "bugfix",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-09-01-956Z-ifrs16-e2e-bugfix"
+    },
+    {
+      "modality": "bugfix-light",
+      "interpreted_mode": "bugfix-light",
+      "variant": "plan-skipped",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-09-02-735Z-ifrs16-e2e-bugfix-light"
+    },
+    {
+      "modality": "bugfix-heavy",
+      "interpreted_mode": "bugfix-heavy",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-09-03-306Z-ifrs16-e2e-bugfix-heavy"
+    },
+    {
+      "modality": "feature",
+      "interpreted_mode": "feature",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-09-03-807Z-ifrs16-e2e-feature"
+    },
+    {
+      "modality": "feature-light",
+      "interpreted_mode": "feature-light",
+      "variant": "plan-skipped",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-09-04-550Z-ifrs16-e2e-feature-light"
+    },
+    {
+      "modality": "feature-heavy",
+      "interpreted_mode": "feature-heavy",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-09-05-160Z-ifrs16-e2e-feature-heavy"
+    },
+    {
+      "modality": "spec",
+      "interpreted_mode": "spec",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-09-05-932Z-ifrs16-e2e-spec"
+    },
+    {
+      "modality": "spec-light",
+      "interpreted_mode": "spec-light",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-09-06-591Z-ifrs16-e2e-spec-light"
+    },
+    {
+      "modality": "spec-heavy",
+      "interpreted_mode": "spec-heavy",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-09-07-196Z-ifrs16-e2e-spec-heavy"
+    },
+    {
+      "modality": "spec-audit-only",
+      "interpreted_mode": "spec-audit-only",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-09-07-808Z-ifrs16-e2e-spec-audit-only"
+    },
+    {
+      "modality": "review",
+      "interpreted_mode": "review",
+      "variant": "default",
+      "dispatch_mode": "adapter-fake",
+      "phases_reached": [
+        "0",
+        "1",
+        "1.5",
+        "2",
+        "3"
+      ],
+      "gates_persisted": [
+        "TDD_APPROVAL",
+        "ADVERSARIAL_GATE",
+        "CLOSEOUT_CONFIRM"
+      ],
+      "protocol_events_exists": true,
+      "protocol_event_count": 8,
+      "gate_decisions_exists": true,
+      "next_step_exists": true,
+      "brainstorm_step_1_7": "not-applicable-for-fixture",
+      "final_status": "BLOCKED",
+      "runtime_status": "PASS",
+      "blockers": [
+        "published audit spec missing: .kiro/specs/pipeline-meta-ifrs16-modalities-audit"
+      ],
+      "pipeline_doc_path_in_removed_worktree": "<worktree>/.pipeline/docs/codex-operational/2026-05-18T22-09-08-440Z-ifrs16-e2e-review"
+    }
+  ]
+}
