@@ -38,6 +38,7 @@
     "./jsonl-sanitizer": "./lib/jsonl-sanitizer.cjs",
     "./sentinel-state-signer": "./lib/sentinel-state-signer.cjs",
     "./pipeline-local-parser": "./lib/pipeline-local-parser.cjs",
+    "./codex-operational-runtime": "./lib/codex-operational-runtime.cjs",
     "./package.json": "./package.json"
   },
   "bin": {
@@ -61,6 +62,8 @@
     "CLAUDE.md"
   ],
   "scripts": {
+    "lint:types": "node scripts/lint-types.cjs",
+    "build": "node scripts/build.cjs",
     "test": "node scripts/run-tests.cjs",
     "test:regression": "node scripts/run-tests.cjs --regression",
     "test:hooks": "node scripts/run-tests.cjs --hooks",

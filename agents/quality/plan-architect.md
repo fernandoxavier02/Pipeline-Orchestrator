@@ -134,6 +134,7 @@ Create a structured plan with:
 ### Overview
 - **Goal:** [1 sentence]
 - **Approach:** [2-3 sentences describing the strategy]
+- **Smallest safe change:** [1-2 sentences naming the minimal edit that solves the task. Explicitly state whether new files, new abstractions, new dependencies, public contract changes, sensitive config changes, or schema migrations are allowed. Default for every category is "not allowed" — opt-in must be justified inline. See `references/implementation-discipline.md` §2.]
 - **Files to create:** [N]
 - **Files to modify:** [N]
 - **Estimated tasks:** [N]
@@ -225,6 +226,34 @@ IMPLEMENTATION_PLAN:
       invariants:
         - "[e.g., amount > 0]"
         - "[e.g., status transitions only via approve()/cancel()]"
+  # MANDATORY for all complexities — SSOT: references/implementation-discipline.md.
+  # CHANGE_CONTRACT defines the diff boundary the implementer must NOT cross.
+  # The executor-quality-reviewer compares the actual diff against this contract
+  # in its Diff Discipline Review step and returns PASS / NEEDS_REDUCTION / REJECTED.
+  CHANGE_CONTRACT:
+    allowed_files: []                 # paths the implementer is allowed to MODIFY
+    allowed_new_files: []             # paths the implementer is allowed to CREATE
+    forbidden_files:
+      - "package.json"
+      - "package-lock.json"
+      - "pnpm-lock.yaml"
+      - ".env"
+      - ".github/workflows/*"
+    forbidden_change_types:
+      - "unrequested_feature"
+      - "unrelated_refactor"
+      - "new_dependency_without_approval"
+      - "public_api_contract_change_without_approval"
+      - "schema_migration_without_approval"
+      - "sensitive_config_change_without_approval"
+      - "test_weakened_to_fit_implementation"
+    diff_budget:
+      max_files_expected: 0           # upper bound; exceeding requires STOP + question
+      max_lines_expected: 0           # upper bound; exceeding requires STOP + question
+      new_abstractions_allowed: false # interfaces/base classes/strategy patterns
+      new_modules_allowed: false      # new files/folders/packages
+    escalation_required_if: []        # explicit list of normally-forbidden changes the
+                                      # user pre-authorized (e.g., "new dependency: redis")
 ```
 
 ---
@@ -248,6 +277,8 @@ IMPLEMENTATION_PLAN:
     - **Schema:** `{event: "BOUNDED_CONTEXT_MISSING", phase: "1.5", gate_id: "bounded-context-missing-batch-<N>", target_kind: "plan", target_name: <plan_path>, violation_type: "soft-advisory", timestamp: <ISO 8601>, decided_by: "pipeline-controller", detail: "COMPLEXA plan missing bounded_contexts section"}` — all fields conform to `ALLOWED_PROTOCOL_EVENT_KEYS` in `lib/jsonl-sanitizer.cjs:44-49`. Semantic mapping: `hardness: SOFT` → `violation_type: "soft-advisory"`; `batch: <N>` → embedded in `gate_id`; `plan_path` → `target_kind: "plan"` + `target_name: <path>`.
     - **Lifecycle:** WARNING only — pipeline continues without blocking; the event exists for audit trail / coaching review and shows up in post-run reports.
     - **Status:** SPEC-ONLY (v6.1.0) — producer not yet wired; pipeline-controller emission routine slated for v6.2. See CHANGELOG v6.1.0 forward dependencies.
+
+11. **Change Contract (MANDATORY all complexities):** Every IMPLEMENTATION_PLAN MUST populate the `CHANGE_CONTRACT` YAML block. The contract names the smallest safe change: which files may be modified (`allowed_files`), which may be created (`allowed_new_files`), which are off-limits (`forbidden_files`), which change types are off-limits (`forbidden_change_types`), and the `diff_budget` (file/line caps, plus flags for new abstractions/modules). When a normally-forbidden change is required, the user-authorized exception MUST appear in `escalation_required_if`. The plan MUST state in the Overview's `Smallest safe change` bullet whether new files, abstractions, dependencies, contract changes, config changes, or migrations are allowed — default for every category is "not allowed." Full SSOT: `references/implementation-discipline.md` §1, §2, §5.
 
 ---
 
