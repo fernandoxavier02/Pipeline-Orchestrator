@@ -79,9 +79,10 @@ const AGENT_LEAF_TO_FQN = Object.freeze({
   'ux-accessibility-auditor': 'pipeline-orchestrator:executor:type-specific:ux-accessibility-auditor',
   'ux-qa-validator': 'pipeline-orchestrator:executor:type-specific:ux-qa-validator',
 
-  // brainstorm/ step agents (2 — added v5.3.0 fix H1-001-extension)
+  // brainstorm/ step agents (3 — step-01b-alternatives added v6.2.0 clarification overhaul)
   'step-00-intake': 'pipeline-orchestrator:brainstorm:brainstorm-step-00-intake',
   'step-01-explore': 'pipeline-orchestrator:brainstorm:brainstorm-step-01-explore',
+  'step-01b-alternatives': 'pipeline-orchestrator:brainstorm:brainstorm-step-01b-alternatives',
 
   // quality/ (7 agents)
   'review-orchestrator': 'pipeline-orchestrator:quality:review-orchestrator',

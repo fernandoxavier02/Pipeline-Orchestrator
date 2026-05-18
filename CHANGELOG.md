@@ -5,6 +5,70 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.2.0] - 2026-05-18 — Clarification Overhaul + Alternatives Brainstorming (MINOR)
+
+**Minor release.** The most important step of the pipeline — pre-execution clarification — was rebuilt from a fixed-template question list into an evidence-driven dynamic agent. New step proposes alternative approaches. Drift fix on the complexity matrix. Backward compatible.
+
+### Why this matters
+
+The legacy `step-01-explore.md` asked 7 fixed questions (Goal / Audience / Boundary / Risk / Constraint / Reference / Done check) regardless of what the prompt or project state already revealed. Three failure modes:
+
+1. **Generic asks** — "What's the biggest risk?" with no domain context. The user had to invent the project framing the agent should have read.
+2. **Hidden gaps** — domain-specific risks (PII, streaming, idempotency, timeout) never surfaced because no lens existed for them.
+3. **Theatre questions** — categories that the prompt already answered still got asked, burning turns.
+
+v6.2 fixes this by inverting the contract: the agent MUST read project context BEFORE asking anything, then asks only for *residual* gaps, with evidence citations (file:line) in every option.
+
+### Added
+
+- **`agents/brainstorm/step-01-explore.md` (rewritten)** — 4-phase dynamic agent:
+  - **Phase A (Context analysis, mandatory)** — read CLAUDE.md, pipeline.local.md, `probable_files` from intake, git state. Detect SSOT collisions. Flag domains (auth/payment/PII/migration/concurrency).
+  - **Phase B (Gap inventory)** — 11 lenses (Intent / Scope / Acceptance / Domain risk / Non-functional / Integration / Migration / Failure surface / Test strategy / Pattern alignment / Stakeholders) + domain extensions unlocked by Phase A flags. Each lens marked ANSWERED (with rationale) or generates 0..N gaps. No fixed count.
+  - **Phase C (Ask)** — one `=== GATE_REQUEST v1 ===` per gap, recommendation grounded in cited evidence, no generic template questions.
+  - **Phase D (Record + telemetry)** — writes `02-explore.md` and emits JSONL events.
+- **`agents/brainstorm/step-01b-alternatives.md` (NEW)** — proposes 2-4 alternative approaches across Minimal / Pattern-aligned / Aggressive / Contrarian axes after clarification completes. Auto-skip when prompt is mechanical + zero open lenses + ≤2 files + SIMPLES. User chooses via GATE_REQUEST; implicit plan is always an option.
+- **5 new gate types** in `references/gates.md`:
+  - `CLARIFICATION_GAPS_DETECTED` (AUDIT)
+  - `CLARIFICATION_RESOLVED` (HARD)
+  - `CLARIFICATION_SKIPPED` (SOFT)
+  - `ALTERNATIVES_PROPOSED` (AUDIT)
+  - `ALTERNATIVE_CHOSEN` (SOFT) + `ALTERNATIVES_SKIPPED` (SOFT) + `STEP_01_GAP_LEAKED` (SOFT)
+- **New AUDIT hardness level** — informational telemetry events that never block, never apply confidence penalty, never count toward fidelity scoring. Used so observability events have a first-class gate row instead of masquerading as SOFT/COMPLETED entries.
+- **`docs/audits/2026-05-18-clarification-overhaul-dogfood/`** — dogfood evidence: README, comparison-legacy-vs-v62.md, telemetry-delta.md, full pipeline-runs/ scenario against IFRS 16 `backend/app/routers/contracts.py:232`. 14 telemetry events; 4 anti-invention blockers (streaming / PII-LGPD / result cap / timeout) surfaced that the legacy template would have left for downstream invention.
+
+### Changed
+
+- **`references/complexity-matrix.md`** — drift fix: `Has spec` column for MEDIA changed from `Optional` to `Required (auto-dispatch)`, matching `pipeline-controller.md:281` runtime behavior. Added "Spec Mandate (v6.2+)" subsection explaining `--no-prep` escape hatch and audit trail.
+- **`agents/core/brainstorm-controller.md`** — STEP C table grows from 9 to 10 entries (inserts `1b` between `01-explore` and `02-spec-init`). Numbering note explains backward-compat semantics.
+- **`commands/brainstorm.md`** — description rewritten to reflect new flow; documents the 4 phases of clarification; adds `--skip-alternatives` flag.
+- **Gate registry** count: 22 → 27.
+
+### Backward compatibility
+
+- Legacy `pipeline-runs/` created pre-2026-05-18 lack `notes.options.alternatives_done` — controller treats missing field as `"auto-skipped"`, resume succeeds without error.
+- Mandatory Gates by Complexity table in `references/gates.md` UNCHANGED — F1 regression test passes by construction (new gates are in a separate section, not in the Mandatory table).
+- AUDIT-hardness events are explicitly excluded from `fidelity-reporter.cjs` math, no scoring regression.
+
+### Telemetry delta vs v6.1 baseline
+
+Measured against `D:/IFRS-16-po-eval/C1-brainstorm-handoff/.pipeline/docs/Pre-Medium-action/2026-05-10-audit-f04/gate-decisions.jsonl`:
+
+- Brainstorm-phase JSONL events: 0 → 14
+- Distinct gate types in registry: 22 → 27
+- Hardness levels: 4 → 5 (+AUDIT)
+- Average evidence-citations per question: ~0.1 → 1.0 (mandatory by contract)
+- Pre-question file reads: 0 → 4 (Phase A required)
+- Anti-invention blockers surfaced at brainstorm phase: 0-1 → 4 (dogfood scenario)
+
+### Cost/value
+
+Brainstorm token spend rises ~3× (legacy ~2.6k → v6.2 ~8.2k). Each invention prevented at the brainstorm phase typically costs 10-50× to fix once it surfaces at adversarial review or in production. Net economics strongly positive on MEDIA and COMPLEXA work.
+
+### Known gaps / forward dependencies
+
+- `--skip-alternatives` flag wired in command but explicit persistence in `brainstorm-controller` STEP A.1 deferred to v6.3 (currently honored via auto-skip rule when conditions match).
+- Regression test for Phase A reading discipline (assert step-01-explore reads at least the `probable_files` set) — recommended but not yet added.
+
 ## [6.1.0] - 2026-05-15 — ATDD/BDD/DDD Workflow Contracts (MINOR)
 
 **Minor release.** Adds three lightweight workflow contracts on top of the v6.0.0 hardening base, all SOFT-enforced and proportional to complexity. Producer-side wiring only — downstream consumers tracked as forward dependencies for v6.2.

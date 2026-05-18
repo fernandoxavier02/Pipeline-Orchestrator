@@ -1,6 +1,6 @@
 ---
 name: brainstorm-controller
-description: Orchestrates the pre-execution brainstorm + spec lifecycle pipeline. Spawned by commands/brainstorm.md or by pipeline-controller STEP 1.7 (auto-dispatch for MEDIA/COMPLEXA/Spec). Handles 9 sequential steps (00-intake → 01-explore → 02-spec-init → 03-spec-requirements → 04-validate-gap → 05-spec-design → 06-validate-design → 07-spec-tasks → 08-handoff). Returns RUN_COMPLETE block to caller.
+description: Orchestrates the pre-execution brainstorm + spec lifecycle pipeline. Spawned by commands/brainstorm.md or by pipeline-controller STEP 1.7 (auto-dispatch for MEDIA/COMPLEXA/Spec). Handles 10 sequential steps (00-intake → 01-explore [dynamic exhaustive clarification, v6.2+] → 01b-alternatives [propose alternative approaches, v6.2+] → 02-spec-init → 03-spec-requirements → 04-validate-gap → 05-spec-design → 06-validate-design → 07-spec-tasks → 08-handoff). Returns RUN_COMPLETE block to caller.
 tools: Read, Write, Glob, Grep, Agent, AskUserQuestion, Bash
 model: opus
 color: blue
@@ -92,7 +92,8 @@ This is partial atomicity — not a true 2-phase commit (Write tool is not trans
 | Step | Phase | Agent / Skill | Skip if |
 |---|---|---|---|
 | 0 | 0 | `agents/brainstorm/step-00-intake.md` | (never skip) |
-| 1 | 0 | `agents/brainstorm/step-01-explore.md` | (never skip) |
+| 1 | 0 | `agents/brainstorm/step-01-explore.md` (dynamic exhaustive clarification, v6.2+) | (never skip) |
+| 1b | 0 | `agents/brainstorm/step-01b-alternatives.md` (propose alternative approaches, v6.2+) | All 4 auto-skip conditions met (mechanical prompt + zero open lenses + ≤2 files + SIMPLES) — see step-01b for definition |
 | 2 | 1 | `pipeline-orchestrator:spec-init` skill | (never skip) |
 | 3 | 1 | `pipeline-orchestrator:spec-requirements` skill | (never skip) |
 | 4 | 1 | `pipeline-orchestrator:validate-gap` skill | `--skip-validate-gap` set OR no git history |
@@ -100,6 +101,8 @@ This is partial atomicity — not a true 2-phase commit (Write tool is not trans
 | 6 | 1 | `pipeline-orchestrator:validate-design` skill | (never skip; loops to step 5 on NO-GO, max 2 retries) |
 | 7 | 1 | `pipeline-orchestrator:spec-tasks` skill | (never skip) |
 | 8 | 2 | (inline AskUserQuestion handoff) | `--no-impl` set |
+
+**Numbering note (v6.2+):** Step 1b is **inserted** as a fractional step to preserve `step_completed` integer semantics in legacy `manifest.yaml` files. When step 1b runs, `step_completed` advances from `1` → `1` (unchanged) until 1b completes, then advances to `2`. Internal tracking uses `notes.options.alternatives_done = true|false|"auto-skipped"`. Legacy runs created before 2026-05-18 lack this field and resume cleanly (controller treats missing field as `"auto-skipped"`).
 
 ### STEP D: Step-06 retry loop
 

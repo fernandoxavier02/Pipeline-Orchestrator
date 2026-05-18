@@ -1,0 +1,37 @@
+run_id: 001-csv-export-contracts
+created_at: 2026-05-18T00:50:00Z
+updated_at: 2026-05-18T01:07:00Z
+status: ready
+phase: 1
+step_completed: 1
+schema_version: 2
+plugin_version: 6.2.0-dogfood
+task: "Adicionar exportação CSV no endpoint /contracts, só contratos ativos"
+classification:
+  type: Feature
+  complexity: MEDIA
+  severity: Medium
+  pipeline_variant: implement-light
+probable_files:
+  - backend/app/routers/contracts.py
+  - backend/app/schemas/contract.py
+  - backend/app/crud.py
+domain_flags:
+  - auth
+  - PII
+notes: |
+  {
+    "options": {
+      "no_impl": false,
+      "skip_validate_gap": false,
+      "skip_alternatives": false,
+      "type": "Feature",
+      "plan_flag": null,
+      "alternatives_done": true
+    },
+    "audit": [
+      "step-01-explore completed via v6.2 dynamic agent — 5 GATE_REQUEST emissions, 6 lenses auto-resolved",
+      "step-01b-alternatives completed — 4 alternatives proposed, A2 chosen (implicit plan)",
+      "Dogfood run: spec lifecycle steps 2-7 not executed in this evaluation; intent is to demonstrate clarification + alternatives behavior only"
+    ]
+  }

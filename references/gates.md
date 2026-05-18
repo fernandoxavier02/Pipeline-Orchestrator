@@ -14,6 +14,7 @@ Each gate has a formal **hardness** level that determines enforcement behavior:
 | **HARD** | Blocks until resolved — pipeline waits for resolution | No | No | Can be resolved by user action (answering questions, approving tests, fixing code). Once resolved, pipeline proceeds. Differs from MANDATORY in that HARD gates have a clear resolution path; MANDATORY gates have no "resolve and continue" — they represent invariants |
 | **CIRCUIT_BREAKER** | Pipeline stops for safety — requires explicit reset | No | Reset only | Triggered by repeated failures. Pipeline cannot continue without user intervention. **Reset procedure:** user is presented with options: (A) retry from Phase 1.5 with re-planning, (B) retry the failed step with different approach, (C) exit pipeline. User must explicitly choose one. The reset choice is logged to gate-decisions.jsonl with `decision: "RESET"` |
 | **SOFT** | Recommended, user can skip with explicit acknowledgment | Yes (logged) | Yes | Always logged when skipped. Skipping applies confidence penalty. Some SOFT gates escalate to HARD when sensitive domains are touched (see Gate Registry) |
+| **AUDIT** (v6.2+) | Informational telemetry — never blocks, never asks | n/a | n/a | Used for observability events that need a first-class gate row in `gate-decisions.jsonl` rather than being smuggled into SOFT/COMPLETED entries. Examples: `CLARIFICATION_GAPS_DETECTED`, `ALTERNATIVES_PROPOSED`. Does NOT count toward fidelity score; does NOT apply confidence penalty |
 
 ---
 
@@ -58,6 +59,20 @@ Each gate has a formal **hardness** level that determines enforcement behavior:
 | STEP_1_7_ROUTING | HARD | Pipeline pre-execution routing decision in STEP 1.7 (load-existing / dispatch-brainstorm / no-prep-override / simples-bypass). | Append entry to gate-decisions.jsonl with the chosen branch. | None — informational. |
 | STEP_1_7_RECURSION_GUARD | CIRCUIT_BREAKER | STEP 1.7 entered >=3 times in same pipeline invocation. | Halt pipeline; emit RUN_PARTIAL with cause. | User re-invokes pipeline (no automatic retry). |
 | STOP_BEFORE_PA_DE_CAL | HARD | verify-completion returned FAIL before final-validator dispatch. | Skip Pa de Cal; set pipeline status NO-GO; write 04-final-report.md with FAIL details. | User addresses verify-completion findings; re-runs pipeline. |
+
+### Brainstorm clarification gates (v6.2.0, dynamic exhaustive clarification + alternatives)
+
+| Gate | Hardness | Trigger | Action | Recovery |
+|------|----------|---------|--------|----------|
+| CLARIFICATION_GAPS_DETECTED | AUDIT | step-01-explore Phase B completes inventory; logs gap count per lens. | Append informational entry to gate-decisions.jsonl with gap totals + lens coverage. | None — informational, drives downstream metrics. |
+| CLARIFICATION_RESOLVED | HARD | User answers a clarification GATE_REQUEST emitted by step-01-explore Phase C. | Append entry per resolved question with `decided_by: user`. | None — answer recorded, controller advances. |
+| CLARIFICATION_SKIPPED | SOFT | step-01-explore Phase A determined a lens was already answered by intake — no question raised. | Append entry per skipped lens with rationale (where intake answered it). | None — confidence-neutral. |
+| ALTERNATIVES_PROPOSED | AUDIT | step-01b-alternatives Phase B emitted N alternative approaches alongside the implicit plan. | Append informational entry with axis list + alternative names. | None — informational. |
+| ALTERNATIVE_CHOSEN | SOFT | User picked an approach from step-01b GATE_REQUEST (implicit plan or named alternative). | Append entry with decision = chosen approach name. | None — choice persisted in 02b-alternatives.md. |
+| ALTERNATIVES_SKIPPED | SOFT | step-01b auto-skip rule satisfied (mechanical + zero open lenses + ≤2 files + SIMPLES). | Append informational entry. | None. |
+| STEP_01_GAP_LEAKED | SOFT | step-01b detected a clarification gap that should have been caught in step-01 Phase B. | Append entry; recommend re-running step-01-explore. | Controller may decide to loop back to step-01 (Phase 0 retry). |
+
+**AUDIT hardness:** new level in the taxonomy as of v6.2.0. Informational only — never blocks, never asks, never penalises confidence. Exists so observability events have a first-class gate row rather than masquerading as SOFT skipped/COMPLETED entries.
 
 **Rules (definitions only — operational write mechanics are in `references/audit-trail.md`):**
 1. When a SOFT gate is skipped, the decision MUST be logged with `decision: "SKIPPED"`. The `final-validator` MUST check this log and factor skipped gates into the GO/CONDITIONAL/NO-GO decision. (Write path mechanics: see `references/audit-trail.md`.)

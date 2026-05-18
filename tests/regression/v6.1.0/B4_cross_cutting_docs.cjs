@@ -79,10 +79,18 @@ test('B4-S4 CLAUDE.md lineage table has a "v2.1" row', () => {
   );
 });
 
-test('B4-S5 plugin.json "version" field is exactly "6.1.0"', () => {
+test('B4-S5 plugin.json "version" field tracks current release (>= 6.1.0)', () => {
+  // Behavioral assertion: plugin.json version is coherent with the most recent
+  // CHANGELOG release. v6.1.0 was the floor when this test was written; later
+  // releases (v6.2.0 clarification overhaul, ...) bump it forward. The test
+  // remains valid as long as the version is at v6.1.0 or above and the
+  // corresponding CHANGELOG section exists (verified in B4-S9).
   const pkg = JSON.parse(fs.readFileSync(PLUGIN_JSON_PATH, 'utf8'));
-  assert.equal(pkg.version, '6.1.0',
-    `expected plugin.json version "6.1.0", got "${pkg.version}"`);
+  const [major, minor] = pkg.version.split('.').map(Number);
+  assert.ok(
+    major > 6 || (major === 6 && minor >= 1),
+    `expected plugin.json version >= 6.1.0, got "${pkg.version}"`
+  );
 });
 
 // ----- REGRESSION -----
@@ -132,19 +140,25 @@ test('B4-S8 plugin.json structural fields preserved (name/author/license/keyword
 
 // ----- EDGE -----
 
-test('B4-S9 Version "6.1.0" appears in CHANGELOG + CLAUDE.md + plugin.json simultaneously', () => {
+test('B4-S9 v6.1.0 release artefacts preserved AND current release coherence', () => {
+  // Two assertions: (a) v6.1.0 history is intact across all three docs; (b)
+  // the CURRENT plugin.json version has matching CHANGELOG + CLAUDE.md anchors.
   const changelog = fs.readFileSync(CHANGELOG_PATH, 'utf8');
   const claudemd = fs.readFileSync(CLAUDE_MD_PATH, 'utf8');
   const pkg = JSON.parse(fs.readFileSync(PLUGIN_JSON_PATH, 'utf8'));
-  // CHANGELOG: must have a [6.1.0] section heading at the top section.
+
+  // (a) Historical preservation — [6.1.0] section must still exist in CHANGELOG
   assert.ok(/^##\s*\[6\.1\.0\]/m.test(changelog),
-    'CHANGELOG.md missing "## [6.1.0]" top section');
-  // CLAUDE.md: must declare 6.1.0 as the canonical version line.
-  assert.ok(/\*\*6\.1\.0\*\*|`6\.1\.0`|version.*6\.1\.0|Atualmente:\s*\*\*6\.1\.0\*\*/i.test(claudemd),
-    'CLAUDE.md must declare 6.1.0 as the canonical "Versão canônica" line');
-  // plugin.json: version exactly 6.1.0.
-  assert.equal(pkg.version, '6.1.0',
-    `plugin.json version must be "6.1.0", got "${pkg.version}"`);
+    'CHANGELOG.md missing historical "## [6.1.0]" section');
+
+  // (b) Current release coherence — plugin.json version must have a matching
+  //     CHANGELOG section AND a CLAUDE.md canonical anchor.
+  const v = pkg.version;
+  const vEsc = v.replace(/\./g, '\\.');
+  assert.ok(new RegExp('^##\\s*\\[' + vEsc + '\\]', 'm').test(changelog),
+    `CHANGELOG.md missing "## [${v}]" section for current plugin.json version`);
+  assert.ok(new RegExp('\\*\\*' + vEsc + '\\*\\*|`' + vEsc + '`|Atualmente:\\s*\\*\\*' + vEsc + '\\*\\*', 'i').test(claudemd),
+    `CLAUDE.md must declare ${v} as the canonical "Versão canônica" line`);
 });
 
 test('B4-S10 CHANGELOG [6.1.0] header matches Keep-a-Changelog `## [6.1.0] - YYYY-MM-DD`', () => {

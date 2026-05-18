@@ -13,13 +13,17 @@ All agents MUST reference this file — never define complexity rules inline.
 | Lines changed | < 30 | 30-100 | > 100 |
 | Domains | 1 | 2 | 3+ |
 | Risk | Low | Medium | High |
-| Has spec | No | Optional | Required |
+| Has spec | No | **Required (auto-dispatch)** | **Required (auto-dispatch)** |
 | Auth impact | No | Maybe | Yes |
 | Data model change | No | Minor | Structural |
 
 ### Boundary Rule
 
 Values at exact boundaries (e.g., exactly 3 files, exactly 30 lines) are classified as the HIGHER complexity level. Example: 3 files = MEDIA, 30 lines = MEDIA.
+
+### Spec Mandate (v6.2+)
+
+For MEDIA and COMPLEXA tasks the brainstorm + spec lifecycle is **mandatory** and **auto-dispatched** by `pipeline-controller` STEP 1.7 (see `agents/core/pipeline-controller.md:266-298`). Bypass requires explicit `--no-prep` flag, which is audited to `gate-decisions.jsonl` (`STEP_1_7_ROUTING`, `decision: no-prep-override`). The previous "Optional for MEDIA" wording in the matrix was documentation drift — corrected here to match runtime behavior. SIMPLES non-Spec tasks remain spec-free.
 
 ### Automatic Elevation Rules
 
