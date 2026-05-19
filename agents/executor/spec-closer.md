@@ -392,3 +392,9 @@ STATUS: AWAITING_DISPATCH_RESULTS
 - Wait for the corresponding response payload (`GATE_RESPONSES` / `PLAN_MODE_RESULTS` / `DISPATCH_RESULTS`) before continuing; do NOT proceed inline
 
 **Full protocol schema and audit trail format:** `references/gate-request-protocol.md`.
+
+---
+
+## Telemetry note (v7.1.0+)
+
+Gate-decision writes use the canonical decision vocabulary — `BLOCKED`, `DISPATCHED`, `SKIPPED`, `APPROVED`, `CONFIRMED`, `REJECTED`, `TRIGGERED`, `NOT_TRIGGERED`. The 8-value canonical set lives in `lib/gate-decision-writer.cjs` (`CANONICAL_DECISIONS`); ad-hoc strings like `PASS`/`COMPLETE`/`GO` are rejected at write time. All gate-decisions.jsonl writes go through `gate-decision-writer.cjs` so events automatically carry the run_id/plugin_version/schema_version/type/complexity correlation envelope.

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/settings.schema.json",
+  "_note": "v7.1.0 — registers the Stop event hook so run-log.jsonl receives a summary line on every session end (including crashes). See .claude/hooks/stop-hook.cjs for SOFT-fail contract; the hook never exits non-zero. The handler reads sentinel-state.json + session.json from the most recently updated pipeline run folder and appends the 12 REQUIRED_FIELDS via lib/run-log.cjs::appendRunLog.",
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/stop-hook.cjs\""
+          }
+        ]
+      }
+    ]
+  }
+}

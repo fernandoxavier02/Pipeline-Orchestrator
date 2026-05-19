@@ -5,6 +5,57 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.1.0] - 2026-05-19 — Telemetry hygiene (MINOR)
+
+**Minor release.** Repairs four telemetry-layer defects surfaced by a self-hosted diagnosis of `.pipeline/docs/` across 20 historical runs. New SSOT writer for `gate-decisions.jsonl`, canonical 8-value decision vocabulary with runtime rejection, auto-correlation envelope, widened `fidelity-reporter` enums with warning surfacing, and a Stop event hook so `run-log.jsonl` no longer loses 19 of 20 runs.
+
+### Why this matters
+
+Pre-v7.1.0 telemetry had four corrosive defects: (1) chaotic `decision` vocabulary (40+ distinct success values like `PASS`, `COMPLETE`, `GO`, `FIXED`, `RESOLVED` — cross-run aggregation impossible); (2) `fidelity-reporter.cjs` silently masked ~55% of real-world events as `(invalid)` with no operator signal; (3) every gate-decision event was missing the correlation envelope (`run_id`, `plugin_version`, `schema_version`, `type`, `complexity`) so analytics required folder-path joins; (4) `run-log.jsonl` aggregate had 1 line for 20 completed runs because no hook fired `appendRunLog` on session end. v7.1.0 fixes all four with defense-in-depth (runtime throw + diff-discipline-reviewer static check) so the drift cannot return silently.
+
+### What's new
+
+- **`lib/gate-decision-writer.cjs` (NEW)** — Hard SSOT writer for every `gate-decisions.jsonl` event.
+  - Canonical 8-value decision vocabulary: `BLOCKED`, `DISPATCHED`, `SKIPPED`, `APPROVED`, `CONFIRMED`, `REJECTED`, `TRIGGERED`, `NOT_TRIGGERED` (3 buckets: runtime-emitted, user-gate-resolved, pipeline-outcome).
+  - 5 canonical hardness classes: `MANDATORY`, `HARD`, `CIRCUIT_BREAKER`, `SOFT`, `AUDIT`.
+  - Throws `TypeError` on unknown decision/hardness values at write time (defense-in-depth).
+  - Auto-injects `run_id` (from `PIPELINE_DOC_PATH` basename), `plugin_version` (cached from `plugin.json` at module load), `schema_version` (`'1'`), `type`, `complexity` into every event.
+  - Exports: `appendGateDecision`, `buildCtx`, `CANONICAL_DECISIONS`, `CANONICAL_HARDNESS`, `SCHEMA_VERSION`, `PLUGIN_VERSION`.
+- **`.claude/hooks/stop-hook.cjs` (NEW)** — Stop event hook with full SOFT-fail wrapper.
+  - Discovers the most recently updated pipeline run folder beneath `.pipeline/docs/`.
+  - Reads `sentinel-state.json` + `session.json` to assemble the 12 `REQUIRED_FIELDS` for `appendRunLog`.
+  - Calls `lib/run-log.cjs::appendRunLog` so every session end (including crashes/aborts) writes one summary line.
+  - Never exits non-zero; all errors swallowed to stderr.
+- **`.claude/settings.json` (NEW)** — Registers `stop-hook.cjs` as a `Stop` event hook.
+- **`lib/fidelity-reporter.cjs` (modified)**
+  - `VALID_HARDNESS` adds `AUDIT` (was missing since v6.2.0 when the hardness class was introduced).
+  - `VALID_DECISION` widens from 6 to all 8 canonical values.
+  - `validateHardness(v, warnings, gate)` and `validateDecision(v, warnings, gate)` now push to a caller-supplied warnings array when an unknown value is encountered (was silently nullified — invisible to operators).
+- **`lib/codex-operational-runtime.cjs` (modified)** — 8 direct `appendJsonl(gate-decisions.jsonl)` call sites converted to use the new SSOT writer via a local `logGateDecision` wrapper. A `normalizeResponseToDecision` helper maps free-text user responses (`approve`, `reject`, `confirm`, `skip`, `dispatch`, `trigger`, `yes`, `no`) to canonical values; unknown responses collapse to `BLOCKED` (safe halt). `initializeArtifacts` accepts `type` + `complexity` and persists them on `session.options` so the correlation envelope is available at every write site.
+- **`lib/jsonl-sanitizer.cjs` (modified)** — `ALLOWED_GATE_DECISION_KEYS` extended with the 5 correlation fields (`run_id`, `plugin_version`, `schema_version`, `type`, `complexity`) so the writer can persist the envelope.
+- **`agents/quality/diff-discipline-reviewer.md` (modified)** — New Step 4b SSOT-Bypass Check static rule flagging any direct `fs.appendFile`/`fs.appendFileSync`/`fs.writeFile`/local `appendJsonl` write into `gate-decisions.jsonl` outside `lib/gate-decision-writer.cjs`. Also flags hard-coded legacy decision strings (`PASS`/`COMPLETE`/`GO`/`AUTO_APPROVED`/`FIXED`/`RESOLVED`) as `legacy_decision_string`.
+- **Agent prose updates (4 files)** — `agents/core/finishing-branch.md`, `agents/core/pipeline-controller.md`, `agents/executor/spec-closer.md`, `agents/brainstorm/step-01b-alternatives.md` now reference the canonical vocabulary and `gate-decision-writer.cjs`.
+- **7 regression tests in `tests/regression/v7.1.0/` (F1-F7)** — Canonical writer (F1), writer migration (F2), agent prose vocab probe (F3), fidelity-reporter widening + warnings (F4), Stop hook structure (F5), settings.json registration (F6), version sync across 4 manifests (F7).
+
+### What does NOT change
+
+- The 22-row Mandatory Gates by Complexity table in `references/gates.md` is untouched (Inline Invariant preserved).
+- The 27-row Gate Registry is untouched.
+- `lib/run-log.cjs` itself unchanged — its `appendRunLog` contract is stable; the Stop hook is a new consumer.
+- All v6.3.0 Implementation Discipline Layer mechanics (CHANGE_CONTRACT, SCOPE LOCK CHECK, diff-discipline-reviewer) intact.
+- Historical events in 20 archived run folders untouched — they remain tolerated as `(invalid)` in fidelity reports (no retroactive migration).
+
+### Deferred to v7.2.0
+
+- Finding #3: gate rename for clarity (`CHECKPOINT_FAIL` is misused for success events; `PLAN_REJECTED` is logged with `decision: NOT_TRIGGERED` when plan was approved). Requires Inline Invariant negotiation.
+- Finding #5: timestamp format normalization (2 historical runs used Unix epoch ms; 1 used ISO 8601 without Z suffix). Cosmetic.
+
+### Distribution
+
+Both channels (Claude Code marketplace + NPM `@fx-studio-ai` scope restricted) ship v7.1.0. Marketplace `source.ref` bumped to `v7.1.0`. Settings.json hook registration requires running `/reload-plugins` after install to pick up the Stop event hook in an existing session.
+
+---
+
 ## [7.0.0] - 2026-05-19 — License update: PolyForm Shield 1.0.0 (MAJOR, license-only)
 
 **Major release. Code identical to v6.3.0. License change only.**

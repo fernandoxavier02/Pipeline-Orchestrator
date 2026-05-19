@@ -161,3 +161,9 @@ git push -u origin hotfix/revert-[short-desc]
 - **Input:** FINAL_DECISION from final-validator (GO | CONDITIONAL | NO-GO)
 - **Output:** CLOSEOUT_ACTION (commit | push+PR | keep | discard)
 - **Documentation:** Saves to `{PIPELINE_DOC_PATH}/03c-finishing-branch.md`
+
+---
+
+## Telemetry note (v7.1.0+)
+
+Gate-decision writes use the canonical decision vocabulary — `BLOCKED`, `DISPATCHED`, `SKIPPED`, `APPROVED`, `CONFIRMED`, `REJECTED`, `TRIGGERED`, `NOT_TRIGGERED`. The 8-value canonical set lives in `lib/gate-decision-writer.cjs` (`CANONICAL_DECISIONS`); ad-hoc strings like `PASS`/`COMPLETE`/`GO` are rejected at write time. All gate-decisions.jsonl writes go through `gate-decision-writer.cjs` so events automatically carry the run_id/plugin_version/schema_version/type/complexity correlation envelope.

@@ -110,6 +110,25 @@ Look for any of the 7 `forbidden_change_types` from `references/implementation-d
 | `sensitive_config_change_without_approval` | Edits to `.env*`, CI workflows, build configs |
 | `test_weakened_to_fit_implementation` | See Step 5 |
 
+### Step 4b — SSOT-Bypass Check (v7.1.0)
+
+`lib/gate-decision-writer.cjs` is the hard SSOT for every write into `gate-decisions.jsonl`. Any direct write that bypasses the helper re-introduces the 40-value-chaos / missing-correlation failure mode that v7.1.0 was created to fix.
+
+Static signals to flag as `REJECTED`:
+
+| Pattern | What it indicates |
+|---|---|
+| `fs.appendFile(*, '*gate-decisions.jsonl*'` | Direct append bypassing the helper |
+| `fs.appendFileSync(*, '*gate-decisions.jsonl*'` | Same, sync variant |
+| `fs.writeFile*(*, '*gate-decisions.jsonl*'` | Even more dangerous — overwrites the audit trail |
+| `appendJsonl(*, '*gate-decisions.jsonl*'`  | Local appendJsonl wrapper bypassing the SSOT — also forbidden |
+
+Exception: `lib/gate-decision-writer.cjs` itself is the single permitted writer; checks above apply to ALL OTHER FILES.
+
+Inverse check (also required): every modified writer in `lib/codex-operational-runtime.cjs` and adjacent runtime files MUST go through `appendGateDecision` (directly) or `logGateDecision` (the local internal wrapper that builds ctx). If a new function emits a gate-decision payload but does not use one of those, flag `REJECTED` with category `ssot_bypass_introduced`.
+
+Canonical decision vocabulary (8 values): `BLOCKED`, `DISPATCHED`, `SKIPPED`, `APPROVED`, `CONFIRMED`, `REJECTED`, `TRIGGERED`, `NOT_TRIGGERED`. Any new code that hard-codes a legacy string like `'PASS'`, `'COMPLETE'`, `'GO'`, `'AUTO_APPROVED'`, `'FIXED'`, `'RESOLVED'` etc. as a `decision` field value is also `REJECTED` with category `legacy_decision_string` — the writer will throw at runtime, but catching it statically is faster feedback.
+
 ### Step 5 — Test Integrity Check (static)
 
 Apply rules from `references/implementation-discipline.md § "Test Integrity Rules"`. Read diffs of `*.test.*`, `*.spec.*`, `__tests__/**`, `tests/**`:

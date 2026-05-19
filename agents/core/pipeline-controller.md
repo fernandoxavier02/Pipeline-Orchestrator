@@ -1511,3 +1511,9 @@ Every agent saves their phase file to PIPELINE_DOC_PATH:
 
 ### Sentinel
 14. **Sentinel state tracking** — `PreToolUse:Agent` hook (`.claude/hooks/sentinel-hook.cjs`) validates every Agent spawn against `expected_next`. On divergence, denies and instructs Claude to spawn sentinel for diagnosis. The 5 mandatory checkpoints (ORCHESTRATOR_VALIDATION, 0→1, 1→2, 2→3, post_final_validator) are defined in `references/sentinel-integration.md`. Handle SENTINEL_VERDICT (PASS/CORRECTED/BLOCKED) per Section 3 of that reference.
+
+---
+
+## Telemetry note (v7.1.0+)
+
+Gate-decision writes use the canonical decision vocabulary — `BLOCKED`, `DISPATCHED`, `SKIPPED`, `APPROVED`, `CONFIRMED`, `REJECTED`, `TRIGGERED`, `NOT_TRIGGERED`. The 8-value canonical set lives in `lib/gate-decision-writer.cjs` (`CANONICAL_DECISIONS`); ad-hoc strings like `PASS`/`COMPLETE`/`GO` are rejected at write time. All gate-decisions.jsonl writes go through `gate-decision-writer.cjs` so events automatically carry the run_id/plugin_version/schema_version/type/complexity correlation envelope.

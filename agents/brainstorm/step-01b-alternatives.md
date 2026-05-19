@@ -143,3 +143,9 @@ After response, write `pipeline-runs/<run_id>/00-brainstorm/02b-alternatives.md`
 1. **False symmetry** — proposing four alternatives just to fill axes. Mitigation: each alternative must answer the "wins when" question with a concrete condition.
 2. **Re-litigating clarification** — using alternatives to surface gaps that should have been Phase B of step-01-explore. Mitigation: if you find a gap, emit `STEP_01_GAP_LEAKED` to telemetry and recommend the user re-run step-01.
 3. **Anchoring on the implicit plan** — making alternatives that are barely-distinguishable variations. Mitigation: each alternative must lie on a different axis (Minimal / Pattern-aligned / Aggressive / Contrarian).
+
+---
+
+## Telemetry note (v7.1.0+)
+
+Gate-decision writes use the canonical decision vocabulary — `BLOCKED`, `DISPATCHED`, `SKIPPED`, `APPROVED`, `CONFIRMED`, `REJECTED`, `TRIGGERED`, `NOT_TRIGGERED`. The 8-value canonical set lives in `lib/gate-decision-writer.cjs` (`CANONICAL_DECISIONS`); ad-hoc strings like `PASS`/`COMPLETE`/`GO` are rejected at write time. All gate-decisions.jsonl writes go through `gate-decision-writer.cjs` so events automatically carry the run_id/plugin_version/schema_version/type/complexity correlation envelope.
