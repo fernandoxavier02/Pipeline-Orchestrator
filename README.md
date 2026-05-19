@@ -177,23 +177,47 @@ Full v6.1.0 design notes in [`CHANGELOG.md`](CHANGELOG.md) §6.1.0. Forward depe
 
 ## Install
 
+The plugin ships through two channels. **Use the marketplace channel for normal Claude Code installs** — it is the public channel and requires no authentication. NPM is restricted (private scope, granular token required) and exists for internal/team installs that want package-manager lifecycle around the plugin source.
+
+### Channel A — Marketplace (recommended, public)
+
 ```bash
-# Once: register the marketplace
+# Once: register the FX-Studio-AI marketplace
 /plugin marketplace add fernandoxavier02/Pipeline-Orchestrator
 
 # Then: install the plugin
 /plugin install pipeline-orchestrator@FX-studio-AI
 ```
 
-That's it. The pipeline becomes available as `/pipeline-orchestrator:pipeline [task]` plus the thin variant entry-points (`/pipeline-orchestrator:bugfix`, `/pipeline-orchestrator:feature`, `/pipeline-orchestrator:audit`, `/pipeline-orchestrator:spec`).
+Updates: `/plugin update pipeline-orchestrator@FX-studio-AI`.
 
-**Verify activation:**
+### Channel B — NPM (restricted scope, team installs)
+
+Published as **`@fx-studio-ai/pipeline-orchestrator`** under the `@fx-studio-ai` scope (`access: restricted` — private by user decision since v6.1.0; marketplace remains the public channel).
+
+```bash
+# Configure scoped registry auth (one-time, per machine)
+echo "@fx-studio-ai:registry=https://registry.npmjs.org/" >> ~/.npmrc
+echo "//registry.npmjs.org/:_authToken=YOUR_NPM_TOKEN" >> ~/.npmrc
+
+# Install
+npm install @fx-studio-ai/pipeline-orchestrator
+
+# Or pin a specific version
+npm install @fx-studio-ai/pipeline-orchestrator@6.3.0
+```
+
+Token requirements: granular token with **Bypass 2FA: enabled** on the `@fx-studio-ai` scope (your NPM account must be in `auth-and-writes` mode for the token to grant publish rights to maintainers).
+
+### Verify activation
 
 ```
 /pipeline-orchestrator:pipeline --diagnostic "add a hello-world endpoint"
 ```
 
 If the plugin is live, you will see classification output (SIMPLES/MEDIA/COMPLEXA), pipeline variant selection, and `INFORMATION_GATE: CLEAR` — without any code being written.
+
+After installing via either channel, `/pipeline-orchestrator:pipeline [task]` plus the thin variant entry-points (`/pipeline-orchestrator:bugfix`, `/pipeline-orchestrator:feature`, `/pipeline-orchestrator:audit`, `/pipeline-orchestrator:spec`) become available.
 
 ---
 
