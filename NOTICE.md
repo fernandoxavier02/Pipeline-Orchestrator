@@ -71,7 +71,7 @@ that your work is derived from or compatible with it — that is normal
 attribution, not trademark infringement.
 
 Trademark registration with INPI (Brazil) and USPTO (United States) is in
-progress as of v7.0.0.
+progress as of v7.1.0.
 
 ---
 
@@ -133,4 +133,4 @@ additional burden on you beyond what the LICENSE already requires.
 
 ---
 
-*Last updated: 2026-05-19 (v7.0.0)*
+*Last updated: 2026-05-19 (v7.1.0)*

@@ -2,7 +2,7 @@
 
 > **SSOT** for the agent roster. Operational dispatch policy lives in `references/team-registry.md` (type-to-team mapping) and `commands/pipeline.md` (phase flow). This file is the entry point for understanding **who exists** and **how they're invoked**.
 
-**Total agents:** 19 agents (auditado 2026-05-03 via `ls agents/**/*.md` no canonical repo). O número antigo "38" estava errado — vinha do D1/D2 sem reality-check, mesmo padrão criticado em `designs/pipeline-orchestrator-v5-consolidated.md` §1.1 e §16 erro #4. Source-of-truth para roster operacional: `references/team-registry.md`.
+**Total agents:** 20 production agents (auditado 2026-05-19 via `ls agents/**/*.md` no canonical repo; era 19 até v6.3.0 adicionar `diff-discipline-reviewer`). O número antigo "38" estava errado — vinha do D1/D2 sem reality-check, mesmo padrão criticado em `designs/pipeline-orchestrator-v5-consolidated.md` §1.1 e §16 erro #4. Source-of-truth para roster operacional: `references/team-registry.md`.
 
 ## Tool declaration policy (CC 2.x convention)
 
@@ -32,6 +32,7 @@ This convention is empirically validated by 4.1.3 in production. See `designs/sl
 | **N1** | quality | review-orchestrator | `pipeline-orchestrator:quality:review-orchestrator` | opus | (default) | Phase 2e (per-batch review) |
 | **N1** | core | adversarial-batch | `pipeline-orchestrator:core:adversarial-batch` | sonnet | (default) | Phase 2e (security checklists) |
 | **N1** | quality | architecture-reviewer | `pipeline-orchestrator:quality:architecture-reviewer` | sonnet | (default) | Phase 2e (architecture pass) |
+| **N1** | quality | diff-discipline-reviewer | `pipeline-orchestrator:quality:diff-discipline-reviewer` | sonnet | Read, Grep, Glob | Phase 2e (scope / minimal diff / SSOT-bypass, v6.3.0+) |
 | **N1** | core | sanity-checker | `pipeline-orchestrator:core:sanity-checker` | haiku | (default) | Phase 3a |
 | **N1** | quality | final-adversarial-orchestrator | `pipeline-orchestrator:quality:final-adversarial-orchestrator` | opus | (default) | Phase 3b-pre (final review) |
 | **N1** | core | final-validator | `pipeline-orchestrator:core:final-validator` | sonnet | (default) | Phase 3b (Pa de Cal) |

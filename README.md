@@ -5,7 +5,7 @@
 </div>
 
 <div align="center">
-  <img src="assets/diagrams/hero-banner.svg" alt="Pipeline Orchestrator v6.3.0" width="100%"/>
+  <img src="assets/diagrams/hero-banner.svg" alt="Pipeline Orchestrator v7.1.0" width="100%"/>
 </div>
 
 <h1 align="center">Pipeline Orchestrator</h1>
@@ -25,6 +25,7 @@
 <p align="center">
   <a href="#the-problem">The Problem</a> &bull;
   <a href="#how-we-fix-it">How We Fix It</a> &bull;
+  <a href="#whats-new-in-v710">v7.1.0</a> &bull;
   <a href="#whats-new-in-v630">v6.3.0</a> &bull;
   <a href="#workflow-contracts--atdd--bdd--ddd-v610">ATDD · BDD · DDD</a> &bull;
   <a href="#install">Install</a> &bull;
@@ -112,6 +113,53 @@ NO-GO:       confidence <  0.60
 ```
 
 No gut feelings. No *"it looks fine to me."* A number, with the gate decisions that produced it.
+
+---
+
+## What's New in v7.1.0
+
+> **Telemetry hygiene.** The audit trail is now actually auditable. A self-hosted diagnosis across 20 historical runs found 6 telemetry-layer defects — 4 of them fixed in this release (the other 2 deferred to v7.2.0 because they require breaking changes to the 22-row Inline Invariant).
+
+### The problem in plain numbers
+
+- **40+ distinct success values** for `decision` across real telemetry (`PASS`, `COMPLETE`, `GO`, `FIXED`, `RESOLVED`, plus prose escapes like `"yes"`, `"load-existing"`). Cross-run aggregation was effectively impossible.
+- **~55% of real events** were being silently rendered as `(invalid)` by `fidelity-reporter.cjs` because its `VALID_DECISION` set was missing 3 of the 8 values the runtime actually emits.
+- **Zero correlation fields** in 219 events across 20 runs. `run_id`, `plugin_version`, `schema_version`, `type`, `complexity` — none of them carried in the JSON payload. The only way to correlate an event to a run was the folder path.
+- **1 line of `run-log.jsonl`** for 20 completed runs because the Phase 3 closer was the only writer and it never fired on crash paths.
+
+### Added
+
+- **`lib/gate-decision-writer.cjs`** (NEW) — hard SSOT writer for `gate-decisions.jsonl`. Defines the canonical 8-value decision vocabulary (`BLOCKED`, `DISPATCHED`, `SKIPPED`, `APPROVED`, `CONFIRMED`, `REJECTED`, `TRIGGERED`, `NOT_TRIGGERED`) and the 5-class hardness taxonomy (`MANDATORY`, `HARD`, `CIRCUIT_BREAKER`, `SOFT`, `AUDIT`). Throws `TypeError` on unknown values (defense in depth, paired with the new `diff-discipline-reviewer` Step 4b static check). Auto-injects `run_id` + `plugin_version` + `schema_version` + `type` + `complexity` into every event so cross-run analytics no longer require folder-path joins.
+- **`.claude/hooks/stop-hook.cjs`** (NEW) — Stop event hook with full SOFT-fail wrapper. Fires on every Claude Code session end, including crashes and aborts. Calls `lib/run-log.cjs::appendRunLog` so `run-log.jsonl` accumulates one summary line per run regardless of whether Phase 3 closure was reached. Path resolution uses `__dirname` (the hook's own location inside the plugin), not the user-supplied `cwd` — fixed in adversarial-review pass when a security scanner caught the original payload-relative require pattern.
+- **`.claude/settings.json`** (NEW) — registers the Stop hook with the harness.
+- **7 new regression tests** (`tests/regression/v7.1.0/F1-F7`) covering the writer contract, write-site migration, agent prose vocab presence, fidelity-reporter widening + warnings, Stop hook structure, settings.json registration, and version sync across 4 manifests.
+
+### Changed
+
+- **`lib/fidelity-reporter.cjs`** — `VALID_HARDNESS` now **references** `CANONICAL_HARDNESS` from `gate-decision-writer.cjs` (structural SSOT — not parallel declarations). Same for `VALID_DECISION` ↔ `CANONICAL_DECISIONS`. `AUDIT` is now in the hardness set (was missing since v6.2.0). `validateHardness` and `validateDecision` push to a caller-supplied `warnings[]` when they encounter unknown values, instead of silently masking. Duplicate validation calls in the non-mandatory-gate path eliminated (each entry validated once, reused).
+- **`lib/codex-operational-runtime.cjs`** — 8 direct `appendJsonl(gate-decisions.jsonl)` sites converted to use the SSOT writer via a local `logGateDecision` wrapper. New `normalizeResponseToDecision` tries exact `CANONICAL_DECISIONS` match first (no substring trap) before falling back to keyword heuristics; unknown responses collapse to `BLOCKED` with a stderr warning.
+- **`lib/jsonl-sanitizer.cjs`** — `ALLOWED_GATE_DECISION_KEYS` extended with the 5 correlation fields so the writer's envelope is persisted, not silently dropped by the sanitizer.
+- **`agents/quality/diff-discipline-reviewer.md`** — new Step 4b SSOT-Bypass Check flagging direct `fs.appendFile`/`fs.writeFile`/local `appendJsonl` writes into `gate-decisions.jsonl` outside the helper. Also flags hard-coded legacy decision strings (`PASS`, `COMPLETE`, `GO`, etc.) as `legacy_decision_string`.
+- **4 agent prose files** (`finishing-branch.md`, `pipeline-controller.md`, `spec-closer.md`, `step-01b-alternatives.md`) reference the canonical vocabulary.
+
+### Invariants preserved
+
+- 22-row Mandatory Gates by Complexity table — **untouched**.
+- 27-row Gate Registry — **untouched**.
+- 5 hardness classes — **unchanged**.
+- 20-agent roster — **unchanged**.
+- PolyForm Shield 1.0.0 license — **unchanged**.
+
+### Adversarial review
+
+The release went through the full pipeline against itself. Three parallel reviewers (security + architecture + quality, zero implementation context) returned **17 findings** — including a **HIGH-severity bug** the test suite couldn't have caught: the Stop hook was resolving `lib/run-log.cjs` from the user's `cwd` instead of from `__dirname`, which would have made it silently no-op on every real install. Fixed before commit. The other HIGH/MEDIUM findings (path-containment guard, structural import of `CANONICAL_DECISIONS`, single-call race guard, normalizer-exact-match-first) all landed in the same commit. Remaining LOW/MEDIUM findings are defensive and tracked for v7.1.1.
+
+### Deferred to v7.2.0
+
+- **Finding #3** — gate rename for clarity. `CHECKPOINT_FAIL` is being used for success events in real telemetry; `PLAN_REJECTED` is logged with `decision: NOT_TRIGGERED` when the plan was approved. Renaming requires breaking the 22-row Inline Invariant.
+- **Finding #5** — timestamp format normalization across 3 legacy patterns (ISO-Z, ISO-naive, epoch-ms). Cosmetic.
+
+Full release notes: [`CHANGELOG.md`](CHANGELOG.md#710).
 
 ---
 
@@ -319,10 +367,10 @@ Full registry in [`references/gates.md`](references/gates.md). Audit-trail invar
 | **Controllers (N1)** | `pipeline-controller`, `brainstorm-controller`, `executor-controller` (`agents/core/`) |
 | **Subagents** | 20 production agents + 27 type-specific variants across `agents/core/`, `agents/quality/`, `agents/executor/` |
 | **Skills** | Variant entry-points: `bugfix-light`, `feature-heavy`, `spec-light`, `audit-heavy`, etc. (`skills/`) |
-| **Hooks** | `sentinel-hook`, `dispatch-guard`, `edit-guard-hook`, `force-pipeline-agents`, `session-lock-hook`, `session-cleanup-hook`, `completion-checklist`, `skill-frontmatter-parser`, **`scope-lock-hook`** (new v6.3.0) — 9 hooks total (`.claude/hooks/`) |
+| **Hooks** | `sentinel-hook`, `dispatch-guard`, `edit-guard-hook`, `force-pipeline-agents`, `session-lock-hook`, `session-cleanup-hook`, `completion-checklist`, `skill-frontmatter-parser`, `scope-lock-hook` (v6.3.0), **`stop-hook`** (new v7.1.0) — 10 hooks total (`.claude/hooks/`) |
 | **Security libs** (v6.0.0+) | `sentinel-state-signer`, `jsonl-sanitizer`, `pipeline-local-parser`, `codex-operational-runtime` (`lib/`) |
 | **References (SSOT)** | `gates.md`, `gate-request-protocol.md`, `audit-trail.md`, `confidence.md`, `complexity-matrix.md`, `implementation-discipline.md` (v6.3.0), `stale-thresholds.md`, `glossary.md` (`references/`) |
-| **Tests** | 31 test suites: 39 regression tests in `tests/regression/v6.0.0`, 19 in `v6.1.0`/`v6.2.0`, 8 new in `v6.3.0` (F8-F15), 8 hook test suites in `.claude/hooks/__tests__/` |
+| **Tests** | 38 test suites: 39 regression tests in `tests/regression/v6.0.0`, 19 in `v6.1.0`/`v6.2.0`, 8 in `v6.3.0` (F8-F15), 7 new in `v7.1.0` (F1-F7 telemetry hygiene), 8 hook test suites in `.claude/hooks/__tests__/` |
 | **Audit Reports** | `docs/audits/2026-05-15-ifrs16-deep-audit/` (10 files), `docs/audits/2026-05-18-clarification-overhaul-dogfood/` |
 
 ### Bonus: standalone HTML diagrams
@@ -388,13 +436,14 @@ v6.2.0 added a dogfood audit at [`docs/audits/2026-05-18-clarification-overhaul-
 
 ## Tests
 
-31 test suites total — all PASS:
+38 test suites total — all PASS:
 
 ```
 tests/regression/v6.0.0/         13 suites · Achado #7 protocol + libs + stale thresholds
 tests/regression/v6.1.0/          5 suites · ATDD + BDD + DDD + cross-cutting docs + F1 gates
 tests/regression/v6.2.0/          5 suites · Clarification overhaul + alternatives
 tests/regression/v6.3.0/          8 suites · F8-F15 implementation discipline layer
+tests/regression/v7.1.0/          7 suites · F1-F7 telemetry hygiene
 .claude/hooks/__tests__/          8 suites · sentinel + dispatch-guard + scope-lock + ...
 ```
 
@@ -416,6 +465,7 @@ v6.1.0 (2026-05-15) — MINOR — ATDD/BDD/DDD workflow contracts (D5/D6/D7) + 4
 v6.2.0 (2026-05-18) — MINOR — Pre-execution clarification overhaul + alternatives brainstorming
 v6.3.0 (2026-05-19) — MINOR — Implementation Discipline Layer + 3-way adversarial review
 v7.0.0 (2026-05-19) — MAJOR — License update: PolyForm Shield 1.0.0 (code identical to v6.3.0)
+v7.1.0 (2026-05-19) — MINOR — Telemetry hygiene: canonical writer SSOT + Stop hook + fidelity-reporter widening
 ```
 
 Full lineage in [`CLAUDE.md`](CLAUDE.md). Tagged releases on GitHub. Marketplace updates within minutes of tag.
@@ -443,10 +493,11 @@ Contributions welcome. This is an active project with a strong audit culture.
 
 1. Read the [audit reports](docs/audits/2026-05-15-ifrs16-deep-audit/INDEX.md) to understand the architectural decisions.
 2. Pick an issue from the backlog or open a new one.
-3. Every code change must pass the regression suite (`npm test` → 31/31 PASS).
+3. Every code change must pass the regression suite (`npm test` → 38/38 PASS).
 4. New subagents must declare the **ACHADO #7 RUNTIME PROTOCOL** section.
 5. New gates must be added to `references/gates.md` registry AND `commands/pipeline.md` Inline Invariants AND covered by a runtime test.
 6. New plans (v6.3.0+) must declare `CHANGE_CONTRACT` with `bootstrap.active: false` — the bootstrap flag is locked by `F15_bootstrap_lock_invariant.cjs`.
+7. New writes to `gate-decisions.jsonl` (v7.1.0+) MUST go through `lib/gate-decision-writer.cjs::appendGateDecision` — direct `fs.appendFile` is forbidden and flagged `REJECTED` by `diff-discipline-reviewer` Step 4b. Decision values must come from the canonical 8-value set.
 
 ---
 
@@ -504,7 +555,7 @@ To report a suspected attribution or trademark violation, open an [issue](https:
 ---
 
 <div align="center">
-  <p><strong>Pipeline Orchestrator v7.0.0</strong> · 2026-05-19</p>
+  <p><strong>Pipeline Orchestrator v7.1.0</strong> · 2026-05-19</p>
   <p>Built by <a href="https://github.com/fernandoxavier02">FX Studio AI</a> · <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator">Source on GitHub</a> · <a href="https://github.com/sponsors/fernandoxavier02">Sponsor</a></p>
   <p><em>"AI follows a contract, not its mood."</em></p>
 </div>
