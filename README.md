@@ -467,6 +467,42 @@ Versions **v1.0.0 through v6.3.0** remain MIT-licensed in perpetuity. The licens
 
 ---
 
+## Authorship & Attribution
+
+Pipeline Orchestrator is an original work authored by **FX Studio AI** (Fernando Costa Xavier), first published in 2026. Authorship is documented by a public, timestamped record:
+
+- **Git history** — every commit in this repository is signed and timestamped by GitHub.
+- **NPM publish history** — [`@fx-studio-ai/pipeline-orchestrator`](https://www.npmjs.com/package/@fx-studio-ai/pipeline-orchestrator) lists every published version with date.
+- **GitHub Releases** — [tagged releases](https://github.com/fernandoxavier02/Pipeline-Orchestrator/releases) from v1.0.0 onward.
+- **Marketplace registry** — `marketplace.json` references each release tag and publication metadata.
+
+### What you must preserve in any fork
+
+Both the PolyForm Shield 1.0.0 (v7.0.0+) and the historical MIT (v1.0.0–v6.3.0) licenses require attribution. The [`NOTICE.md`](NOTICE.md) file makes the requirements explicit. In short, any fork or redistribution must keep:
+
+1. The `Copyright (c) 2026 FX Studio AI` notice.
+2. The [`LICENSE`](LICENSE) file.
+3. The [`NOTICE.md`](NOTICE.md) file.
+4. A visible reference to the upstream project in the fork's README.
+5. A dated record of your modifications (e.g., `CHANGES.md`).
+
+### What is not permitted
+
+- Claiming authorship of Pipeline Orchestrator or substantial portions of it.
+- Presenting a fork as if it were an original project, without disclosing the upstream origin.
+- Stripping author identifiers, copyright headers, or `NOTICE.md` from the code.
+- Reusing the names "Pipeline Orchestrator" or "FX Studio AI", or the official visual assets (hero banner, architecture/governance diagrams) under different branding. Trademark registration with INPI (Brazil) and USPTO (United States) is in progress.
+
+Misrepresenting the origin of this software constitutes **copyright infringement**, **license violation**, and may constitute **trademark infringement** or **fraud** depending on jurisdiction. FX Studio AI reserves the right to enforce via DMCA takedown, cease-and-desist, license termination, or civil action. See [`NOTICE.md`](NOTICE.md) for the full enforcement policy.
+
+### Good-faith use is welcome
+
+The vast majority of installs, forks, internal modifications, educational uses, and integrations are explicitly permitted and welcomed. This section exists specifically to make it unambiguous that **claiming this work as your own is not permitted** — not to discourage legitimate use.
+
+To report a suspected attribution or trademark violation, open an [issue](https://github.com/fernandoxavier02/Pipeline-Orchestrator/issues).
+
+---
+
 <div align="center">
   <p><strong>Pipeline Orchestrator v7.0.0</strong> · 2026-05-19</p>
   <p>Built by <a href="https://github.com/fernandoxavier02">FX Studio AI</a> · <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator">Source on GitHub</a> · <a href="https://github.com/sponsors/fernandoxavier02">Sponsor</a></p>
