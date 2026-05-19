@@ -1,0 +1,12 @@
+# GitHub Sponsors / funding configuration
+# Renders the "Sponsor" button on the repository page.
+# See: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
+
+github: [fernandoxavier02]
+# Activate additional channels as you set them up:
+# patreon: fxstudioai
+# open_collective: pipeline-orchestrator
+# ko_fi: fxstudioai
+# buy_me_a_coffee: fxstudioai
+# tidelift: npm/@fx-studio-ai/pipeline-orchestrator
+# custom: ['https://fxstudioai.com/sponsor']

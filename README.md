@@ -13,13 +13,13 @@
 <p align="center"><strong>The governance layer between your spec and your production code.</strong></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-6.3.0-7C3AED?style=for-the-badge&logo=git&logoColor=white" alt="Version" />
+  <img src="https://img.shields.io/badge/version-7.0.0-7C3AED?style=for-the-badge&logo=git&logoColor=white" alt="Version" />
   <img src="https://img.shields.io/badge/agents-20-0EA5E9?style=for-the-badge" alt="Agents" />
   <img src="https://img.shields.io/badge/gates-32_(22_mandatory)-22C55E?style=for-the-badge" alt="Gates" />
   <img src="https://img.shields.io/badge/audit_coverage-95%25-F59E0B?style=for-the-badge" alt="Audit Coverage" />
   <img src="https://img.shields.io/badge/test_suites-31%2F31-EF4444?style=for-the-badge" alt="Tests" />
   <img src="https://img.shields.io/badge/platform-Claude_Code-000?style=for-the-badge" alt="Platform" />
-  <img src="https://img.shields.io/badge/license-MIT-65a30d?style=for-the-badge" alt="License" />
+  <img src="https://img.shields.io/badge/license-PolyForm_Shield_1.0.0-EC4899?style=for-the-badge" alt="License" />
 </p>
 
 <p align="center">
@@ -415,6 +415,7 @@ v6.0.0 (2026-05-15) — MAJOR — audit + hardening, 22/22 gates runtime, 39 tes
 v6.1.0 (2026-05-15) — MINOR — ATDD/BDD/DDD workflow contracts (D5/D6/D7) + 4 tests
 v6.2.0 (2026-05-18) — MINOR — Pre-execution clarification overhaul + alternatives brainstorming
 v6.3.0 (2026-05-19) — MINOR — Implementation Discipline Layer + 3-way adversarial review
+v7.0.0 (2026-05-19) — MAJOR — License transition MIT → PolyForm Shield 1.0.0 (code identical to v6.3.0)
 ```
 
 Full lineage in [`CLAUDE.md`](CLAUDE.md). Tagged releases on GitHub. Marketplace updates within minutes of tag.
@@ -451,12 +452,23 @@ Contributions welcome. This is an active project with a strong audit culture.
 
 ## License
 
-MIT © FX Studio AI
+**PolyForm Shield License 1.0.0** © FX Studio AI (v7.0.0+).
+
+Pipeline Orchestrator is **source-available** under the
+[PolyForm Shield License 1.0.0](LICENSE). This means:
+
+- ✅ **Free for internal use, modification, redistribution, education, personal use** — the vast majority of cases.
+- ✅ **Free to fork, study, integrate** into your own projects (commercial or not), as long as the result is not a competing product to Pipeline Orchestrator itself.
+- ❌ **Not permitted:** repackaging or reselling Pipeline Orchestrator (modified or unmodified) as a substitute for the original. The Noncompete clause exists to prevent commercial cloning of the project itself.
+
+Versions **v1.0.0 through v6.3.0** remain MIT-licensed in perpetuity. The license change is forward-looking. See [LICENSE-NOTES.md](LICENSE-NOTES.md) for the full transition history, FAQ, and commercial-license inquiry process.
+
+**Trademark:** "Pipeline Orchestrator" and "FX Studio AI" are trademarks of FX Studio AI. Forks must use a different name.
 
 ---
 
 <div align="center">
-  <p><strong>Pipeline Orchestrator v6.3.0</strong> · 2026-05-19</p>
-  <p>Built by <a href="https://github.com/fernandoxavier02">FX Studio AI</a> · <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator">Source on GitHub</a></p>
+  <p><strong>Pipeline Orchestrator v7.0.0</strong> · 2026-05-19</p>
+  <p>Built by <a href="https://github.com/fernandoxavier02">FX Studio AI</a> · <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator">Source on GitHub</a> · <a href="https://github.com/sponsors/fernandoxavier02">Sponsor</a></p>
   <p><em>"AI follows a contract, not its mood."</em></p>
 </div>
