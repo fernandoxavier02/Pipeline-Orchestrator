@@ -3,10 +3,10 @@
 **Pipeline Orchestrator** is an original work authored by **FX Studio AI**
 (Fernando Costa Xavier), first published in 2026.
 
-This NOTICE accompanies the [LICENSE](LICENSE) (PolyForm Shield 1.0.0 for
-v7.0.0+; MIT for v1.0.0 through v6.3.0). Both licenses require attribution to
-be preserved. This file makes the attribution requirements explicit so there
-is no ambiguity about what "preserve attribution" means in practice.
+This NOTICE accompanies the [LICENSE](LICENSE) (PolyForm Shield 1.0.0).
+The license requires attribution to be preserved. This file makes the
+attribution requirements explicit so there is no ambiguity about what
+"preserve attribution" means in practice.
 
 ---
 

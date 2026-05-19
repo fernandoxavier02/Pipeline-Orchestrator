@@ -415,7 +415,7 @@ v6.0.0 (2026-05-15) — MAJOR — audit + hardening, 22/22 gates runtime, 39 tes
 v6.1.0 (2026-05-15) — MINOR — ATDD/BDD/DDD workflow contracts (D5/D6/D7) + 4 tests
 v6.2.0 (2026-05-18) — MINOR — Pre-execution clarification overhaul + alternatives brainstorming
 v6.3.0 (2026-05-19) — MINOR — Implementation Discipline Layer + 3-way adversarial review
-v7.0.0 (2026-05-19) — MAJOR — License transition MIT → PolyForm Shield 1.0.0 (code identical to v6.3.0)
+v7.0.0 (2026-05-19) — MAJOR — License update: PolyForm Shield 1.0.0 (code identical to v6.3.0)
 ```
 
 Full lineage in [`CLAUDE.md`](CLAUDE.md). Tagged releases on GitHub. Marketplace updates within minutes of tag.
@@ -461,7 +461,7 @@ Pipeline Orchestrator is **source-available** under the
 - ✅ **Free to fork, study, integrate** into your own projects (commercial or not), as long as the result is not a competing product to Pipeline Orchestrator itself.
 - ❌ **Not permitted:** repackaging or reselling Pipeline Orchestrator (modified or unmodified) as a substitute for the original. The Noncompete clause exists to prevent commercial cloning of the project itself.
 
-Versions **v1.0.0 through v6.3.0** remain MIT-licensed in perpetuity. The license change is forward-looking. See [LICENSE-NOTES.md](LICENSE-NOTES.md) for the full transition history, FAQ, and commercial-license inquiry process.
+For commercial-license inquiries that fall outside the Shield's permitted uses, open a discussion in the [Issues tab](https://github.com/fernandoxavier02/Pipeline-Orchestrator/issues) or contact FX Studio AI directly.
 
 **Trademark:** "Pipeline Orchestrator" and "FX Studio AI" are trademarks of FX Studio AI. Forks must use a different name.
 
@@ -478,7 +478,7 @@ Pipeline Orchestrator is an original work authored by **FX Studio AI** (Fernando
 
 ### What you must preserve in any fork
 
-Both the PolyForm Shield 1.0.0 (v7.0.0+) and the historical MIT (v1.0.0–v6.3.0) licenses require attribution. The [`NOTICE.md`](NOTICE.md) file makes the requirements explicit. In short, any fork or redistribution must keep:
+The PolyForm Shield 1.0.0 license requires attribution to be preserved in any fork or redistribution. The [`NOTICE.md`](NOTICE.md) file makes the requirements explicit. In short, any fork or redistribution must keep:
 
 1. The `Copyright (c) 2026 FX Studio AI` notice.
 2. The [`LICENSE`](LICENSE) file.

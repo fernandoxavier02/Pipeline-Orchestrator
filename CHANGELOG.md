@@ -5,11 +5,11 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [7.0.0] - 2026-05-19 — License transition: MIT → PolyForm Shield 1.0.0 (MAJOR, license-only)
+## [7.0.0] - 2026-05-19 — License update: PolyForm Shield 1.0.0 (MAJOR, license-only)
 
 **Major release. Code identical to v6.3.0. License change only.**
 
-Pipeline Orchestrator v7.0.0 transitions from the MIT license to the
+Pipeline Orchestrator v7.0.0 is licensed under the
 [PolyForm Shield License 1.0.0](https://polyformproject.org/licenses/shield/1.0.0).
 This is a license-only major version bump per SemVer convention for
 license changes. No code, agents, gates, hooks, or behavior have
@@ -19,37 +19,36 @@ changed from v6.3.0.
 
 As Pipeline Orchestrator matured into a substantial governance layer
 with 20 production agents, 32 registered gates, glass-box audit trail,
-and dogfood-validated discipline mechanics, the MIT license left a
-gap that the project's commercial protection now needs to close:
-**any party could repackage the codebase and offer it as a competing
-product without contribution back**. This is the gap PolyForm Shield
-1.0.0 closes via its Noncompete clause.
+and dogfood-validated discipline mechanics, the project moved to a
+source-available license with explicit noncompete protection. The
+Shield license preserves the spirit of open source — read, fork,
+modify, run freely — while reserving the **commercial competition
+vector** via its Noncompete clause.
 
 This is the same pattern adopted by HashiCorp (BSL), Sentry (BSL),
 MariaDB (BSL), Elastic (Elastic License 2.0), MongoDB (SSPL), and
-MinIO (AGPL → later GPL → later commercial). The 2018-2024 cohort of
-commercially operated open-source projects has consolidated around
-source-available licenses with anti-competition carve-outs.
+MinIO. The 2018-2024 cohort of commercially operated open-source
+projects has consolidated around source-available licenses with
+anti-competition carve-outs.
 
 ### What changes
 
-- **LICENSE file:** replaced with PolyForm Shield 1.0.0 official text.
-- **LICENSE-NOTES.md:** new file documenting the transition, the
-  perpetual MIT terms for v6.3.0 and earlier, the trademark
-  reservation on "Pipeline Orchestrator" and "FX Studio AI", and
-  answers to common questions.
+- **LICENSE file:** PolyForm Shield 1.0.0 official text.
+- **NOTICE.md:** new file documenting attribution requirements,
+  authorship misrepresentation prohibition, trademark notice, public
+  proof of authorship (git/NPM/GitHub Releases/marketplace), and
+  enforcement policy.
 - **package.json:**
   - `version`: `6.3.0` → `7.0.0`
-  - `license`: `"MIT"` → `"SEE LICENSE IN LICENSE"` (NPM convention
-    for custom licenses)
+  - `license`: `"SEE LICENSE IN LICENSE"` (NPM convention for custom
+    licenses)
 - **plugin.json:**
   - `version`: `6.3.0` → `7.0.0`
-  - `license`: `"MIT"` → `"PolyForm-Shield-1.0.0"`
+  - `license`: `"PolyForm-Shield-1.0.0"`
 - **marketplace.json:** version and `source.ref` bumped to `v7.0.0`.
 - **CLAUDE.md:** canonical version line + lineage row updated.
-- **README.md:** license badge updated from `MIT` to
-  `PolyForm Shield 1.0.0`, License section rewritten, install
-  instructions unchanged.
+- **README.md:** License + Authorship & Attribution sections updated
+  to reflect the Shield license; install instructions unchanged.
 - **assets/diagrams/hero-banner.svg:** version badge bumped to
   `v7.0.0`.
 - **.github/FUNDING.yml:** new file enabling GitHub Sponsors button
@@ -65,17 +64,6 @@ source-available licenses with anti-competition carve-outs.
   CHECK, diff-discipline-reviewer, scope-lock-hook) operates
   identically.
 - The 31-suite regression test pass is unchanged.
-
-### Backward compatibility
-
-Versions v1.0.0 through v6.3.0 remain MIT-licensed in perpetuity. The
-license change is forward-looking: it applies to v7.0.0 and all
-subsequent versions. Forks taken from v6.3.0 or earlier inherit MIT
-terms; forks taken from v7.0.0 or later are governed by Shield.
-
-If a user installed v6.3.0 from NPM or the marketplace, their copy
-remains MIT-licensed indefinitely. Upgrading to v7.0.0 means accepting
-Shield terms.
 
 ### Trademark reservation
 
@@ -95,10 +83,8 @@ changes.
 
 ### For contributors
 
-New contributions to v7.0.0 and onward are accepted under Shield.
-Contributor agreements covering historical MIT-era contributions
-remain valid. Pull requests against v7.0.0+ branches implicitly
-accept Shield terms for the submitted code.
+Pull requests against v7.0.0+ branches implicitly accept Shield terms
+for the submitted code.
 
 ---
 

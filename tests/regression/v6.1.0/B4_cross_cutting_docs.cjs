@@ -125,10 +125,9 @@ test('B4-S8 plugin.json structural fields preserved (name/author/license/keyword
   assert.ok(pkg.author && typeof pkg.author === 'object',
     'plugin.json "author" must remain an object');
   assert.equal(pkg.author.name, 'FX Studio AI', 'plugin.json "author.name" changed');
-  // v7.0.0 (2026-05-19): license transition MIT → PolyForm Shield 1.0.0
-  // For v6.x and earlier, plugin.json carried "MIT". For v7.0.0+, it carries
-  // "PolyForm-Shield-1.0.0" (SPDX-style identifier per Claude Code plugin schema).
-  assert.equal(pkg.license, 'PolyForm-Shield-1.0.0', 'plugin.json "license" changed (expected v7.0.0+ value)');
+  // plugin.json carries "PolyForm-Shield-1.0.0" (SPDX-style identifier per
+  // Claude Code plugin schema).
+  assert.equal(pkg.license, 'PolyForm-Shield-1.0.0', 'plugin.json "license" changed');
   assert.ok(Array.isArray(pkg.keywords), 'plugin.json "keywords" must remain an array');
   const expectedKeywords = [
     'pipeline', 'tdd', 'multi-agent', 'orchestration', 'code-quality',

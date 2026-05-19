@@ -1,7 +1,7 @@
 {
   "name": "@fx-studio-ai/pipeline-orchestrator",
   "version": "7.0.0",
-  "description": "End-to-end execution governance for Claude Code. Multi-agent pipeline with TDD, adversarial review, 32-gate registry (22 mandatory), glass-box TRACE.md audit trail. v7.0.0 (2026-05-19): license transition from MIT to PolyForm Shield 1.0.0 (source-available, noncompete clause). v6.3.0 code intact. v6.x and earlier remain MIT in perpetuity. See LICENSE-NOTES.md for migration guidance.",
+  "description": "End-to-end execution governance for Claude Code. Multi-agent pipeline with TDD, adversarial review, 32-gate registry (22 mandatory), glass-box TRACE.md audit trail. v7.0.0 (2026-05-19): licensed under PolyForm Shield 1.0.0 (source-available, noncompete clause). See LICENSE and NOTICE.md.",
   "keywords": [
     "claude-code",
     "claude-code-plugin",
@@ -59,6 +59,7 @@
     "CHANGELOG.md",
     "README.md",
     "LICENSE",
+    "NOTICE.md",
     "CLAUDE.md"
   ],
   "scripts": {
