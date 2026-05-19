@@ -26,6 +26,7 @@
   <a href="#the-problem">The Problem</a> &bull;
   <a href="#how-we-fix-it">How We Fix It</a> &bull;
   <a href="#whats-new-in-v630">v6.3.0</a> &bull;
+  <a href="#workflow-contracts--atdd--bdd--ddd-v610">ATDD · BDD · DDD</a> &bull;
   <a href="#install">Install</a> &bull;
   <a href="#pipeline-types">Pipelines</a> &bull;
   <a href="#agent-architecture">Architecture</a> &bull;
@@ -141,6 +142,36 @@ No gut feelings. No *"it looks fine to me."* A number, with the gate decisions t
 The release itself was shipped through the pipeline (dogfooded against the IFRS 16 reference project). Four parallel security + architecture + quality scanner passes converged to CLEAN consensus — but only after attempt 3 caught a CRITICAL regression introduced by hardening attempt 2 (a function rename mismatch that would have silently disabled the entire enforcement layer in production). The very mechanism we built caught its own ship-blocker. **The medicine works on itself.**
 
 Full release notes: [`CHANGELOG.md`](CHANGELOG.md).
+
+---
+
+## Workflow Contracts — ATDD · BDD · DDD (v6.1.0)
+
+Three first-class workflow contracts, each enforced by a dedicated agent step and pinned by a regression test. They are not optional patterns we hope agents follow — they are **emission requirements** the pipeline produces and validates.
+
+### ATDD — Given/When/Then for every Acceptance Criterion
+
+The `quality-gate-router` derives **at least one Given/When/Then scenario per Acceptance Criterion** in the spec, plus an additional non-spec branch (Step 1b) that captures Given/When/Then for MEDIA/COMPLEXA tasks that arrive without a spec. EARS continuations (`And`, `But`) are allowed. SIMPLES is exempt. The scenarios are presented to you in plain language before any test code is written; you approve, then the `pre-tester` emits failing tests (RED phase) that pin those scenarios.
+
+**Enforced by:** `agents/quality/quality-gate-router.md` Step 1 (spec branch) + Step 1b (non-spec branch). **Test:** `tests/regression/v6.1.0/D5_atdd_quality_gate_router.cjs` — 10 / 10 PASS.
+
+### BDD — Gherkin per Vertical Slice
+
+For Feature pipelines that decompose into vertical slices, `feature-vertical-slice-planner` Step 3b **emits a Gherkin `.feature` file per slice** at `.pipeline/artifacts/bdd/SLICE-NN.feature` (flat naming, padded slice numbers, `>= 100` slice IDs reserved for v6.2+). Each scenario maps 1:1 to an Acceptance Criterion. Gherkin syntax (`Feature:`, `Scenario:`, `Given/When/Then/And/But`) — copy-pasteable into Cucumber, Behave, SpecFlow, or read by humans.
+
+**Enforced by:** `agents/executor/type-specific/feature-vertical-slice-planner.md` Step 3b. **Test:** `tests/regression/v6.1.0/D6_bdd_gherkin_output_contract.cjs` — 8 / 8 PASS.
+
+### DDD — Lightweight Bounded Contexts on COMPLEXA
+
+`plan-architect` Rule 10 mandates a **3-column Bounded Contexts table** in every COMPLEXA `IMPLEMENTATION_PLAN`: `Context | Aggregate Root | Key Invariants`. Deliberately lightweight — no Owner/Team/Status columns, no ubiquitous-language dictionary. Just the structural decisions that matter for the implementation: where the seams are, what each aggregate enforces. Missing on COMPLEXA emits a `BOUNDED_CONTEXT_MISSING` SOFT event into the audit trail. SIMPLES/MEDIA are exempt.
+
+**Enforced by:** `agents/quality/plan-architect.md` Rule 10 + IMPLEMENTATION_PLAN YAML `bounded_contexts:` array. **Test:** `tests/regression/v6.1.0/D7_ddd_bounded_contexts_contract.cjs` — 9 / 9 PASS.
+
+### Why this matters
+
+Most "AI does TDD" tooling stops at *"the agent wrote some tests"*. Pipeline Orchestrator emits **contractual artifacts** that survive the pipeline: ATDD scenarios in plain language you approved, Gherkin files attachable to your QA tooling, Bounded Contexts that travel with the plan. **You read what was decided. Your QA team reads it. Six months later, the audit reads it.**
+
+Full v6.1.0 design notes in [`CHANGELOG.md`](CHANGELOG.md) §6.1.0. Forward dependencies for v6.2+ documented (bdd_artifact consumer, gherkin_content persistence, SLICE-NN >=100 reservation).
 
 ---
 
@@ -299,6 +330,10 @@ If any of these sound like your week, you are the target user.
 - *"I want to ship fast on small tasks AND have full ceremony on payment systems."* → **Proportional rigor**: SIMPLES gets light, COMPLEXA gets full adversarial team. Auto-detected, no configuration.
 
 - *"My team accepts AI PRs but no one knows what was actually decided along the way."* → **Glass-box audit trail** records every gate, every decision, every adversarial finding, every fix loop.
+
+- *"I need Gherkin files my QA team can run in Cucumber, not handwritten tests."* → **BDD Gherkin emission per slice** ships `.feature` files at `.pipeline/artifacts/bdd/SLICE-NN.feature`. ATDD scenarios derive Given/When/Then from your acceptance criteria automatically.
+
+- *"On COMPLEXA tasks, the plan never captures where the architectural seams are."* → **DDD lightweight Bounded Contexts** mandated in Rule 10: a 3-column table per COMPLEXA plan (Context · Aggregate Root · Invariants). Missing → SOFT audit event.
 
 This is not "AI safety" theater. It is structural discipline applied at the place where AI output meets your production branch.
 
