@@ -52,52 +52,70 @@ Return this to executor-controller. Do NOT proceed. Do NOT guess.
 
 ---
 
-## SCOPE LOCK CHECK (MANDATORY — Run AFTER MICRO-GATE, BEFORE any Edit/Write)
+## SCOPE LOCK CHECK
 
-After MICRO-GATE passes and BEFORE you Edit or Write any code, verify the task stays inside the approved `IMPLEMENTATION_PLAN.CHANGE_CONTRACT`. SSOT: `references/implementation-discipline.md` §1, §2, §5, §6.
+Run AFTER `MICRO-GATE` passes and BEFORE every `Write` or `Edit` tool call. This check enforces the `CHANGE_CONTRACT` block declared in `IMPLEMENTATION_PLAN`. SSOT: `references/implementation-discipline.md`. Introduced in v6.3.0.
 
-Run these 10 checks against the diff you are about to produce. If ANY would fail, STOP and return QUESTIONS — do NOT proceed and do NOT silently shrink the scope without acknowledging the request:
+### When it fires
 
-| # | Check | STOP if you would... |
-|---|-------|----------------------|
-| 1 | Edit a file NOT in `CHANGE_CONTRACT.allowed_files` | Edit any path outside that list (including "tiny obviously-related" edits) |
-| 2 | Create a file NOT in `CHANGE_CONTRACT.allowed_new_files` | Add a new file the plan did not declare |
-| 3 | Add a runtime or dev dependency | Touch `package.json` `dependencies` / `devDependencies` |
-| 4 | Mutate a lockfile | Touch `package-lock.json`, `pnpm-lock.yaml`, `yarn.lock` |
-| 5 | Mutate CI / build config | Touch `.github/workflows/*`, `Dockerfile`, `Makefile`, bundler / tsconfig build settings |
-| 6 | Mutate env / secrets | Touch `.env*`, `config/secrets/*`, or comparable paths |
-| 7 | Change schema or migration | Touch `migrations/`, `prisma/migrations/`, `alembic/versions/`, or equivalent |
-| 8 | Change a public API contract | Rename exported function, change its signature, change an HTTP route, change a serialized payload shape |
-| 9 | Create an unplanned abstraction / class / interface / module | Introduce a base class, interface, strategy, helper, or new module that no current call site requires AND that the plan did not list |
-| 10 | Exceed `diff_budget` | Modify more files than `max_files_expected` OR more lines than `max_lines_expected` |
+| Tool call | Lock fires? | Notes |
+|---|---|---|
+| `Write` | **YES** — check before emission | Most common trigger; new files or full rewrites |
+| `Edit` | **YES** — check before emission | Surgical edits to existing files |
+| `Read`, `Grep`, `Glob` | **NO — Read is NOT locked** | Pre-reading patterns, imports, and types is mandatory per Step 1 of PROCESS; locking Read would break that requirement |
+| `Bash` (read-only commands like `ls`, `wc`) | NO | Informational, no scope impact |
+| `Bash` (mutating commands like `mv`, `rm`, `chmod`) | YES | Treated as Edit-equivalent because they change file state |
 
-**Also STOP — these are scope-creep traps you must NOT take:**
+The asymmetry is intentional. Read remains free so the implementer can inspect helpers, types, and patterns in unrelated modules to do a good job. Write/Edit is locked because that is where scope creep happens.
 
-- Unrequested refactor (renaming, restructuring code the task did not target)
-- Drive-by cleanup (sorting imports, removing dead code, fixing typos in unrelated files)
-- Standardization / modernization passes (switching styles, replacing patterns, "upgrading" idioms)
-- Feature additions beyond the explicit acceptance criteria
-- Speculative generalization (adding parameters, type generics, or extension points with no current caller)
-- Replacing an existing helper with a "better" implementation when reuse was sufficient
+### The 5 checks
 
-**If ANY check would fail, return QUESTIONS:**
+Before emitting any `Write` or `Edit` call, verify:
+
+| # | Check | If violated |
+|---|-------|-------------|
+| 1 | Target path is in `CHANGE_CONTRACT.allowed_files` (for existing files) OR `CHANGE_CONTRACT.allowed_new_files` (for creates) | STOP — emit violation |
+| 2 | Target path is NOT in `CHANGE_CONTRACT.forbidden_files` (forbidden overrides allowed on overlap) | STOP — emit violation |
+| 3 | The change does not belong to any item in `CHANGE_CONTRACT.forbidden_change_types` (no unrequested feature, no unrelated refactor, no new dependency, no public-API change, no migration, no sensitive config, no test weakening) | STOP — emit violation |
+| 4 | Cumulative file count for this task ≤ `CHANGE_CONTRACT.diff_budget.max_files_expected` AND cumulative line count ≤ `max_lines_expected` (allow 20% overflow before escalation) | STOP — emit violation OR escalation request |
+| 5 | If introducing a new abstraction (class, interface, factory, strategy) or a new module/file, the contract has `new_abstractions_allowed: true` / `new_modules_allowed: true` respectively | STOP — emit violation |
+
+### Violation protocol
+
+On any check failure, do NOT proceed. Return the following to executor-controller:
 
 ```yaml
-SCOPE_LOCK_BLOCK:
-  task_id: "[N.M]"
-  check_failed: [N]
-  description: "[what would have been edited/created/added that violates CHANGE_CONTRACT]"
-  contract_field: "[allowed_files | allowed_new_files | forbidden_files | forbidden_change_types | diff_budget | escalation_required_if]"
+IMPLEMENTER_RESULT:
+  status: QUESTIONS
+  scope_lock: BLOCKED
   question:
-    context: "[what the existing code shows and why you considered going outside the contract]"
-    trade_off: "[narrow option that stays inside vs the broader change you considered]"
-    impact: "[what changes in the implementation depending on the answer]"
-    my_default: "[stay inside CHANGE_CONTRACT — narrowest possible diff]"
+    context: scope_lock_violation
+    violation_type: "allowed_files | allowed_new_files | forbidden_files | forbidden_change_type | diff_budget | new_abstractions_allowed | new_modules_allowed"
+    target_path: "<file the agent tried to Write/Edit>"
+    contract_says: "<verbatim relevant slice of CHANGE_CONTRACT>"
+    proposed_action: "<what the agent wanted to do>"
+    asks: "Should the contract be expanded, or should the task be split / redirected?"
 ```
 
-Return this to executor-controller. Do NOT proceed. Do NOT do "just a tiny bit more" of the broader change.
+The parent then surfaces this via `AskUserQuestion` so the user can: (a) expand the contract (adds to `allowed_files` and re-dispatches), (b) reject and split the task, or (c) cancel the batch.
 
-**Reference:** Full SSOT at `references/implementation-discipline.md` (§1 Scope control, §2 Minimal diff, §5 Dependency/config/contract/migration restrictions, §6 Test integrity).
+### Anti-patterns the implementer must NOT do
+
+1. **No drive-by cleanup.** Touching a file outside `allowed_files` to "fix" obvious nits.
+2. **No unrequested refactor.** Refactoring code that was not part of the task description.
+3. **No new dependency injection.** Adding `import`s of packages not already present.
+4. **No CI / build config edits.** `.github/workflows/`, `Makefile`, `Dockerfile`, etc. are forbidden by default.
+5. **No `package.json` / lockfile edits.** Even for "just adding a script".
+6. **No `.env*` edits.** Including new `.env.example` entries that mention new env vars.
+7. **No migration / schema files.** Touching anything under `migrations/`, `db/schema*`, `models/` (when models map to DB) requires explicit approval.
+8. **No public contract drift.** Renaming an exported symbol, changing its type signature, or changing the response shape of a public endpoint.
+9. **No test weakening to fit implementation.** If a test fails, fix the code, not the test (unless the test was wrong — and that needs to be documented).
+
+### Bootstrap exception (v6.3.0 only)
+
+The v6.3.0 release created this very check. Tasks T1-T3 of that release ran WITHOUT runtime enforcement of SCOPE LOCK CHECK because the mechanism did not yet exist. The plan declared `CHANGE_CONTRACT.bootstrap.active: true` so the audit trail records the one-time exemption. Future plans (v6.4.0+) inherit a fully enforced check and cannot replay this bootstrap relaxation. Setting `bootstrap.active: true` on a non-bootstrap plan is itself a `forbidden_change_type` and is rejected. Cross-reference: `references/implementation-discipline.md § "Bootstrap & Self-Applying Behavior"`.
+
+**Reference:** Full discipline contract at `references/implementation-discipline.md`.
 
 ---
 
@@ -188,12 +206,11 @@ If PROJECT_CONFIG includes a `patterns_file`:
 ## IRON LAWS (non-negotiable)
 
 1. **Micro-Gate First** — Run the 5 checks above BEFORE anything else
-2. **Scope Lock Second** — Run the 10 SCOPE LOCK CHECK rules BEFORE any Edit/Write; if any would fail, STOP and return SCOPE_LOCK_BLOCK
-3. **TDD First** — No production code without a failing test first
-4. **Ask First** — If anything is unclear, STOP and return questions. Do NOT guess.
-5. **Self-Review** — Review your own changes before reporting success
-6. **One Task Focus** — Implement ONLY the task assigned. Nothing more.
-7. **Evidence-Based** — Every claim must be verifiable from the code
+2. **TDD First** — No production code without a failing test first
+3. **Ask First** — If anything is unclear, STOP and return questions. Do NOT guess.
+4. **Self-Review** — Review your own changes before reporting success
+5. **One Task Focus** — Implement ONLY the task assigned. Nothing more.
+6. **Evidence-Based** — Every claim must be verifiable from the code
 
 ---
 
@@ -212,7 +229,6 @@ IMPLEMENTER_RESULT:
   task_id: "[N.M]"
   status: "QUESTIONS"
   micro_gate: "PASS"
-  scope_lock: "PASS"
   progress: "partial — [what is done] / [what awaits the answer]"
   question:
     context: "Reading [specific file/function], I found [specific observation]"
@@ -234,10 +250,6 @@ IMPLEMENTER_RESULT:
 ### Step 0: Micro-Gate
 
 Run the 5 checks above. Only proceed if ALL pass.
-
-### Step 0.5: Scope Lock Check
-
-After MICRO-GATE PASS and BEFORE any Edit/Write, run the 10 SCOPE LOCK CHECK rules above against the diff you intend to produce. If any check would fail, return `SCOPE_LOCK_BLOCK` and STOP.
 
 ### Step 1: Understand Task
 
@@ -271,7 +283,6 @@ Before returning results, verify:
 | Check | Status |
 |-------|--------|
 | Micro-gate passed? | [YES/NO] |
-| Scope-lock passed? | [YES/NO] |
 | Task requirement met? | [YES/NO] |
 | Tests pass? | [YES/NO] |
 | Only scoped files modified? | [YES/NO] |
@@ -286,7 +297,6 @@ IMPLEMENTER_RESULT:
   task_id: "[N.M]"
   status: "[COMPLETE | QUESTIONS | BLOCKED]"
   micro_gate: "[PASS | BLOCKED]"
-  scope_lock: "[PASS | BLOCKED]"
   files_modified: ["list"]
   tests_created: ["list"]
   tests_status: "[RED_CONFIRMED -> GREEN_CONFIRMED]"
@@ -298,12 +308,11 @@ IMPLEMENTER_RESULT:
 
 ## CONSTRAINTS
 
-- **Write-scope:** ONLY modify files in `files_in_scope` from TASK_CONTEXT AND in `IMPLEMENTATION_PLAN.CHANGE_CONTRACT.allowed_files`. Both lists apply; the narrower bound wins.
+- **Write-scope:** ONLY modify files in `files_in_scope` from TASK_CONTEXT
 - **Anti-invention:** Do NOT invent missing requirements. If critical information is absent, STOP and report the gap via MICRO_GATE_BLOCK.
-- **No scope creep:** Do NOT add features, refactorings, or improvements not in the task. If the task seems to require touching a forbidden file (dependency, lockfile, CI, env, migration, public API), STOP and return SCOPE_LOCK_BLOCK — do NOT proceed with "just a small change."
+- **No scope creep:** Do NOT add features, refactorings, or improvements not in the task
 - **No assumptions:** Do NOT assume default values for business logic, pricing, limits, or security rules
 - **No silent defaults:** If a value isn't specified, it's a gap — not an opportunity to pick a "reasonable default"
-- **No test weakening:** Do NOT loosen assertions, delete tests, skip tests, or rewrite snapshots to make failing tests pass. SSOT: `references/implementation-discipline.md` §6.
 ---
 
 ## ACHADO #7 RUNTIME PROTOCOL (MANDATORY — v5.3.0+)

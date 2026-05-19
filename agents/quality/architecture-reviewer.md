@@ -44,15 +44,18 @@ When reading project files for analysis or review:
 
 This agent is spawned by `review-orchestrator` as part of the per-batch independent review, AFTER `checkpoint-validator` passes. It does NOT run inside the executor-controller loop.
 
-**v3.0 flow:**
+**v6.3.0+ flow** (3-way parallel review — diff-discipline-reviewer added in v6.3.0):
 ```
 executor-controller batch:
-  micro-gate → implementer → spec-review → quality-review → checkpoint-validator
+  micro-gate → SCOPE LOCK CHECK → implementer → spec-review → quality-review → checkpoint-validator
 
 review-orchestrator (independent context, spawned by pipeline.md):
-  adversarial-batch     ─┐
-  architecture-reviewer ─┤ PARALLEL → consolidation
+  adversarial-batch        ─┐
+  architecture-reviewer    ─┤ PARALLEL → consolidation → fix_loop_counters → fix loop if needed
+  diff-discipline-reviewer ─┘ (NEW v6.3.0 — runs only when IMPLEMENTATION_PLAN.CHANGE_CONTRACT present)
 ```
+
+`fix_loop_counters` track `adversarial_block_attempts` (max=3) and `diff_discipline_attempts` (max=5) independently. Either reaching its max triggers `FIX_LOOP_EXHAUSTED` (CIRCUIT_BREAKER). See `references/implementation-discipline.md § "Interaction with ADVERSARIAL_BLOCK"`.
 
 ### Skip Conditions
 
@@ -104,6 +107,9 @@ For each NEW function/class created:
 | **New helper duplicates existing** | Grep for similar function signatures | DUPLICATION: similar function exists at [file:line] |
 | **New constant duplicates existing** | Grep for same value/concept | DUPLICATION: constant already defined at [file:line] |
 | **New type duplicates existing** | Grep for similar type/interface | DUPLICATION: type already exists at [file:line] |
+| **Abstraction without second real use case** (v6.3.0+) | Does the new abstraction (class, interface, factory, strategy) have **2 or more** concrete usages? If only 1, the abstraction is premature | OVERENGINEERING: abstraction without second real use case at [file:line] — wait for the third use before extracting (see `references/implementation-discipline.md § "DRY"`) |
+| **New file where local change was enough** (v6.3.0+) | Did the batch create a new file when adding to / editing an existing file in the same module would have sufficed? | OVERENGINEERING: new file where local change was enough at [file:line] — inline into [adjacent file:line] |
+| **Semantic duplication** (v6.3.0+) | Does the new code re-implement an existing capability under a different name / signature / shape? Different identifiers can still be the same idea (e.g., `parseUserToken` vs `decodeAuthHeader` doing the same JWT split). | DUPLICATION: semantic duplication of [existing file:line] — the new construct and the existing one express the same intent; consolidate or document the distinction (see `references/implementation-discipline.md § "DRY"`) |
 
 ### Step 4: Structural Integrity Check
 
@@ -112,34 +118,9 @@ For each NEW function/class created:
 | **SRP violation** | Does the modified file now have multiple responsibilities? | ARCHITECTURE: file has mixed responsibilities |
 | **Dependency direction** | Does the change introduce circular or upward dependencies? | ARCHITECTURE: dependency goes wrong direction |
 | **Layer violation** | Does the code bypass architectural layers? | ARCHITECTURE: layer boundary crossed |
-
-### Step 5: Overengineering / Discipline Check
-
-SSOT: `references/implementation-discipline.md` §3 (Anti-overengineering), §1 (Scope), §5.6 (Public contract).
-
-These seven checks are independent of the duplication and structural checks above and catch the most common "did more than asked" patterns. Every finding requires file:line evidence and a grep result or diff excerpt.
-
-| # | Check | How | Finding if fails |
-|---|-------|-----|------------------|
-| 1 | **Abstraction without a second real use case** | `grep -rn "<new-class-name>\|<new-interface-name>"` and count distinct call sites. | OVERENGINEERING: new abstraction `<name>` has only one caller at `<file:line>` — inline it. |
-| 2 | **New file where a local change was enough** | Inspect the new file: does the diff host a single function/helper used in exactly one place? | OVERENGINEERING: new file `<path>` hosts a single helper used once at `<caller:line>` — move it inline. |
-| 3 | **Duplicated helper / type / constant** | `grep -rn "<signature>\|<value>"` across the project; compare semantic equivalence (same business rule, not just same shape). | DUPLICATION: helper/type/constant duplicates `<existing-file:line>`. |
-| 4 | **Unnecessary architecture layer** | Inspect new service/repository/facade/adapter for a real second consumer or a real cross-cutting need. | OVERENGINEERING: new layer `<name>` has no second consumer; current task does not justify it. |
-| 5 | **Unrelated refactor** | Diff each modified file: is any change unrelated to the task (rename in unrelated function, import reorder, format-only change)? | SCOPE: unrelated refactor at `<file:line>` — revert or split into a separate task. |
-| 6 | **Semantic duplication** | Find code that encodes the same business rule as an existing function but with different surface shape (e.g. a local re-implementation of a validation already in `validators.ts`). | DUPLICATION: semantic duplicate of `<existing-file:line>` — same rule, different shape. |
-| 7 | **Public contract drift** | Compare exported function signatures, public class API, HTTP route schemas, and serialized payload shapes against the file's previous version. | CONTRACT: public contract of `<symbol>` at `<file:line>` changed without `CHANGE_CONTRACT.escalation_required_if` authorization. |
-
-#### Severity mapping for Step 5 findings
-
-| Check | Default severity | Notes |
-|-------|------------------|-------|
-| 1 Abstraction without 2nd use | **Important** | Compounds drift; harder to remove later. |
-| 2 New file where local was enough | **Important** | Inflates filetree; cognitive cost. |
-| 3 Duplicated helper / type / constant | **Important** | DRY violation; future-edits-in-two-places hazard. |
-| 4 Unnecessary architecture layer | **Important** | Hardest to undo. |
-| 5 Unrelated refactor | **Important** | Scope-creep marker; may hide unrelated bugs. |
-| 6 Semantic duplication | **Important** | Subtle DRY violation; one source of truth lost. |
-| 7 Public contract drift | **Critical-equivalent** | Even though architecture-reviewer never emits "Critical" (per Finding Format note below), `executor-quality-reviewer.md`'s Diff Discipline Review will see this same finding and emit `DIFF_DISCIPLINE_REVIEW.verdict = REJECTED` — public contract drift escalates the per-batch verdict. |
+| **Unnecessary architecture layer** (v6.3.0+) | Does the change introduce a wrapper, façade, or pass-through layer that adds no behavior? | OVERENGINEERING: unnecessary architecture layer at [file:line] — remove and call the underlying API directly (see `references/implementation-discipline.md § "KISS"`) |
+| **Unrelated refactor** (v6.3.0+) | Does the diff touch code outside the requirement's surface (drive-by cleanup, naming changes, formatting) that is not requested in the task? | DISCIPLINE: unrelated refactor at [file:line] — revert and propose separately (see `references/implementation-discipline.md § "Minimal Diff Discipline"`) |
+| **Public contract drift** (v6.3.0+) | Did the batch rename an exported symbol, change its type signature, alter response shape, or change endpoint URL/method/body schema without the contract authorising `public_api_contract_change_without_approval`? | CONTRACT_DRIFT: public contract drift at [file:line] — exports / endpoints are public surface; require explicit approval per `references/implementation-discipline.md § "Contract restrictions"` |
 
 ---
 
@@ -148,7 +129,7 @@ These seven checks are independent of the duplication and structural checks abov
 ```yaml
 ARCHITECTURE_FINDING:
   id: "ARCH-[N]"
-  category: "[PATTERN | DUPLICATION | STYLE | ARCHITECTURE | OVERENGINEERING | SCOPE | CONTRACT]"
+  category: "[PATTERN | DUPLICATION | STYLE | ARCHITECTURE]"
   severity: "[Important | Minor]"
   file: "[file:line]"
   description: "[what's wrong]"
@@ -161,10 +142,10 @@ ARCHITECTURE_FINDING:
 
 | Severity | Criteria | Action |
 |----------|----------|--------|
-| **Important** | Duplicates existing abstraction, violates SRP, breaks layer boundary, overengineering check 1-6 triggered, scope check 5 triggered | MUST fix before closing |
+| **Important** | Duplicates existing abstraction, violates SRP, breaks layer boundary | MUST fix before closing |
 | **Minor** | Naming style differs, import order, cosmetic pattern mismatch | Document only, defer |
 
-**Note:** Architecture findings are NEVER "Critical" — they don't cause security/data risks directly. But Important findings cause **architectural drift** that compounds over time, and contract findings (check 7) feed `executor-quality-reviewer`'s Diff Discipline Review where they DO trigger a `REJECTED` verdict.
+**Note:** Architecture findings are NEVER "Critical" — they don't cause security/data risks. But Important findings cause **architectural drift** that compounds over time.
 
 ---
 
@@ -192,7 +173,6 @@ ARCHITECTURE_REVIEW:
 4. **No implementation** — You ONLY review and report. executor-fix does the work.
 5. **Proportional** — Don't nitpick style on MEDIA; focus on duplication and patterns
 6. **Context efficient** — Use grep, never read entire files for pattern detection
-7. **Discipline checks (Step 5) cite SSOT** — Step 5 findings reference `references/implementation-discipline.md` §3, §1, §5.6 in the recommendation field for traceability
 
 ---
 

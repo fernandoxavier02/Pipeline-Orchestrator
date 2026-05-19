@@ -134,7 +134,6 @@ Create a structured plan with:
 ### Overview
 - **Goal:** [1 sentence]
 - **Approach:** [2-3 sentences describing the strategy]
-- **Smallest safe change:** [1-2 sentences naming the minimal edit that solves the task. Explicitly state whether new files, new abstractions, new dependencies, public contract changes, sensitive config changes, or schema migrations are allowed. Default for every category is "not allowed" — opt-in must be justified inline. See `references/implementation-discipline.md` §2.]
 - **Files to create:** [N]
 - **Files to modify:** [N]
 - **Estimated tasks:** [N]
@@ -226,20 +225,20 @@ IMPLEMENTATION_PLAN:
       invariants:
         - "[e.g., amount > 0]"
         - "[e.g., status transitions only via approve()/cancel()]"
-  # MANDATORY for all complexities — SSOT: references/implementation-discipline.md.
-  # CHANGE_CONTRACT defines the diff boundary the implementer must NOT cross.
-  # The executor-quality-reviewer compares the actual diff against this contract
-  # in its Diff Discipline Review step and returns PASS / NEEDS_REDUCTION / REJECTED.
+  # v6.3.0+ — SCOPE / DIFF DISCIPLINE CONTRACT. Mandatory for MEDIA/COMPLEXA plans.
+  # SSOT: references/implementation-discipline.md. Defaults below are fail-closed
+  # (0 / false) — every plan MUST customize them. A plan that ships these defaults
+  # untouched is declaring "no changes allowed" and will block on the first edit.
   CHANGE_CONTRACT:
-    allowed_files: []                 # paths the implementer is allowed to MODIFY
-    allowed_new_files: []             # paths the implementer is allowed to CREATE
-    forbidden_files:
+    allowed_files: []           # existing files the batch may modify
+    allowed_new_files: []       # paths the batch may create
+    forbidden_files:            # invariant denylist (overrides allowed_files on overlap)
       - "package.json"
       - "package-lock.json"
       - "pnpm-lock.yaml"
       - ".env"
       - ".github/workflows/*"
-    forbidden_change_types:
+    forbidden_change_types:     # taxonomy from references/implementation-discipline.md
       - "unrequested_feature"
       - "unrelated_refactor"
       - "new_dependency_without_approval"
@@ -247,13 +246,14 @@ IMPLEMENTATION_PLAN:
       - "schema_migration_without_approval"
       - "sensitive_config_change_without_approval"
       - "test_weakened_to_fit_implementation"
-    diff_budget:
-      max_files_expected: 0           # upper bound; exceeding requires STOP + question
-      max_lines_expected: 0           # upper bound; exceeding requires STOP + question
-      new_abstractions_allowed: false # interfaces/base classes/strategy patterns
-      new_modules_allowed: false      # new files/folders/packages
-    escalation_required_if: []        # explicit list of normally-forbidden changes the
-                                      # user pre-authorized (e.g., "new dependency: redis")
+    diff_budget:                # soft ceilings; exceeding by >20% triggers escalation_required_if
+      max_files_expected: 0
+      max_lines_expected: 0
+      new_abstractions_allowed: false
+      new_modules_allowed: false
+    escalation_required_if: []  # conditions that need explicit user re-approval (free-form list)
+    bootstrap:                  # set active: true ONLY for plans that are creating discipline infrastructure (v6.3.0 was the one-time case)
+      active: false
 ```
 
 ---
@@ -278,7 +278,17 @@ IMPLEMENTATION_PLAN:
     - **Lifecycle:** WARNING only — pipeline continues without blocking; the event exists for audit trail / coaching review and shows up in post-run reports.
     - **Status:** SPEC-ONLY (v6.1.0) — producer not yet wired; pipeline-controller emission routine slated for v6.2. See CHANGELOG v6.1.0 forward dependencies.
 
-11. **Change Contract (MANDATORY all complexities):** Every IMPLEMENTATION_PLAN MUST populate the `CHANGE_CONTRACT` YAML block. The contract names the smallest safe change: which files may be modified (`allowed_files`), which may be created (`allowed_new_files`), which are off-limits (`forbidden_files`), which change types are off-limits (`forbidden_change_types`), and the `diff_budget` (file/line caps, plus flags for new abstractions/modules). When a normally-forbidden change is required, the user-authorized exception MUST appear in `escalation_required_if`. The plan MUST state in the Overview's `Smallest safe change` bullet whether new files, abstractions, dependencies, contract changes, config changes, or migrations are allowed — default for every category is "not allowed." Full SSOT: `references/implementation-discipline.md` §1, §2, §5.
+11. **CHANGE_CONTRACT (v6.3.0+ — MEDIA/COMPLEXA only):** Every MEDIA and COMPLEXA plan MUST include a `CHANGE_CONTRACT` block in the emitted IMPLEMENTATION_PLAN YAML. The SSOT for the contract semantics is `references/implementation-discipline.md`. The contract declares `allowed_files`, `allowed_new_files`, `forbidden_files`, `forbidden_change_types`, `diff_budget`, and `escalation_required_if`. Defaults are fail-closed (`0` / `false`) — a plan that ships defaults untouched is declaring "no changes" and will block on the first edit. `SCOPE LOCK CHECK` in `executor-implementer-task.md` consults this block before every Write/Edit; `diff-discipline-reviewer.md` consults it during the third parallel review pass after each batch. SIMPLES plans are exempt (no contract required) — the discipline layer still applies via the single-batch reviewer pass, but with no explicit budget.
+
+    **Bootstrap exception (v6.3.0 only):** The v6.3.0 release itself created `references/implementation-discipline.md`, the `CHANGE_CONTRACT` schema in this file, and the `SCOPE LOCK CHECK` section in `executor-implementer-task.md`. Tasks T1-T3 of that release ran WITHOUT runtime enforcement of `SCOPE LOCK CHECK` because the mechanism did not yet exist. The plan declared `bootstrap.active: true` for audit transparency. The bootstrap event is logged to `gate-decisions.jsonl` with `event: "BOOTSTRAP_EXEMPTION_USED"`, hardness `AUDIT`. See `references/implementation-discipline.md § "Bootstrap & Self-Applying Behavior"`.
+
+    **NORMATIVE LOCK (v6.3.0+):** Setting `CHANGE_CONTRACT.bootstrap.active: true` on any plan **other than** the historical v6.3.0 plan archived at `.pipeline/docs/Pre-Complexa-action/2026-05-19-batch-adversarial-discipline/03-plan-architect.md` is a `forbidden_change_type`. plan-architect MUST refuse to emit such a plan; if asked to, it must return `status: QUESTIONS` with `question.context: bootstrap_replay_attempt` and the rationale "bootstrap is one-time; the discipline machinery already exists, so the relaxation is unnecessary; document why the contract feels too narrow and propose an `escalation_required_if` entry instead". diff-discipline-reviewer treats this as `REJECTED` and the v6.3.0 regression test `F15_bootstrap_lock_invariant.cjs` pins the invariant at CI time (three layers of defense: prose, test, audit trail — see `references/implementation-discipline.md § "Bootstrap Lock Invariant"`).
+
+    **Emission contract** (informational — plan-architect is read-only and does NOT emit; the parent does):
+    - **Emitter:** `pipeline-controller`, after parsing the IMPLEMENTATION_PLAN YAML returned by plan-architect, when `complexity in {MEDIA, COMPLEXA}` AND the `CHANGE_CONTRACT` field is absent.
+    - **Channel:** `{PIPELINE_DOC_PATH}/protocol-events.jsonl` (NOT `gate-decisions.jsonl` — keeping consistent with Rule 10).
+    - **Schema:** `{event: "CHANGE_CONTRACT_MISSING", phase: "1.5", gate_id: "change-contract-missing-batch-<N>", target_kind: "plan", target_name: <plan_path>, violation_type: "soft-advisory", timestamp: <ISO 8601>, decided_by: "pipeline-controller", detail: "MEDIA/COMPLEXA plan missing CHANGE_CONTRACT block"}` — fields conform to `ALLOWED_PROTOCOL_EVENT_KEYS`.
+    - **Lifecycle:** WARNING in v6.3.0; promoted to HARD block in v6.4.0+. This phased rollout matches the BOUNDED_CONTEXT pattern in Rule 10.
 
 ---
 

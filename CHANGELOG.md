@@ -5,6 +5,71 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [6.3.0] - 2026-05-19 — Implementation Discipline Layer (MINOR)
+
+**Minor release.** Adds a discipline layer that constrains every code-changing batch to a declared `CHANGE_CONTRACT` — scope, diff budget, forbidden change types, test integrity. Enforced structurally by agents reading a new SSOT, NOT by adding a new gate row. Backward compatible (legacy plans without `CHANGE_CONTRACT` skip the discipline reviewer cleanly).
+
+### Why this matters
+
+Prior to v6.3.0, the pipeline had strong checkpoints for **correctness** (TDD, adversarial review, sanity check) but weak signals for **discipline**:
+1. **Scope creep.** An implementer could touch any file the agent had permission for, including drive-by cleanup that bloated diffs.
+2. **Over-engineering.** Premature abstraction, "framework lite" patterns, and speculative parameterization slipped past adversarial and architecture review because those agents focused on *correctness* and *patterns*, not *minimality*.
+3. **Silent dependency drift.** A new `import` of a previously unused package would pass review if the code worked — even when adding a new dependency was not in scope.
+4. **Test weakening.** Tests that started failing could be "fixed" by loosening assertions instead of fixing the code.
+
+v6.3.0 closes all four by introducing a per-batch `CHANGE_CONTRACT` that every plan must declare and every implementer/reviewer must respect.
+
+### Added
+
+- **`references/implementation-discipline.md` (NEW)** — SSOT for the discipline layer. 11 sections covering severity definitions (PASS / NEEDS_REDUCTION / REJECTED with hardness mapping), scope control rules, minimal-diff discipline heuristics, SOLID/KISS/DRY/YAGNI application, dependency/config/contract/migration restrictions, test integrity rules, evidence requirements, bootstrap & self-applying behavior, interaction with the 22-Gate Mandatory Table, interaction with ADVERSARIAL_BLOCK (max=3) vs. new max=5.
+- **`CHANGE_CONTRACT` block in `IMPLEMENTATION_PLAN`** (new Rule 11 in `agents/quality/plan-architect.md`) — 6 required fields: `allowed_files`, `allowed_new_files`, `forbidden_files`, `forbidden_change_types` (7 canonical types), `diff_budget` (with 4 sub-fields), `escalation_required_if`. Plus `bootstrap.active` flag for one-time relaxation. Defaults are fail-closed (0/false) — every plan MUST customize them.
+- **`## SCOPE LOCK CHECK` in `agents/executor/executor-implementer-task.md`** — fires before every Write/Edit (Read remains free). 5 checks against the active `CHANGE_CONTRACT`. On violation: returns `status: QUESTIONS` with `question.context: scope_lock_violation`, routed to the user via the parent. Includes 9-item anti-pattern list (no drive-by cleanup, no unrequested refactor, no new dependency injection, no CI/build config edits, no `package.json`/lockfile edits, no `.env*` edits, no migration/schema files, no public contract drift, no test weakening to fit implementation).
+- **`agents/quality/diff-discipline-reviewer.md` (NEW agent — agent roster grows 19 → 20)** — third parallel reviewer in `review-orchestrator`, alongside `adversarial-batch` and `architecture-reviewer`. Tools: Read, Grep, Glob ONLY (no Bash, no Edit, no Write — static-only inspection). Emits `DIFF_DISCIPLINE_REVIEW:` YAML with verdict, scope findings, minimal_diff findings, dependency/config/contract findings, test integrity findings, evidence. `REJECTED` is HARD with `max_fix_attempts=5`. `NEEDS_REDUCTION` is SOFT (user-acknowledged, no fix loop).
+- **3-way parallel reviewer wiring in `agents/quality/review-orchestrator.md`** — Step 1 table updated for SIMPLES (with CHANGE_CONTRACT) / MEDIA / COMPLEXA; new `DIFF_DISCIPLINE_INPUT:` block in Step 2; Step 3 REVIEW_CONSOLIDATED gains `diff_discipline:` field, `combined_findings.source: diff_discipline` enum value, and `fix_loop_counters:` sub-block with `adversarial_block_attempts` (max=3) and `diff_discipline_attempts` (max=5) tracked independently.
+- **5 new check rows in `agents/quality/architecture-reviewer.md`**:
+  - Step 3 Abstraction Reuse: *abstraction without second real use case*, *new file where local change was enough*
+  - Step 4 Structural Integrity: *unnecessary architecture layer*, *unrelated refactor*, *public contract drift*
+  - (Pre-existing: *duplicated helper/type/constant*, *semantic duplication* — already captured by older rows)
+- **7 regression tests in `tests/regression/v6.3.0/` (F8-F14)** — static-asserts following the v6.1.0 pattern:
+  - F8: `implementation-discipline.md` exists with required sections
+  - F9: `plan-architect.md` contains `CHANGE_CONTRACT:` with all 6 fields + 5 canonical forbidden_files + 7 canonical forbidden_change_types
+  - F10: `executor-implementer-task.md` contains `## SCOPE LOCK CHECK` heading positioned correctly with violation protocol and Bootstrap exception
+  - F11: `diff-discipline-reviewer.md` exists with `tools: Read, Grep, Glob` exactly + `DIFF_DISCIPLINE_REVIEW:` schema + `max_fix_attempts=5`
+  - F12: `review-orchestrator.md` Step 1 mentions diff-discipline-reviewer + Step 2 `DIFF_DISCIPLINE_INPUT:` + Step 3 `diff_discipline:` + `fix_loop_counters:` with `diff_discipline_attempts:`
+  - F13: `architecture-reviewer.md` contains 7 discipline checks regex-matchable
+  - F14: `references/gates.md` Gate Registry has exactly 32 rows (current count post-v6.2.0) AND Mandatory Gates by Complexity table has exactly 22 rows — defense-in-depth invariant guard
+
+### Invariants preserved
+
+- **22-row Mandatory Gates by Complexity table** in `references/gates.md` — UNCHANGED. Pinned by `tests/regression/v6.1.0/F1_gates_mandatory_section.cjs` (untouched in this release).
+- **32-row Gate Registry** (full table) in `references/gates.md` — UNCHANGED. Pinned by new `F14_gates_md_unchanged_count.cjs` as belt-and-suspenders.
+- **No new gate row added.** The discipline layer is enforced structurally by agents reading the new SSOT + the per-plan `CHANGE_CONTRACT`. `NEEDS_REDUCTION` logs under existing `ADVERSARIAL_GATE` (SOFT); `REJECTED` triggers an internal fix loop that piggybacks on existing return-to-executor-fix machinery.
+- **`ADVERSARIAL_BLOCK` row in `references/gates.md`** — UNCHANGED. `max=3` retained. The new `max=5` is a property of the new agent's internal fix loop, NOT a modification of `ADVERSARIAL_BLOCK`.
+
+### Bootstrap exception (one-time, v6.3.0 only)
+
+This release created the enforcement machinery (`implementation-discipline.md`, `CHANGE_CONTRACT` schema, `SCOPE LOCK CHECK` section, `diff-discipline-reviewer` agent). The plan for v6.3.0 itself was the first plan to declare `CHANGE_CONTRACT`. Tasks T1-T3 ran WITHOUT runtime `SCOPE LOCK CHECK` enforcement because the mechanism did not yet exist in code at that point. The plan declared `CHANGE_CONTRACT.bootstrap.active: true` for audit transparency. From T4 onward, enforcement is fully active. Future plans (v6.4.0+) inherit a fully-enforced pipeline; setting `bootstrap.active: true` on a non-bootstrap plan is itself a `forbidden_change_type` and will be rejected. The bootstrap event is logged once to `gate-decisions.jsonl` as `event: "BOOTSTRAP_EXEMPTION_USED"` with hardness `AUDIT`.
+
+### Test suite
+
+- 19 → **26** regression suites GREEN (+7 new tests F8-F14).
+- All v6.0.0/v6.1.0/v6.2.0 tests untouched; F1 22-row assertion preserved exactly.
+- Zero regressions in hook syntax suite (sentinel-hook, dispatch-guard, edit-guard, force-pipeline-agents, session-cleanup, session-lock, skill-frontmatter-parser).
+- Approx. +1,250 lines added across SSOT (233), new agent (229), updated agents (~165), tests (~720), CHANGELOG + plugin/marketplace metadata.
+
+### Backward compatibility
+
+- Plans emitted before v6.3.0 (no `CHANGE_CONTRACT` field) are accepted. `diff-discipline-reviewer` emits a SKIP result documented in `REVIEW_CONSOLIDATED.diff_discipline.status: "SKIPPED"`. v6.4.0 will promote missing `CHANGE_CONTRACT` from SKIP to HARD on MEDIA/COMPLEXA plans.
+- SIMPLES tasks remain exempt from the multi-batch adversarial loop. The discipline layer (`SCOPE LOCK CHECK` + diff-discipline reviewer) still runs in SIMPLES when a `CHANGE_CONTRACT` is present, but without multi-batch iteration.
+
+### Files touched
+
+- New: `references/implementation-discipline.md`, `agents/quality/diff-discipline-reviewer.md`, `tests/regression/v6.3.0/F8_*.cjs` … `F14_*.cjs`
+- Modified: `agents/quality/plan-architect.md`, `agents/executor/executor-implementer-task.md`, `agents/quality/architecture-reviewer.md`, `agents/quality/review-orchestrator.md`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `CHANGELOG.md`
+- Untouched (by design — in `CHANGE_CONTRACT.forbidden_files`): `references/gates.md`, `tests/regression/v6.0.0/**`, `tests/regression/v6.1.0/**`, `tests/regression/v6.2.0/**`, `commands/pipeline.md`, `package.json`, lockfiles, `.env*`, `.github/workflows/*`
+
+---
+
 ## [6.2.0] - 2026-05-18 — Clarification Overhaul + Alternatives Brainstorming (MINOR)
 
 **Minor release.** The most important step of the pipeline — pre-execution clarification — was rebuilt from a fixed-template question list into an evidence-driven dynamic agent. New step proposes alternative approaches. Drift fix on the complexity matrix. Backward compatible.

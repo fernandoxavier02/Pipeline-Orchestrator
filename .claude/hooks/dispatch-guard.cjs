@@ -84,9 +84,10 @@ const AGENT_LEAF_TO_FQN = Object.freeze({
   'step-01-explore': 'pipeline-orchestrator:brainstorm:brainstorm-step-01-explore',
   'step-01b-alternatives': 'pipeline-orchestrator:brainstorm:brainstorm-step-01b-alternatives',
 
-  // quality/ (7 agents)
+  // quality/ (8 agents — v6.3.0 added diff-discipline-reviewer)
   'review-orchestrator': 'pipeline-orchestrator:quality:review-orchestrator',
   'architecture-reviewer': 'pipeline-orchestrator:quality:architecture-reviewer',
+  'diff-discipline-reviewer': 'pipeline-orchestrator:quality:diff-discipline-reviewer',
   'design-interrogator': 'pipeline-orchestrator:quality:design-interrogator',
   'plan-architect': 'pipeline-orchestrator:quality:plan-architect',
   'quality-gate-router': 'pipeline-orchestrator:quality:quality-gate-router',
