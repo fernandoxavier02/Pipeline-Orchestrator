@@ -18,7 +18,7 @@
 
   <rect width="1400" height="900" fill="url(#bg2)" rx="12"/>
 
-  <text x="700" y="55" text-anchor="middle" fill="#f0f6fc" font-size="52" font-weight="700" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">ARCHITECTURE — 19 AGENTS IN 4 LAYERS</text>
+  <text x="700" y="55" text-anchor="middle" fill="#f0f6fc" font-size="52" font-weight="700" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">ARCHITECTURE — 20 AGENTS IN 4 LAYERS</text>
   <line x1="380" y1="72" x2="1020" y2="72" stroke="#7C3AED" stroke-width="2" opacity="0.6">
     <animate attributeName="opacity" values="0.6;1;0.6" dur="3s" repeatCount="indefinite"/>
   </line>
