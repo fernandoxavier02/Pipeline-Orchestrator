@@ -79,31 +79,31 @@
     <rect x="-65" y="0" width="130" height="32" rx="16" fill="#7C3AED" opacity="0.9">
       <animate attributeName="opacity" values="0.9;1;0.9" dur="3s" repeatCount="indefinite"/>
     </rect>
-    <text x="0" y="22" text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="16" font-weight="700" fill="#fff">v6.1.0</text>
+    <text x="0" y="22" text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="16" font-weight="700" fill="#fff">v6.3.0</text>
   </g>
 
   <text x="450" y="232" text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="22" fill="#8b949e" font-weight="400" letter-spacing="1">
-    The multi-agent pipeline that catches what humans miss
+    The governance layer between your spec and production
   </text>
 
   <g transform="translate(0, 270)">
     <text x="170" y="0" text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="32" font-weight="800" fill="#c4b5fd">
-      19
+      20
       <animate attributeName="fill" values="#c4b5fd;#fff;#c4b5fd" dur="4s" repeatCount="indefinite"/>
     </text>
     <text x="170" y="26" text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="15" fill="#8b949e" font-weight="500">AGENTS</text>
 
     <text x="370" y="0" text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="32" font-weight="800" fill="#7dd3fc">
-      12
+      32
       <animate attributeName="fill" values="#7dd3fc;#fff;#7dd3fc" dur="4s" begin="1s" repeatCount="indefinite"/>
     </text>
-    <text x="370" y="26" text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="15" fill="#8b949e" font-weight="500">PIPELINES</text>
+    <text x="370" y="26" text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="15" fill="#8b949e" font-weight="500">GATES</text>
 
     <text x="550" y="0" text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="32" font-weight="800" fill="#86efac">
-      166
+      31
       <animate attributeName="fill" values="#86efac;#fff;#86efac" dur="4s" begin="2s" repeatCount="indefinite"/>
     </text>
-    <text x="550" y="26" text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="15" fill="#8b949e" font-weight="500">TESTS</text>
+    <text x="550" y="26" text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="15" fill="#8b949e" font-weight="500">TEST SUITES</text>
 
     <text x="730" y="0" text-anchor="middle" font-family="'Segoe UI',system-ui,sans-serif" font-size="32" font-weight="800" fill="#fde68a">
       0
