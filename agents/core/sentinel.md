@@ -248,11 +248,17 @@ A `sentinel-state.json` is considered **orphan** when:
 
 Orphan state causes the sentinel-hook to block legitimate new pipelines because `expected_next` from a stale pipeline misroutes the sequence check (audit B1-001 documented this exact failure: 9-day-old wave8-spec state blocked v5.3.0 audit run).
 
-### When this mode fires
+### Automatic baseline cleanup (Patch 5 / v7.1.2+)
+
+As of v7.1.2, **`.claude/hooks/cleanup-orphan-sentinel-state-hook.cjs` fires automatically on every Claude Code `SessionStart`** and archives orphan state files without requiring agent dispatch. The hook is mechanical: it does not emit SENTINEL_VERDICT, does not write to `gate-decisions.jsonl`, and does not perform deep analysis — it just sets `pipeline_active: false` and annotates `closeout_reason` for every file matching the orphan criteria above. This closes Achado B1-001 as a default behavior, removing the manual workaround.
+
+The agent mode below remains available for deeper analysis (multi-state-file reasoning, anomaly reports, lock-file pattern checks) — pipeline-controller should invoke `mode: ORPHAN_CLEANUP` on the agent only when a richer report is needed beyond the mechanical hook's archive-direction mutation.
+
+### When this mode fires (agent dispatch)
 
 The parent (pipeline-controller) invokes you with `mode: ORPHAN_CLEANUP` BEFORE creating a new `sentinel-state.json` for a fresh pipeline. Triggers:
 
-1. `SessionStart` hook detects existing `.pipeline/docs/**/sentinel-state.json` from prior session
+1. `SessionStart` hook detects existing `.pipeline/docs/**/sentinel-state.json` from prior session AND deeper analysis is requested beyond the mechanical hook
 2. Manual cleanup via `/pipeline-orchestrator:pipeline --cleanup-orphans`
 3. Periodic check during Phase 0 pre-flight (within pipeline-controller STEP 3)
 
