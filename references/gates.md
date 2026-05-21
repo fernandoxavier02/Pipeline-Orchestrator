@@ -39,6 +39,7 @@ Each gate has a formal **hardness** level that determines enforcement behavior:
 | FINAL_ADVERSARIAL_REWORK | **HARD** | Final adversarial reports CRITICAL findings | **ASK** user (A: fix batch / B: proceed / C: discard) | Fix batch or proceed with penalty |
 | CLOSEOUT_CONFIRM | **SOFT** | Push+PR or Discard | **PAUSE** — confirm | User confirms |
 | STATE_FILE_INIT_FAIL | **CIRCUIT_BREAKER** | `Write` of `{PIPELINE_DOC_PATH}/sentinel-state.json` fails at Phase 0 init (any IO error — permission, disk full, invalid path, read-only fs, signer raise) | **STOP pipeline** before any Agent spawn / DISPATCH_REQUEST | Fix IO root cause (permission, disk, path, parent dir); user re-runs pipeline |
+| PROTOCOL_HANDSHAKE_TIMEOUT | **HARD** | A `GATE_REQUEST` / `DISPATCH_REQUEST` / `PLAN_MODE_REQUEST` block emitted by a subagent (information-gate, plan-architect, etc.) is not answered by the parent within the handshake window (default 30 minutes; configurable via `PIPELINE_HANDSHAKE_TIMEOUT_MS` env var). Indicates the parent did not implement the protocol, the AskUserQuestion handler was absent, or the session was abandoned mid-flight. | **STOP pipeline**; emit gate entry; return partial PIPELINE COMPLETE with status `PROTOCOL_HANDSHAKE_TIMEOUT` | Fix parent handler (verify gate-request-protocol parsing wired); user re-invokes pipeline once the handler is restored |
 
 ### Spec pipeline gates (Wave 5-spec, v4.13.0)
 

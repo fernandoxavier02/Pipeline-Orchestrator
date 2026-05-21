@@ -57,6 +57,8 @@ STATUS: AWAITING_GATE_RESPONSES
 
 **NEVER fall back to prose questions** ("Should we do A or B?") in the tool result. The parent handler cannot deterministically parse prose under the stripped runtime. Prose fallback = silent contract violation (audit B1-004 documented this exact failure mode — information-gate emitted "(A) ... (B) ..." in prose and would have caused parent deadlock or inline fallback in real runtime).
 
+**Handshake timeout (Patch 3 / v7.1.2+ — PROTOCOL_HANDSHAKE_TIMEOUT):** when you emit a GATE_REQUEST and end with `STATUS: AWAITING_GATE_RESPONSES`, the parent records `emitted_at` in `sentinel-state.json.pending_blocks` and checks the age on the next re-dispatch or session resume. If no `GATE_RESPONSES` arrives within the handshake window (default 30 minutes; override via `PIPELINE_HANDSHAKE_TIMEOUT_MS` env var), the parent emits gate `PROTOCOL_HANDSHAKE_TIMEOUT` (hardness HARD) and stops the pipeline. This protects against deadlocked sessions where the parent did not implement the GATE_REQUEST protocol or the AskUserQuestion handler was absent. You do NOT detect the timeout yourself — you only emit the block; the parent observes age and fires the gate. See `references/gate-request-protocol.md` "Handshake timeout" section.
+
 **Full protocol schema:** `references/gate-request-protocol.md`.
 
 ---

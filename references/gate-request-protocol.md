@@ -46,6 +46,42 @@ context: |
 
 After emitting `GATE_REQUEST`, the subagent MUST stop work that depends on the answer and either: (a) emit additional blocks that don't need this answer, OR (b) end the tool result with `STATUS: AWAITING_GATE_RESPONSES` and the list of pending `gate_id`s.
 
+### Handshake timeout (Patch 3 / v7.1.2+) — PROTOCOL_HANDSHAKE_TIMEOUT
+
+The parent (pipeline-controller) records every block emission in `sentinel-state.json.pending_blocks` with an `emitted_at` ISO timestamp. Timeout detection runs in **two layers**:
+
+**Primary (out-of-band):** `.claude/hooks/cleanup-orphan-sentinel-state-hook.cjs` fires unconditionally on every Claude Code `SessionStart`, scans all `sentinel-state.json` files under the project tree, iterates each `pending_blocks` entry, and emits `PROTOCOL_HANDSHAKE_TIMEOUT` to `gate-decisions.jsonl` for any aged-out entry. This layer is essential because the failure mode the gate targets (parent did not implement the protocol and never re-dispatches) precludes the controller from running again. The hook closes the circularity.
+
+**Secondary (controller re-entry check):** when the parent IS re-dispatching the controller, it ALSO inspects pending entries and emits the same gate as defense-in-depth. The controller skips emission if the hook already wrote an entry for the same block in this session (recognized via `decided_by: "cleanup-orphan-sentinel-state-hook"` field).
+
+If any pending block is older than the **handshake window** AND its response (`GATE_RESPONSES` / `DISPATCH_RESULTS` / `PLAN_MODE_RESULTS`) has not arrived, the appropriate layer emits gate `PROTOCOL_HANDSHAKE_TIMEOUT` (hardness HARD per `references/gates.md`) and stops the pipeline.
+
+**Window defaults:**
+
+- Default: **30 minutes** (1800000 ms).
+- Override: env var `PIPELINE_HANDSHAKE_TIMEOUT_MS` (positive integer, milliseconds).
+- **Sanity floor: 60000 ms (1 minute).** Values below the floor — including 0, negative, NaN, and non-numeric strings — are rejected and the default (30 minutes) is used. This prevents env-var typos from hard-blocking every pipeline run.
+- Suggested minimum reasonable window: 5 minutes (300000 ms).
+
+**Cross-session pending_blocks:** if `sentinel-state.session_id` does not match the current Claude Code session_id, the entries belong to a prior abandoned session. Both detection layers demote to `hardness: SOFT`, `decision: CLEARED_CROSS_SESSION` (informational only — do NOT HARD-block the fresh session's work). This is the explicit recovery path for the abandoned-session case.
+
+**Write timing contract:** the parent (controller) MUST append to `pending_blocks` IMMEDIATELY upon receiving a subagent tool-result containing one of the three block types, BEFORE invoking AskUserQuestion or any other side-effecting work. This prevents a crash-mid-ask from losing the audit trail.
+
+**Clock skew defenses:**
+- Negative age (clock went backward — NTP correction, VM resume, daylight saving on non-UTC `emitted_at`): treat as 0, do not fire.
+- Age >= 7 days (`HANDSHAKE_MAX_AGE_MS`): defer to cleanup-orphan archive path. The timeout gate does not double-fire on orphan-territory entries.
+
+**Typical causes when this gate fires:**
+
+- The parent main LLM did not implement the GATE_REQUEST / DISPATCH_REQUEST / PLAN_MODE_REQUEST parsing protocol (Achado #7 contract violation).
+- The `AskUserQuestion` handler was absent or stripped from the parent's tool manifest.
+- The session was abandoned mid-flight (user closed the terminal, network drop, machine sleep).
+- A custom embedding of the controller into a non-Claude-Code runtime that lacks the response loop.
+
+**Recovery:** fix the parent handler, then user re-invokes the pipeline. The stale `pending_blocks` entry is cleared on the new run's initial state-file write (different session_id → demoted to SOFT/CLEARED_CROSS_SESSION). No automatic retry — repeated timeouts indicate a structural integration bug, not a transient failure.
+
+The full gate row (trigger / action / recovery) lives in `references/gates.md` under `PROTOCOL_HANDSHAKE_TIMEOUT`.
+
 ### DISPATCH_REQUEST
 
 ```yaml

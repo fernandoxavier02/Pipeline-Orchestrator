@@ -46,16 +46,22 @@ test('references/gates.md exists', () => {
   assert.ok(fs.existsSync(TARGET), `expected file at ${TARGET}`);
 });
 
-test('Gate Registry section contains exactly 32 data rows (Core 16 + Spec 6 + Routing 3 + Brainstorm 7)', () => {
+test('Gate Registry section contains 34 data rows (Core 18 + Spec 6 + Routing 3 + Brainstorm 7) post-Patch-2/3', () => {
+  // Bumped from 32 → 34: +1 STATE_FILE_INIT_FAIL (Patch 2 / v7.1.2),
+  // +1 PROTOCOL_HANDSHAKE_TIMEOUT (Patch 3 / v7.1.2). Both rows live in
+  // the Core sub-table (16 → 18).
   const content = fs.readFileSync(TARGET, 'utf8');
   const rows = countDataRowsBetween(content, /^##\s+Gate Registry\s*$/m, /^##\s+Mandatory Gates by Complexity\s*$/m);
-  assert.equal(rows, 32, `expected 32 data rows in Gate Registry section, got ${rows}`);
+  assert.equal(rows, 34, `expected 34 data rows in Gate Registry section, got ${rows}`);
 });
 
-test('Mandatory Gates by Complexity section contains exactly 22 data rows', () => {
+test('Mandatory Gates by Complexity section contains 23 data rows (post-Patch-2 baseline)', () => {
+  // Bumped from 22 → 23 in Patch 2 / v7.1.2 (STATE_FILE_INIT_FAIL is mandatory
+  // across SIMPLES/MEDIA/COMPLEXA). PROTOCOL_HANDSHAKE_TIMEOUT is registered
+  // in the Gate Registry but is conditional, not in the Mandatory table.
   const content = fs.readFileSync(TARGET, 'utf8');
   const rows = countDataRowsBetween(content, /^##\s+Mandatory Gates by Complexity\s*$/m, /^##\s+\S/m);
-  assert.equal(rows, 22, `expected 22 data rows in Mandatory section, got ${rows}`);
+  assert.equal(rows, 23, `expected 23 data rows in Mandatory section, got ${rows}`);
 });
 
 console.log('');

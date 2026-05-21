@@ -317,3 +317,146 @@ test('Patch 5 — handleSessionStart with malformed payload returns no_payload',
   assert.equal(summary.scanned, 0);
   assert.equal(summary.skipped_reason, 'no_payload');
 });
+
+// ============================================================================
+// Patch 3 — PROTOCOL_HANDSHAKE_TIMEOUT (behavioral tests addressing ADV-B3-05)
+//
+// The hook is the out-of-band timer for the gate documented in
+// references/gates.md. These tests simulate stale pending_blocks and assert
+// the hook writes the corresponding gate-decisions.jsonl entry.
+// ============================================================================
+
+test('Patch 3 — resolveHandshakeWindowMs returns 30min default when env unset', () => {
+  assert.equal(HOOK.resolveHandshakeWindowMs({}), 30 * 60 * 1000);
+});
+
+test('Patch 3 — resolveHandshakeWindowMs honors valid env override', () => {
+  assert.equal(HOOK.resolveHandshakeWindowMs({ PIPELINE_HANDSHAKE_TIMEOUT_MS: '120000' }), 120000);
+});
+
+test('Patch 3 (ADV-B3-03) — resolveHandshakeWindowMs rejects values below floor (uses default)', () => {
+  assert.equal(HOOK.resolveHandshakeWindowMs({ PIPELINE_HANDSHAKE_TIMEOUT_MS: '1' }), 30 * 60 * 1000);
+  assert.equal(HOOK.resolveHandshakeWindowMs({ PIPELINE_HANDSHAKE_TIMEOUT_MS: '0' }), 30 * 60 * 1000);
+  assert.equal(HOOK.resolveHandshakeWindowMs({ PIPELINE_HANDSHAKE_TIMEOUT_MS: '-1' }), 30 * 60 * 1000);
+  assert.equal(HOOK.resolveHandshakeWindowMs({ PIPELINE_HANDSHAKE_TIMEOUT_MS: 'bogus' }), 30 * 60 * 1000);
+});
+
+test('Patch 3 — checkHandshakeTimeouts emits PROTOCOL_HANDSHAKE_TIMEOUT for stale pending_block', () => {
+  const dir = makeTmpDir();
+  try {
+    const stateFile = writeState(dir, {
+      pipeline_active: true,
+      last_updated: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+      session_id: 'session-A',
+      pending_blocks: [
+        {
+          block_type: 'GATE_REQUEST',
+          gate_id: 'info-gate-Q1',
+          emitted_at: new Date(Date.now() - 45 * 60 * 1000).toISOString(), // 45 min ago
+        },
+      ],
+    });
+
+    const emitted = HOOK.checkHandshakeTimeouts(stateFile, { currentSessionId: 'session-A' });
+    assert.equal(emitted, 1);
+
+    const log = fs.readFileSync(path.join(dir, 'gate-decisions.jsonl'), 'utf8');
+    const entry = JSON.parse(log.trim().split('\n')[0]);
+    assert.equal(entry.gate, 'PROTOCOL_HANDSHAKE_TIMEOUT');
+    assert.equal(entry.hardness, 'HARD');
+    assert.equal(entry.decision, 'BLOCKED');
+    assert.match(entry.detail, /age_min=45/);
+    assert.match(entry.detail, /info-gate-Q1/);
+  } finally { cleanup(dir); }
+});
+
+test('Patch 3 — checkHandshakeTimeouts does NOT emit for recent pending_block (< window)', () => {
+  const dir = makeTmpDir();
+  try {
+    const stateFile = writeState(dir, {
+      pipeline_active: true,
+      session_id: 'session-A',
+      pending_blocks: [
+        { block_type: 'GATE_REQUEST', gate_id: 'q', emitted_at: new Date(Date.now() - 5 * 60 * 1000).toISOString() }, // 5 min
+      ],
+    });
+    const emitted = HOOK.checkHandshakeTimeouts(stateFile, { currentSessionId: 'session-A' });
+    assert.equal(emitted, 0);
+    assert.equal(fs.existsSync(path.join(dir, 'gate-decisions.jsonl')), false);
+  } finally { cleanup(dir); }
+});
+
+test('Patch 3 (ADV-B3-04) — checkHandshakeTimeouts demotes cross-session pending to SOFT/CLEARED_CROSS_SESSION', () => {
+  const dir = makeTmpDir();
+  try {
+    const stateFile = writeState(dir, {
+      pipeline_active: true,
+      session_id: 'session-OLD',
+      pending_blocks: [
+        { block_type: 'GATE_REQUEST', gate_id: 'q', emitted_at: new Date(Date.now() - 60 * 60 * 1000).toISOString() },
+      ],
+    });
+    const emitted = HOOK.checkHandshakeTimeouts(stateFile, { currentSessionId: 'session-NEW' });
+    assert.equal(emitted, 1);
+    const log = fs.readFileSync(path.join(dir, 'gate-decisions.jsonl'), 'utf8');
+    const entry = JSON.parse(log.trim().split('\n')[0]);
+    assert.equal(entry.hardness, 'SOFT');
+    assert.equal(entry.decision, 'CLEARED_CROSS_SESSION');
+    assert.match(entry.detail, /session-OLD/);
+    assert.match(entry.detail, /session-NEW/);
+  } finally { cleanup(dir); }
+});
+
+test('Patch 3 (ADV-B3-06) — negative age (clock skew) does NOT fire', () => {
+  const dir = makeTmpDir();
+  try {
+    const stateFile = writeState(dir, {
+      pipeline_active: true,
+      session_id: 'session-A',
+      pending_blocks: [
+        { block_type: 'GATE_REQUEST', gate_id: 'q', emitted_at: new Date(Date.now() + 60 * 60 * 1000).toISOString() }, // future!
+      ],
+    });
+    const emitted = HOOK.checkHandshakeTimeouts(stateFile, { currentSessionId: 'session-A' });
+    assert.equal(emitted, 0);
+  } finally { cleanup(dir); }
+});
+
+test('Patch 3 (ADV-B3-02) — age >= MAX_AGE (7 days) is deferred to archive path, not timeout', () => {
+  const dir = makeTmpDir();
+  try {
+    const stateFile = writeState(dir, {
+      pipeline_active: true,
+      session_id: 'session-A',
+      pending_blocks: [
+        { block_type: 'GATE_REQUEST', gate_id: 'q', emitted_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString() },
+      ],
+    });
+    const emitted = HOOK.checkHandshakeTimeouts(stateFile, { currentSessionId: 'session-A' });
+    assert.equal(emitted, 0, 'ages > 7 days are orphan territory, not timeout territory');
+  } finally { cleanup(dir); }
+});
+
+test('Patch 3 — handleSessionStart aggregates handshake_timeouts in summary', () => {
+  const dir = makeTmpDir();
+  try {
+    const docsDir = path.join(dir, '.pipeline', 'docs', 'Pre-Medium-action', 'run');
+    fs.mkdirSync(docsDir, { recursive: true });
+    fs.writeFileSync(path.join(docsDir, 'sentinel-state.json'), JSON.stringify({
+      pipeline_active: true,
+      last_updated: new Date(Date.now() - 60 * 60 * 1000).toISOString(),
+      session_id: 'session-A',
+      pending_blocks: [
+        { block_type: 'GATE_REQUEST', gate_id: 'q1', emitted_at: new Date(Date.now() - 45 * 60 * 1000).toISOString() },
+        { block_type: 'DISPATCH_REQUEST', dispatch_id: 'd1', emitted_at: new Date(Date.now() - 50 * 60 * 1000).toISOString() },
+      ],
+    }));
+
+    const summary = HOOK.handleSessionStart({ cwd: dir, session_id: 'session-A' });
+    assert.equal(summary.handshake_timeouts, 2);
+    const log = fs.readFileSync(path.join(docsDir, 'gate-decisions.jsonl'), 'utf8');
+    const lines = log.trim().split('\n').filter(Boolean);
+    assert.equal(lines.length, 2);
+    assert.equal(JSON.parse(lines[0]).gate, 'PROTOCOL_HANDSHAKE_TIMEOUT');
+  } finally { cleanup(dir); }
+});

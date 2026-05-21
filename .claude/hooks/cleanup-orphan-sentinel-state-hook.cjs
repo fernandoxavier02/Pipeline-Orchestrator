@@ -48,6 +48,25 @@ const STALE_HOURS = 24;
 const STALE_MS = STALE_HOURS * 60 * 60 * 1000;
 const MAX_WALK_DEPTH = 10;
 
+// Patch 3 / v7.1.2+ — handshake timeout (out-of-band timer)
+const HANDSHAKE_DEFAULT_MS = 30 * 60 * 1000; // 30 minutes
+const HANDSHAKE_FLOOR_MS = 60 * 1000;        // 1 minute (sanity floor; smaller values rejected)
+// Defense: pending_blocks older than this are orphan territory — the archive
+// branch handles them, not the timeout branch. Avoids double-firing.
+const HANDSHAKE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function resolveHandshakeWindowMs(env) {
+  const raw = (env || process.env || {}).PIPELINE_HANDSHAKE_TIMEOUT_MS;
+  if (typeof raw !== 'string' || raw.length === 0) return HANDSHAKE_DEFAULT_MS;
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < HANDSHAKE_FLOOR_MS) {
+    // ADV-B3-03: sanity floor — values below 1 min are typos / hostile env;
+    // fall back to default and let downstream observability log the override.
+    return HANDSHAKE_DEFAULT_MS;
+  }
+  return n;
+}
+
 // Deny-list: cwd values that should never be scanned. Best-effort sandbox.
 const SYSTEM_PATH_PREFIXES = [
   '/etc', '/sys', '/proc', '/dev', '/usr', '/bin', '/sbin', '/var',
@@ -176,11 +195,113 @@ function cleanupOrphan(stateFile) {
   return 'archived';
 }
 
+/**
+ * Patch 3 — out-of-band PROTOCOL_HANDSHAKE_TIMEOUT detection.
+ *
+ * Inspects a state file for stale `pending_blocks` entries. For each entry
+ * whose age is in the window [windowMs, MAX_AGE_MS) AND no matching response
+ * arrived, append a `PROTOCOL_HANDSHAKE_TIMEOUT` gate line to
+ * gate-decisions.jsonl alongside the state file.
+ *
+ * Returns the number of timeout entries emitted (0 if state is healthy).
+ *
+ * Why this lives in the SessionStart hook and not in pipeline-controller:
+ * the controller can only fire the gate if it is re-dispatched, which
+ * requires a working parent. The exact failure mode this gate targets
+ * (Achado #7 — broken parent that never re-dispatches) precludes that path.
+ * The hook fires unconditionally on every Claude Code session start,
+ * independently of the controller's re-entry loop.
+ */
+function checkHandshakeTimeouts(stateFile, opts) {
+  const windowMs = (opts && typeof opts.windowMs === 'number')
+    ? opts.windowMs
+    : resolveHandshakeWindowMs();
+  const currentSessionId = opts && opts.currentSessionId;
+  const now = (opts && typeof opts.now === 'number') ? opts.now : Date.now();
+
+  let raw;
+  try {
+    raw = fs.readFileSync(stateFile, 'utf8');
+  } catch {
+    return 0;
+  }
+
+  let state;
+  try {
+    state = JSON.parse(raw);
+  } catch {
+    return 0;
+  }
+
+  if (!state || typeof state !== 'object' || Array.isArray(state)) return 0;
+  const pending = Array.isArray(state.pending_blocks) ? state.pending_blocks : [];
+  if (pending.length === 0) return 0;
+
+  // ADV-B3-04: cross-session pending_blocks belong to a prior, abandoned
+  // session — clearing them is the user's intent on a fresh start, not a
+  // HARD block. Log informational and skip.
+  const stateSessionId = state.session_id;
+  const isCrossSession = currentSessionId
+    && stateSessionId
+    && stateSessionId !== currentSessionId;
+
+  const gateLogPath = path.join(path.dirname(stateFile), 'gate-decisions.jsonl');
+  let emitted = 0;
+
+  for (const block of pending) {
+    if (!block || typeof block !== 'object') continue;
+    const emittedAt = block.emitted_at ? Date.parse(block.emitted_at) : NaN;
+    if (!Number.isFinite(emittedAt)) continue;
+
+    // ADV-B3-06: clock skew defense — negative age means clock went
+    // backward (NTP correction); treat as 0, do not fire.
+    let age = now - emittedAt;
+    if (age < 0) age = 0;
+
+    // ADV-B3-02: ages > MAX_AGE belong to the cleanup-orphan archive path,
+    // not the timeout path. Don't double-fire.
+    if (age >= HANDSHAKE_MAX_AGE_MS) continue;
+
+    if (age < windowMs) continue;
+
+    // Stale enough to emit. Choose log vocabulary based on session_id match.
+    const entry = isCrossSession
+      ? {
+          gate: 'PROTOCOL_HANDSHAKE_TIMEOUT',
+          hardness: 'SOFT',
+          phase: '0-pre-dispatch',
+          decision: 'CLEARED_CROSS_SESSION',
+          decided_by: 'cleanup-orphan-sentinel-state-hook',
+          timestamp: new Date(now).toISOString(),
+          detail: `cross-session pending block (state.session_id=${stateSessionId}, current=${currentSessionId}); block_type=${block.block_type || 'unknown'}; gate_id=${block.gate_id || block.dispatch_id || block.plan_id || 'unknown'}; age_min=${Math.floor(age / 60000)}; emitted_at=${block.emitted_at}`.slice(0, 400),
+        }
+      : {
+          gate: 'PROTOCOL_HANDSHAKE_TIMEOUT',
+          hardness: 'HARD',
+          phase: '0-pre-dispatch',
+          decision: 'BLOCKED',
+          decided_by: 'cleanup-orphan-sentinel-state-hook',
+          timestamp: new Date(now).toISOString(),
+          detail: `block_type=${block.block_type || 'unknown'}; gate_id=${block.gate_id || block.dispatch_id || block.plan_id || 'unknown'}; age_min=${Math.floor(age / 60000)}; window_min=${Math.floor(windowMs / 60000)}; emitted_at=${block.emitted_at}; cause=likely parent did not implement GATE_REQUEST protocol (Achado #7)`.slice(0, 400),
+        };
+
+    try {
+      fs.appendFileSync(gateLogPath, JSON.stringify(entry) + '\n');
+      emitted++;
+    } catch {
+      // best-effort; absence of gate-decisions.jsonl write is non-fatal here
+    }
+  }
+
+  return emitted;
+}
+
 function handleSessionStart(payload) {
   const summary = {
     scanned: 0, archived: 0, live: 0,
     already_inactive: 0, malformed: 0, invalid: 0,
     stale_read: 0, errors: 0,
+    handshake_timeouts: 0,
     skipped_reason: null,
   };
   if (!payload || typeof payload !== 'object') {
@@ -188,7 +309,7 @@ function handleSessionStart(payload) {
     return summary;
   }
 
-  const { cwd } = payload;
+  const { cwd, session_id: currentSessionId } = payload;
   // ADV-3: sandbox check.
   if (!isCwdSandboxOk(cwd)) {
     summary.skipped_reason = 'cwd_not_sandbox_ok';
@@ -203,6 +324,23 @@ function handleSessionStart(payload) {
 
   const stateFiles = findStateFiles(docsDir);
   summary.scanned = stateFiles.length;
+
+  // Patch 3: run handshake-timeout check BEFORE cleanup. Order matters
+  // because cleanupOrphan archives files >24h, which would suppress the
+  // timeout gate emission. The timeout window (30 min - 7 days) sits
+  // BETWEEN "live" and "orphan archive" — so we emit timeouts first, then
+  // let archive run on the same file if its last_updated is also >24h.
+  for (const stateFile of stateFiles) {
+    try {
+      const ts = checkHandshakeTimeouts(stateFile, { currentSessionId });
+      summary.handshake_timeouts += ts;
+    } catch (err) {
+      summary.errors++;
+      process.stderr.write(
+        `cleanup-orphan-sentinel-state-hook (handshake): ${stateFile}: ${err.message}\n`
+      );
+    }
+  }
 
   for (const stateFile of stateFiles) {
     try {
@@ -254,8 +392,13 @@ module.exports = {
   STALE_MS,
   MAX_WALK_DEPTH,
   SYSTEM_PATH_PREFIXES,
+  HANDSHAKE_DEFAULT_MS,
+  HANDSHAKE_FLOOR_MS,
+  HANDSHAKE_MAX_AGE_MS,
+  resolveHandshakeWindowMs,
   isCwdSandboxOk,
   findStateFiles,
   cleanupOrphan,
+  checkHandshakeTimeouts,
   handleSessionStart,
 };

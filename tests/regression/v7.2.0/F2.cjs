@@ -149,14 +149,13 @@ test('F2-S6: cross-check — 23-row Mandatory count AND aggregate Gate Registry 
 
   const registrySection = extractSection(md, 'Gate Registry');
   const registryRows = parseAllTableDataRows(registrySection);
-  // The Gate Registry now aggregates 33 data rows across its 4 sub-tables
-  // (17 base + 6 spec + 3 routing + 7 brainstorm = 33) post-Patch-2.
-  // The 27-figure mentioned in some narratives refers to the gate-name
-  // registry count BEFORE the brainstorm extension; the actual aggregate
-  // row count across all sub-tables is 33. We assert the count is at the
-  // post-Patch-2 baseline — no UNAUTHORIZED row may have been added.
-  assert.equal(registryRows.length, 33,
-    `Gate Registry aggregate row count must be 33 (got ${registryRows.length}) — no UNAUTHORIZED row may have been added beyond Patch 2's STATE_FILE_INIT_FAIL`);
+  // The Gate Registry now aggregates 34 data rows across its 4 sub-tables
+  // (18 base + 6 spec + 3 routing + 7 brainstorm = 34) post-Patch-2/3.
+  // Patch 2 added STATE_FILE_INIT_FAIL to base (32→33); Patch 3 added
+  // PROTOCOL_HANDSHAKE_TIMEOUT to base (33→34). No UNAUTHORIZED row may
+  // have been added beyond these two.
+  assert.equal(registryRows.length, 34,
+    `Gate Registry aggregate row count must be 34 (got ${registryRows.length}) — no UNAUTHORIZED row may have been added beyond Patch 2/3 gates`);
 });
 
 console.log('');
