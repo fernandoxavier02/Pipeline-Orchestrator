@@ -102,13 +102,25 @@ test('F2-S4: bypass-log clause names at least one bypass reason (SIMPLES OR Spec
 });
 
 // ---------- F2-S5 REGRESSION ----------
-test('F2-S5: references/gates.md Mandatory table still 22 rows AND no ATDD_STEP_1B_BYPASS row in Gate Registry', () => {
+test('F2-S5: references/gates.md Mandatory table has 23 rows (post-Patch-2 baseline) AND no ATDD_STEP_1B_BYPASS row in Gate Registry', () => {
+  // Row count baseline bumped from 22 → 23 in Patch 2 / v7.1.2 when
+  // STATE_FILE_INIT_FAIL was added as a phase-0 hard precondition. The
+  // ATDD_STEP_1B_BYPASS invariant asserted here is unchanged in spirit.
   const md = read(GATES_MD);
   const mandatorySection = extractSection(md, 'Mandatory Gates by Complexity');
   assert.ok(mandatorySection, '"Mandatory Gates by Complexity" section not found');
   const mandatoryRows = parseTableDataRows(mandatorySection);
-  assert.equal(mandatoryRows.length, 22,
-    `expected 22 data rows in "Mandatory Gates by Complexity" table, got ${mandatoryRows.length}`);
+  assert.equal(mandatoryRows.length, 23,
+    `expected 23 data rows in "Mandatory Gates by Complexity" table, got ${mandatoryRows.length}`);
+
+  // Adversarial review followup MEDIUM #5: assert the +1 row is specifically
+  // STATE_FILE_INIT_FAIL, not some other unauthorized row that happens to
+  // keep the count at 23.
+  const hasStateFileGate = mandatoryRows.some((row) =>
+    Object.values(row).some((v) => /STATE_FILE_INIT_FAIL/.test(v)));
+  assert.equal(hasStateFileGate, true,
+    'STATE_FILE_INIT_FAIL row missing from Mandatory Gates table — Patch 2 invariant violated');
+
   const mandatoryHasBypass = mandatoryRows.some((row) =>
     Object.values(row).some((v) => /ATDD_STEP_1B_BYPASS/.test(v)));
   assert.equal(mandatoryHasBypass, false,
@@ -124,24 +136,27 @@ test('F2-S5: references/gates.md Mandatory table still 22 rows AND no ATDD_STEP_
 });
 
 // ---------- F2-S6 REGRESSION ----------
-test('F2-S6: cross-check — 22-row Mandatory count AND aggregate Gate Registry count both unchanged (defense-in-depth)', () => {
+test('F2-S6: cross-check — 23-row Mandatory count AND aggregate Gate Registry count (33) both at post-Patch-2 baseline (defense-in-depth)', () => {
+  // Baseline bumped in Patch 2 / v7.1.2 — STATE_FILE_INIT_FAIL added one row
+  // to Mandatory (22 → 23) AND one row to the Gate Registry base sub-table
+  // (32 → 33). The defense-in-depth invariant asserted here is unchanged
+  // in spirit: no UNAUTHORIZED row may be added by v7.2.0 work.
   const md = read(GATES_MD);
   const mandatorySection = extractSection(md, 'Mandatory Gates by Complexity');
   const mandatoryRows = parseTableDataRows(mandatorySection);
-  assert.equal(mandatoryRows.length, 22,
-    `Mandatory Gates row count must be 22 (got ${mandatoryRows.length})`);
+  assert.equal(mandatoryRows.length, 23,
+    `Mandatory Gates row count must be 23 (got ${mandatoryRows.length})`);
 
   const registrySection = extractSection(md, 'Gate Registry');
   const registryRows = parseAllTableDataRows(registrySection);
-  // The Gate Registry aggregates 32 data rows across its 4 sub-tables
-  // (16 base + 6 spec + 3 routing + 7 brainstorm = 32), matching the
-  // "32-row Gate Registry untouched" invariant declared in CLAUDE.md row 22
-  // (v6.3.0). The 27-figure mentioned in some narratives refers to the
-  // gate-name registry count BEFORE the brainstorm extension; the actual
-  // aggregate row count across all sub-tables is 32. We assert the count
-  // is unchanged — same number of rows as before the v7.2.0 fix.
-  assert.equal(registryRows.length, 32,
-    `Gate Registry aggregate row count must be 32 (got ${registryRows.length}) — no new ATDD_STEP_1B_BYPASS row may have been added`);
+  // The Gate Registry now aggregates 33 data rows across its 4 sub-tables
+  // (17 base + 6 spec + 3 routing + 7 brainstorm = 33) post-Patch-2.
+  // The 27-figure mentioned in some narratives refers to the gate-name
+  // registry count BEFORE the brainstorm extension; the actual aggregate
+  // row count across all sub-tables is 33. We assert the count is at the
+  // post-Patch-2 baseline — no UNAUTHORIZED row may have been added.
+  assert.equal(registryRows.length, 33,
+    `Gate Registry aggregate row count must be 33 (got ${registryRows.length}) — no UNAUTHORIZED row may have been added beyond Patch 2's STATE_FILE_INIT_FAIL`);
 });
 
 console.log('');

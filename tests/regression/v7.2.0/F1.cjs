@@ -114,13 +114,26 @@ test('F1-S4: new section guards on COMPLEXA only (complexity == "COMPLEXA" or "C
 });
 
 // ---------- F1-S5 REGRESSION ----------
-test('F1-S5: references/gates.md "Mandatory Gates by Complexity" table still has 22 data rows and no BOUNDED_CONTEXT_MISSING row; Gate Registry row count invariant preserved', () => {
+test('F1-S5: references/gates.md "Mandatory Gates by Complexity" table still has 23 data rows (post-Patch-2 baseline) and no BOUNDED_CONTEXT_MISSING row; Gate Registry row count invariant preserved', () => {
+  // Row count baseline bumped from 22 → 23 in Patch 2 / v7.1.2 when
+  // STATE_FILE_INIT_FAIL was added as a phase-0 hard precondition. The
+  // invariant asserted here is unchanged in spirit: BOUNDED_CONTEXT_MISSING
+  // still must NOT appear in the Mandatory table or Gate Registry.
   const md = read(GATES_MD);
   const mandatorySection = extractSection(md, 'Mandatory Gates by Complexity');
   assert.ok(mandatorySection, '"Mandatory Gates by Complexity" section not found in references/gates.md');
   const mandatoryRows = parseTableDataRows(mandatorySection);
-  assert.equal(mandatoryRows.length, 22,
-    `expected 22 data rows in "Mandatory Gates by Complexity" table, got ${mandatoryRows.length}`);
+  assert.equal(mandatoryRows.length, 23,
+    `expected 23 data rows in "Mandatory Gates by Complexity" table, got ${mandatoryRows.length}`);
+
+  // Adversarial review followup MEDIUM #5: bare cardinality is not enough —
+  // a future patch could swap STATE_FILE_INIT_FAIL for another row and the
+  // count would stay 23. Assert the row identity directly.
+  const hasStateFileGate = mandatoryRows.some((row) =>
+    Object.values(row).some((v) => /STATE_FILE_INIT_FAIL/.test(v)));
+  assert.equal(hasStateFileGate, true,
+    'STATE_FILE_INIT_FAIL row missing from Mandatory Gates table — Patch 2 invariant violated');
+
   const hasBCM = mandatoryRows.some((row) =>
     Object.values(row).some((v) => /BOUNDED_CONTEXT_MISSING/.test(v)));
   assert.equal(hasBCM, false,

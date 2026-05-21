@@ -38,6 +38,7 @@ Each gate has a formal **hardness** level that determines enforcement behavior:
 | FINAL_ADVERSARIAL_GATE | **SOFT** | Post-sanity, pre-validator | **ASK** user (recommended) | Must approve/skip |
 | FINAL_ADVERSARIAL_REWORK | **HARD** | Final adversarial reports CRITICAL findings | **ASK** user (A: fix batch / B: proceed / C: discard) | Fix batch or proceed with penalty |
 | CLOSEOUT_CONFIRM | **SOFT** | Push+PR or Discard | **PAUSE** — confirm | User confirms |
+| STATE_FILE_INIT_FAIL | **CIRCUIT_BREAKER** | `Write` of `{PIPELINE_DOC_PATH}/sentinel-state.json` fails at Phase 0 init (any IO error — permission, disk full, invalid path, read-only fs, signer raise) | **STOP pipeline** before any Agent spawn / DISPATCH_REQUEST | Fix IO root cause (permission, disk, path, parent dir); user re-runs pipeline |
 
 ### Spec pipeline gates (Wave 5-spec, v4.13.0)
 
@@ -88,6 +89,7 @@ Each gate has a formal **hardness** level that determines enforcement behavior:
 
 | Gate | SIMPLES | MEDIA | COMPLEXA | Spec (+) |
 |------|---------|-------|----------|----------|
+| STATE_FILE_INIT_FAIL | ✓ | ✓ | ✓ |  |
 | INFO_GATE_BLOCKED | ✓ | ✓ | ✓ |  |
 | TDD_APPROVAL | ✓ | ✓ | ✓ |  |
 | CHECKPOINT_FAIL | ✓ | ✓ | ✓ |  |

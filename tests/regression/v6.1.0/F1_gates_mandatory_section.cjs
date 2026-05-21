@@ -6,8 +6,11 @@
  * regression for the new Fidelity line.
  *
  * Covers:
- *   - MAIN-03      gates.md table has 22 rows + counts match
+ *   - MAIN-03      gates.md table has 23 rows + counts match
  *                  MANDATORY_GATES_BY_COMPLEXITY in lib/fidelity-reporter.cjs
+ *                  (was 22 before Patch 2 / v7.1.2 which added STATE_FILE_INIT_FAIL
+ *                  as a phase-0 hard precondition gate, mandatory across all 3
+ *                  complexity buckets).
  *   - REGRESSION-02 pipeline-controller.md PIPELINE COMPLETE block still
  *                  has pre-existing lines (Gate Decisions, FINAL DECISION,
  *                  Documentation) AFTER the new "Fidelity:" line is inserted.
@@ -50,11 +53,13 @@ test('Mandatory section has a table with SIMPLES / MEDIA / COMPLEXA columns', ()
   assert.ok(/COMPLEXA/.test(section), 'missing COMPLEXA column');
 });
 
-test('Mandatory table has exactly 22 gate rows (one per gate name)', () => {
+test('Mandatory table has exactly 23 gate rows (one per gate name)', () => {
+  // Bumped from 22 to 23 in Patch 2 / v7.1.2 — STATE_FILE_INIT_FAIL added as
+  // phase-0 hard precondition gate, mandatory across SIMPLES/MEDIA/COMPLEXA.
   const content = fs.readFileSync(path.join(ROOT, 'references/gates.md'), 'utf8');
   const section = extractSection(content, 'Mandatory Gates by Complexity');
   const dataRows = parseTableDataRows(section);
-  assert.equal(dataRows.length, 22, `expected 22 gate rows in table, got ${dataRows.length}`);
+  assert.equal(dataRows.length, 23, `expected 23 gate rows in table, got ${dataRows.length}`);
 });
 
 test('lib/fidelity-reporter.cjs exports MANDATORY_GATES_BY_COMPLEXITY object', () => {
