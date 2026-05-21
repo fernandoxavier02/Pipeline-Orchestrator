@@ -18,3 +18,6 @@ pipeline-runs/
 # npm pack tarballs — published to GitHub Releases instead
 *.tgz
 .npmrc
+
+# Backups locais do /tts-style (working state)
+.claude/backups/

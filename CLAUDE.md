@@ -14,6 +14,10 @@ Completude continua exigida. Cortar nome de arquivo nao e cortar a explicacao do
 
 Modo tecnico completo (com paths, hashes, listas de gates pelos nomes exatos, citacoes de linha) so quando o usuario pedir explicitamente, com expressoes do tipo "me detalha", "modo verboso", "me mostra os arquivos". Fora isso, mesmo discussao de arquitetura e pipeline vai na narrativa em portugues comum.
 
+**Marcacao visual para o canal da tela.** A leitura por voz ignora marcacao de markdown — negrito, italico, codigo entre crases tudo passa em branco no audio. Isso libera essas marcacoes para destacar o que importa na leitura visual sem poluir o audio. Use negrito para o veredito final (**deu certo**, **deu errado**, **inconclusivo**), codigo entre crases para resultados numericos e estados que merecem destaque (`42 de 42 verde`, `build ok`, `EXIT=0`), e italico com moderacao para enfase. Use com parcimonia: duas ou tres marcacoes por resposta resolvem; markdown empilhado vira ruido visual igual a prosa empilhada.
+
+**Brevidade agressiva.** Tamanho ideal da resposta principal: **dois a tres paragrafos curtos**, no maximo. Se sobrar coisa pra dizer, vai pra um bloco de comandos no fim ou pra um follow-up. Resposta longa e falha de filtro — significa que voce nao decidiu o que cortar. O usuario pede mais detalhe se quiser; o padrao e enxuto. Em particular: nao repita o que ja foi dito, nao expanda o veredito em sinonimos, nao explique o que voce vai fazer antes de fazer (so faca e reporte).
+
 A regra mestra inquebravel com as seis regras detalhadas, exemplos de antes/depois e teste de ouvido vive no CLAUDE.md global do usuario, secao "Estilo de Conversa com o Usuario". Aquele documento e a fonte unica; este aqui apenas reforca, com a observacao adicional de que neste projeto o piloto opera por voz com frequencia, entao o teste do ouvido nao e cosmético, e gate de qualidade.
 
 ---
