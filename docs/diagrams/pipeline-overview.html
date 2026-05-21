@@ -359,6 +359,904 @@
       </div>
     </div>
 
+    <h2 class="section-heading" id="fluxos-detalhados">Fluxos detalhados ponta a ponta</h2>
+    <p class="text-secondary" style="margin-bottom: var(--space-6); max-width: 880px;">
+      Cada comando dispara um caminho diferente dentro do pipeline. Abaixo, os sete fluxos que você pode invocar, em linguagem acessível, com diagramas mostrando todos os passos, todos os agentes envolvidos e todos os pontos onde você precisa aprovar algo. Onde existe uma versão <strong>leve</strong> (para mudanças pequenas) e uma <strong>pesada</strong> (para mudanças sensíveis ou em produção), ambas estão lado a lado.
+    </p>
+
+    <div class="card" style="background: rgba(14, 165, 233, 0.05); border-color: rgba(14, 165, 233, 0.3); margin-bottom: var(--space-8);">
+      <div class="card-title text-cyan" style="margin-bottom: var(--space-3);">Legenda dos diagramas</div>
+      <div class="grid grid-cols-2 gap-4" style="font-size: 13px;">
+        <div>
+          <div style="display:flex; align-items:center; gap: 8px; margin-bottom: 6px;"><span style="display:inline-block; width:14px; height:14px; background:#1C2238; border:2px solid #94A3B8; border-radius:4px;"></span> <span class="text-secondary">Passo rodado pelo agente principal (sem delegar)</span></div>
+          <div style="display:flex; align-items:center; gap: 8px; margin-bottom: 6px;"><span style="display:inline-block; width:14px; height:14px; background:#0EA5E9; border-radius:4px;"></span> <span class="text-secondary">Passo delegado a um agente auxiliar especializado</span></div>
+        </div>
+        <div>
+          <div style="display:flex; align-items:center; gap: 8px; margin-bottom: 6px;"><span style="display:inline-block; width:14px; height:14px; background:#1C2238; border:2px solid #F59E0B; border-radius:4px;"></span> <span class="text-secondary">Ponto onde o pipeline pede aprovação sua</span></div>
+          <div style="display:flex; align-items:center; gap: 8px; margin-bottom: 6px;"><span style="display:inline-block; width:14px; height:14px; background:#EF4444; border-radius:4px;"></span> <span class="text-secondary">Ponto crítico onde você decide vai/não vai</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- BARRA INTERATIVA: TOC + FILTROS + AÇÕES -->
+    <!-- ============================================================ -->
+    <div id="fluxos-toolbar" style="position: sticky; top: 0; z-index: 50; background: var(--bg-primary); padding: var(--space-4) 0; margin-bottom: var(--space-6); border-bottom: 1px solid var(--border-subtle);">
+      <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom: var(--space-3);">
+        <span class="text-tertiary" style="font-size:11px; font-weight:700; letter-spacing:1px; margin-right: 8px;">IR PARA</span>
+        <a href="#flow-bugfix" class="toc-pill" data-flow="bugfix">Bugfix</a>
+        <a href="#flow-audit" class="toc-pill" data-flow="audit">Auditoria</a>
+        <a href="#flow-ux" class="toc-pill" data-flow="ux">UX</a>
+        <a href="#flow-plan" class="toc-pill" data-flow="plan">Plano</a>
+        <a href="#flow-brainstorm" class="toc-pill" data-flow="brainstorm">Brainstorm</a>
+        <a href="#flow-hotfix" class="toc-pill" data-flow="hotfix">Hotfix</a>
+        <a href="#flow-review" class="toc-pill" data-flow="review">Revisão</a>
+      </div>
+      <div style="display:flex; flex-wrap:wrap; gap:8px; align-items:center;">
+        <span class="text-tertiary" style="font-size:11px; font-weight:700; letter-spacing:1px; margin-right: 8px;">FILTRAR</span>
+        <button class="filter-pill active" data-filter="all">Todos</button>
+        <button class="filter-pill" data-filter="light">Apenas leves</button>
+        <button class="filter-pill" data-filter="heavy">Apenas pesados</button>
+        <span style="flex:1;"></span>
+        <button id="btn-mark-all" class="action-btn">Marcar todos revisados</button>
+        <button id="btn-reset-all" class="action-btn action-btn-danger">Limpar estado</button>
+        <span id="review-counter" class="counter-badge">Revisados: <strong>0</strong>/7</span>
+      </div>
+    </div>
+
+    <style>
+      .toc-pill { display:inline-block; padding: 6px 12px; border-radius: 999px; background: #1C2238; border: 1px solid var(--border-subtle); color: var(--text-secondary); text-decoration:none; font-size:13px; font-weight:500; transition: all 0.15s; }
+      .toc-pill:hover { background: #2A3046; color: var(--text-primary); border-color: var(--cyan); }
+      .toc-pill.reviewed { background: rgba(34, 197, 94, 0.15); border-color: var(--green); color: var(--green); }
+      .toc-pill.reviewed::before { content: "✓ "; }
+      .filter-pill { padding: 6px 12px; border-radius: 999px; background: #1C2238; border: 1px solid var(--border-subtle); color: var(--text-secondary); font-size:12px; font-weight:500; cursor:pointer; transition: all 0.15s; }
+      .filter-pill:hover { background: #2A3046; color: var(--text-primary); }
+      .filter-pill.active { background: var(--cyan); color: white; border-color: var(--cyan); }
+      .action-btn { padding: 6px 14px; border-radius: 6px; background: #1C2238; border: 1px solid var(--border-subtle); color: var(--text-primary); font-size:12px; font-weight:500; cursor:pointer; transition: all 0.15s; }
+      .action-btn:hover { background: #2A3046; border-color: var(--cyan); }
+      .action-btn.action-btn-danger:hover { border-color: var(--red); color: var(--red); }
+      .action-btn.copied { background: var(--green); border-color: var(--green); color: white; }
+      .counter-badge { padding: 6px 12px; border-radius: 999px; background: rgba(14, 165, 233, 0.15); color: var(--cyan); font-size: 12px; font-weight: 600; }
+      .flow-checkbox-wrap { display:inline-flex; align-items:center; gap:8px; margin-left: var(--space-4); font-size: 13px; font-weight: 400; cursor: pointer; vertical-align: middle; }
+      .flow-checkbox-wrap input { width:16px; height:16px; accent-color: var(--green); cursor:pointer; }
+      .flow-copy-btn { margin-left: 8px; padding: 4px 10px; border-radius: 4px; background: #1C2238; border: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: 11px; cursor: pointer; vertical-align: middle; transition: all 0.15s; }
+      .flow-copy-btn:hover { background: #2A3046; color: var(--text-primary); border-color: var(--cyan); }
+      .flow-copy-btn.copied { background: var(--green); border-color: var(--green); color: white; }
+      details.flow-details { margin-bottom: var(--space-6); }
+      details.flow-details summary { cursor: pointer; padding: var(--space-3); background: rgba(14, 165, 233, 0.05); border: 1px solid rgba(14, 165, 233, 0.2); border-radius: 8px; color: var(--cyan); font-size: 13px; font-weight: 600; user-select: none; }
+      details.flow-details summary:hover { background: rgba(14, 165, 233, 0.1); }
+      details.flow-details[open] summary { border-radius: 8px 8px 0 0; border-bottom: none; }
+      details.flow-details > div { padding-top: var(--space-3); }
+      h3.dim, h4.dim { opacity: 0.25; }
+      h3.dim ~ p, h3.dim ~ .diagram-container, h3.dim ~ details, h4.dim ~ p, h4.dim ~ .diagram-container, h4.dim ~ details { display: none; }
+      #response-form { background: linear-gradient(135deg, rgba(124, 58, 237, 0.08), rgba(14, 165, 233, 0.08)); border: 1px solid rgba(124, 58, 237, 0.3); border-radius: 14px; padding: var(--space-6); margin-top: var(--space-8); }
+      #response-form h3 { margin-top: 0; color: var(--text-primary); font-size: 20px; }
+      #response-form .radio-row { display:flex; align-items:flex-start; gap: 10px; padding: 10px 12px; border-radius: 8px; cursor: pointer; transition: background 0.15s; }
+      #response-form .radio-row:hover { background: rgba(255,255,255,0.03); }
+      #response-form .radio-row input { margin-top: 3px; accent-color: var(--violet); }
+      #response-form textarea { width: 100%; min-height: 80px; background: #0A0E1A; border: 1px solid var(--border-subtle); border-radius: 8px; padding: 12px; color: var(--text-primary); font-family: Inter, sans-serif; font-size: 13px; resize: vertical; }
+      #response-form textarea:focus { outline: none; border-color: var(--cyan); }
+      #response-form .form-actions { display:flex; gap: 10px; margin-top: var(--space-4); flex-wrap: wrap; }
+      #response-form .form-actions button { padding: 10px 18px; border-radius: 8px; border: 1px solid; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.15s; }
+      #response-form .btn-save { background: var(--violet); border-color: var(--violet); color: white; }
+      #response-form .btn-save:hover { background: #6D28D9; }
+      #response-form .btn-copy { background: var(--cyan); border-color: var(--cyan); color: white; }
+      #response-form .btn-copy:hover { background: #0284C7; }
+      #response-form .btn-clear { background: transparent; border-color: var(--border-subtle); color: var(--text-secondary); }
+      #response-form .btn-clear:hover { border-color: var(--red); color: var(--red); }
+      #response-form .saved-banner { margin-top: var(--space-4); padding: 12px 16px; border-radius: 8px; background: rgba(34, 197, 94, 0.1); border: 1px solid rgba(34, 197, 94, 0.3); color: var(--green); font-size: 13px; display: none; }
+      #response-form .saved-banner.show { display: block; }
+      #response-form .saved-banner strong { color: #4ADE80; }
+    </style>
+
+    <!-- ============================================================ -->
+    <!-- 1. CONSERTO DE BUG -->
+    <!-- ============================================================ -->
+    <h3 id="flow-bugfix" style="font-size: 24px; margin-top: var(--space-8); margin-bottom: var(--space-3); color: var(--text-primary);">1 · Conserto de bug</h3>
+    <p class="text-secondary" style="margin-bottom: var(--space-5); max-width: 880px;">
+      Resolve um defeito reportado. A versão leve serve para bugs pequenos com causa óbvia; a pesada entra em ação quando o bug envolve persistência, concorrência, várias áreas do sistema ou afeta gente em produção.
+    </p>
+
+    <h4 style="font-size: 16px; color: var(--green); margin-top: var(--space-5); margin-bottom: var(--space-2);"><span class="badge badge-info">LEVE</span> Bug pequeno, causa direta — 8 passos</h4>
+    <p class="text-secondary" style="margin-bottom: var(--space-3); max-width: 880px;">Usar quando o bug afeta no máximo dois arquivos, o conserto provavelmente cabe em umas cinquenta linhas e não toca em regra de negócio importante.</p>
+    <div class="diagram-container">
+      <svg viewBox="0 0 1100 220" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arr-bl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker>
+        </defs>
+        <!-- 8 steps in single row, box 115x100 -->
+        <!-- Step 1: Entender comportamento (inline) -->
+        <g><rect x="20" y="50" width="115" height="100" rx="10" fill="#1C2238" stroke="#94A3B8" stroke-width="2"/>
+          <text x="32" y="72" fill="#94A3B8" font-family="Inter" font-size="11" font-weight="700">1 · ENTENDER</text>
+          <text x="32" y="92" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">comportamento</text>
+          <text x="32" y="108" fill="#F1F5F9" font-family="Inter" font-size="12">do bug</text>
+          <text x="32" y="135" fill="#64748B" font-family="JetBrains Mono" font-size="9">agente principal</text></g>
+        <line x1="135" y1="100" x2="148" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-bl)"/>
+        <!-- Step 2: Analise + teste vermelho -->
+        <g><rect x="148" y="50" width="115" height="100" rx="10" fill="#1C2238" stroke="#94A3B8" stroke-width="2"/>
+          <text x="160" y="72" fill="#94A3B8" font-family="Inter" font-size="11" font-weight="700">2 · ANÁLISE</text>
+          <text x="160" y="92" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">+ teste que</text>
+          <text x="160" y="108" fill="#F1F5F9" font-family="Inter" font-size="12">tem que falhar</text>
+          <text x="160" y="135" fill="#64748B" font-family="JetBrains Mono" font-size="9">agente principal</text></g>
+        <line x1="263" y1="100" x2="276" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-bl)"/>
+        <!-- Step 3: Impact check -->
+        <g><rect x="276" y="50" width="115" height="100" rx="10" fill="#1C2238" stroke="#94A3B8" stroke-width="2"/>
+          <text x="288" y="72" fill="#94A3B8" font-family="Inter" font-size="11" font-weight="700">3 · IMPACTO</text>
+          <text x="288" y="92" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">o que mais</text>
+          <text x="288" y="108" fill="#F1F5F9" font-family="Inter" font-size="12">vai mexer?</text>
+          <text x="288" y="135" fill="#64748B" font-family="JetBrains Mono" font-size="9">agente principal</text></g>
+        <line x1="391" y1="100" x2="404" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-bl)"/>
+        <!-- Step 4: Point fix -->
+        <g><rect x="404" y="50" width="115" height="100" rx="10" fill="#1C2238" stroke="#94A3B8" stroke-width="2"/>
+          <text x="416" y="72" fill="#94A3B8" font-family="Inter" font-size="11" font-weight="700">4 · CONSERTO</text>
+          <text x="416" y="92" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">mínimo até o</text>
+          <text x="416" y="108" fill="#F1F5F9" font-family="Inter" font-size="12">teste passar</text>
+          <text x="416" y="135" fill="#64748B" font-family="JetBrains Mono" font-size="9">agente principal</text></g>
+        <line x1="519" y1="100" x2="532" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-bl)"/>
+        <!-- Step 5: Pos-fix validation (subagent) -->
+        <g><rect x="532" y="50" width="115" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="544" y="72" fill="white" font-family="Inter" font-size="11" font-weight="700">5 · VALIDAR</text>
+          <text x="544" y="92" fill="white" font-family="Inter" font-size="12" font-weight="600">virou teste de</text>
+          <text x="544" y="108" fill="white" font-family="Inter" font-size="12">não-regressão</text>
+          <text x="544" y="135" fill="#0369A1" font-family="JetBrains Mono" font-size="9">agente auxiliar</text></g>
+        <line x1="647" y1="100" x2="660" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-bl)"/>
+        <!-- Step 6: Persistence (subagent) -->
+        <g><rect x="660" y="50" width="115" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="672" y="72" fill="white" font-family="Inter" font-size="11" font-weight="700">6 · DADOS</text>
+          <text x="672" y="92" fill="white" font-family="Inter" font-size="12" font-weight="600">checagem</text>
+          <text x="672" y="108" fill="white" font-family="Inter" font-size="12">rápida no banco</text>
+          <text x="672" y="135" fill="#0369A1" font-family="JetBrains Mono" font-size="9">agente auxiliar</text></g>
+        <line x1="775" y1="100" x2="788" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-bl)"/>
+        <!-- Step 7: Complexity gate (GATE amber) -->
+        <g><rect x="788" y="50" width="115" height="100" rx="10" fill="#1C2238" stroke="#F59E0B" stroke-width="3"/>
+          <text x="800" y="72" fill="#F59E0B" font-family="Inter" font-size="11" font-weight="700">7 · APROVAR?</text>
+          <text x="800" y="92" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">complexo de</text>
+          <text x="800" y="108" fill="#F1F5F9" font-family="Inter" font-size="12">mais? sobe heavy</text>
+          <text x="800" y="135" fill="#FBBF24" font-family="JetBrains Mono" font-size="9">você decide</text></g>
+        <line x1="903" y1="100" x2="916" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-bl)"/>
+        <!-- Step 8: Pa de Cal (CRITICAL red) -->
+        <g><rect x="916" y="50" width="115" height="100" rx="10" fill="#EF4444" stroke="#F87171" stroke-width="2"/>
+          <text x="928" y="72" fill="white" font-family="Inter" font-size="11" font-weight="700">8 · PÁ DE CAL</text>
+          <text x="928" y="92" fill="white" font-family="Inter" font-size="12" font-weight="600">selo final</text>
+          <text x="928" y="108" fill="white" font-family="Inter" font-size="12">vai / não vai</text>
+          <text x="928" y="135" fill="#FECACA" font-family="JetBrains Mono" font-size="9">você decide</text></g>
+      </svg>
+    </div>
+    <div class="grid grid-cols-2 gap-4" style="margin-bottom: var(--space-6);">
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-cyan" style="font-size: 14px;">Exemplo concreto</div>
+        <p class="text-secondary" style="font-size: 13px;">O botão de "esqueci minha senha" não dispara o email. O agente entende o fluxo, escreve um teste que reproduz a falha (passo 2), descobre que falta uma variável no template (passo 3), corrige (passo 4), promove o teste a regressão permanente (passo 5), confere que o banco não foi afetado (passo 6) e pede sua aprovação no final.</p>
+      </div>
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-amber" style="font-size: 14px;">Pontos onde você aprova</div>
+        <p class="text-secondary" style="font-size: 13px;">Dois apenas. No passo 7 o pipeline pergunta se o conserto cresceu além do esperado (em caso afirmativo, ele migra para a variante pesada). No passo 8 ele apresenta o selo final com o resumo, e você decide se manda para frente ou descarta.</p>
+      </div>
+    </div>
+
+    <h4 style="font-size: 16px; color: var(--red); margin-top: var(--space-6); margin-bottom: var(--space-2);"><span class="badge badge-hard">PESADO</span> Bug complexo, incidente em produção — 11 passos</h4>
+    <p class="text-secondary" style="margin-bottom: var(--space-3); max-width: 880px;">Usar quando o bug envolve dados, concorrência, fluxo entre vários módulos, ou está afetando usuário em produção. Bem mais cuidadoso, com aprovação obrigatória da proposta antes de qualquer mudança.</p>
+    <div class="diagram-container">
+      <svg viewBox="0 0 1100 380" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arr-bh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker>
+        </defs>
+        <!-- 11 steps in 2 rows -->
+        <!-- Row 1: steps 1-6 (x = 20, 168, 316, 464, 612, 760) -->
+        <g><rect x="20" y="20" width="135" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="32" y="42" fill="white" font-family="Inter" font-size="11" font-weight="700">1 · RECONHECER</text>
+          <text x="32" y="62" fill="white" font-family="Inter" font-size="12" font-weight="600">mapear o</text>
+          <text x="32" y="78" fill="white" font-family="Inter" font-size="12">terreno do bug</text>
+          <text x="32" y="105" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">agente diagnóstico</text></g>
+        <line x1="155" y1="70" x2="168" y2="70" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-bh)"/>
+        <g><rect x="168" y="20" width="135" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="180" y="42" fill="white" font-family="Inter" font-size="11" font-weight="700">2 · CAUSA RAIZ</text>
+          <text x="180" y="62" fill="white" font-family="Inter" font-size="12" font-weight="600">por que isso</text>
+          <text x="180" y="78" fill="white" font-family="Inter" font-size="12">está acontecendo?</text>
+          <text x="180" y="105" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">analisador causa</text></g>
+        <line x1="303" y1="70" x2="316" y2="70" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-bh)"/>
+        <g><rect x="316" y="20" width="135" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="328" y="42" fill="white" font-family="Inter" font-size="11" font-weight="700">3 · DOMÍNIO</text>
+          <text x="328" y="62" fill="white" font-family="Inter" font-size="12" font-weight="600">o que o sistema</text>
+          <text x="328" y="78" fill="white" font-family="Inter" font-size="12">considera verdade?</text>
+          <text x="328" y="105" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">leitor só-leitura</text></g>
+        <line x1="451" y1="70" x2="464" y2="70" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-bh)"/>
+        <g><rect x="464" y="20" width="135" height="100" rx="10" fill="#1C2238" stroke="#EF4444" stroke-width="3"/>
+          <text x="476" y="42" fill="#F87171" font-family="Inter" font-size="11" font-weight="700">4 · APROVAR!</text>
+          <text x="476" y="62" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">proposta de</text>
+          <text x="476" y="78" fill="#F1F5F9" font-family="Inter" font-size="12">mudança controlada</text>
+          <text x="476" y="105" fill="#FCA5A5" font-family="JetBrains Mono" font-size="9">você decide</text></g>
+        <line x1="599" y1="70" x2="612" y2="70" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-bh)"/>
+        <g><rect x="612" y="20" width="135" height="100" rx="10" fill="#1C2238" stroke="#94A3B8" stroke-width="2"/>
+          <text x="624" y="42" fill="#94A3B8" font-family="Inter" font-size="11" font-weight="700">5 · TESTE RED</text>
+          <text x="624" y="62" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">escrever teste</text>
+          <text x="624" y="78" fill="#F1F5F9" font-family="Inter" font-size="12">que deve falhar</text>
+          <text x="624" y="105" fill="#64748B" font-family="JetBrains Mono" font-size="9">agente principal</text></g>
+        <line x1="747" y1="70" x2="760" y2="70" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-bh)"/>
+        <g><rect x="760" y="20" width="135" height="100" rx="10" fill="#1C2238" stroke="#94A3B8" stroke-width="2"/>
+          <text x="772" y="42" fill="#94A3B8" font-family="Inter" font-size="11" font-weight="700">6 · CONSERTO</text>
+          <text x="772" y="62" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">menor diff que</text>
+          <text x="772" y="78" fill="#F1F5F9" font-family="Inter" font-size="12">faz teste passar</text>
+          <text x="772" y="105" fill="#64748B" font-family="JetBrains Mono" font-size="9">agente principal</text></g>
+        <!-- bridge from row 1 to row 2: from (895, 70) down and left to (87, 200) -->
+        <path d="M 895 70 L 920 70 L 920 160 L 87 160 L 87 200" fill="none" stroke="#94A3B8" stroke-width="2" stroke-dasharray="4,3" marker-end="url(#arr-bh)"/>
+
+        <!-- Row 2: steps 7-11 (5 steps) -->
+        <g><rect x="20" y="220" width="135" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="32" y="242" fill="white" font-family="Inter" font-size="11" font-weight="700">7 · CHECAR</text>
+          <text x="32" y="262" fill="white" font-family="Inter" font-size="12" font-weight="600">build + testes +</text>
+          <text x="32" y="278" fill="white" font-family="Inter" font-size="12">regressão geral</text>
+          <text x="32" y="305" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">agente auxiliar</text></g>
+        <line x1="155" y1="270" x2="168" y2="270" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-bh)"/>
+        <g><rect x="168" y="220" width="135" height="100" rx="10" fill="#1C2238" stroke="#F59E0B" stroke-width="3"/>
+          <text x="180" y="242" fill="#F59E0B" font-family="Inter" font-size="11" font-weight="700">8 · CRÍTICA 3x</text>
+          <text x="180" y="262" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">segurança +</text>
+          <text x="180" y="278" fill="#F1F5F9" font-family="Inter" font-size="12">arquitetura + UX</text>
+          <text x="180" y="305" fill="#FBBF24" font-family="JetBrains Mono" font-size="9">3 paralelos · gate</text></g>
+        <line x1="303" y1="270" x2="316" y2="270" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-bh)"/>
+        <g><rect x="316" y="220" width="135" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="328" y="242" fill="white" font-family="Inter" font-size="11" font-weight="700">9 · UX E2E</text>
+          <text x="328" y="262" fill="white" font-family="Inter" font-size="12" font-weight="600">jornada do usuário</text>
+          <text x="328" y="278" fill="white" font-family="Inter" font-size="12">depois do conserto</text>
+          <text x="328" y="305" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">simulador UX</text></g>
+        <line x1="451" y1="270" x2="464" y2="270" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-bh)"/>
+        <g><rect x="464" y="220" width="135" height="100" rx="10" fill="#EF4444" stroke="#F87171" stroke-width="2"/>
+          <text x="476" y="242" fill="white" font-family="Inter" font-size="11" font-weight="700">10 · PÁ DE CAL</text>
+          <text x="476" y="262" fill="white" font-family="Inter" font-size="12" font-weight="600">vai / condicional</text>
+          <text x="476" y="278" fill="white" font-family="Inter" font-size="12">/ não vai</text>
+          <text x="476" y="305" fill="#FECACA" font-family="JetBrains Mono" font-size="9">você decide</text></g>
+        <line x1="599" y1="270" x2="612" y2="270" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-bh)"/>
+        <g><rect x="612" y="220" width="135" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="624" y="242" fill="white" font-family="Inter" font-size="11" font-weight="700">11 · VARRIDA</text>
+          <text x="624" y="262" fill="white" font-family="Inter" font-size="12" font-weight="600">checagem final</text>
+          <text x="624" y="278" fill="white" font-family="Inter" font-size="12">só-leitura</text>
+          <text x="624" y="305" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">agente auxiliar</text></g>
+      </svg>
+    </div>
+    <div class="grid grid-cols-2 gap-4" style="margin-bottom: var(--space-6);">
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-cyan" style="font-size: 14px;">Exemplo concreto</div>
+        <p class="text-secondary" style="font-size: 13px;">Pagamentos estão duplicando em horário de pico. Três agentes em sequência mapeiam o terreno, isolam a causa (corrida entre duas tarefas que gravam no banco) e descrevem o modelo de verdade do domínio. No passo 4 o pipeline trava e te mostra uma proposta de mudança controlada — você precisa aprovar antes de qualquer linha mudar. Depois, conserto mínimo, três revisores críticos independentes em paralelo, simulação da jornada do usuário, selo final, varrida final.</p>
+      </div>
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-amber" style="font-size: 14px;">Pontos onde você aprova</div>
+        <p class="text-secondary" style="font-size: 13px;">Três pontos. No quarto passo o pipeline mostra a proposta detalhada de mudança e exige aprovação explícita antes de tocar em código. No oitavo, ele apresenta o achado dos três críticos independentes e pergunta se libera para a fase final. No décimo, o selo de Pá de Cal pede o vai/não vai definitivo.</p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 2. AUDITORIA -->
+    <!-- ============================================================ -->
+    <h3 id="flow-audit" style="font-size: 24px; margin-top: var(--space-8); margin-bottom: var(--space-3); color: var(--text-primary);">2 · Auditoria</h3>
+    <p class="text-secondary" style="margin-bottom: var(--space-5); max-width: 880px;">
+      Examina o sistema e produz relatórios estruturados. <strong>Nunca</strong> modifica código — é só relatório. A leve e a pesada têm a mesma forma de nove passos; o que muda é a profundidade dentro de cada um.
+    </p>
+
+    <h4 style="font-size: 16px; color: var(--green); margin-top: var(--space-5); margin-bottom: var(--space-2);"><span class="badge badge-info">LEVE</span> Auditoria focada — 1 área, 1 nível de profundidade</h4>
+    <p class="text-secondary" style="margin-bottom: var(--space-3); max-width: 880px;">Usar quando você quer auditar só uma parte (só a camada de dados, só o frontend, só autenticação) sem o peso de auditoria regulatória.</p>
+    <div class="diagram-container">
+      <svg viewBox="0 0 1100 220" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="arr-al" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+        <!-- 9 steps single row, box 105 wide -->
+        <g><rect x="20" y="50" width="105" height="100" rx="10" fill="#1C2238" stroke="#F59E0B" stroke-width="3"/>
+          <text x="32" y="72" fill="#F59E0B" font-family="Inter" font-size="10" font-weight="700">1 · APROVAR</text>
+          <text x="32" y="92" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">escopo da</text>
+          <text x="32" y="108" fill="#F1F5F9" font-family="Inter" font-size="11">auditoria</text>
+          <text x="32" y="135" fill="#FBBF24" font-family="JetBrains Mono" font-size="9">você aprova</text></g>
+        <line x1="125" y1="100" x2="138" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-al)"/>
+        <g><rect x="138" y="50" width="105" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="150" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">2 · ARQUITETURA</text>
+          <text x="150" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">organização</text>
+          <text x="150" y="108" fill="white" font-family="Inter" font-size="11">responsabilidades</text>
+          <text x="150" y="135" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">auditor compliance</text></g>
+        <line x1="243" y1="100" x2="256" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-al)"/>
+        <g><rect x="256" y="50" width="105" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="268" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">3 · DOMÍNIO</text>
+          <text x="268" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">regras de</text>
+          <text x="268" y="108" fill="white" font-family="Inter" font-size="11">negócio + SSOT</text>
+          <text x="268" y="135" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">auditor compliance</text></g>
+        <line x1="361" y1="100" x2="374" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-al)"/>
+        <g><rect x="374" y="50" width="105" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="386" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">4 · CONTRATOS</text>
+          <text x="386" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">APIs +</text>
+          <text x="386" y="108" fill="white" font-family="Inter" font-size="11">validações</text>
+          <text x="386" y="135" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">auditor compliance</text></g>
+        <line x1="479" y1="100" x2="492" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-al)"/>
+        <g><rect x="492" y="50" width="105" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="504" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">5 · DADOS</text>
+          <text x="504" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">persistência +</text>
+          <text x="504" y="108" fill="white" font-family="Inter" font-size="11">migrações</text>
+          <text x="504" y="135" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">auditor compliance</text></g>
+        <line x1="597" y1="100" x2="610" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-al)"/>
+        <g><rect x="610" y="50" width="105" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="622" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">6 · FRONTEND</text>
+          <text x="622" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">qualidade +</text>
+          <text x="622" y="108" fill="white" font-family="Inter" font-size="11">estado + UI</text>
+          <text x="622" y="135" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">auditor compliance</text></g>
+        <line x1="715" y1="100" x2="728" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-al)"/>
+        <g><rect x="728" y="50" width="105" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="740" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">7 · BACKEND</text>
+          <text x="740" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">serviços +</text>
+          <text x="740" y="108" fill="white" font-family="Inter" font-size="11">segurança</text>
+          <text x="740" y="135" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">auditor compliance</text></g>
+        <line x1="833" y1="100" x2="846" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-al)"/>
+        <g><rect x="846" y="50" width="105" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="858" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">8 · TESTES</text>
+          <text x="858" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">cobertura +</text>
+          <text x="858" y="108" fill="white" font-family="Inter" font-size="11">performance</text>
+          <text x="858" y="135" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">auditor compliance</text></g>
+        <line x1="951" y1="100" x2="964" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-al)"/>
+        <g><rect x="964" y="50" width="105" height="100" rx="10" fill="#EF4444" stroke="#F87171" stroke-width="2"/>
+          <text x="976" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">9 · PÁ DE CAL</text>
+          <text x="976" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">matriz de risco</text>
+          <text x="976" y="108" fill="white" font-family="Inter" font-size="11">+ backlog</text>
+          <text x="976" y="135" fill="#FECACA" font-family="JetBrains Mono" font-size="9">você decide</text></g>
+      </svg>
+    </div>
+    <div class="grid grid-cols-2 gap-4" style="margin-bottom: var(--space-6);">
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-cyan" style="font-size: 14px;">Exemplo concreto</div>
+        <p class="text-secondary" style="font-size: 13px;">Você quer entender se a parte de autenticação do sistema tem furos. O pipeline pergunta no passo 1 qual exatamente é o escopo (só login? login + recuperação de senha? só tokens?), você aprova, e ele examina sete eixos: arquitetura, domínio, contratos, dados, frontend, backend e testes. Cada eixo vira um relatório estruturado. No fim, o pipeline consolida tudo em uma matriz de risco com cada problema classificado (crítico, alto, médio, baixo) e um backlog priorizado para você ler.</p>
+      </div>
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-amber" style="font-size: 14px;">Pontos onde você aprova</div>
+        <p class="text-secondary" style="font-size: 13px;">Dois. No passo 1, você confirma o escopo da auditoria — sem isso, ela não começa, evitando varrer o sistema inteiro sem necessidade. No passo 9, o pipeline apresenta a matriz de risco consolidada e pergunta se aceita o veredicto ou se quer que ele suba para a variante pesada (mais profundidade).</p>
+      </div>
+    </div>
+
+    <h4 style="font-size: 16px; color: var(--red); margin-top: var(--space-6); margin-bottom: var(--space-2);"><span class="badge badge-hard">PESADO</span> Auditoria completa — múltiplos eixos, regulatória, due diligence</h4>
+    <p class="text-secondary" style="margin-bottom: var(--space-3); max-width: 880px;">Mesma sequência de nove passos da versão leve, mas cada passo é mais fundo, com agente analista de domínio dedicado nos passos 2 a 4 (em vez de checador genérico). Usar para auditoria regulatória, sistema inteiro, ou quando o relatório vai alimentar release ou due diligence.</p>
+    <div class="diagram-container">
+      <svg viewBox="0 0 1100 220" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="arr-ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+        <g><rect x="20" y="50" width="105" height="100" rx="10" fill="#1C2238" stroke="#F59E0B" stroke-width="3"/>
+          <text x="32" y="72" fill="#F59E0B" font-family="Inter" font-size="10" font-weight="700">1 · INTAKE</text>
+          <text x="32" y="92" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">aprova escopo +</text>
+          <text x="32" y="108" fill="#F1F5F9" font-family="Inter" font-size="11">inventário</text>
+          <text x="32" y="135" fill="#FBBF24" font-family="JetBrains Mono" font-size="9">você aprova</text></g>
+        <line x1="125" y1="100" x2="138" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-ah)"/>
+        <g><rect x="138" y="50" width="105" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="150" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">2 · DEPS</text>
+          <text x="150" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">limites de módulo</text>
+          <text x="150" y="108" fill="white" font-family="Inter" font-size="11">dependências</text>
+          <text x="150" y="135" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">analista domínio</text></g>
+        <line x1="243" y1="100" x2="256" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-ah)"/>
+        <g><rect x="256" y="50" width="105" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="268" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">3 · DECISÕES</text>
+          <text x="268" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">SSOT +</text>
+          <text x="268" y="108" fill="white" font-family="Inter" font-size="11">regras + ADRs</text>
+          <text x="268" y="135" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">analista domínio</text></g>
+        <line x1="361" y1="100" x2="374" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-ah)"/>
+        <g><rect x="374" y="50" width="105" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="386" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">4 · GOVERNANÇA</text>
+          <text x="386" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">contratos com</text>
+          <text x="386" y="108" fill="white" font-family="Inter" font-size="11">cross-check</text>
+          <text x="386" y="135" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">analista domínio</text></g>
+        <line x1="479" y1="100" x2="492" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-ah)"/>
+        <g><rect x="492" y="50" width="105" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="504" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">5 · DADOS</text>
+          <text x="504" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">integridade +</text>
+          <text x="504" y="108" fill="white" font-family="Inter" font-size="11">segurança LGPD</text>
+          <text x="504" y="135" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">auditor compliance</text></g>
+        <line x1="597" y1="100" x2="610" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-ah)"/>
+        <g><rect x="610" y="50" width="105" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="622" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">6 · FRONT DEEP</text>
+          <text x="622" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">acessibilidade +</text>
+          <text x="622" y="108" fill="white" font-family="Inter" font-size="11">PWA + estado</text>
+          <text x="622" y="135" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">auditor compliance</text></g>
+        <line x1="715" y1="100" x2="728" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-ah)"/>
+        <g><rect x="728" y="50" width="105" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="740" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">7 · BACK DEEP</text>
+          <text x="740" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">erros + auth +</text>
+          <text x="740" y="108" fill="white" font-family="Inter" font-size="11">observabilidade</text>
+          <text x="740" y="135" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">auditor compliance</text></g>
+        <line x1="833" y1="100" x2="846" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-ah)"/>
+        <g><rect x="846" y="50" width="105" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="858" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">8 · GOVERNANÇA</text>
+          <text x="858" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">testes + CI/CD</text>
+          <text x="858" y="108" fill="white" font-family="Inter" font-size="11">+ docs</text>
+          <text x="858" y="135" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">auditor compliance</text></g>
+        <line x1="951" y1="100" x2="964" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-ah)"/>
+        <g><rect x="964" y="50" width="105" height="100" rx="10" fill="#EF4444" stroke="#F87171" stroke-width="2"/>
+          <text x="976" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">9 · SELO MESTRE</text>
+          <text x="976" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">matriz risco +</text>
+          <text x="976" y="108" fill="white" font-family="Inter" font-size="11">prioridade total</text>
+          <text x="976" y="135" fill="#FECACA" font-family="JetBrains Mono" font-size="9">você decide</text></g>
+      </svg>
+    </div>
+    <div class="grid grid-cols-2 gap-4" style="margin-bottom: var(--space-6);">
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-cyan" style="font-size: 14px;">Exemplo concreto</div>
+        <p class="text-secondary" style="font-size: 13px;">Auditoria regulatória completa antes de uma fusão. O pipeline coleta inventário, valida com você o escopo (todos os módulos, todos os eixos, com baseline histórico). Os passos 2 a 4 usam um agente analista de domínio dedicado, mais profundo que o checador genérico da variante leve, para mapear dependências, decisões registradas e governança de contratos. Dados, frontend e backend ganham passagem em profundidade. No fim, o selo mestre traz uma matriz de risco que cobre todos os eixos, com prioridade transversal — algo que diretoria ou advogado consegue ler.</p>
+      </div>
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-amber" style="font-size: 14px;">Pontos onde você aprova</div>
+        <p class="text-secondary" style="font-size: 13px;">Os mesmos dois pontos da variante leve (passos 1 e 9), mas agora o passo 9 vem com a matriz de risco completa e o backlog priorizado pronto para virar plano de ação. Em ambos os pontos, o pipeline também sinaliza se algum achado é tão crítico que deveria virar um Bug Fix imediato — a remediação acontece num pipeline separado.</p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 3. SIMULAÇÃO DE UX -->
+    <!-- ============================================================ -->
+    <h3 id="flow-ux" style="font-size: 24px; margin-top: var(--space-8); margin-bottom: var(--space-3); color: var(--text-primary);">3 · Simulação de UX</h3>
+    <p class="text-secondary" style="margin-bottom: var(--space-5); max-width: 880px;">
+      Caminha pela jornada do usuário como se fosse um usuário real, anota onde ele trava, onde fica confuso, onde a acessibilidade falha. Também é só relatório — não modifica código. A versão leve cobre duas ou três jornadas; a pesada faz auditoria E2E completa com várias personas e dispositivos.
+    </p>
+
+    <h4 style="font-size: 16px; color: var(--green); margin-top: var(--space-5); margin-bottom: var(--space-2);"><span class="badge badge-info">LEVE</span> 2-3 jornadas, fluxo padrão — 9 passos</h4>
+    <p class="text-secondary" style="margin-bottom: var(--space-3); max-width: 880px;">Usar quando você quer testar fluxos específicos ("checkout completo", "cadastro novo usuário") sem cobrir o produto inteiro.</p>
+    <div class="diagram-container">
+      <svg viewBox="0 0 1100 220" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="arr-ul" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+        <g><rect x="20" y="50" width="105" height="100" rx="10" fill="#1C2238" stroke="#94A3B8" stroke-width="2"/>
+          <text x="32" y="72" fill="#94A3B8" font-family="Inter" font-size="10" font-weight="700">1 · CLASSIFICAR</text>
+          <text x="32" y="92" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">é simulação</text>
+          <text x="32" y="108" fill="#F1F5F9" font-family="Inter" font-size="11">de UX?</text>
+          <text x="32" y="135" fill="#64748B" font-family="JetBrains Mono" font-size="9">orquestrador</text></g>
+        <line x1="125" y1="100" x2="138" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-ul)"/>
+        <g><rect x="138" y="50" width="105" height="100" rx="10" fill="#1C2238" stroke="#94A3B8" stroke-width="2"/>
+          <text x="150" y="72" fill="#94A3B8" font-family="Inter" font-size="10" font-weight="700">2 · COERÊNCIA</text>
+          <text x="150" y="92" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">sentinela valida</text>
+          <text x="150" y="108" fill="#F1F5F9" font-family="Inter" font-size="11">classificação</text>
+          <text x="150" y="135" fill="#64748B" font-family="JetBrains Mono" font-size="9">sentinela</text></g>
+        <line x1="243" y1="100" x2="256" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-ul)"/>
+        <g><rect x="256" y="50" width="105" height="100" rx="10" fill="#1C2238" stroke="#F59E0B" stroke-width="3"/>
+          <text x="268" y="72" fill="#F59E0B" font-family="Inter" font-size="10" font-weight="700">3 · GAPS?</text>
+          <text x="268" y="92" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">jornadas, devices,</text>
+          <text x="268" y="108" fill="#F1F5F9" font-family="Inter" font-size="11">acessibilidade</text>
+          <text x="268" y="135" fill="#FBBF24" font-family="JetBrains Mono" font-size="9">gate informação</text></g>
+        <line x1="361" y1="100" x2="374" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-ul)"/>
+        <g><rect x="374" y="50" width="105" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="386" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">4 · SIMULAR</text>
+          <text x="386" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">jornadas, anota</text>
+          <text x="386" y="108" fill="white" font-family="Inter" font-size="11">cada fricção</text>
+          <text x="386" y="135" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">simulador UX</text></g>
+        <line x1="479" y1="100" x2="492" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-ul)"/>
+        <g><rect x="492" y="50" width="105" height="100" rx="10" fill="#1C2238" stroke="#94A3B8" stroke-width="2"/>
+          <text x="504" y="72" fill="#94A3B8" font-family="Inter" font-size="10" font-weight="700">5 · TRANSIÇÃO</text>
+          <text x="504" y="92" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">fim simulação,</text>
+          <text x="504" y="108" fill="#F1F5F9" font-family="Inter" font-size="11">vai pro fim</text>
+          <text x="504" y="135" fill="#64748B" font-family="JetBrains Mono" font-size="9">sentinela</text></g>
+        <line x1="597" y1="100" x2="610" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-ul)"/>
+        <g><rect x="610" y="50" width="105" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="622" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">6 · SANIDADE</text>
+          <text x="622" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">relatório está</text>
+          <text x="622" y="108" fill="white" font-family="Inter" font-size="11">completo?</text>
+          <text x="622" y="135" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">checador final</text></g>
+        <line x1="715" y1="100" x2="728" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-ul)"/>
+        <g><rect x="728" y="50" width="105" height="100" rx="10" fill="#1C2238" stroke="#F59E0B" stroke-width="3"/>
+          <text x="740" y="72" fill="#F59E0B" font-family="Inter" font-size="10" font-weight="700">7 · CRÍTICA?</text>
+          <text x="740" y="92" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">3 revisores</text>
+          <text x="740" y="108" fill="#F1F5F9" font-family="Inter" font-size="11">independentes</text>
+          <text x="740" y="135" fill="#FBBF24" font-family="JetBrains Mono" font-size="9">opcional · gate</text></g>
+        <line x1="833" y1="100" x2="846" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-ul)"/>
+        <g><rect x="846" y="50" width="105" height="100" rx="10" fill="#EF4444" stroke="#F87171" stroke-width="2"/>
+          <text x="858" y="72" fill="white" font-family="Inter" font-size="10" font-weight="700">8 · PÁ DE CAL</text>
+          <text x="858" y="92" fill="white" font-family="Inter" font-size="11" font-weight="600">veredicto UX</text>
+          <text x="858" y="108" fill="white" font-family="Inter" font-size="11">vai / não vai</text>
+          <text x="858" y="135" fill="#FECACA" font-family="JetBrains Mono" font-size="9">você decide</text></g>
+        <line x1="951" y1="100" x2="964" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-ul)"/>
+        <g><rect x="964" y="50" width="105" height="100" rx="10" fill="#1C2238" stroke="#22C55E" stroke-width="2"/>
+          <text x="976" y="72" fill="#4ADE80" font-family="Inter" font-size="10" font-weight="700">9 · FECHAR</text>
+          <text x="976" y="92" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">opções de</text>
+          <text x="976" y="108" fill="#F1F5F9" font-family="Inter" font-size="11">finalização</text>
+          <text x="976" y="135" fill="#86EFAC" font-family="JetBrains Mono" font-size="9">finalizador</text></g>
+      </svg>
+    </div>
+    <div class="grid grid-cols-2 gap-4" style="margin-bottom: var(--space-6);">
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-cyan" style="font-size: 14px;">Exemplo concreto</div>
+        <p class="text-secondary" style="font-size: 13px;">Você pede para o pipeline simular o fluxo de "esqueci minha senha" e o de "primeiro login depois do cadastro". O agente classifica como UX, o gate de informação pergunta quais dispositivos cobrir (web mobile? desktop?) e se acessibilidade é relevante. O simulador caminha jornada por jornada, anota cada ponto de fricção (botão difícil de achar, mensagem confusa, telinha de loading sem feedback). Você ganha um relatório estruturado com cada problema classificado.</p>
+      </div>
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-amber" style="font-size: 14px;">Pontos onde você aprova</div>
+        <p class="text-secondary" style="font-size: 13px;">Dois obrigatórios e um opcional. No passo 3, o gate de informação pergunta dispositivos, personas e necessidades de acessibilidade se isso não estiver claro. No passo 7, ele oferece chamar três revisores críticos independentes para examinar o relatório com olhares fresh — você decide se o custo do passo extra compensa. No passo 8, o veredicto final.</p>
+      </div>
+    </div>
+
+    <h4 style="font-size: 16px; color: var(--red); margin-top: var(--space-6); margin-bottom: var(--space-2);"><span class="badge badge-hard">PESADO</span> Auditoria E2E completa — 5+ jornadas, cross-device, acessibilidade — 15 passos</h4>
+    <p class="text-secondary" style="margin-bottom: var(--space-3); max-width: 880px;">Usar quando você quer auditoria de UX do produto inteiro, com várias personas, cobertura cross-device e acessibilidade WCAG. A versão pesada acrescenta interrogação de design no início, modo de planejamento da ordem de simulações, e revisão crítica por lote dentro da execução.</p>
+    <div class="diagram-container">
+      <svg viewBox="0 0 1100 380" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="arr-uh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+        <!-- 15 steps in 2 rows: 8 + 7 -->
+        <!-- Row 1: steps 1-8, x positions every 135 -->
+        <g><rect x="20" y="20" width="125" height="100" rx="10" fill="#1C2238" stroke="#94A3B8" stroke-width="2"/>
+          <text x="32" y="42" fill="#94A3B8" font-family="Inter" font-size="10" font-weight="700">1 · CLASSIFICAR</text>
+          <text x="32" y="62" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">UX + COMPLEXA</text>
+          <text x="32" y="105" fill="#64748B" font-family="JetBrains Mono" font-size="9">orquestrador</text></g>
+        <line x1="145" y1="70" x2="158" y2="70" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-uh)"/>
+        <g><rect x="158" y="20" width="125" height="100" rx="10" fill="#1C2238" stroke="#94A3B8" stroke-width="2"/>
+          <text x="170" y="42" fill="#94A3B8" font-family="Inter" font-size="10" font-weight="700">2 · COERÊNCIA</text>
+          <text x="170" y="62" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">sentinela #1</text>
+          <text x="170" y="105" fill="#64748B" font-family="JetBrains Mono" font-size="9">sentinela</text></g>
+        <line x1="283" y1="70" x2="296" y2="70" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-uh)"/>
+        <g><rect x="296" y="20" width="125" height="100" rx="10" fill="#1C2238" stroke="#F59E0B" stroke-width="3"/>
+          <text x="308" y="42" fill="#F59E0B" font-family="Inter" font-size="10" font-weight="700">3 · GAPS DEEP</text>
+          <text x="308" y="62" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">jornadas, devices,</text>
+          <text x="308" y="78" fill="#F1F5F9" font-family="Inter" font-size="11">personas, A11y</text>
+          <text x="308" y="105" fill="#FBBF24" font-family="JetBrains Mono" font-size="9">gate · você aprova</text></g>
+        <line x1="421" y1="70" x2="434" y2="70" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-uh)"/>
+        <g><rect x="434" y="20" width="125" height="100" rx="10" fill="#1C2238" stroke="#F59E0B" stroke-width="3"/>
+          <text x="446" y="42" fill="#F59E0B" font-family="Inter" font-size="10" font-weight="700">4 · INTERROGAR</text>
+          <text x="446" y="62" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">árvore de decisão</text>
+          <text x="446" y="78" fill="#F1F5F9" font-family="Inter" font-size="11">do escopo UX</text>
+          <text x="446" y="105" fill="#FBBF24" font-family="JetBrains Mono" font-size="9">interrogador design</text></g>
+        <line x1="559" y1="70" x2="572" y2="70" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-uh)"/>
+        <g><rect x="572" y="20" width="125" height="100" rx="10" fill="#1C2238" stroke="#94A3B8" stroke-width="2"/>
+          <text x="584" y="42" fill="#94A3B8" font-family="Inter" font-size="10" font-weight="700">5 · COERÊNCIA</text>
+          <text x="584" y="62" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">sentinela #2</text>
+          <text x="584" y="78" fill="#F1F5F9" font-family="Inter" font-size="11">fase 0 → 1</text>
+          <text x="584" y="105" fill="#64748B" font-family="JetBrains Mono" font-size="9">sentinela</text></g>
+        <line x1="697" y1="70" x2="710" y2="70" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-uh)"/>
+        <g><rect x="710" y="20" width="125" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="722" y="42" fill="white" font-family="Inter" font-size="10" font-weight="700">6 · PLANEJAR</text>
+          <text x="722" y="62" fill="white" font-family="Inter" font-size="11" font-weight="600">ordem das</text>
+          <text x="722" y="78" fill="white" font-family="Inter" font-size="11">simulações</text>
+          <text x="722" y="105" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">arquiteto plano</text></g>
+        <line x1="835" y1="70" x2="848" y2="70" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-uh)"/>
+        <g><rect x="848" y="20" width="125" height="100" rx="10" fill="#1C2238" stroke="#94A3B8" stroke-width="2"/>
+          <text x="860" y="42" fill="#94A3B8" font-family="Inter" font-size="10" font-weight="700">7 · COERÊNCIA</text>
+          <text x="860" y="62" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">sentinela #3</text>
+          <text x="860" y="78" fill="#F1F5F9" font-family="Inter" font-size="11">fase 1 → 2</text>
+          <text x="860" y="105" fill="#64748B" font-family="JetBrains Mono" font-size="9">sentinela</text></g>
+        <line x1="973" y1="70" x2="986" y2="70" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-uh)"/>
+        <g><rect x="986" y="20" width="90" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="996" y="42" fill="white" font-family="Inter" font-size="10" font-weight="700">8 · SIMULAR</text>
+          <text x="996" y="62" fill="white" font-family="Inter" font-size="11" font-weight="600">1 jornada</text>
+          <text x="996" y="78" fill="white" font-family="Inter" font-size="11">por lote</text>
+          <text x="996" y="105" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">executor</text></g>
+        <path d="M 1031 120 L 1031 160 L 87 160 L 87 200" fill="none" stroke="#94A3B8" stroke-width="2" stroke-dasharray="4,3" marker-end="url(#arr-uh)"/>
+
+        <!-- Row 2: steps 9-15 -->
+        <g><rect x="20" y="220" width="125" height="100" rx="10" fill="#1C2238" stroke="#F59E0B" stroke-width="3"/>
+          <text x="32" y="242" fill="#F59E0B" font-family="Inter" font-size="10" font-weight="700">9 · CRÍTICA POR LOTE</text>
+          <text x="32" y="262" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">adversarial +</text>
+          <text x="32" y="278" fill="#F1F5F9" font-family="Inter" font-size="11">arquitetura</text>
+          <text x="32" y="305" fill="#FBBF24" font-family="JetBrains Mono" font-size="9">orquestrador revisão</text></g>
+        <line x1="145" y1="270" x2="158" y2="270" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-uh)"/>
+        <g><rect x="158" y="220" width="125" height="100" rx="10" fill="#1C2238" stroke="#94A3B8" stroke-width="2"/>
+          <text x="170" y="242" fill="#94A3B8" font-family="Inter" font-size="10" font-weight="700">10 · COERÊNCIA</text>
+          <text x="170" y="262" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">sentinela #4</text>
+          <text x="170" y="278" fill="#F1F5F9" font-family="Inter" font-size="11">fase 2 → 3</text>
+          <text x="170" y="305" fill="#64748B" font-family="JetBrains Mono" font-size="9">sentinela</text></g>
+        <line x1="283" y1="270" x2="296" y2="270" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-uh)"/>
+        <g><rect x="296" y="220" width="125" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="308" y="242" fill="white" font-family="Inter" font-size="10" font-weight="700">11 · COBERTURA</text>
+          <text x="308" y="262" fill="white" font-family="Inter" font-size="11" font-weight="600">checa que todas</text>
+          <text x="308" y="278" fill="white" font-family="Inter" font-size="11">jornadas rodaram</text>
+          <text x="308" y="305" fill="#BAE6FD" font-family="JetBrains Mono" font-size="9">checador final</text></g>
+        <line x1="421" y1="270" x2="434" y2="270" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-uh)"/>
+        <g><rect x="434" y="220" width="125" height="100" rx="10" fill="#1C2238" stroke="#F59E0B" stroke-width="3"/>
+          <text x="446" y="242" fill="#F59E0B" font-family="Inter" font-size="10" font-weight="700">12 · CRÍTICA 3x</text>
+          <text x="446" y="262" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">3 revisores</text>
+          <text x="446" y="278" fill="#F1F5F9" font-family="Inter" font-size="11">paralelos · gate</text>
+          <text x="446" y="305" fill="#FBBF24" font-family="JetBrains Mono" font-size="9">final adversarial</text></g>
+        <line x1="559" y1="270" x2="572" y2="270" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-uh)"/>
+        <g><rect x="572" y="220" width="125" height="100" rx="10" fill="#EF4444" stroke="#F87171" stroke-width="2"/>
+          <text x="584" y="242" fill="white" font-family="Inter" font-size="10" font-weight="700">13 · PÁ DE CAL</text>
+          <text x="584" y="262" fill="white" font-family="Inter" font-size="11" font-weight="600">veredicto UX</text>
+          <text x="584" y="278" fill="white" font-family="Inter" font-size="11">completo</text>
+          <text x="584" y="305" fill="#FECACA" font-family="JetBrains Mono" font-size="9">você decide</text></g>
+        <line x1="697" y1="270" x2="710" y2="270" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-uh)"/>
+        <g><rect x="710" y="220" width="125" height="100" rx="10" fill="#1C2238" stroke="#94A3B8" stroke-width="2"/>
+          <text x="722" y="242" fill="#94A3B8" font-family="Inter" font-size="10" font-weight="700">14 · COERÊNCIA</text>
+          <text x="722" y="262" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">sentinela #5</text>
+          <text x="722" y="278" fill="#F1F5F9" font-family="Inter" font-size="11">pós-validator</text>
+          <text x="722" y="305" fill="#64748B" font-family="JetBrains Mono" font-size="9">sentinela</text></g>
+        <line x1="835" y1="270" x2="848" y2="270" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-uh)"/>
+        <g><rect x="848" y="220" width="125" height="100" rx="10" fill="#1C2238" stroke="#22C55E" stroke-width="2"/>
+          <text x="860" y="242" fill="#4ADE80" font-family="Inter" font-size="10" font-weight="700">15 · FECHAR</text>
+          <text x="860" y="262" fill="#F1F5F9" font-family="Inter" font-size="11" font-weight="600">opções de</text>
+          <text x="860" y="278" fill="#F1F5F9" font-family="Inter" font-size="11">finalização</text>
+          <text x="860" y="305" fill="#86EFAC" font-family="JetBrains Mono" font-size="9">finalizador</text></g>
+      </svg>
+    </div>
+    <div class="grid grid-cols-2 gap-4" style="margin-bottom: var(--space-6);">
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-cyan" style="font-size: 14px;">Exemplo concreto</div>
+        <p class="text-secondary" style="font-size: 13px;">Você pede uma auditoria de UX do app inteiro antes do relançamento. O pipeline interroga o escopo (todas as personas? incluindo daltônico e usuário de leitor de tela?), planeja a ordem das simulações (primeiro fluxos críticos como pagamento), executa uma jornada por vez com revisão crítica por lote. No final, três revisores independentes examinam o relatório consolidado e o selo de Pá de Cal traz o veredicto definitivo.</p>
+      </div>
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-amber" style="font-size: 14px;">Pontos onde você aprova</div>
+        <p class="text-secondary" style="font-size: 13px;">Quatro pontos. Passo 3 confirma escopo e personas. Passo 4 caminha pela árvore de decisão do design (cobertura, dispositivos, critérios de severidade). Passo 9 traz a crítica por lote durante a execução. Passo 12 oferece os três revisores finais independentes. Passo 13 fecha com o veredicto. Você nunca é surpreendido.</p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 4. PLANO (PLAN MODE) -->
+    <!-- ============================================================ -->
+    <h3 id="flow-plan" style="font-size: 24px; margin-top: var(--space-8); margin-bottom: var(--space-3); color: var(--text-primary);">4 · Plano (modo de planejamento)</h3>
+    <p class="text-secondary" style="margin-bottom: var(--space-5); max-width: 880px;">
+      Não é um pipeline próprio — é uma fase que <strong>entra antes da execução</strong> dentro do pipeline principal. Ela aparece automaticamente para tarefas média e complexa, e pode ser pedida com a flag de plano nas tarefas simples. O agente entra em modo só-leitura, examina o código, devolve um plano estruturado, você aprova antes de qualquer linha mudar.
+    </p>
+    <div class="diagram-container">
+      <svg viewBox="0 0 1100 260" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="arr-pl" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+        <!-- Entry from Phase 1 -->
+        <g><rect x="20" y="80" width="140" height="100" rx="10" fill="#1C2238" stroke="#7C3AED" stroke-width="2"/>
+          <text x="32" y="102" fill="#A78BFA" font-family="Inter" font-size="11" font-weight="700">VEM DA FASE 1</text>
+          <text x="32" y="122" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">proposta</text>
+          <text x="32" y="138" fill="#F1F5F9" font-family="Inter" font-size="12">aprovada</text>
+          <text x="32" y="165" fill="#A78BFA" font-family="JetBrains Mono" font-size="10">classificação OK</text></g>
+        <line x1="160" y1="130" x2="180" y2="130" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-pl)"/>
+        <g><rect x="180" y="80" width="180" height="100" rx="10" fill="#1C2238" stroke="#F59E0B" stroke-width="3"/>
+          <text x="194" y="102" fill="#F59E0B" font-family="Inter" font-size="11" font-weight="700">DEVE PLANEJAR?</text>
+          <text x="194" y="122" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">automático em média</text>
+          <text x="194" y="138" fill="#F1F5F9" font-family="Inter" font-size="12">e complexa</text>
+          <text x="194" y="165" fill="#FBBF24" font-family="JetBrains Mono" font-size="10">decisão</text></g>
+        <line x1="360" y1="130" x2="380" y2="130" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-pl)"/>
+        <g><rect x="380" y="80" width="200" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="394" y="102" fill="white" font-family="Inter" font-size="11" font-weight="700">ENTRA EM MODO PLANO</text>
+          <text x="394" y="122" fill="white" font-family="Inter" font-size="12" font-weight="600">só-leitura, examina</text>
+          <text x="394" y="138" fill="white" font-family="Inter" font-size="12">repositório, padrões</text>
+          <text x="394" y="165" fill="#BAE6FD" font-family="JetBrains Mono" font-size="10">arquiteto plano</text></g>
+        <line x1="580" y1="130" x2="600" y2="130" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-pl)"/>
+        <g><rect x="600" y="80" width="200" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="614" y="102" fill="white" font-family="Inter" font-size="11" font-weight="700">DEVOLVE PLANO</text>
+          <text x="614" y="122" fill="white" font-family="Inter" font-size="12" font-weight="600">arquivos a criar,</text>
+          <text x="614" y="138" fill="white" font-family="Inter" font-size="12">a editar, ordem, riscos</text>
+          <text x="614" y="165" fill="#BAE6FD" font-family="JetBrains Mono" font-size="10">arquiteto plano</text></g>
+        <line x1="800" y1="130" x2="820" y2="130" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-pl)"/>
+        <g><rect x="820" y="80" width="180" height="100" rx="10" fill="#EF4444" stroke="#F87171" stroke-width="2"/>
+          <text x="834" y="102" fill="white" font-family="Inter" font-size="11" font-weight="700">APROVAR PLANO?</text>
+          <text x="834" y="122" fill="white" font-family="Inter" font-size="12" font-weight="600">aceitar / ajustar</text>
+          <text x="834" y="138" fill="white" font-family="Inter" font-size="12">/ rejeitar</text>
+          <text x="834" y="165" fill="#FECACA" font-family="JetBrains Mono" font-size="10">você decide</text></g>
+        <path d="M 910 180 L 910 220 L 540 220 L 540 200" fill="none" stroke="#22C55E" stroke-width="2" marker-end="url(#arr-pl)"/>
+        <text x="540" y="245" text-anchor="middle" fill="#86EFAC" font-family="Inter" font-size="11" font-style="italic">vai para Fase 2 — execução em lotes com TDD</text>
+      </svg>
+    </div>
+    <div class="grid grid-cols-2 gap-4" style="margin-bottom: var(--space-6);">
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-cyan" style="font-size: 14px;">Exemplo concreto</div>
+        <p class="text-secondary" style="font-size: 13px;">Você pede para adicionar autenticação social ao app. O pipeline classifica como complexa (auth eleva automaticamente), entra em modo plano sem tocar em código. O arquiteto examina como autenticação atual funciona, mapeia padrões existentes, e devolve um plano: "vai criar três arquivos novos, modificar dois existentes, na ordem A → B → C, riscos principais são X e Y, leva ~6 lotes". Você lê, ajusta ou aprova. Só então a execução começa.</p>
+      </div>
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-amber" style="font-size: 14px;">Pontos onde você aprova</div>
+        <p class="text-secondary" style="font-size: 13px;">Um ponto, mas dos mais importantes. Você aprova o plano completo antes de qualquer arquivo ser tocado. Pode rejeitar, pedir refazer, ou ajustar pontos específicos. Para tarefa simples, o modo plano é pulado por padrão (passe a flag de plano para forçar). Em complexa, é obrigatório.</p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 5. BRAINSTORM -->
+    <!-- ============================================================ -->
+    <h3 id="flow-brainstorm" style="font-size: 24px; margin-top: var(--space-8); margin-bottom: var(--space-3); color: var(--text-primary);">5 · Brainstorm (preparação antes do pipeline)</h3>
+    <p class="text-secondary" style="margin-bottom: var(--space-5); max-width: 880px;">
+      Roda <strong>antes</strong> do pipeline de execução, para tarefas onde ainda falta esclarecer o que você quer. Faz captura inicial, exploração dinâmica de perguntas (até onze dimensões de gaps), proposta de abordagens alternativas, e produz uma especificação completa (requisitos, design, tarefas) pronta para virar pipeline.
+    </p>
+    <div class="diagram-container">
+      <svg viewBox="0 0 1100 380" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="arr-br" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+        <!-- 10 steps in 2 rows: 5+5 -->
+        <!-- Row 1 -->
+        <g><rect x="20" y="20" width="190" height="100" rx="10" fill="#1C2238" stroke="#94A3B8" stroke-width="2"/>
+          <text x="34" y="42" fill="#94A3B8" font-family="Inter" font-size="11" font-weight="700">1 · CAPTURAR</text>
+          <text x="34" y="62" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">pedido original +</text>
+          <text x="34" y="78" fill="#F1F5F9" font-family="Inter" font-size="12">estado do projeto</text>
+          <text x="34" y="105" fill="#64748B" font-family="JetBrains Mono" font-size="10">agente principal</text></g>
+        <line x1="210" y1="70" x2="225" y2="70" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-br)"/>
+        <g><rect x="225" y="20" width="190" height="100" rx="10" fill="#1C2238" stroke="#F59E0B" stroke-width="3"/>
+          <text x="239" y="42" fill="#F59E0B" font-family="Inter" font-size="11" font-weight="700">2 · EXPLORAR (4 fases)</text>
+          <text x="239" y="62" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">leitura → 11 lentes →</text>
+          <text x="239" y="78" fill="#F1F5F9" font-family="Inter" font-size="12">perguntas com evidência</text>
+          <text x="239" y="105" fill="#FBBF24" font-family="JetBrains Mono" font-size="10">gate dinâmico</text></g>
+        <line x1="415" y1="70" x2="430" y2="70" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-br)"/>
+        <g><rect x="430" y="20" width="190" height="100" rx="10" fill="#1C2238" stroke="#F59E0B" stroke-width="3"/>
+          <text x="444" y="42" fill="#F59E0B" font-family="Inter" font-size="11" font-weight="700">3 · ALTERNATIVAS</text>
+          <text x="444" y="62" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">2-4 abordagens: mínima,</text>
+          <text x="444" y="78" fill="#F1F5F9" font-family="Inter" font-size="12">padrão, agressiva, contra</text>
+          <text x="444" y="105" fill="#FBBF24" font-family="JetBrains Mono" font-size="10">você escolhe</text></g>
+        <line x1="620" y1="70" x2="635" y2="70" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-br)"/>
+        <g><rect x="635" y="20" width="190" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="649" y="42" fill="white" font-family="Inter" font-size="11" font-weight="700">4 · INICIAR SPEC</text>
+          <text x="649" y="62" fill="white" font-family="Inter" font-size="12" font-weight="600">cria pasta da spec,</text>
+          <text x="649" y="78" fill="white" font-family="Inter" font-size="12">descrição + objetivo</text>
+          <text x="649" y="105" fill="#BAE6FD" font-family="JetBrains Mono" font-size="10">agente spec-init</text></g>
+        <line x1="825" y1="70" x2="840" y2="70" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-br)"/>
+        <g><rect x="840" y="20" width="190" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="854" y="42" fill="white" font-family="Inter" font-size="11" font-weight="700">5 · REQUISITOS</text>
+          <text x="854" y="62" fill="white" font-family="Inter" font-size="12" font-weight="600">formato EARS,</text>
+          <text x="854" y="78" fill="white" font-family="Inter" font-size="12">critérios de aceitação</text>
+          <text x="854" y="105" fill="#BAE6FD" font-family="JetBrains Mono" font-size="10">agente requisitos</text></g>
+        <path d="M 935 120 L 935 160 L 115 160 L 115 200" fill="none" stroke="#94A3B8" stroke-width="2" stroke-dasharray="4,3" marker-end="url(#arr-br)"/>
+
+        <!-- Row 2 -->
+        <g><rect x="20" y="220" width="190" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="34" y="242" fill="white" font-family="Inter" font-size="11" font-weight="700">6 · GAP COM CÓDIGO</text>
+          <text x="34" y="262" fill="white" font-family="Inter" font-size="12" font-weight="600">o que já existe?</text>
+          <text x="34" y="278" fill="white" font-family="Inter" font-size="12">o que falta criar?</text>
+          <text x="34" y="305" fill="#BAE6FD" font-family="JetBrains Mono" font-size="10">validador gap</text></g>
+        <line x1="210" y1="270" x2="225" y2="270" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-br)"/>
+        <g><rect x="225" y="220" width="190" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="239" y="242" fill="white" font-family="Inter" font-size="11" font-weight="700">7 · DESIGN</text>
+          <text x="239" y="262" fill="white" font-family="Inter" font-size="12" font-weight="600">arquitetura,</text>
+          <text x="239" y="278" fill="white" font-family="Inter" font-size="12">componentes, dados</text>
+          <text x="239" y="305" fill="#BAE6FD" font-family="JetBrains Mono" font-size="10">agente design</text></g>
+        <line x1="415" y1="270" x2="430" y2="270" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-br)"/>
+        <g><rect x="430" y="220" width="190" height="100" rx="10" fill="#1C2238" stroke="#F59E0B" stroke-width="3"/>
+          <text x="444" y="242" fill="#F59E0B" font-family="Inter" font-size="11" font-weight="700">8 · VALIDAR DESIGN</text>
+          <text x="444" y="262" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">faz o que requisitos</text>
+          <text x="444" y="278" fill="#F1F5F9" font-family="Inter" font-size="12">pediram?</text>
+          <text x="444" y="305" fill="#FBBF24" font-family="JetBrains Mono" font-size="10">você aprova</text></g>
+        <line x1="620" y1="270" x2="635" y2="270" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-br)"/>
+        <g><rect x="635" y="220" width="190" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="649" y="242" fill="white" font-family="Inter" font-size="11" font-weight="700">9 · TAREFAS</text>
+          <text x="649" y="262" fill="white" font-family="Inter" font-size="12" font-weight="600">quebra design em</text>
+          <text x="649" y="278" fill="white" font-family="Inter" font-size="12">tarefas executáveis</text>
+          <text x="649" y="305" fill="#BAE6FD" font-family="JetBrains Mono" font-size="10">agente tarefas</text></g>
+        <line x1="825" y1="270" x2="840" y2="270" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-br)"/>
+        <g><rect x="840" y="220" width="190" height="100" rx="10" fill="#22C55E" stroke="#4ADE80" stroke-width="2"/>
+          <text x="854" y="242" fill="white" font-family="Inter" font-size="11" font-weight="700">10 · ENTREGAR</text>
+          <text x="854" y="262" fill="white" font-family="Inter" font-size="12" font-weight="600">spec pronta · vira</text>
+          <text x="854" y="278" fill="white" font-family="Inter" font-size="12">pipeline ou fica salva</text>
+          <text x="854" y="305" fill="#BBF7D0" font-family="JetBrains Mono" font-size="10">handoff</text></g>
+      </svg>
+    </div>
+    <div class="grid grid-cols-2 gap-4" style="margin-bottom: var(--space-6);">
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-cyan" style="font-size: 14px;">Exemplo concreto</div>
+        <p class="text-secondary" style="font-size: 13px;">Você fala "quero adicionar relatórios financeiros mensais" e nada mais. O passo 2 é o coração da preparação: o agente lê o projeto, identifica que faltam decisões críticas (formato de exportação? quais métricas? quem aprova? cobertura tributária?) e te pergunta uma a uma com evidência de onde no código a ambiguidade está. O passo 3 oferece quatro caminhos (do mínimo viável ao agressivo). Daí ele constrói requisitos formais, valida contra o que já existe, propõe um design, valida, e quebra em tarefas. No fim, você decide: vira pipeline agora ou guarda a spec para depois.</p>
+      </div>
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-amber" style="font-size: 14px;">Pontos onde você aprova</div>
+        <p class="text-secondary" style="font-size: 13px;">Três pontos principais. Passo 2 é dinâmico — pode haver uma ou várias perguntas, dependendo de quantos gaps reais o agente encontra no seu pedido. Passo 3 é onde você escolhe a abordagem entre as alternativas propostas. Passo 8 valida que o design proposto cobre todos os requisitos antes de quebrar em tarefas. No fim, você decide se entrega para o pipeline ou se guarda só a spec.</p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 6. HOTFIX -->
+    <!-- ============================================================ -->
+    <h3 id="flow-hotfix" style="font-size: 24px; margin-top: var(--space-8); margin-bottom: var(--space-3); color: var(--text-primary);">6 · Hotfix (emergência)</h3>
+    <p class="text-secondary" style="margin-bottom: var(--space-5); max-width: 880px;">
+      Modo de emergência. Reduz <strong>escopo</strong>, não segurança. Roda só as perguntas absolutamente críticas no início, lote único, duas listas de verificação adversariais em vez de sete, sanidade mínima, fechamento expedito. Usar quando o sistema está parado e você precisa subir um conserto agora.
+    </p>
+    <div class="diagram-container">
+      <svg viewBox="0 0 1100 220" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="arr-hf" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+        <g><rect x="20" y="50" width="155" height="100" rx="10" fill="#1C2238" stroke="#EF4444" stroke-width="3"/>
+          <text x="32" y="72" fill="#F87171" font-family="Inter" font-size="11" font-weight="700">1 · TRIAGEM RÁPIDA</text>
+          <text x="32" y="92" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">só perguntas</text>
+          <text x="32" y="108" fill="#F1F5F9" font-family="Inter" font-size="12">críticas</text>
+          <text x="32" y="135" fill="#FCA5A5" font-family="JetBrains Mono" font-size="10">gate enxuto</text></g>
+        <line x1="175" y1="100" x2="190" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-hf)"/>
+        <g><rect x="190" y="50" width="155" height="100" rx="10" fill="#1C2238" stroke="#F59E0B" stroke-width="3"/>
+          <text x="202" y="72" fill="#F59E0B" font-family="Inter" font-size="11" font-weight="700">2 · CONFIRMAR</text>
+          <text x="202" y="92" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">classificação +</text>
+          <text x="202" y="108" fill="#F1F5F9" font-family="Inter" font-size="12">escopo mínimo</text>
+          <text x="202" y="135" fill="#FBBF24" font-family="JetBrains Mono" font-size="10">você aprova</text></g>
+        <line x1="345" y1="100" x2="360" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-hf)"/>
+        <g><rect x="360" y="50" width="155" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="372" y="72" fill="white" font-family="Inter" font-size="11" font-weight="700">3 · LOTE ÚNICO</text>
+          <text x="372" y="92" fill="white" font-family="Inter" font-size="12" font-weight="600">teste mínimo →</text>
+          <text x="372" y="108" fill="white" font-family="Inter" font-size="12">conserto → check</text>
+          <text x="372" y="135" fill="#BAE6FD" font-family="JetBrains Mono" font-size="10">executor</text></g>
+        <line x1="515" y1="100" x2="530" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-hf)"/>
+        <g><rect x="530" y="50" width="155" height="100" rx="10" fill="#1C2238" stroke="#F59E0B" stroke-width="3"/>
+          <text x="542" y="72" fill="#F59E0B" font-family="Inter" font-size="11" font-weight="700">4 · CRÍTICA 2x</text>
+          <text x="542" y="92" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">só duas listas:</text>
+          <text x="542" y="108" fill="#F1F5F9" font-family="Inter" font-size="12">auth + injeção</text>
+          <text x="542" y="135" fill="#FBBF24" font-family="JetBrains Mono" font-size="10">adversarial enxuto</text></g>
+        <line x1="685" y1="100" x2="700" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-hf)"/>
+        <g><rect x="700" y="50" width="155" height="100" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="712" y="72" fill="white" font-family="Inter" font-size="11" font-weight="700">5 · SANIDADE</text>
+          <text x="712" y="92" fill="white" font-family="Inter" font-size="12" font-weight="600">só build</text>
+          <text x="712" y="108" fill="white" font-family="Inter" font-size="12">passa?</text>
+          <text x="712" y="135" fill="#BAE6FD" font-family="JetBrains Mono" font-size="10">checador final</text></g>
+        <line x1="855" y1="100" x2="870" y2="100" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-hf)"/>
+        <g><rect x="870" y="50" width="155" height="100" rx="10" fill="#EF4444" stroke="#F87171" stroke-width="2"/>
+          <text x="882" y="72" fill="white" font-family="Inter" font-size="11" font-weight="700">6 · SUBIR JÁ</text>
+          <text x="882" y="92" fill="white" font-family="Inter" font-size="12" font-weight="600">veredicto expedito</text>
+          <text x="882" y="108" fill="white" font-family="Inter" font-size="12">+ follow-up depois</text>
+          <text x="882" y="135" fill="#FECACA" font-family="JetBrains Mono" font-size="10">você decide</text></g>
+      </svg>
+    </div>
+    <div class="grid grid-cols-2 gap-4" style="margin-bottom: var(--space-6);">
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-cyan" style="font-size: 14px;">Exemplo concreto</div>
+        <p class="text-secondary" style="font-size: 13px;">Login parou em produção. O hotfix entra com triagem ultra-rápida: só pergunta "qual é o erro no log? quando começou? quem está afetado?". Você confirma o escopo mínimo (vamos consertar só o problema imediato, refinamento fica para depois). Lote único: teste, conserto, build. Duas listas adversariais — autenticação e injeção, que são as áreas onde um conserto rápido costuma criar buraco novo. Sanidade só de build, sem rodar suite completa. Veredicto e sobe.</p>
+      </div>
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-amber" style="font-size: 14px;">Pontos onde você aprova</div>
+        <p class="text-secondary" style="font-size: 13px;">Três pontos compactados. Triagem só com perguntas críticas (sem o gate longo de informação). Confirmação do escopo mínimo. Veredicto final expedito. <strong>Importante:</strong> o hotfix corta ceremônia, não corta segurança — a crítica adversarial ainda roda, só foca em auth e injeção. Depois que o conserto sobe, o ideal é abrir um follow-up para passar pelo pipeline completo.</p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- 7. REVIEW-ONLY -->
+    <!-- ============================================================ -->
+    <h3 id="flow-review" style="font-size: 24px; margin-top: var(--space-8); margin-bottom: var(--space-3); color: var(--text-primary);">7 · Revisão isolada (review-only)</h3>
+    <p class="text-secondary" style="margin-bottom: var(--space-5); max-width: 880px;">
+      Roda só a equipe de revisão crítica final contra o código que você já escreveu (a árvore atual, mesmo com mudanças não salvas). Três revisores em paralelo, sem contexto compartilhado, devolvem o que acharam. <strong>Só relatório</strong> — nada é consertado automaticamente, nada é commitado.
+    </p>
+    <div class="diagram-container">
+      <svg viewBox="0 0 1100 280" xmlns="http://www.w3.org/2000/svg">
+        <defs><marker id="arr-rv" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#94A3B8"/></marker></defs>
+        <!-- Entry -->
+        <g><rect x="20" y="100" width="160" height="80" rx="10" fill="#1C2238" stroke="#94A3B8" stroke-width="2"/>
+          <text x="32" y="125" fill="#94A3B8" font-family="Inter" font-size="11" font-weight="700">ÁRVORE ATUAL</text>
+          <text x="32" y="145" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">mudanças não</text>
+          <text x="32" y="161" fill="#F1F5F9" font-family="Inter" font-size="12">salvas inclusas</text></g>
+        <line x1="180" y1="140" x2="200" y2="140" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-rv)"/>
+        <g><rect x="200" y="100" width="160" height="80" rx="10" fill="#1C2238" stroke="#F59E0B" stroke-width="3"/>
+          <text x="212" y="125" fill="#F59E0B" font-family="Inter" font-size="11" font-weight="700">AUTORIZAR?</text>
+          <text x="212" y="145" fill="#F1F5F9" font-family="Inter" font-size="12" font-weight="600">custo estimado</text>
+          <text x="212" y="161" fill="#F1F5F9" font-family="Inter" font-size="12">de tokens</text></g>
+        <line x1="360" y1="140" x2="380" y2="140" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-rv)"/>
+        <!-- Fan-out to 3 parallel reviewers -->
+        <g><rect x="380" y="20" width="180" height="80" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="392" y="45" fill="white" font-family="Inter" font-size="11" font-weight="700">REVISOR · SEGURANÇA</text>
+          <text x="392" y="65" fill="white" font-family="Inter" font-size="12" font-weight="600">auth, injeção,</text>
+          <text x="392" y="81" fill="white" font-family="Inter" font-size="12">vazamento de dados</text></g>
+        <g><rect x="380" y="120" width="180" height="80" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="392" y="145" fill="white" font-family="Inter" font-size="11" font-weight="700">REVISOR · ARQUITETURA</text>
+          <text x="392" y="165" fill="white" font-family="Inter" font-size="12" font-weight="600">acoplamento,</text>
+          <text x="392" y="181" fill="white" font-family="Inter" font-size="12">SOLID, escalabilidade</text></g>
+        <g><rect x="380" y="220" width="180" height="80" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="392" y="245" fill="white" font-family="Inter" font-size="11" font-weight="700">REVISOR · QUALIDADE</text>
+          <text x="392" y="265" fill="white" font-family="Inter" font-size="12" font-weight="600">manutenibilidade,</text>
+          <text x="392" y="281" fill="white" font-family="Inter" font-size="12">nomes, código morto</text></g>
+        <!-- All converge -->
+        <line x1="560" y1="60" x2="600" y2="120" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-rv)"/>
+        <line x1="560" y1="160" x2="600" y2="140" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-rv)"/>
+        <line x1="560" y1="260" x2="600" y2="160" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-rv)"/>
+        <g><rect x="600" y="100" width="180" height="80" rx="10" fill="#0EA5E9" stroke="#38BDF8" stroke-width="2"/>
+          <text x="612" y="125" fill="white" font-family="Inter" font-size="11" font-weight="700">CONSOLIDAR</text>
+          <text x="612" y="145" fill="white" font-family="Inter" font-size="12" font-weight="600">achados dos 3</text>
+          <text x="612" y="161" fill="white" font-family="Inter" font-size="12">em um relatório</text></g>
+        <line x1="780" y1="140" x2="800" y2="140" stroke="#94A3B8" stroke-width="2" marker-end="url(#arr-rv)"/>
+        <g><rect x="800" y="100" width="180" height="80" rx="10" fill="#22C55E" stroke="#4ADE80" stroke-width="2"/>
+          <text x="812" y="125" fill="white" font-family="Inter" font-size="11" font-weight="700">ENTREGAR LAUDO</text>
+          <text x="812" y="145" fill="white" font-family="Inter" font-size="12" font-weight="600">sem fix, sem</text>
+          <text x="812" y="161" fill="white" font-family="Inter" font-size="12">commit, fim</text></g>
+        <text x="500" y="262" text-anchor="middle" fill="#94A3B8" font-family="Inter" font-size="11" font-style="italic">três revisores rodam em paralelo, zero contexto compartilhado entre eles</text>
+      </svg>
+    </div>
+    <div class="grid grid-cols-2 gap-4" style="margin-bottom: var(--space-6);">
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-cyan" style="font-size: 14px;">Exemplo concreto</div>
+        <p class="text-secondary" style="font-size: 13px;">Você escreveu um conserto sozinho e quer uma segunda opinião antes de abrir pull request. Pede revisão isolada. O pipeline mostra o custo estimado (porque chamar três revisores cheios gasta tokens), você autoriza. Os três rodam em paralelo, cada um sem ver o que os outros encontraram, examinando o mesmo código com olhares diferentes. Você recebe um relatório consolidado com cada achado classificado por severidade. Nada é consertado, nada é commitado — você decide o que fazer.</p>
+      </div>
+      <div class="card" style="padding: var(--space-4);">
+        <div class="card-title text-amber" style="font-size: 14px;">Pontos onde você aprova</div>
+        <p class="text-secondary" style="font-size: 13px;">Um ponto só. A autorização de rodar a equipe de três revisores, porque tem custo de tokens não trivial. Depois disso, o pipeline trabalha sozinho até entregar o relatório. <strong>Importante:</strong> esse modo é só leitura — não dá para corrigir automaticamente dentro dele. Se você quer aplicar correções, abre um novo pipeline (bugfix ou pipeline completo) com os achados como input.</p>
+      </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- FORMULÁRIO DE RESPOSTA -->
+    <!-- ============================================================ -->
+    <div id="response-form">
+      <h3>Qual fluxo você vai usar agora?</h3>
+      <p class="text-secondary" style="margin-bottom: var(--space-4);">Sua resposta fica salva no navegador (localStorage) e pode ser copiada como bloco estruturado para colar onde quiser — chat, ticket, anotação.</p>
+
+      <form id="flow-choice-form">
+        <div class="grid grid-cols-2 gap-2" style="margin-bottom: var(--space-4);">
+          <label class="radio-row"><input type="radio" name="flow-choice" value="bugfix-light"><span><strong>Bugfix leve</strong><br><span class="text-tertiary" style="font-size:12px;">bug pequeno, causa direta</span></span></label>
+          <label class="radio-row"><input type="radio" name="flow-choice" value="bugfix-heavy"><span><strong>Bugfix pesado</strong><br><span class="text-tertiary" style="font-size:12px;">bug complexo / incidente</span></span></label>
+          <label class="radio-row"><input type="radio" name="flow-choice" value="audit-light"><span><strong>Auditoria leve</strong><br><span class="text-tertiary" style="font-size:12px;">1 área, 1 profundidade</span></span></label>
+          <label class="radio-row"><input type="radio" name="flow-choice" value="audit-heavy"><span><strong>Auditoria pesada</strong><br><span class="text-tertiary" style="font-size:12px;">múltiplos eixos, regulatória</span></span></label>
+          <label class="radio-row"><input type="radio" name="flow-choice" value="ux-light"><span><strong>UX leve</strong><br><span class="text-tertiary" style="font-size:12px;">2-3 jornadas</span></span></label>
+          <label class="radio-row"><input type="radio" name="flow-choice" value="ux-heavy"><span><strong>UX pesado</strong><br><span class="text-tertiary" style="font-size:12px;">auditoria E2E completa</span></span></label>
+          <label class="radio-row"><input type="radio" name="flow-choice" value="plan"><span><strong>Plano</strong><br><span class="text-tertiary" style="font-size:12px;">modo de planejamento</span></span></label>
+          <label class="radio-row"><input type="radio" name="flow-choice" value="brainstorm"><span><strong>Brainstorm</strong><br><span class="text-tertiary" style="font-size:12px;">preparação antes do pipeline</span></span></label>
+          <label class="radio-row"><input type="radio" name="flow-choice" value="hotfix"><span><strong>Hotfix</strong><br><span class="text-tertiary" style="font-size:12px;">emergência em produção</span></span></label>
+          <label class="radio-row"><input type="radio" name="flow-choice" value="review"><span><strong>Revisão isolada</strong><br><span class="text-tertiary" style="font-size:12px;">3 críticos em paralelo</span></span></label>
+          <label class="radio-row"><input type="radio" name="flow-choice" value="other"><span><strong>Outro / ainda decidindo</strong><br><span class="text-tertiary" style="font-size:12px;">descreve no campo abaixo</span></span></label>
+        </div>
+
+        <label style="display:block; margin-bottom: 8px; font-size: 13px; font-weight: 600; color: var(--text-secondary);">Notas, contexto, dúvidas</label>
+        <textarea id="flow-notes" placeholder="Ex: bug afeta apenas usuários novos. Repro está em ticket #142. Vou usar bugfix-light se não escalar."></textarea>
+
+        <div class="form-actions">
+          <button type="button" class="btn-save" id="btn-save-response">Salvar resposta</button>
+          <button type="button" class="btn-copy" id="btn-copy-response">Copiar minha resposta</button>
+          <button type="button" class="btn-clear" id="btn-clear-response">Limpar</button>
+        </div>
+
+        <div id="saved-banner" class="saved-banner"></div>
+      </form>
+    </div>
+
     <h2 class="section-heading">Related diagrams</h2>
     <div class="grid grid-cols-3 gap-6">
       <a href="achado-7-protocol.html" class="card" style="text-decoration:none;color:inherit;">
@@ -379,5 +1277,222 @@
   <footer>
     <p>Pipeline Orchestrator v6.0.0 · <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator">GitHub</a> · MIT License</p>
   </footer>
+
+  <script>
+  (function() {
+    const STORAGE_PREFIX = 'pipeline-overview.fluxos.';
+    const FLOWS = {
+      'bugfix':     { title: 'Conserto de bug',          variants: 'leve (8 passos) · pesado (11 passos)' },
+      'audit':      { title: 'Auditoria',                variants: 'leve (9 passos) · pesado (9 passos com analista de domínio dedicado)' },
+      'ux':         { title: 'Simulação de UX',          variants: 'leve (9 passos) · pesado (15 passos)' },
+      'plan':       { title: 'Plano (modo planejamento)', variants: 'fase 1.5 dentro do pipeline · arquiteto devolve plano · você aprova' },
+      'brainstorm': { title: 'Brainstorm',               variants: 'preparação pré-pipeline · 10 passos · exploração dinâmica + alternativas + spec' },
+      'hotfix':     { title: 'Hotfix',                   variants: 'emergência · escopo reduzido (não segurança) · 6 passos compactos' },
+      'review':     { title: 'Revisão isolada',          variants: '3 críticos em paralelo · zero contexto compartilhado · só relatório' },
+    };
+    const FLOW_KEYS = Object.keys(FLOWS);
+    const baseHref = location.href.split('#')[0];
+
+    // === 1. Enhance h3 headings with checkbox + copy button ===
+    FLOW_KEYS.forEach(key => {
+      const h3 = document.getElementById('flow-' + key);
+      if (!h3) return;
+      const storageKey = STORAGE_PREFIX + 'reviewed.' + key;
+
+      // Checkbox
+      const wrap = document.createElement('label');
+      wrap.className = 'flow-checkbox-wrap';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.dataset.flow = key;
+      cb.checked = localStorage.getItem(storageKey) === '1';
+      const cbLabel = document.createElement('span');
+      cbLabel.textContent = 'Revisado';
+      cbLabel.style.color = 'var(--text-tertiary)';
+      wrap.appendChild(cb);
+      wrap.appendChild(cbLabel);
+      h3.appendChild(wrap);
+
+      cb.addEventListener('change', () => {
+        localStorage.setItem(storageKey, cb.checked ? '1' : '0');
+        updateReviewState();
+      });
+
+      // Copy summary button
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'flow-copy-btn';
+      copyBtn.textContent = 'Copiar resumo';
+      copyBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        const info = FLOWS[key];
+        const block = [
+          '# Fluxo: ' + info.title,
+          '- Variantes: ' + info.variants,
+          '- Link: ' + baseHref + '#flow-' + key,
+        ].join('\n');
+        navigator.clipboard.writeText(block).then(() => {
+          copyBtn.textContent = 'Copiado ✓';
+          copyBtn.classList.add('copied');
+          setTimeout(() => {
+            copyBtn.textContent = 'Copiar resumo';
+            copyBtn.classList.remove('copied');
+          }, 1200);
+        });
+      });
+      h3.appendChild(copyBtn);
+    });
+
+    // === 2. Wrap example cards in <details> for collapsibility ===
+    // (Optional: we keep them open by default but make them collapsible)
+    document.querySelectorAll('h3[id^="flow-"]').forEach(h3 => {
+      // Find the trailing "grid grid-cols-2 gap-4" that contains exemplo + aprovações
+      let node = h3.nextElementSibling;
+      while (node) {
+        if (node.matches && node.matches('div.grid.grid-cols-2.gap-4') && node.querySelector('.card-title')) {
+          // Wrap this in <details>
+          const det = document.createElement('details');
+          det.className = 'flow-details';
+          det.open = true;
+          const sum = document.createElement('summary');
+          sum.textContent = 'Exemplo concreto + pontos de aprovação (clique para recolher)';
+          const inner = document.createElement('div');
+          node.parentNode.insertBefore(det, node);
+          det.appendChild(sum);
+          det.appendChild(inner);
+          inner.appendChild(node);
+        }
+        if (node.matches && node.matches('h3, h2')) break;
+        node = node.nextElementSibling;
+      }
+    });
+
+    // === 3. Filter pills (Todos / Leve / Pesado) ===
+    document.querySelectorAll('.filter-pill').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const filter = btn.dataset.filter;
+        // Apply by toggling 'dim' on h4 elements
+        document.querySelectorAll('h3[id^="flow-"]').forEach(h3 => h3.classList.remove('dim'));
+        document.querySelectorAll('h4').forEach(h4 => {
+          h4.classList.remove('dim');
+          if (filter === 'all') return;
+          const txt = h4.textContent.toLowerCase();
+          if (filter === 'light' && !txt.includes('leve')) h4.classList.add('dim');
+          if (filter === 'heavy' && !txt.includes('pesado')) h4.classList.add('dim');
+        });
+      });
+    });
+
+    // === 4. Mark all / Reset all ===
+    document.getElementById('btn-mark-all').addEventListener('click', () => {
+      FLOW_KEYS.forEach(key => {
+        localStorage.setItem(STORAGE_PREFIX + 'reviewed.' + key, '1');
+        const cb = document.querySelector('input[data-flow="' + key + '"]');
+        if (cb) cb.checked = true;
+      });
+      updateReviewState();
+    });
+    document.getElementById('btn-reset-all').addEventListener('click', () => {
+      if (!confirm('Limpar todas as marcações de revisado e a resposta salva?')) return;
+      FLOW_KEYS.forEach(key => {
+        localStorage.removeItem(STORAGE_PREFIX + 'reviewed.' + key);
+        const cb = document.querySelector('input[data-flow="' + key + '"]');
+        if (cb) cb.checked = false;
+      });
+      localStorage.removeItem(STORAGE_PREFIX + 'choice');
+      localStorage.removeItem(STORAGE_PREFIX + 'notes');
+      document.querySelectorAll('input[name="flow-choice"]').forEach(r => r.checked = false);
+      document.getElementById('flow-notes').value = '';
+      document.getElementById('saved-banner').classList.remove('show');
+      updateReviewState();
+    });
+
+    // === 5. Update review counter + TOC pill highlight ===
+    function updateReviewState() {
+      let count = 0;
+      FLOW_KEYS.forEach(key => {
+        const reviewed = localStorage.getItem(STORAGE_PREFIX + 'reviewed.' + key) === '1';
+        if (reviewed) count++;
+        const pill = document.querySelector('.toc-pill[data-flow="' + key + '"]');
+        if (pill) pill.classList.toggle('reviewed', reviewed);
+      });
+      document.querySelector('#review-counter strong').textContent = count;
+    }
+    updateReviewState();
+
+    // === 6. Response form: save / copy / restore ===
+    function restoreResponse() {
+      const choice = localStorage.getItem(STORAGE_PREFIX + 'choice');
+      const notes  = localStorage.getItem(STORAGE_PREFIX + 'notes');
+      if (choice) {
+        const r = document.querySelector('input[name="flow-choice"][value="' + choice + '"]');
+        if (r) r.checked = true;
+      }
+      if (notes) document.getElementById('flow-notes').value = notes;
+      if (choice || notes) showSavedBanner(choice, notes);
+    }
+    function showSavedBanner(choice, notes) {
+      const banner = document.getElementById('saved-banner');
+      const choiceLabel = choice ? document.querySelector('input[name="flow-choice"][value="' + choice + '"]').parentNode.querySelector('strong').textContent : '(nenhum)';
+      banner.innerHTML = 'Resposta salva: <strong>' + choiceLabel + '</strong>' + (notes ? ' — <em>' + notes.substring(0, 80) + (notes.length > 80 ? '…' : '') + '</em>' : '');
+      banner.classList.add('show');
+    }
+    function getCurrentChoice() {
+      const r = document.querySelector('input[name="flow-choice"]:checked');
+      return r ? r.value : null;
+    }
+    function buildResponseBlock() {
+      const choice = getCurrentChoice();
+      const notes = document.getElementById('flow-notes').value.trim();
+      const choiceLabel = choice ? document.querySelector('input[name="flow-choice"][value="' + choice + '"]').parentNode.querySelector('strong').textContent : '(nenhum)';
+      return [
+        '# Escolha de fluxo do pipeline',
+        '- Fluxo: ' + choiceLabel + (choice ? ' (' + choice + ')' : ''),
+        '- Notas: ' + (notes || '(vazio)'),
+        '- Origem: ' + baseHref + '#fluxos-detalhados',
+        '- Data: ' + new Date().toISOString().split('T')[0],
+      ].join('\n');
+    }
+    document.getElementById('btn-save-response').addEventListener('click', () => {
+      const choice = getCurrentChoice();
+      const notes = document.getElementById('flow-notes').value;
+      if (choice) localStorage.setItem(STORAGE_PREFIX + 'choice', choice);
+      else localStorage.removeItem(STORAGE_PREFIX + 'choice');
+      localStorage.setItem(STORAGE_PREFIX + 'notes', notes);
+      showSavedBanner(choice, notes);
+    });
+    document.getElementById('btn-copy-response').addEventListener('click', (e) => {
+      const btn = e.currentTarget;
+      navigator.clipboard.writeText(buildResponseBlock()).then(() => {
+        const orig = btn.textContent;
+        btn.textContent = 'Copiado ✓';
+        btn.classList.add('copied');
+        setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 1500);
+      });
+    });
+    document.getElementById('btn-clear-response').addEventListener('click', () => {
+      document.querySelectorAll('input[name="flow-choice"]').forEach(r => r.checked = false);
+      document.getElementById('flow-notes').value = '';
+      localStorage.removeItem(STORAGE_PREFIX + 'choice');
+      localStorage.removeItem(STORAGE_PREFIX + 'notes');
+      document.getElementById('saved-banner').classList.remove('show');
+    });
+    restoreResponse();
+
+    // === 7. TOC pill smooth scroll + scroll-spy ===
+    document.querySelectorAll('.toc-pill').forEach(pill => {
+      pill.addEventListener('click', (e) => {
+        const targetId = pill.getAttribute('href').substring(1);
+        const target = document.getElementById(targetId);
+        if (target) {
+          e.preventDefault();
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          history.replaceState(null, '', '#' + targetId);
+        }
+      });
+    });
+  })();
+  </script>
 </body>
 </html>

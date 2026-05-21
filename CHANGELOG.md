@@ -5,6 +5,58 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.1.1] - 2026-05-21 — Pipeline overview diagram enrichment (PATCH, docs only)
+
+**Patch release — documentation only.** Enriches `docs/diagrams/pipeline-overview.html` with end-to-end workflow visibility plus a Thariq-style interactive layer, so a reader can both see how each pipeline variant flows and capture their own decision inside the artifact (no chat round-trip required).
+
+### Added
+
+**New section "Fluxos detalhados ponta a ponta"** covering seven workflows end-to-end, each with plain-language Portuguese narrative + inline SVG step diagram + concrete example card + approval-points card:
+
+- Bug fix (light 8 steps / heavy 11 steps)
+- Audit (light / heavy — same 9-step shape, heavy adds dedicated domain analyst in steps 2-4)
+- UX simulation (light 9 steps / heavy 15 steps)
+- Plan mode (Phase 1.5 deep-dive)
+- Brainstorm (10-step pre-pipeline preparation)
+- Hotfix (6-step emergency, reduces scope not safety)
+- Review-only (3 parallel critical reviewers, report-only)
+
+Twelve inline SVG step diagrams (one per variant) with color-coded boxes: dark gray = main agent inline, cyan = delegated subagent, amber border = approval gate, red = critical go/no-go gate.
+
+**Thariq-style interactive layer (satisfies html-artifacts SKILL Invariant 3):**
+
+- Sticky top toolbar with 7 clickable TOC pills (jump to each flow anchor) — turns the long page into a navigable workspace.
+- 3 filter pills (Todos / Apenas leves / Apenas pesados) — dim/hide variants you don't want to see now.
+- Per-flow "Revisado" checkbox (16px, green accent) with `localStorage` persistence keyed by flow id.
+- Per-flow "Copiar resumo" button copies a structured block to clipboard (title + variants + deep-link); shows "Copiado ✓" feedback for 1.2s.
+- "Marcar todos revisados" and "Limpar estado" action buttons (latter with confirm dialog).
+- Live counter badge `Revisados: N/7` updates as you toggle.
+- TOC pills show ✓ prefix and turn green when flow is marked reviewed (visual scroll-spy of progress).
+- `<details>/<summary>` collapsibles around each flow's exemplo+aprovação cards (open by default, click to fold).
+- Final response form with 11 radio options (10 flow variants + "Outro / ainda decidindo"), a free-text notes textarea, and three actions: Salvar resposta (persists to localStorage), Copiar minha resposta (builds structured markdown block: choice + notes + origin + date), Limpar (resets both choice and notes).
+- "Resposta salva" banner shows back the saved choice + truncated notes after save, with restore on reopen.
+
+### Changed
+
+- `docs/diagrams/pipeline-overview.html`: 380 → 1498 lines (+1118 lines net). Existing four-phase overview + complexity routing + execution modes sections preserved unchanged; new content added between "Execution modes" and "Related diagrams".
+
+### Invariants preserved
+
+- **22-row Mandatory Gates by Complexity** in `commands/pipeline.md` — untouched.
+- **27-row Gate Registry** in `references/gates.md` — untouched.
+- **Roster of 20 agents** in `references/team-registry.md` — untouched.
+- **All runtime code paths** in `agents/`, `skills/`, `hooks/`, `lib/`, `commands/`, `references/`, `tests/` — zero changes.
+
+### Not changed
+
+- No agent definitions, no skill definitions, no hook code, no library code, no command files, no reference SSOTs, no test files. This release ships nothing executable that wasn't already in v7.1.0.
+
+### Upgrade path
+
+Drop-in replacement for v7.1.0. No migration, no behavior change, no test impact. Marketplace consumers receive the updated documentation when they next refresh the cache against the new `v7.1.1` ref.
+
+---
+
 ## [7.1.0] - 2026-05-19 — Telemetry hygiene (MINOR)
 
 **Minor release.** Repairs four telemetry-layer defects surfaced by a self-hosted diagnosis of `.pipeline/docs/` across 20 historical runs. New SSOT writer for `gate-decisions.jsonl`, canonical 8-value decision vocabulary with runtime rejection, auto-correlation envelope, widened `fidelity-reporter` enums with warning surfacing, and a Stop event hook so `run-log.jsonl` no longer loses 19 of 20 runs.
