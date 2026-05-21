@@ -772,6 +772,34 @@ If triggered, spawn `plan-architect` agent (model: sonnet).
 
 **Pass approved plan to Phase 2:** The IMPLEMENTATION_PLAN is passed to executor-controller, which uses it to determine task order, file targets, and batch composition.
 
+#### Step 1.5-post: BOUNDED_CONTEXT_MISSING check (COMPLEXA only)
+
+After the IMPLEMENTATION_PLAN YAML is parsed and APPROVED, but before transitioning to Phase 2, the parent (this controller) inspects the plan for a `bounded_contexts:` array. This is the **producer-side** wiring for the SOFT advisory event declared as SSOT in `agents/quality/plan-architect.md` Rule 10 ("Bounded Contexts (COMPLEXA only — SOFT enforcement)" — see that file for the canonical schema, semantic mapping, and lifecycle rationale; do not duplicate the schema here, reference it).
+
+**Guard:** Emit the event **only when** `complexity == "COMPLEXA"` AND the IMPLEMENTATION_PLAN lacks a `bounded_contexts` array (field absent OR `bounded_contexts: []`). SIMPLES and MEDIA plans are exempt and emit no event. The check is read-only — plan-architect itself never emits; the parent does, after the user has approved the plan.
+
+**Channel:** `{PIPELINE_DOC_PATH}/protocol-events.jsonl` (intentionally NOT `gate-decisions.jsonl` — BOUNDED_CONTEXT_MISSING is an advisory event, not a registered gate row in `references/gates.md`. The 22-row Mandatory Gates by Complexity table and the Gate Registry stay locked at their current counts; channel separation preserves that invariant. See `references/gates.md` and the F1 regression test in `tests/regression/v7.2.0/F1.cjs` which pins both sides of the separation.).
+
+**Schema (verbatim from plan-architect.md Rule 10 SSOT):**
+
+```yaml
+=== PROTOCOL_EVENT v1 ===
+event: BOUNDED_CONTEXT_MISSING
+phase: "1.5"
+gate_id: "bounded-context-missing-batch-<N>"     # <N> = batch ordinal in this run
+target_kind: plan
+target_name: "<plan_path>"                       # e.g., {PIPELINE_DOC_PATH}/01b-plan-architect.md
+violation_type: "soft-advisory"                  # canonical ALLOWED_PROTOCOL_EVENT_KEYS value
+timestamp: "<ISO 8601>"
+decided_by: pipeline-controller
+detail: "COMPLEXA plan missing bounded_contexts section"
+=== END PROTOCOL_EVENT ===
+```
+
+All keys conform to `ALLOWED_PROTOCOL_EVENT_KEYS` in `lib/jsonl-sanitizer.cjs`. The write itself goes through the normal protocol-events writer used by the GATE_REQUEST emission earlier in this phase (see the GATE_REQUEST block above for the visual template — same JSONL channel, same key vocabulary).
+
+**Lifecycle:** SOFT — pipeline continues regardless. No block, no user prompt, no recovery flow. The event exists for the audit trail and post-run fidelity report; it surfaces as a coaching signal rather than a stop sign. Skipping the bounded_contexts section on a COMPLEXA plan is allowed; the trail just records that it happened.
+
 ---
 
 **PHASE TRANSITION 1/1.5 → 2:** Emit Phase Transition Summary block. Update confidence score with `plan_coverage` (if Phase 1.5 ran). Log PLAN_REJECTED gate if plan was rejected and re-approved.

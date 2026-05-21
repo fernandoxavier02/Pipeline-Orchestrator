@@ -98,6 +98,20 @@ After AC scenarios, ADD regression and edge-case scenarios per the Spec row of T
 
 **Output flag:** set `non_spec_atdd.applied: true` whenever Step 1b activates. When bypassed (SIMPLES or spec run), set `non_spec_atdd.applied: false` and leave counts at zero.
 
+**Bypass observability (v7.2.0+):** when Step 1b is bypassed for ANY documented reason (SIMPLES complexity, `type=Spec`, populated `acceptance_criteria`, or any other condition under the Bypass clause above), the router MUST emit an `AUDIT`-hardness entry to `gate-decisions.jsonl` so auditors can distinguish bypass-by-design from a broken handler. No entry is emitted when Step 1b ACTIVATES (the produced `non_spec_atdd` OUTPUT block already carries that signal).
+
+```yaml
+gate: "ATDD_STEP_1B_BYPASS"
+hardness: "AUDIT"
+phase: "2"
+decision: "SKIPPED"
+decided_by: "quality-gate-router"
+timestamp: "<ISO 8601 UTC>"
+detail: "Bypass reason: <reason>"   # SIMPLES | Spec | <other documented condition>; single-line, truncated to 200 chars
+```
+
+The `detail` field MUST be single-line (no embedded newlines) and truncated to 200 characters max. `AUDIT` hardness (defined in `references/gates.md` Gate Hardness Taxonomy) is telemetry-only — never blocks, never asks, never penalises confidence, and does NOT add a row to the 22-row Mandatory Gates by Complexity table or the Gate Registry sub-tables (the hardness class itself accommodates this event). Channel: AUDIT-class events are written to `gate-decisions.jsonl`. Cross-reference: `references/audit-trail.md` Gate Decision Log section for the JSONL schema rules.
+
 ### Step 2: Generate Test Scenarios
 
 Write scenarios in **plain language** (no code, no jargon):
