@@ -61,6 +61,7 @@ Each gate has a formal **hardness** level that determines enforcement behavior:
 | STEP_1_7_ROUTING | HARD | Pipeline pre-execution routing decision in STEP 1.7 (load-existing / dispatch-brainstorm / no-prep-override / simples-bypass). | Append entry to gate-decisions.jsonl with the chosen branch. | None — informational. |
 | STEP_1_7_RECURSION_GUARD | CIRCUIT_BREAKER | STEP 1.7 entered >=3 times in same pipeline invocation. | Halt pipeline; emit RUN_PARTIAL with cause. | User re-invokes pipeline (no automatic retry). |
 | STOP_BEFORE_PA_DE_CAL | HARD | verify-completion returned FAIL before final-validator dispatch. | Skip Pa de Cal; set pipeline status NO-GO; write 04-final-report.md with FAIL details. | User addresses verify-completion findings; re-runs pipeline. |
+| STRICT_SPEC_REJECTION | AUDIT | Patch 4 / v7.1.2+. `STRICT_SPEC=true` (from `--strict-spec` flag) rejected a Signal 3 (prose regex) or Signal 4 (glob fallback) Spec-detection candidate, OR overrode a conflicting `FORCE_VARIANT=spec-*` flag. | Append informational entry to gate-decisions.jsonl with rejected signal, candidate name, and chosen non-Spec type. | None — informational. If Spec was intended, user re-runs without `--strict-spec` or passes explicit path argument. |
 
 ### Brainstorm clarification gates (v6.2.0, dynamic exhaustive clarification + alternatives)
 
