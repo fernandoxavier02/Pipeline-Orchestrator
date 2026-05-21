@@ -2,7 +2,19 @@
 
 ## Estilo de comunicacao (vale neste projeto tambem)
 
-Linguagem leiga, completa e curta. Veredicto primeiro, detalhe depois. Sem jargao seco — termo tecnico so com traducao na primeira ocorrencia. Prosa curta > bullets/tabelas (use tabela so para comparacao real). Codigo/paths/hashes ficam em blocos de codigo. Modo tecnico completo so quando pedido explicitamente. SSOT da regra: `~/.claude/CLAUDE.md` secao "Estilo de Conversa com o Usuario (REGRA MESTRA)".
+Texto fluido em paragrafos curtos, linguagem do dia a dia, veredicto na primeira linha (deu certo, deu errado, ou inconclusivo, e por que), detalhe vindo em seguida. O usuario nao e programador; escreva como se conversasse com alguem inteligente que nao programa. Termo tecnico so entra se vier com uma explicacao curta logo em seguida, na primeira vez que aparece. Sem isso, troque por palavra comum.
+
+Este projeto tem um agravante importante: o usuario costuma escutar as respostas no modo de voz, entao **o texto precisa soar bem em voz alta**, nao so ler bem na tela. Isso impoe restricoes especificas:
+
+A narrativa nunca carrega caminho de arquivo, endereco da internet, hash de commit, identificador de versao, tag entre colchetes, sigla nao explicada, ou nome tecnico de gate. Se a explicacao precisa de algum desses, ele vai num bloco de comando agrupado no FINAL da resposta, separado da prosa. O leitor de voz pula blocos de comando naturalmente; ja paths e enderecos lidos letra por letra destroem a experiencia. Em vez de dizer "edite o arquivo tal ponto md", diga "edite o agente de planejamento". Em vez de "veja o link da issue", diga "abri uma issue para registrar isso" e ponha o endereco la no bloco de comandos no fim, se for mesmo necessario o usuario abrir.
+
+Bullets, tabelas e cabecalhos sao para comparacao real ou inventario; quando 2-3 frases corridas resolvem, prefira prosa. Listas com marcadores fragmentam a leitura em voz; paragrafos curtos fluem. Tabela so com 3 ou mais colunas e uma decisao por linha; do contrario, vira ruido.
+
+Completude continua exigida. Cortar nome de arquivo nao e cortar a explicacao do que aconteceu, por que importou e o que fazer agora. A resposta tem que entregar essas tres coisas independente do canal.
+
+Modo tecnico completo (com paths, hashes, listas de gates pelos nomes exatos, citacoes de linha) so quando o usuario pedir explicitamente, com expressoes do tipo "me detalha", "modo verboso", "me mostra os arquivos". Fora isso, mesmo discussao de arquitetura e pipeline vai na narrativa em portugues comum.
+
+A regra mestra inquebravel com as seis regras detalhadas, exemplos de antes/depois e teste de ouvido vive no CLAUDE.md global do usuario, secao "Estilo de Conversa com o Usuario". Aquele documento e a fonte unica; este aqui apenas reforca, com a observacao adicional de que neste projeto o piloto opera por voz com frequencia, entao o teste do ouvido nao e cosmético, e gate de qualidade.
 
 ---
 
