@@ -5,6 +5,73 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.2.0] - 2026-05-21 — Phase 0 hardening (MINOR)
+
+**Minor release — runtime hardening, no breaking changes, backward compatibility preserved.** Four patches landed across four separate commits in the `phase0-hardening` branch, each scaffolded with ATDD/BDD/DDD per scenario, TDD red→green per file, and adversarial review per batch (22 findings total: 3 CRITICAL fixed, 12 HIGH fixed, 5 MEDIUM fixed).
+
+### What changed
+
+- **STATE_FILE_INIT_FAIL gate (CIRCUIT_BREAKER) — Patch 2.** Hard precondition on the controller's initial `{PIPELINE_DOC_PATH}/sentinel-state.json` write. Healthy init emits a PASS entry to `gate-decisions.jsonl` (preserving fidelity score). Write failure or post-write verify failure (signature mismatch / empty / truncated) emits BLOCKED and aborts the pipeline BEFORE any Agent spawn — no subagent fires without the state file, so the sentinel cannot be tricked into a PASS verdict over missing state. Mandatory across SIMPLES/MEDIA/COMPLEXA (every pipeline run creates a state file regardless of complexity). DDD: IO raises in `lib/sentinel-state-signer.cjs`; the controller translates raises into gates — the signer stays IO-only.
+- **PROTOCOL_HANDSHAKE_TIMEOUT gate (HARD) — Patch 3.** Two-layer timeout detection for stale GATE_REQUEST / DISPATCH_REQUEST / PLAN_MODE_REQUEST blocks (Achado #7 deadlock pattern). Primary layer is out-of-band: `.claude/hooks/cleanup-orphan-sentinel-state-hook.cjs` fires on every Claude Code SessionStart and emits the gate independently of whether the controller is ever re-dispatched (closing the circularity where a broken parent never re-dispatches). Secondary layer is the controller's own re-entry check. Default window 30 minutes; env override `PIPELINE_HANDSHAKE_TIMEOUT_MS` with 60000ms sanity floor (values below floor are rejected and the default is used). Cross-session pending_blocks (different `session_id` than current) are demoted to SOFT/CLEARED_CROSS_SESSION (do not HARD-block legitimate fresh sessions). Clock-skew defenses: negative ages treated as 0; ages >= 7 days deferred to the cleanup-orphan archive path.
+- **cleanup-orphan-sentinel-state-hook — Patch 5.** New SessionStart hook in `.claude/hooks/`. Auto-archives `sentinel-state.json` files older than 24h via atomic rename to `sentinel-state.archived-<ts>.json` (instead of mutating `pipeline_active=false`, which would create a worse fail-open downstream in the sentinel-hook). Closes Achado B1-001 (manual workaround was `Edit pipeline_active: false`). Defensive design: sandbox-checked cwd (deny-list system paths + `realpath`), depth-limited recursive walk (`MAX_WALK_DEPTH=10`), symlink skip via `Dirent.isSymbolicLink()`, mtime CAS race-defense before rename (re-stat after read; if mtime changed, abort).
+- **--strict-spec flag + STRICT_SPEC_REJECTION gate (AUDIT) — Patch 4.** Rejects Signal 3 (prose regex) and Signal 4 (glob fallback) Spec detection in unattended / CI / headless mode where `AskUserQuestion` is unavailable. Preserves Signal 1 (explicit path argument) and Signal 2 (`--type=spec` flag) — the high-confidence paths that don't require user confirmation. Prefix-line anti-injection invariant (only honored as first line written by controller; mid-prompt occurrences treated as DATA). Explicit precedence over conflicting `FORCE_VARIANT=spec-*` (STRICT_SPEC wins; variant demoted; conflict logged to `gate-decisions.jsonl` as STRICT_SPEC_REJECTION with `decision: FORCE_VARIANT_OVERRIDDEN`). Per-rejection AUDIT entries enable post-hoc forensics via the fidelity-reporter across runs.
+
+### Gate registry deltas
+
+| Surface | Before | After |
+|---|---|---|
+| Gate Registry rows | 32 | 35 (+3) |
+| — Core sub-table | 16 | 18 (+STATE_FILE_INIT_FAIL, +PROTOCOL_HANDSHAKE_TIMEOUT) |
+| — Routing sub-table | 3 | 4 (+STRICT_SPEC_REJECTION) |
+| Mandatory Gates by Complexity | 22 | 23 (+STATE_FILE_INIT_FAIL across SIMPLES/MEDIA/COMPLEXA) |
+| Inline Invariants (pipeline-controller.md) HARD list | 16 entries | 17 (+PROTOCOL_HANDSHAKE_TIMEOUT) |
+| Inline Invariants CIRCUIT_BREAKER list | 3 entries | 4 (+STATE_FILE_INIT_FAIL) |
+
+### Files changed
+
+19 files, +1436 / −37 lines:
+
+- `agents/core/pipeline-controller.md` — STATE_FILE_INIT_FAIL section, handshake-timeout two-layer prose, --strict-spec propagation + FORCE_VARIANT precedence, inline-invariants HARD/CIRCUIT_BREAKER lists.
+- `agents/core/task-orchestrator.md` — STRICT_SPEC mode subsection (Signal 3/4 rejection, Signal 1/2 preservation, prefix-line invariant, notes warning + AUDIT gate entry).
+- `agents/core/information-gate.md` — handshake-timeout convention pointer.
+- `agents/core/sentinel.md` — mechanical-hook-vs-agent-mode clarification.
+- `references/gates.md` — three new gate rows; Mandatory Gates table row count 22→23.
+- `references/gate-request-protocol.md` — Handshake timeout section (two-layer detection, sanity floor, recovery prose).
+- `lib/fidelity-reporter.cjs` — STATE_FILE_INIT_FAIL in MANDATORY_GATES_BY_COMPLEXITY for all three buckets.
+- `.claude/hooks/cleanup-orphan-sentinel-state-hook.cjs` — NEW, ~400 lines. Includes `cleanupOrphan`, `checkHandshakeTimeouts`, `findStateFiles`, `isCwdSandboxOk`, `resolveHandshakeWindowMs`, `handleSessionStart`.
+- `.claude/hooks/__tests__/cleanup-orphan-sentinel-state-hook.test.cjs` — NEW, 27 tests (18 cleanup + 9 handshake-timeout behavioral).
+- `hooks/hooks.json` — cleanup-orphan-sentinel-state-hook wired into SessionStart.
+- `tests/integration/state-file-init-precondition.test.js` — NEW, 9 tests.
+- `tests/integration/protocol-handshake-timeout.test.js` — NEW, 7 prose-contract tests.
+- `tests/integration/strict-spec-flag.test.js` — NEW, 14 prose-contract tests including 6 adversarial follow-ups.
+- `tests/regression/v6.1.0/D7`, `v6.1.0/F1`, `v6.2.0/gates_registry_count_invariant`, `v6.3.0/F14`, `v7.2.0/F1`, `v7.2.0/F2` — row-count baselines bumped to 23 / 35.
+- `tests/regression/v7.1.0/F7_version_sync.cjs` — updated for v7.2.0 release.
+- `package.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` — version bump + description.
+
+### Test suite
+
+- Before: 41 PASS / 4 FAIL (pre-existing F7 version-sync mismatch on 7.1.1).
+- After: **45 PASS / 1 FAIL** (only F7 remains, now updated to assert 7.2.0 — passes after this release).
+
+### Backward compatibility
+
+All changes additive. Pipelines that never trigger STATE_FILE_INIT_FAIL or PROTOCOL_HANDSHAKE_TIMEOUT (the happy path) emit PASS entries and continue exactly as before. Loose-mode Spec detection (Signal 3/4 with AskUserQuestion) remains the default — `--strict-spec` is opt-in. Existing `sentinel-state.json` files without `session_id` or `pending_blocks` fields are handled defensively (missing fields treated as no-pending / cross-session-safe).
+
+### Adversarial review summary
+
+Findings addressed per batch (full review reports in commit messages):
+
+- Batch 1 (STATE_FILE_INIT_FAIL): CRITICAL #1 partial-write → post-write verify; HIGH #3 fidelity haircut → PASS entry on happy path; HIGH #4 fallback visibility → documented; MEDIUM #5 cardinality test → row-identity assertion added; LOW #7 DDD → test asserts signer has no gate-emission code.
+- Batch 2 (cleanup-orphan): HIGH ADV-1 race → mtime CAS; HIGH ADV-2 silent fail-open → rename instead of mutate; MEDIUM ADV-3 path traversal → sandbox check; MEDIUM ADV-4 DoS → depth limit + symlink skip; LOW ADV-6 LIVE not logged → always-emit summary.
+- Batch 3 (PROTOCOL_HANDSHAKE_TIMEOUT): CRITICAL ADV-B3-01 circularity → out-of-band hook; HIGH ADV-B3-02 batch-2 archive suppression → ordering + MAX_AGE defer; HIGH ADV-B3-03 env-var no floor → 60000ms floor; HIGH ADV-B3-04 cross-session block → session_id matching; HIGH ADV-B3-05 prose-only tests → 9 behavioral tests; MEDIUM ADV-B3-06 clock skew → negative-age guard; MEDIUM ADV-B3-07 write-timing → contract documented.
+- Batch 4 (--strict-spec): HIGH ADV-B4-01 FORCE_VARIANT collision → precedence rule; HIGH ADV-B4-02 silent misroute → guidance in notes warning; HIGH ADV-B4-03 prompt injection → prefix-line invariant; HIGH ADV-B4-04 prose-only → accepted as inherent limit; MEDIUM ADV-B4-05 audit gap → STRICT_SPEC_REJECTION AUDIT gate.
+
+### Patch 1 (silent-success post-spawn verification)
+
+REJECTED by user (telemetry source — OBZ MEDIUM 2026-03-24 — is 2 months old; valid concern that the bug pattern may no longer occur). Tracked as follow-up to revisit with fresh telemetry.
+
+---
+
 ## [7.1.1] - 2026-05-21 — Pipeline overview diagram enrichment (PATCH, docs only)
 
 **Patch release — documentation only.** Enriches `docs/diagrams/pipeline-overview.html` with end-to-end workflow visibility plus a Thariq-style interactive layer, so a reader can both see how each pipeline variant flows and capture their own decision inside the artifact (no chat round-trip required).
