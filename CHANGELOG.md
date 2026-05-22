@@ -5,6 +5,45 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] — 7.6.0 candidate — User Score Collection (MINOR)
+
+Adds a 4-axis user-grade collection step at the end of every pipeline run, attached to the Langfuse trace via SDK `client.score()`. Foundation for the future LLM-as-judge phase: each run becomes a labeled dataset point where a human grade sits next to the trace it grades. **Opt-in:** silent no-op when `LANGFUSE_ENABLED` is not `"true"`/`"1"`, so disabled users see zero behavior change.
+
+### Added
+
+- **`lib/execution-summary.cjs`** — produces 4 plain-Portuguese summaries (plan / execution / review / result) by reading `gate-decisions.jsonl` + `sentinel-state.json` from the run's PIPELINE_DOC_PATH. Each summary is 1-2 sentences, no file paths, no jargon — they get embedded into AskUserQuestion prompts so the user grades informed by trace data rather than memory. Graceful neutral fallback on missing files.
+- **`lib/score-writer.cjs`** — wraps `langfuse-client.cjs` + `langfuse-carrier.cjs` to emit per-axis Langfuse Scores (`user.plan`, `user.execution`, `user.review`, `user.result`) tied to the current trace. Validates 1-5 integer range, rejects unknown axes, accepts `null` per axis to mean "not applicable". Fire-and-forget: SDK failures logged via existing `langfuse-errors.jsonl` channel, never propagated. Silent no-op when Langfuse disabled, no creds, or no trace carrier present.
+- **`agents/core/final-validator.md` Step 3.5** — new `USER SCORE COLLECTION` block inserted between the Pa de Cal decision and CLOSEOUT OPTIONS. Spec for the agent: invoke `summarize()`, ask 4 sequential `AskUserQuestion` calls (one per axis, summary embedded in the question body, 1-5 scale plus "não se aplica"), persist via `writeScores()`, surface a one-line confirmation. Skip block entirely when `LANGFUSE_ENABLED` is off. Failure-tolerant: never blocks the pipeline on score collection.
+- **YAML output extension** (`final-validator.md`): new `user_scores` block on `PA_DE_CAL` with the 4 per-axis values, `written_to_langfuse` boolean, and `skip_reason` enum.
+- **Regression tests** (`tests/regression/v7.6.0/`):
+  - `F1-execution-summary.test.cjs` — 14 assertions across module load, neutral fallback, full happy path (gates + state present), audit-style run (no execution / no review axis), malformed JSONL tolerance.
+  - `F2-score-writer.test.cjs` — 17 assertions across validation (range / type / unknown axis / float rejection), Langfuse-disabled skip, no-creds skip, no-carrier skip, mock-SDK happy path (correct names, traceId binding, comment forwarding, null axis skipped).
+
+### Rationale
+
+This is the **first foundation step** toward turning the plugin into a product. Two future phases depend on this corpus existing: (1) LLM-as-judge that scores runs automatically on the same 4 axes and calibrates against the user's grades, and (2) Langfuse Datasets + Experiments to prove that prompt changes do not regress on historical runs. Without a labeled grade per run, neither is possible. Cost to adopt: one minute of grading at the end of each pipeline; benefit: every run becomes training signal.
+
+### Compatibility
+
+- **Disabled users:** zero change. Step 3.5 detects `LANGFUSE_ENABLED` early and returns before any UI.
+- **Enabled users:** four extra AskUserQuestion prompts at end of pipeline; abort-on-X already supported by the harness.
+- **No breaking schema changes:** `PA_DE_CAL.user_scores` is additive; consumers that ignore the key continue to work.
+
+### Adversarial review fixes (applied 2026-05-22)
+
+Five findings from the v7.6.0 adversarial review have been resolved in-batch:
+
+- **SEC-3 (file-size cap):** `lib/execution-summary.cjs` now `statSync`s before reading. Files exceeding `MAX_FILE_BYTES` (10 MB) return empty result instead of being loaded into memory. Defends against synchronous-readFileSync OOM on a runaway `gate-decisions.jsonl`.
+- **SEC-4 (sanitizer bypass):** `lib/score-writer.cjs` now routes the `comment` field through `langfuse-sanitizer.cjs::sanitizeSpanPayload` before sending to `client.score()`. Aligns with the 3-layer protection (length cap + path redaction + secret redaction) every other Langfuse payload in the codebase uses.
+- **QUAL-1 (dead export):** `_internals` namespace removed from `execution-summary.cjs`. It was exported "for unit tests" but no test consumed it.
+- **QUAL-2 (magic number):** `500` literal in `score-writer.cjs` extracted to named constant `COMMENT_MAX_CHARS` with rationale comment.
+- **QUAL-3 (unreachable branch):** `triggered` variable in `buildReviewSummary` removed. The "no blocking findings" message now fires whenever `blocked.length === 0`, which is the intent the dead branch obscured.
+- **QUAL-4 (weak test):** F1-S5b/S5c assertions tightened. Previous `OR 'execucao'` clause masked regression to neutral fallback because the fallback string contained that substring.
+
+Findings deferred (defense-in-depth for future productization, low risk in personal-use deployment): SEC-1 path-prefix validation, SEC-2 TOCTOU elimination via try/open, SEC-6 allowlist of JSONL field values, ARCH-1/2 shared JSONL reader with CRLF handling.
+
+---
+
 ## [7.5.0] - 2026-05-22 — Concurrent-safe tracing (MINOR)
 
 **Closes 5 findings from the `tracing-concurrent-execution-id` spec** (A, B-trace, B-span, C, E). Two pipeline runs that share the same working directory now coexist without cross-writing each other's trace data, and the Langfuse observation scope is governed by an explicit env-var contract instead of a silent code-level filter. Spec: `.kiro/specs/tracing-concurrent-execution-id/` (requirements + design + tasks T1-T7). All five findings ship behind backward-compat fallbacks; users who never set `PIPELINE_RUN_ID` or `PIPELINE_TRACING_SCOPE` see v7.4.0 behavior bit-for-bit.
