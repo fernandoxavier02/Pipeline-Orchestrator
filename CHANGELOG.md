@@ -5,6 +5,34 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.4.0] - 2026-05-21 — Langfuse observability + skills-patterns adoption (MINOR)
+
+**Minor release — additive doc/metadata + observability opt-in. No behavioral changes to gates, agents, or hooks. Backward compatibility preserved.** Bundles two independently-merged work streams under a single bump because v7.3.0 (Langfuse observability) was committed (`8a18dd1`) but never bumped in `plugin.json` / `package.json` / `marketplace.json` — this release closes that lockstep gap and ships the skills-patterns adoption together.
+
+### What changed
+
+- **Langfuse Cloud observability — opt-in (rolled forward from commit `8a18dd1`, originally targeted for v7.3.0).** New `langfuse@3.38.4` runtime dependency in `package.json` enables tracing of pipeline runs to Langfuse Cloud when `LANGFUSE_PUBLIC_KEY` + `LANGFUSE_SECRET_KEY` env vars are present. Telemetry is fully opt-in: absent credentials short-circuit the SDK call (no-op), preserving the offline-first guarantee. No gate, agent, hook, or test surface changes — pure observability layer addition.
+- **Skills-patterns adoption from `langfuse/skills` repo — `references/skill-governance.md` SSOT.** New 400-line governance document codifying the patterns observed in langfuse/skills (versioning protocol, lockstep across Claude+Cursor manifests, progressive disclosure principle, external-pattern tracking, audit history). Crossreferenced from `CLAUDE.md` (new "Skill governance" section between "Ponteiros futuros" and "Versão deste arquivo" table).
+- **`.cursor-plugin/plugin.json` parity mirror.** First-class Cursor IDE manifest mirroring the Claude `.claude-plugin/plugin.json` schema (name, version, description, author, license, keywords). Locked-step versioning: bumping one MUST bump the other (enforced by `tests/regression/v7.1.0/F1` updated to 5/5 cross-manifest invariant).
+- **F1 + F7 regression tests updated.** `F1` invariants extend to validate the Cursor manifest's existence + schema parity. `F7_version_sync.cjs` rolled from 7.2.0 → 7.4.0 expectation. Suite stays at 41/41 GREEN with the two pre-tester updates (Batch 1).
+
+### Files changed
+
+- `references/skill-governance.md` — NEW (Batch 1, ~400 lines, governance SSOT).
+- `.cursor-plugin/plugin.json` — NEW (Batch 1, parity mirror).
+- `CLAUDE.md` — new "Skill governance" section + "Atualmente" bumped to 7.4.0 + v2.5 row in version table (Batch 2, append-only).
+- `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, `package.json` — version bumped 7.2.0 → 7.4.0; marketplace.json `source.ref` bumped to `v7.4.0` (Batch 2).
+- `CHANGELOG.md` — this section (Batch 2).
+- `tests/regression/v7.1.0/F1_*`, `tests/regression/v7.1.0/F7_version_sync.cjs` — updated by pre-tester to expect 7.4.0 and Cursor manifest parity (Phase 2 step 2b, not in either Batch 1 or Batch 2).
+
+### Backward compatibility
+
+All changes additive. Pipelines that never set `LANGFUSE_PUBLIC_KEY` continue exactly as before (no SDK calls fire). The Cursor manifest is a parallel surface — Claude consumers ignore it entirely. The skill-governance reference is pure documentation; no agent or hook reads it at runtime.
+
+### Why MINOR and not two separate releases
+
+The Langfuse layer was committed as `feat: v7.3.0 — Langfuse Cloud observability` (`8a18dd1`) but the version-surface lockstep bump never happened — the commit was effectively a no-op for marketplace/NPM consumers. Rolling it forward under v7.4.0 (together with the skills-patterns adoption) closes the version drift without inventing a phantom v7.3.0 NPM publish. Both streams are additive and independently safe; the grouping is purely release-hygiene.
+
 ## [7.2.0] - 2026-05-21 — Phase 0 hardening (MINOR)
 
 **Minor release — runtime hardening, no breaking changes, backward compatibility preserved.** Four patches landed across four separate commits in the `phase0-hardening` branch, each scaffolded with ATDD/BDD/DDD per scenario, TDD red→green per file, and adversarial review per batch (22 findings total: 3 CRITICAL fixed, 12 HIGH fixed, 5 MEDIUM fixed).

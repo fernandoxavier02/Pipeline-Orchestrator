@@ -1,6 +1,6 @@
 {
   "name": "@fx-studio-ai/pipeline-orchestrator",
-  "version": "7.2.0",
+  "version": "7.4.0",
   "description": "End-to-end execution governance for Claude Code. Multi-agent pipeline with TDD, adversarial review, 35-gate registry (23 mandatory), glass-box TRACE.md audit trail. v7.2.0 (2026-05-21): Phase 0 hardening — STATE_FILE_INIT_FAIL gate (CIRCUIT_BREAKER hard precondition on initial sentinel-state.json write), PROTOCOL_HANDSHAKE_TIMEOUT gate (HARD out-of-band timer via SessionStart hook, default 30min configurable), cleanup-orphan-sentinel-state hook (auto-archive of pipeline_active=true state files older than 24h, closes Achado B1-001), --strict-spec flag (rejects Signal 3/4 Spec detection in unattended/CI mode), STRICT_SPEC_REJECTION gate (AUDIT). 4 patches with ATDD/BDD/DDD per batch and adversarial review per batch (22 findings addressed across all batches). v7.1.1 (2026-05-21): docs-only patch. v7.1.0 (2026-05-19): telemetry hygiene. Licensed under PolyForm Shield 1.0.0. See LICENSE and NOTICE.md.",
   "keywords": [
     "claude-code",

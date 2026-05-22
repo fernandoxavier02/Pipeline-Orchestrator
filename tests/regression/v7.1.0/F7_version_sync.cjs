@@ -2,13 +2,14 @@
 'use strict';
 
 /**
- * F7 — version 7.2.0 declared consistently across plugin.json, package.json,
- * marketplace.json, CLAUDE.md canonical line, and CHANGELOG [7.2.0] header.
+ * F7 — version 7.4.0 declared consistently across plugin.json, package.json,
+ * marketplace.json, CLAUDE.md canonical line, and CHANGELOG [7.4.0] header.
  *
- * v7.2.0 (2026-05-21) — Phase 0 hardening release. Test was originally
- * authored for v7.1.0 release-sync; rolled forward through 7.1.1 (docs
- * patch) and now 7.2.0 (Phase 0 hardening). The same five-file invariant
- * applies: every release MUST bump these surfaces in lockstep, or
+ * v7.4.0 (2026-05-21) — doc/metadata release: skill governance SSOT +
+ * Cursor manifest parity. Test was originally authored for v7.1.0 release-
+ * sync; rolled forward through 7.1.1 (docs patch), 7.2.0 (Phase 0 hardening),
+ * and now 7.4.0 (skill governance + cursor parity). The same five-file
+ * invariant applies: every release MUST bump these surfaces in lockstep, or
  * downstream consumers (marketplace, NPM, vendored installs) will see
  * version drift.
  */
@@ -18,7 +19,7 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 
 const ROOT = path.resolve(__dirname, '../../..');
-const VERSION = '7.2.0';
+const VERSION = '7.4.0';
 
 let pass = 0, fail = 0;
 function test(name, fn) {
@@ -58,12 +59,12 @@ test(`CHANGELOG.md has "## [${VERSION}]" header at top of release sections`, () 
   const md = fs.readFileSync(path.join(ROOT, 'CHANGELOG.md'), 'utf8');
   const reCurrent = new RegExp(`^##\\s*\\[${VERSION.replace(/\./g, '\\.')}\\]`, 'm');
   const idxCurrent = md.search(reCurrent);
-  const idxPrev = md.search(/^##\s*\[7\.1\.1\]/m);
+  const idxPrev = md.search(/^##\s*\[7\.2\.0\]/m);
   assert.ok(idxCurrent !== -1, `CHANGELOG.md missing "## [${VERSION}]" section`);
   if (idxPrev !== -1) {
     assert.ok(
       idxCurrent < idxPrev,
-      `[${VERSION}] section must appear before [7.1.1]`
+      `[${VERSION}] section must appear before [7.2.0]`
     );
   }
 });
