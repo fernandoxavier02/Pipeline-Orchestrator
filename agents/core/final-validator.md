@@ -117,6 +117,42 @@ Grep: `Grep -A 2 "Pa de Cal criteria" references/complexity-matrix.md`
 
 ---
 
+## STEP 3.5: USER SCORE COLLECTION (v7.6.0+)
+
+After issuing the Pa de Cal decision but BEFORE presenting closeout options, collect a 4-axis user grade tied to the Langfuse trace. This grade becomes the corpus that the future LLM-as-judge will calibrate against.
+
+**Skip condition (no-op, silent):** if `process.env.LANGFUSE_ENABLED` is not exactly `"true"` or `"1"`, skip this entire step and go directly to CLOSEOUT OPTIONS. Do not mention Langfuse to the user when it is off.
+
+**Activation flow:**
+
+1. Require the helper: `const { summarize } = require('lib/execution-summary.cjs')`.
+2. Compute summary: `const s = summarize(PIPELINE_DOC_PATH)` → returns `{ plan, execution, review, result }`, each a 1-2 sentence plain-Portuguese description of what the trace shows for that axis.
+3. For each of the four axes, invoke `AskUserQuestion` with the axis summary embedded in the question body, presenting the 1-5 scale plus "não se aplica". Order: plan → execution → review → result.
+4. Map user replies to integers (1-5) or `null` (n/a).
+5. Call `const { writeScores } = require('lib/score-writer.cjs')` then `writeScores({ scores: { plan, execution, review, result } })`.
+6. Surface a one-line confirmation: "Notas registradas: plano N, execucao N, revisao N, resultado N" (replace N with the chosen number or "n/a"). When `writeScores` returns `skipped: true`, surface "Observabilidade desligada — notas nao foram enviadas pra nuvem" instead.
+
+**AskUserQuestion template (per axis):**
+
+```
+header: "Nota plano" | "Nota exec" | "Nota revisao" | "Nota result"
+question: "<summary sentence>. Que nota voce da pra esse eixo?"
+options:
+  - label: "5 - excelente"
+  - label: "4 - bom"
+  - label: "3 - aceitavel"
+  - label: "2 - ruim"
+  - label: "1 - falhou"
+  - label: "Nao se aplica"
+multiSelect: false
+```
+
+**Why this matters:** the user is grading informed by the actual trace data (number of clarification gates, batches, adversarial findings, sanity checks) rather than guessing from memory. This produces a labeled dataset where every score sits next to the trace it grades — the exact shape the LLM-as-judge phase needs for calibration.
+
+**Failure tolerance:** if `summarize` or `writeScores` throws or returns `ok: false`, surface a single neutral line ("Coleta de notas falhou: <reason truncated to 200 chars>") and proceed to CLOSEOUT OPTIONS. Never block the pipeline on score collection.
+
+---
+
 ## CLOSEOUT OPTIONS
 
 After issuing the final decision, present structured options:
@@ -177,6 +213,14 @@ PA_DE_CAL:
   tests_created: ["list"]
   pending_items: []  # if CONDITIONAL
   closeout_options: "[A | B | C | D]"
+  # v7.6.0+ — present ONLY when Langfuse was enabled and user answered.
+  user_scores:
+    plan: "[1-5 | null]"
+    execution: "[1-5 | null]"
+    review: "[1-5 | null]"
+    result: "[1-5 | null]"
+    written_to_langfuse: "[true | false]"
+    skip_reason: "[langfuse_disabled | no_trace_open | sdk_unavailable | null]"
 ```
 
 ---
