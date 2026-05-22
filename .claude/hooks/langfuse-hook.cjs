@@ -94,19 +94,58 @@ function uuidish(prefix) {
   return `${prefix}-${t}-${r}`;
 }
 
-function loadOrCreateTrace(ppid, agentName) {
-  const existing = readTraceCarrier(ppid);
+// ----------------------------------------------------------------------------
+// v7.5.0 — Tracing scope policy (REQ-E-1 .. REQ-E-5).
+// PIPELINE_TRACING_SCOPE governs which tool events the hook publishes.
+// Default behavior (env-var absent or 'agent-only') preserves the v7.4.0
+// contract bit-by-bit. Unknown values fall through to the safe default and
+// emit a one-shot AUDIT breadcrumb so operators can catch typos.
+// ----------------------------------------------------------------------------
+const TRACING_SCOPE_DEFAULT = 'agent-only';
+const _tracingScopeAudited = new Set();
+
+function emitTracingAudit(name, fields) {
+  const dedupeKey = `${name}:${JSON.stringify(fields || {})}`;
+  if (_tracingScopeAudited.has(dedupeKey)) return;
+  _tracingScopeAudited.add(dedupeKey);
+  try {
+    process.stderr.write(JSON.stringify({
+      audit_event: name,
+      ts: new Date().toISOString(),
+      ...fields,
+    }) + '\n');
+  } catch (_e) { /* never throw from audit */ }
+}
+
+function shouldTrace(toolName, scope) {
+  const effective = scope || TRACING_SCOPE_DEFAULT;
+  switch (effective) {
+    case 'agent-only':
+      return toolName === 'Agent';
+    case 'agent-plus-skill':
+      return toolName === 'Agent' || toolName === 'Skill';
+    case 'full':
+      return true;
+    default:
+      emitTracingAudit('TRACING_SCOPE_UNKNOWN', { scope: effective });
+      return toolName === 'Agent'; // safe-default = v7.4.0 parity
+  }
+}
+
+function loadOrCreateTrace(runId, ppidFallback, agentName) {
+  const existing = readTraceCarrier(runId, ppidFallback);
   if (existing) return existing;
   const c = {
     traceId: uuidish('lf-trace'),
     createdAt: new Date().toISOString(),
-    ppid,
+    runId: runId || null,
+    ppid: ppidFallback,
     pluginVersion: readPluginVersion(),
     pipelineDocPath: process.env.PIPELINE_DOC_PATH || null,
     initialAgent: agentName || null,
   };
   // Soft-fail: writeTraceCarrier swallows errors itself.
-  writeTraceCarrier(ppid, c);
+  writeTraceCarrier(runId, ppidFallback, c);
   return c;
 }
 
@@ -187,6 +226,7 @@ function handlePre(payload, client, sanitize) {
   // do NOT await — Langfuse SDK calls are fire-and-forget; we never block
   // the Claude Code hook chain on network I/O.
   const ppid = resolvePpid();
+  const runId = process.env.PIPELINE_RUN_ID || null;
   const agentName = (payload && payload.tool_input && payload.tool_input.subagent_type) || 'unknown';
   const promptText = (payload && payload.tool_input && payload.tool_input.prompt) || '';
 
@@ -199,7 +239,7 @@ function handlePre(payload, client, sanitize) {
     return; // Silent skip — Post will also be a no-op (no tmp file).
   }
 
-  const trace = loadOrCreateTrace(ppid, agentName);
+  const trace = loadOrCreateTrace(runId, ppid, agentName);
   const spanId = uuidish('lf-span');
   const startedAt = new Date().toISOString();
 
@@ -213,7 +253,7 @@ function handlePre(payload, client, sanitize) {
     sampled: true,
   };
   try {
-    writeAtomic(getSpanPath(ppid), JSON.stringify(spanCarrier));
+    writeAtomic(getSpanPath(runId, ppid), JSON.stringify(spanCarrier));
   } catch (_e) {
     // Soft-fail: continue with SDK call anyway.
   }
@@ -278,7 +318,8 @@ function handlePost(payload, client, sanitize) {
   // do NOT await — span close is fire-and-forget. Post never blocks the
   // tool-call return path on Langfuse SDK network I/O.
   const ppid = resolvePpid();
-  const spanPath = getSpanPath(ppid);
+  const runId = process.env.PIPELINE_RUN_ID || null;
+  const spanPath = getSpanPath(runId, ppid);
 
   if (!fs.existsSync(spanPath)) {
     return; // Sampling skipped at Pre OR Pre crashed → silent no-op.
@@ -373,8 +414,13 @@ async function main() {
 
     const payload = readStdinSync();
     const toolName = detectToolName(payload);
-    if (toolName !== 'Agent') {
-      return; // Only Agent tool events drive span lifecycle.
+    const scope = process.env.PIPELINE_TRACING_SCOPE || TRACING_SCOPE_DEFAULT;
+    if (!shouldTrace(toolName, scope)) {
+      return; // Tool not in scope per PIPELINE_TRACING_SCOPE — silent no-op.
+    }
+    if (scope !== TRACING_SCOPE_DEFAULT && scope !== '') {
+      // One-shot breadcrumb so operators see the opt-in was honored.
+      emitTracingAudit('TRACING_SCOPE_EXPANDED', { scope });
     }
 
     const event = detectEvent(payload);
@@ -440,4 +486,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { handlePre, handlePost, main };
+module.exports = { handlePre, handlePost, main, shouldTrace };

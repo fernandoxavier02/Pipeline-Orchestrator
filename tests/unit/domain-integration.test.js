@@ -14,7 +14,8 @@ test('full domain round-trip: allocate → clone → manifest update', () => {
   const cloner = new KiroSkillCloner({ runId: rd.runId });
   const sourceSkill = `---\nname: kiro-spec-init\ndescription: x\nallowed-tools: Read\n---\n\nWrites .kiro/specs/<feature>/spec.json.`;
   const cloned = cloner.clone(sourceSkill, { newName: 'spec-init' });
-  assert.match(cloned, /pipeline-runs\/001-add-share-button-player\/01-spec\/spec\.json/);
+  // v7.5.0+ runId format: ${ordinal}-${uniqueId}-${slug}.
+  assert.match(cloned, /pipeline-runs\/001-[a-z0-9]+-add-share-button-player\/01-spec\/spec\.json/);
 
   const manifestPath = path.join(rd.absPath, 'manifest.yaml');
   const m = RunManifest.fromYaml(fs.readFileSync(manifestPath, 'utf8'));

@@ -204,3 +204,21 @@ If state file does NOT exist when hook fires:
    - Sentinel validates: completed_phases are consistent, gate_summary is coherent, no MANDATORY gates SKIPPED.
 4. If sentinel PASS → resume pipeline from last incomplete phase.
 5. If sentinel BLOCKED → present block reason, user decides (resolve / cancel).
+
+---
+
+## 7. State Discovery Contract (v7.5.0)
+
+Spec: `.kiro/specs/tracing-concurrent-execution-id/`. Two hooks discover the "active" `sentinel-state.json` for the current pipeline session: `sentinel-hook.cjs::discoverStatePath` and `stop-hook.cjs::findActiveRunFolder`. Both follow the same precedence, documented here as the SSOT.
+
+**Precedence order (highest priority first):**
+
+1. **`PIPELINE_DOC_PATH` env var (sentinel-hook only).** If set, `<PIPELINE_DOC_PATH>/sentinel-state.json` is returned directly. This is the explicit override path used by the pipeline-controller right after the doc folder is created.
+2. **`PIPELINE_RUN_ID` env var.** The hook lists every `<cwd>/.pipeline/docs/Pre-*-action/<run>/sentinel-state.json` it can read, parses each one's `run_id` field, and returns the file whose `run_id` matches `PIPELINE_RUN_ID`. This makes discovery deterministic when more than one pipeline run shares the working directory (I-1).
+3. **Mtime-newest fallback.** Used only when `PIPELINE_RUN_ID` is absent or no candidate carries a matching `run_id`. The hook emits a one-shot AUDIT breadcrumb (`DISCOVERY_RUN_ID_NO_MATCH` if the env-var was set but unmatched, `DISCOVERY_MTIME_FALLBACK` either way) so operators see the degradation.
+
+**State file schema requirement.** Writers of `sentinel-state.json` (controller, codex-operational-runtime, finishing-branch) MUST include the `run_id` field, populated from `process.env.PIPELINE_RUN_ID`. Files that omit the field are tolerated by the readers (they fall through to the mtime path) but lose the per-run isolation guarantee.
+
+**Cross-session / orphan handling.** When the hook is invoked outside any active pipeline (e.g., `cleanup-orphan-sentinel-state-hook` during `SessionStart`), `PIPELINE_RUN_ID` will be absent and the hook MUST tolerate that by returning the mtime-newest candidate or `null`. Both paths emit the AUDIT breadcrumb so any unexpected fallback is auditable.
+
+**External hooks that delegate to sentinel.** Any third-party hook that spawns or wraps the sentinel-hook should pass `PIPELINE_RUN_ID` through unchanged. Stripping it from the child environment forces the mtime fallback and breaks the per-run isolation contract — the AUDIT events make that visible but cannot prevent it.

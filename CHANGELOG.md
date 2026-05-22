@@ -5,6 +5,51 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.5.0] - 2026-05-22 — Concurrent-safe tracing (MINOR)
+
+**Closes 5 findings from the `tracing-concurrent-execution-id` spec** (A, B-trace, B-span, C, E). Two pipeline runs that share the same working directory now coexist without cross-writing each other's trace data, and the Langfuse observation scope is governed by an explicit env-var contract instead of a silent code-level filter. Spec: `.kiro/specs/tracing-concurrent-execution-id/` (requirements + design + tasks T1-T7). All five findings ship behind backward-compat fallbacks; users who never set `PIPELINE_RUN_ID` or `PIPELINE_TRACING_SCOPE` see v7.4.0 behavior bit-for-bit.
+
+### Added
+
+- **Collision-resistant run identifier (Finding A — `lib/run-directory.cjs`):** `RunDirectory.allocate` now stamps every run with a `${ordinal}-${uniqueId}-${slug}` id (`uniqueId` = `Date.now().toString(36)` + `crypto.randomBytes(6).toString('hex')`) and publishes it on `process.env.PIPELINE_RUN_ID` before returning. The primary `mkdirSync` switched from `{recursive: true}` to `{recursive: false}` and now retries up to six times with a fresh `uniqueId` on `EEXIST`, mirroring the `openSync('wx')` retry loop in `lib/run-log.cjs`. AUDIT event `RUN_DIR_COLLISION_RETRY` emitted on each retry. New `generateUniqueId()` export.
+- **Run-keyed Langfuse carriers (Findings B-trace + B-span — `lib/langfuse-carrier.cjs`):** signatures `getTracePath(runId, ppidFallback)` and `getSpanPath(runId, ppidFallback)` replace the old single-arg PPID form. When `runId` is present, the carrier file lives at `/tmp/langfuse-{trace,span}-<runId>.json`; when absent, it falls back to PPID with a one-shot AUDIT `CARRIER_PPID_FALLBACK` so the degradation is observable. Wrapper helpers (`readTraceCarrier`, `writeTraceCarrier`, `cleanupTracePath`, `cleanupSpanPath`) updated to the same two-arg signature. `readTraceCarrierForCurrentProcess()` tries `PIPELINE_RUN_ID` first, then `process.pid` / `process.ppid` for legacy / cross-session callers. `.claude/hooks/langfuse-hook.cjs` updated end-to-end to pass `(process.env.PIPELINE_RUN_ID || null, resolvePpid())` at every call site; `.codex/hooks/langfuse-hook.cjs` mirror kept byte-identical per Iron Law.
+- **State discovery by runId (Finding C — `.claude/hooks/sentinel-hook.cjs` + `.claude/hooks/stop-hook.cjs`):** `discoverStatePath` and `findActiveRunFolder` now (1) honor the explicit `PIPELINE_DOC_PATH` override (sentinel only), (2) match by `PIPELINE_RUN_ID` against the `run_id` field of every candidate `sentinel-state.json`, (3) fall back to mtime-newest with AUDIT events `DISCOVERY_RUN_ID_NO_MATCH` and `DISCOVERY_MTIME_FALLBACK`. `lib/codex-operational-runtime.cjs` writers now stamp the `run_id` field into both the init and finalize state files. Sentinel-hook also gains `module.exports` + `require.main === module` guard so the discovery internals are unit-testable.
+- **Tracing scope policy (Finding E — `.claude/hooks/langfuse-hook.cjs`):** new `PIPELINE_TRACING_SCOPE` env-var accepts `agent-only` (default, v7.4.0 parity), `agent-plus-skill`, or `full`. Pure function `shouldTrace(toolName, scope)` exported for unit-level testing. Unknown values fall through to the `agent-only` safe-default and emit AUDIT `TRACING_SCOPE_UNKNOWN`; opt-in scopes emit a one-shot `TRACING_SCOPE_EXPANDED` breadcrumb so operators can confirm the env-var was honored. The silent `if (toolName !== 'Agent') return;` filter at the hook entry-point is replaced by `if (!shouldTrace(toolName, scope)) return;`.
+- **References documentation:** `references/audit-trail.md` gains a "Concurrency Invariants" section (I-1 .. I-4), a "Tracing Scope Policy" section, and an AUDIT events catalog (6 new events). `references/sentinel-integration.md` gains a "State Discovery Contract" section formalizing the `PIPELINE_DOC_PATH > PIPELINE_RUN_ID > mtime` precedence and the requirement that all writers stamp `run_id` on `sentinel-state.json`.
+- **Regression tests** (`tests/regression/v7.5.0/`):
+  - `F1-run-directory-allocate-race.test.cjs` — 4 concurrent children + serial baseline + static exclusive-mkdir check (11 assertions).
+  - `F2-trace-carrier-runid.test.cjs` — runId precedence + PPID fallback + AUDIT payload schema (9 assertions).
+  - `F3-span-carrier-runid.test.cjs` — span-side mirror of F2 (6 assertions).
+  - `F4-discovery-by-runid.test.cjs` — sentinel + stop hooks, runId-match wins over mtime, AUDIT on fallback (8 assertions).
+  - `F5-tracing-scope-policy.test.cjs` — 5 sub-scenarios across the scope matrix + AUDIT on unknown value (10 assertions).
+
+### Changed
+
+- **runId format (BREAKING for internal consumers, `external_consumers: none` per spec.json):** moved from `${ordinal}-${slug}` to `${ordinal}-${uniqueId}-${slug}`. `tests/unit/run-directory.test.js` updated to assert against the new format; `tests/unit/domain-integration.test.js` regex updated to allow `uniqueId` in the middle position. `resolveSlugCollision` removed from `RunDirectory.allocate` (no longer needed — `uniqueId` guarantees uniqueness).
+- `lib/codex-operational-runtime.cjs` `initialize*` and `finalizeArtifacts` writers add `run_id` (from `process.env.PIPELINE_RUN_ID`) to every `sentinel-state.json` they produce.
+- `.claude/hooks/sentinel-hook.cjs` exports `{ discoverStatePath, readStateRunId, listSentinelStates }` and only auto-runs the stdin handler under `require.main === module`.
+
+### Backward compatibility
+
+- Default `PIPELINE_TRACING_SCOPE` (unset OR `agent-only`) produces zero behavior change vs v7.4.0.
+- Carrier API: single-arg PPID callers still work — `getTracePath(ppid)` treats the value as `runId` and produces a working path, with no AUDIT emission. Callers that pass `(null, ppid)` get the fallback path + dedupe-once AUDIT breadcrumb.
+- State discovery: when `PIPELINE_RUN_ID` is absent (legacy / cross-session / cleanup-orphan), both hooks fall back to the v7.4.0 mtime-newest selection, emitting `DISCOVERY_MTIME_FALLBACK` so the path is auditable.
+- AUDIT events deduped per process per (event, key) so repeated lookups in a single hook session emit at most one breadcrumb each — no stderr flooding.
+
+### Test posture
+
+- Pre-modification baseline: 38 passed / 8 failed / 46 total (5 pre-existing failures + 3 v7.5.0 placeholder fails because the test files existed without their lib counterparts).
+- Post-modification: **43 passed / 5 failed / 48 total.** The 5 remaining failures are 100% pre-existing (`v6.1.0/B4_cross_cutting_docs.cjs` B4-S9, `v7.1.0/F7_version_sync.cjs` 3 assertions chained to the still-stale 7.4.0 expectation, `v7.3.0/F10-langfuse-sanitizer.test.cjs` 1 assertion, `v7.3.0/F9-langfuse-span-lifecycle.test.cjs` 4 assertions tied to absent `CLAUDE_PLUGIN_ROOT` in the test harness, `v7.4.0/F1_skill_governance.cjs` S4 cursor parity). Zero regression introduced.
+- Pre-existing Windows-only CRLF snapshot mismatch in `tests/snapshot/run-dir-tree.test.js` remains untouched (outside spec scope).
+
+### Spec & roadmap
+
+- Source: `.kiro/specs/tracing-concurrent-execution-id/` — requirements (EARS), design (R-1 Pattern-aligned), tasks (T1-T7) all present in the working tree (per CLAUDE.md the `.kiro/` directory stays untracked).
+- Diff budget honored: 6 files modified (run-directory.cjs, langfuse-carrier.cjs, langfuse-hook.cjs × 2 mirrors, sentinel-hook.cjs, stop-hook.cjs × 2 mirrors, codex-operational-runtime.cjs) + 5 new test files + 2 reference doc appends + version-sync.
+- Adversarial gate `adversarial_gate_mandatory: true` (audit-trail + observability domain) — per-task self-review confirmed each task before advancing.
+
+---
+
 ## [7.4.2] - 2026-05-22 — Langfuse SDK vendored (PATCH, bugfix)
 
 **Patch release — fixes the production-blocking `Cannot find module 'langfuse'` thrown by every marketplace-cache install of v7.4.0/v7.4.1.** The previous releases declared `langfuse` as a regular dependency but never shipped the SDK inside the marketplace tarball; cache clones from the GitHub source were left without `node_modules/langfuse/`, so the very first `require('langfuse')` from the Stop hook crashed and the Langfuse dashboard stayed empty.

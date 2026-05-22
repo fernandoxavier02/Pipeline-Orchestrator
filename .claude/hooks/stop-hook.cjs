@@ -74,13 +74,46 @@ function readJsonSafe(filePath) {
   }
 }
 
+// Inline AUDIT emitter (v7.5.0). Dedupe by event-key to avoid stderr flooding
+// when a hook invokes findActiveRunFolder multiple times in a single session.
+const _emittedAuditsStop = new Set();
+function emitAuditStop(name, fields, dedupeKey) {
+  if (dedupeKey) {
+    if (_emittedAuditsStop.has(dedupeKey)) return;
+    _emittedAuditsStop.add(dedupeKey);
+  }
+  try {
+    process.stderr.write(JSON.stringify({
+      audit_event: name,
+      ts: new Date().toISOString(),
+      ...fields,
+    }) + '\n');
+  } catch (_e) { /* never throw */ }
+}
+
+function readStateRunIdFromFile(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    const body = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    if (body && typeof body.run_id === 'string') return body.run_id;
+    return null;
+  } catch (_e) {
+    return null;
+  }
+}
+
 /**
- * Find the most recently updated pipeline run folder beneath cwd/.pipeline/docs/.
+ * Find the active pipeline run folder beneath cwd/.pipeline/docs/.
  * Returns absolute path or null if none found.
  *
- * v7.1.0 hardening (post-final-adversarial): path.resolve() containment check
- * prevents symlink/`..` escapes outside docsRoot (SEC-2). The mtime-based
- * selection is unchanged.
+ * Selection precedence (v7.5.0):
+ *   1. If PIPELINE_RUN_ID is set, return the folder whose sentinel-state.json
+ *      carries run_id === PIPELINE_RUN_ID (REQ-C-1, REQ-C-2).
+ *   2. Otherwise (or no match) fall back to mtime-newest with an AUDIT
+ *      breadcrumb (REQ-C-3).
+ *
+ * v7.1.0 hardening: path.resolve() containment guard prevents symlink/`..`
+ * escapes outside docsRoot (SEC-2). Preserved unchanged.
  */
 function findActiveRunFolder(cwd) {
   try {
@@ -88,13 +121,12 @@ function findActiveRunFolder(cwd) {
     const docsRoot = path.resolve(path.join(cwd, '.pipeline', 'docs'));
     if (!fs.existsSync(docsRoot)) return null;
     const docsRootGuard = docsRoot + path.sep;
-    let best = null;
-    let bestMtime = 0;
     const buckets = fs.readdirSync(docsRoot, { withFileTypes: true });
+
+    const candidates = []; // { runPath, statePath, mtimeMs }
     for (const b of buckets) {
       if (!b.isDirectory()) continue;
       const bucketPath = path.resolve(path.join(docsRoot, b.name));
-      // Containment: bucket must live under docsRoot.
       if (!bucketPath.startsWith(docsRootGuard)) continue;
       let runs;
       try { runs = fs.readdirSync(bucketPath, { withFileTypes: true }); }
@@ -102,19 +134,38 @@ function findActiveRunFolder(cwd) {
       for (const r of runs) {
         if (!r.isDirectory()) continue;
         const runPath = path.resolve(path.join(bucketPath, r.name));
-        // Containment: run must live under docsRoot (rejects symlink escapes).
         if (!runPath.startsWith(docsRootGuard)) continue;
         const stateFile = path.join(runPath, 'sentinel-state.json');
         try {
           const st = fs.statSync(stateFile);
-          if (st.mtimeMs > bestMtime) {
-            bestMtime = st.mtimeMs;
-            best = runPath;
-          }
+          candidates.push({ runPath, statePath: stateFile, mtimeMs: st.mtimeMs });
         } catch (_e) { /* skip */ }
       }
     }
-    return best;
+    if (candidates.length === 0) return null;
+
+    // Priority 1: PIPELINE_RUN_ID match.
+    const runId = (process.env.PIPELINE_RUN_ID || '').trim();
+    if (runId) {
+      for (const c of candidates) {
+        if (readStateRunIdFromFile(c.statePath) === runId) return c.runPath;
+      }
+      emitAuditStop('DISCOVERY_RUN_ID_NO_MATCH',
+        { runId, candidates: candidates.length },
+        `DISCOVERY_RUN_ID_NO_MATCH:stop:${runId}`);
+    }
+
+    // Priority 2: mtime fallback.
+    candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
+    const picked = candidates[0].runPath;
+    if (candidates.length > 1) {
+      emitAuditStop('DISCOVERY_MTIME_FALLBACK', {
+        reason: runId ? 'no-match' : 'env-absent',
+        picked,
+        total: candidates.length,
+      }, `DISCOVERY_MTIME_FALLBACK:stop:${picked}`);
+    }
+    return picked;
   } catch (e) {
     warn(`findActiveRunFolder failed: ${e.message}`);
     return null;

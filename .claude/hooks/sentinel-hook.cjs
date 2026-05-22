@@ -88,10 +88,65 @@ function applyEnforcement(state) {
 
 // ── Auto-Discovery ──────────────────────────────────────────────────────────
 
-// Find the most recent sentinel-state.json without depending on env vars.
-// Priority 1: PIPELINE_DOC_PATH env var (backwards compatible override)
-// Priority 2: Scan .pipeline/docs/Pre-{level}-action/{session}/sentinel-state.json by mtime
-// Returns: absolute path to sentinel-state.json, or null if not found.
+// Inline AUDIT emitter (v7.5.0). Dedupe by (event,key) so repeated lookups in a
+// single hook invocation only surface one breadcrumb per scenario.
+const _emittedAuditsSentinel = new Set();
+function emitAudit(name, fields, dedupeKey) {
+  if (dedupeKey) {
+    if (_emittedAuditsSentinel.has(dedupeKey)) return;
+    _emittedAuditsSentinel.add(dedupeKey);
+  }
+  try {
+    process.stderr.write(JSON.stringify({
+      audit_event: name,
+      ts: new Date().toISOString(),
+      ...fields,
+    }) + '\n');
+  } catch (_e) { /* never throw from audit */ }
+}
+
+// Tolerant reader: returns the run_id field from a sentinel-state.json file,
+// or null on any failure (missing file, parse error, missing field).
+function readStateRunId(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    const body = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    if (body && typeof body.run_id === 'string') return body.run_id;
+    return null;
+  } catch (_e) {
+    return null;
+  }
+}
+
+// List every <baseDir>/Pre-*/<session>/sentinel-state.json on disk.
+function listSentinelStates(baseDir) {
+  const out = [];
+  try {
+    if (!fs.existsSync(baseDir)) return out;
+    for (const level of fs.readdirSync(baseDir)) {
+      if (!level.startsWith('Pre-')) continue;
+      const levelDir = path.join(baseDir, level);
+      try {
+        if (!fs.statSync(levelDir).isDirectory()) continue;
+      } catch { continue; }
+      let sessions;
+      try { sessions = fs.readdirSync(levelDir); }
+      catch { continue; }
+      for (const session of sessions) {
+        const candidate = path.join(levelDir, session, 'sentinel-state.json');
+        try {
+          if (fs.statSync(candidate).isFile()) out.push(candidate);
+        } catch { /* not found, skip */ }
+      }
+    }
+  } catch { /* baseDir read error */ }
+  return out;
+}
+
+// Find the active sentinel-state.json.
+// Priority 1: PIPELINE_DOC_PATH env var (backwards-compatible override).
+// Priority 2: PIPELINE_RUN_ID match across all candidates (REQ-C-2, v7.5.0).
+// Priority 3: mtime-newest fallback with AUDIT event (REQ-C-3).
 function discoverStatePath() {
   // Priority 1: explicit env var (backwards compatible)
   const envPath = (process.env.PIPELINE_DOC_PATH || '').trim();
@@ -102,38 +157,40 @@ function discoverStatePath() {
     } catch { /* ignore */ }
   }
 
-  // Priority 2: auto-discovery from .pipeline/docs/
   const baseDir = path.join(process.cwd(), '.pipeline', 'docs');
-  try {
-    if (!fs.existsSync(baseDir)) return null;
-  } catch {
-    return null;
+  const candidates = listSentinelStates(baseDir);
+  if (candidates.length === 0) return null;
+
+  // Priority 2: PIPELINE_RUN_ID match (REQ-C-1, REQ-C-2).
+  const runId = (process.env.PIPELINE_RUN_ID || '').trim();
+  if (runId) {
+    for (const candidate of candidates) {
+      if (readStateRunId(candidate) === runId) return candidate;
+    }
+    emitAudit('DISCOVERY_RUN_ID_NO_MATCH',
+      { runId, candidates: candidates.length },
+      `DISCOVERY_RUN_ID_NO_MATCH:${runId}`);
   }
 
+  // Priority 3: mtime-newest fallback (REQ-C-3).
   let newest = null;
   let newestMtime = 0;
-
-  try {
-    for (const level of fs.readdirSync(baseDir)) {
-      const levelDir = path.join(baseDir, level);
-      if (!level.startsWith('Pre-')) continue;
-      try {
-        if (!fs.statSync(levelDir).isDirectory()) continue;
-      } catch { continue; }
-
-      for (const session of fs.readdirSync(levelDir)) {
-        const candidate = path.join(levelDir, session, 'sentinel-state.json');
-        try {
-          const stat = fs.statSync(candidate);
-          if (stat.mtimeMs > newestMtime) {
-            newestMtime = stat.mtimeMs;
-            newest = candidate;
-          }
-        } catch { /* not found, skip */ }
+  for (const candidate of candidates) {
+    try {
+      const st = fs.statSync(candidate);
+      if (st.mtimeMs > newestMtime) {
+        newestMtime = st.mtimeMs;
+        newest = candidate;
       }
-    }
-  } catch { /* baseDir read error, return null */ }
-
+    } catch { /* skip */ }
+  }
+  if (newest && candidates.length > 1) {
+    emitAudit('DISCOVERY_MTIME_FALLBACK', {
+      reason: runId ? 'no-match' : 'env-absent',
+      picked: newest,
+      total: candidates.length,
+    }, `DISCOVERY_MTIME_FALLBACK:${newest}`);
+  }
   return newest;
 }
 
@@ -328,8 +385,17 @@ function handleInput(raw) {
   process.exit(0);
 }
 
-// Cross-platform stdin reading (works on Windows + Unix)
-let input = '';
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', chunk => input += chunk);
-process.stdin.on('end', () => handleInput(input));
+// v7.5.0+: expose internals for tests; only auto-run when invoked as a hook.
+module.exports = {
+  discoverStatePath,
+  readStateRunId,
+  listSentinelStates,
+};
+
+if (require.main === module) {
+  // Cross-platform stdin reading (works on Windows + Unix)
+  let input = '';
+  process.stdin.setEncoding('utf8');
+  process.stdin.on('data', chunk => input += chunk);
+  process.stdin.on('end', () => handleInput(input));
+}

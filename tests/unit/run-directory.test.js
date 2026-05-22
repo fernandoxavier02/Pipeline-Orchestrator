@@ -4,23 +4,31 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const os = require('node:os');
-const { RunDirectory } = require('../../lib/run-directory.cjs');
+const { RunDirectory, generateUniqueId } = require('../../lib/run-directory.cjs');
+
+// v7.5.0+ runId format: `${displayOrdinal}-${uniqueId}-${slug}`.
+// uniqueId = base36(Date.now()) + 12 hex chars (>= 14 chars total).
+const RUN_ID_RE = /^(\d{3})-([a-z0-9]{14,})-(.+)$/;
 
 function makeTmpRoot() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'pipeline-runs-test-'));
 }
 
-test('allocates run number 001 in fresh repo', () => {
+test('allocates run with ordinal 001 in fresh repo and propagates PIPELINE_RUN_ID', () => {
   const root = makeTmpRoot();
   const r = RunDirectory.allocate(root, 'fix login redirect bug');
   assert.equal(r.runNumber, '001');
   assert.equal(r.slug, 'fix-login-redirect-bug');
-  assert.equal(r.runId, '001-fix-login-redirect-bug');
+  const m = r.runId.match(RUN_ID_RE);
+  assert.ok(m, `runId ${r.runId} does not match ${RUN_ID_RE}`);
+  assert.equal(m[1], '001');
+  assert.equal(m[3], 'fix-login-redirect-bug');
   assert.ok(fs.existsSync(r.absPath));
   assert.ok(fs.existsSync(path.join(r.absPath, 'manifest.yaml')));
+  assert.equal(process.env.PIPELINE_RUN_ID, r.runId);
 });
 
-test('allocates monotonically incremented run numbers', () => {
+test('allocates monotonically incremented display ordinals', () => {
   const root = makeTmpRoot();
   RunDirectory.allocate(root, 'one');
   RunDirectory.allocate(root, 'two');
@@ -28,11 +36,14 @@ test('allocates monotonically incremented run numbers', () => {
   assert.equal(r.runNumber, '003');
 });
 
-test('handles slug collision with -2 suffix', () => {
+test('same prompt repeated yields same slug but distinct runId via uniqueId', () => {
   const root = makeTmpRoot();
-  RunDirectory.allocate(root, 'fix login bug');
-  const r = RunDirectory.allocate(root, 'fix login bug');
-  assert.equal(r.slug, 'fix-login-bug-2');
+  const a = RunDirectory.allocate(root, 'fix login bug');
+  const b = RunDirectory.allocate(root, 'fix login bug');
+  assert.equal(a.slug, 'fix-login-bug');
+  assert.equal(b.slug, 'fix-login-bug');
+  assert.notEqual(a.runId, b.runId);
+  assert.notEqual(a.uniqueId, b.uniqueId);
 });
 
 test('creates expected subfolder structure', () => {
@@ -68,6 +79,14 @@ test('slug falls back to "run" when prompt is all stop words', () => {
   const root = makeTmpRoot();
   const r = RunDirectory.allocate(root, 'a the of in to for');
   assert.equal(r.slug, 'run');
-  assert.equal(r.runId, '001-run');
-  assert.match(r.slug, /^[a-z0-9-]+$/);
+  const m = r.runId.match(RUN_ID_RE);
+  assert.ok(m);
+  assert.equal(m[3], 'run');
+});
+
+test('generateUniqueId yields collision-resistant identifiers', () => {
+  const N = 1000;
+  const ids = new Set();
+  for (let i = 0; i < N; i += 1) ids.add(generateUniqueId());
+  assert.equal(ids.size, N, 'unique-id duplicates detected within 1000 draws');
 });
