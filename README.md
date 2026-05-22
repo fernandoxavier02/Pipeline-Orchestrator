@@ -5,28 +5,30 @@
 </div>
 
 <div align="center">
-  <img src="assets/diagrams/hero-banner.svg" alt="Pipeline Orchestrator v7.1.0" width="100%"/>
+  <img src="assets/diagrams/hero-banner.svg" alt="Pipeline Orchestrator v7.4.0" width="100%"/>
 </div>
 
 <h1 align="center">Pipeline Orchestrator</h1>
 
-<p align="center"><strong>The governance layer between your spec and your production code.</strong></p>
+<p align="center"><strong>The governance layer between your spec and your production code — now with first-class observability.</strong></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-7.0.0-7C3AED?style=for-the-badge&logo=git&logoColor=white" alt="Version" />
+  <img src="https://img.shields.io/badge/version-7.4.0-7C3AED?style=for-the-badge&logo=git&logoColor=white" alt="Version" />
   <img src="https://img.shields.io/badge/agents-20-0EA5E9?style=for-the-badge" alt="Agents" />
-  <img src="https://img.shields.io/badge/gates-32_(22_mandatory)-22C55E?style=for-the-badge" alt="Gates" />
+  <img src="https://img.shields.io/badge/gates-35_(23_mandatory)-22C55E?style=for-the-badge" alt="Gates" />
+  <img src="https://img.shields.io/badge/observability-Langfuse_Cloud-FF6B6B?style=for-the-badge&logo=opentelemetry&logoColor=white" alt="Observability" />
   <img src="https://img.shields.io/badge/audit_coverage-95%25-F59E0B?style=for-the-badge" alt="Audit Coverage" />
-  <img src="https://img.shields.io/badge/test_suites-31%2F31-EF4444?style=for-the-badge" alt="Tests" />
-  <img src="https://img.shields.io/badge/platform-Claude_Code-000?style=for-the-badge" alt="Platform" />
+  <img src="https://img.shields.io/badge/test_suites-45%2F45-EF4444?style=for-the-badge" alt="Tests" />
+  <img src="https://img.shields.io/badge/platform-Claude_Code_%2B_Cursor-000?style=for-the-badge" alt="Platform" />
   <img src="https://img.shields.io/badge/license-PolyForm_Shield_1.0.0-EC4899?style=for-the-badge" alt="License" />
 </p>
 
 <p align="center">
   <a href="#the-problem">The Problem</a> &bull;
   <a href="#how-we-fix-it">How We Fix It</a> &bull;
+  <a href="#whats-new-in-v740">v7.4.0 ✨</a> &bull;
+  <a href="#whats-new-in-v720">v7.2.0</a> &bull;
   <a href="#whats-new-in-v710">v7.1.0</a> &bull;
-  <a href="#whats-new-in-v630">v6.3.0</a> &bull;
   <a href="#workflow-contracts--atdd--bdd--ddd-v610">ATDD · BDD · DDD</a> &bull;
   <a href="#install">Install</a> &bull;
   <a href="#pipeline-types">Pipelines</a> &bull;
@@ -102,9 +104,11 @@ Gates are not ceremonial checkboxes. Each has a defined hardness that determines
 
 The full 32-row registry (22 mandatory + 10 contextual/soft) lives in [`references/gates.md`](references/gates.md). The 22-row Mandatory Gates by Complexity table is invariant — pinned by regression test `F1_gates_mandatory_section.cjs`, which fails the build if anyone changes the count.
 
-### 5. Glass-Box Audit Trail — Every decision is recorded
+### 5. Glass-Box Audit Trail — Every decision is recorded *and now streamable*
 
 Every pipeline run emits `TRACE.md` + `gate-decisions.jsonl` under `.pipeline-orchestrator/runs/<run-id>/`. Classification, design decisions, plan approval, every gate trigger, every fix loop, every adversarial finding. **Attachable to your PR. Validatable with a standalone Node script. HMAC-signed sentinel state to prevent tampering.** Auditable, reproducible, accountable.
+
+**New in v7.4.0:** every subagent dispatch also streams to <a href="https://langfuse.com">Langfuse Cloud</a> as a structured span (opt-in via two env vars). On-disk JSONL for compliance, Langfuse dashboard for trends — same source of truth, two surfaces. **See <a href="#whats-new-in-v740">v7.4.0 ✨</a> below.**
 
 ```
 GO:          confidence >= 0.80
@@ -113,6 +117,120 @@ NO-GO:       confidence <  0.60
 ```
 
 No gut feelings. No *"it looks fine to me."* A number, with the gate decisions that produced it.
+
+---
+
+## What's New in v7.4.0
+
+<div align="center">
+  <a href="https://langfuse.com" target="_blank">
+    <img src="https://langfuse.com/langfuse_logo.svg" alt="Langfuse — Open Source LLM Engineering Platform" width="280"/>
+  </a>
+  <p><sub><strong>Now natively integrated with <a href="https://langfuse.com">Langfuse Cloud</a></strong> — the open-source observability platform for LLM applications.</sub></p>
+</div>
+
+> **The governance layer just became observable.** Every subagent dispatch, every gate decision, every fix loop now streams to **Langfuse Cloud** as a structured trace — opt-in, zero-config beyond two env vars, and shippable to your existing observability stack. Plus first-class **Cursor IDE parity** and a new `skill-governance.md` SSOT codifying community patterns we learned from `langfuse/skills`.
+
+<div align="center">
+
+| | Before v7.4.0 | After v7.4.0 |
+|---|---|---|
+| **Per-subagent visibility** | Only on disk (`gate-decisions.jsonl` + `TRACE.md`) | Streamed to Langfuse Cloud in real time |
+| **Cross-run analytics** | `jq` over JSONL files | Native dashboards, filters, sampling |
+| **IDE parity** | Claude Code only | Claude Code **+** Cursor (lockstep manifests) |
+| **Skill governance** | Implicit conventions | First-class SSOT (`references/skill-governance.md`) |
+
+</div>
+
+### 🔭 Langfuse Cloud observability — opt-in, two env vars away
+
+Pipeline Orchestrator now ships a `PreToolUse:Agent` + `PostToolUse:Agent` hook (`.claude/hooks/langfuse-hook.cjs`) that opens a **fire-and-forget span per subagent dispatch** — captures the agent name, sanitized prompt, return, current pipeline phase, plugin version, and pipeline doc path. Atomic span-carrier files at `/tmp/langfuse-span-<PPID>.json` keep `Pre` and `Post` correlated even across process restarts. **Sampling is configurable** via `LANGFUSE_SAMPLE_RATE` (1.0 = trace everything, 0.1 = sample 1 in 10).
+
+**Privacy by design.** The hook sanitizes prompts before send (strips absolute paths, redacts secrets) via `lib/langfuse-sanitizer.cjs`. The disabled fast-path (no credentials present) exits in under **100ms** — the SDK is never even `require()`'d at top level, only inside the credential-gated `getClient()`. **Offline-first guarantee preserved.**
+
+```bash
+# Three env vars and you're tracing.
+export LANGFUSE_ENABLED=true
+export LANGFUSE_PUBLIC_KEY=pk-lf-...
+export LANGFUSE_SECRET_KEY=sk-lf-...
+export LANGFUSE_HOST=https://us.cloud.langfuse.com   # or self-hosted
+# optional:
+export LANGFUSE_SAMPLE_RATE=1.0                       # 0.0 disables; 1.0 traces all
+```
+
+Run any pipeline. Dashboard fills in. **No code changes, no plugin reconfiguration, no rebuild.**
+
+### 🧭 What you see in Langfuse
+
+Every pipeline run becomes a **trace tree** rooted at the run ID. Each subagent dispatch is a **span** with:
+
+- `name` — subagent type (`task-orchestrator`, `plan-architect`, `adversarial-batch`, ...)
+- `input` — sanitized prompt (paths normalized, secrets redacted)
+- `output` — return payload
+- `metadata.phase` — `0_triage` / `1.5_plan` / `2_execute` / `3_closure`
+- `metadata.agent_name` — duplicated for filter convenience
+- `metadata.pipeline_doc_path` — sanitized doc anchor for cross-correlation with `TRACE.md`
+- `metadata.plugin_version` — for cross-version trend analysis
+
+Sampling roll happens once at `Pre`; if it fails, `Post` is a silent no-op (no orphan spans, no half-closed traces). The single-span invariant is **pinned by hook unit tests**.
+
+### 🎯 Cursor IDE parity — lockstep manifests
+
+New `.cursor-plugin/plugin.json` first-class manifest mirrors `.claude-plugin/plugin.json` (name, version, description, author, license, keywords). **Version drift between the two is a regression test failure** (F1 invariant in `tests/regression/v7.1.0/`). One source of truth, two IDEs, zero divergence.
+
+### 📚 Skill governance SSOT
+
+New 400-line `references/skill-governance.md` codifying the patterns we learned reviewing the `langfuse/skills` repository:
+
+- **Versioning protocol** — every skill carries a `version:` field; bumps follow SemVer; lockstep across all manifests.
+- **Progressive disclosure** — `SKILL.md` ships only the entry-point; deeper context loads on demand to keep the model's working memory tight.
+- **External-pattern tracking** — when we adopt a pattern from an external repo, we log the source + date in the governance audit history so the lineage is auditable.
+- **Audit history** — bump table at the bottom records who/when/why.
+
+Cross-referenced from `CLAUDE.md` (new "Skill governance" section). **Required reading before bumping any skill version or refactoring skill content.**
+
+### Invariants preserved
+
+- 23-row Mandatory Gates by Complexity table — **untouched**.
+- 35-row Gate Registry — **untouched**.
+- 20-agent roster — **unchanged**.
+- 5 hardness classes — **unchanged**.
+- PolyForm Shield 1.0.0 license — **unchanged**.
+- Offline-first guarantee — **preserved** (absent credentials = no SDK calls).
+
+### Backward compatibility
+
+All changes additive. Pipelines that never set `LANGFUSE_PUBLIC_KEY` continue exactly as before — the hook detects missing credentials and short-circuits in the fast-path. Claude Code consumers ignore the Cursor manifest entirely. The skill-governance reference is pure documentation; no agent or hook reads it at runtime.
+
+Full release notes: [`CHANGELOG.md`](CHANGELOG.md#740).
+
+---
+
+## What's New in v7.2.0
+
+> **Phase 0 hardening.** Four patches landed across four ATDD/BDD/DDD-scaffolded batches with adversarial review per batch (**22 findings addressed: 3 CRITICAL fixed, 12 HIGH fixed, 5 MEDIUM fixed**). The pipeline that builds the pipeline grew teeth — three new gates and one new SessionStart hook that silently keep stale state from poisoning the next run.
+
+### Added
+
+- **`STATE_FILE_INIT_FAIL` (CIRCUIT_BREAKER, mandatory across complexity)** — hard precondition on the controller's initial `sentinel-state.json` write. Healthy init emits a PASS entry (preserves fidelity score); write failure or post-write verify failure (signature mismatch / truncated / empty) emits BLOCKED and aborts **before any Agent spawn**. No subagent ever fires over missing state. The signer stays IO-only; the controller translates raises into gates.
+- **`PROTOCOL_HANDSHAKE_TIMEOUT` (HARD)** — two-layer timeout detection for stale `GATE_REQUEST` / `DISPATCH_REQUEST` / `PLAN_MODE_REQUEST` blocks (Achado #7 silent-deadlock pattern). Primary layer is **out-of-band**: a SessionStart hook fires the gate independently of whether the controller is re-dispatched, closing the circularity where a broken parent never re-dispatches. Secondary layer is the controller's own re-entry check. Default 30min, env override `PIPELINE_HANDSHAKE_TIMEOUT_MS` with a 60000ms sanity floor.
+- **`cleanup-orphan-sentinel-state-hook`** — new SessionStart hook (`.claude/hooks/cleanup-orphan-sentinel-state-hook.cjs`) auto-archives `sentinel-state.json` files older than 24h via atomic rename to `sentinel-state.archived-<ts>.json`. Closes Achado B1-001 (manual workaround was `Edit pipeline_active: false`). Defensive design: sandbox-checked cwd (deny-list + `realpath`), depth-limited walk (`MAX_WALK_DEPTH=10`), symlink skip, mtime CAS race-defense.
+- **`--strict-spec` flag + `STRICT_SPEC_REJECTION` (AUDIT)** — rejects Signal 3 (prose regex) and Signal 4 (glob fallback) Spec detection in unattended / CI / headless mode where `AskUserQuestion` is unavailable. Preserves Signal 1 (explicit path) and Signal 2 (`--type=spec`). Prefix-line anti-injection invariant. Explicit precedence over conflicting `FORCE_VARIANT=spec-*` (STRICT_SPEC wins; conflict logged).
+
+### Gate registry deltas
+
+| Surface | v7.1.0 | v7.2.0 |
+|---|---|---|
+| Gate Registry rows | 32 | **35** (+STATE_FILE_INIT_FAIL, +PROTOCOL_HANDSHAKE_TIMEOUT, +STRICT_SPEC_REJECTION) |
+| Mandatory Gates by Complexity | 22 | **23** (+STATE_FILE_INIT_FAIL across SIMPLES/MEDIA/COMPLEXA) |
+| Inline Invariants HARD list | 16 | 17 |
+| Inline Invariants CIRCUIT_BREAKER list | 3 | 4 |
+
+### Backward compatibility
+
+All changes additive. Happy-path pipelines (no init failure, no stale handshakes, no ambiguous Spec signals) emit PASS entries and continue exactly as v7.1.0. Loose-mode Spec detection (Signal 3/4 with `AskUserQuestion`) remains the default; `--strict-spec` is opt-in for CI/unattended runs.
+
+Full release notes: [`CHANGELOG.md`](CHANGELOG.md#720).
 
 ---
 
@@ -350,12 +468,12 @@ Every phase transition crosses at least one gate. Each gate has a defined hardne
 | Hardness | Count | Behavior |
 |---|---|---|
 | **MANDATORY** | 3 | Never bypass. Cannot be skipped even with `--hotfix`. Failure halts the pipeline. |
-| **HARD** | 13 | Blocks until resolved. Pipeline stops at the gate. User answers or issue is fixed. No silent skips. |
-| **CIRCUIT_BREAKER** | 2 | After N consecutive failures (2-3 attempts), pipeline halts and requires explicit reset. Prevents infinite loops. |
+| **HARD** | 14 | Blocks until resolved. Pipeline stops at the gate. User answers or issue is fixed. No silent skips. |
+| **CIRCUIT_BREAKER** | 3 | After N consecutive failures (2-3 attempts), pipeline halts and requires explicit reset. Prevents infinite loops. |
 | **SOFT** | 9 | Recommended but skippable with explicit acknowledgment. Every skip is logged with a confidence penalty. |
-| **AUDIT** (v6.2+) | 5 | Informational telemetry. Never blocks, never asks. First-class audit-trail rows. |
+| **AUDIT** (v6.2+) | 6 | Informational telemetry. Never blocks, never asks. First-class audit-trail rows. |
 
-Full registry in [`references/gates.md`](references/gates.md). Audit-trail invariants in [`references/audit-trail.md`](references/audit-trail.md). The 22-row Mandatory Gates by Complexity sub-table is pinned by regression test `F1` — adding a 23rd row fails the build.
+Full registry in [`references/gates.md`](references/gates.md). Audit-trail invariants in [`references/audit-trail.md`](references/audit-trail.md). The 23-row Mandatory Gates by Complexity sub-table is pinned by regression test `F1` — adding a 24th row fails the build.
 
 ---
 
@@ -367,10 +485,11 @@ Full registry in [`references/gates.md`](references/gates.md). Audit-trail invar
 | **Controllers (N1)** | `pipeline-controller`, `brainstorm-controller`, `executor-controller` (`agents/core/`) |
 | **Subagents** | 20 production agents + 27 type-specific variants across `agents/core/`, `agents/quality/`, `agents/executor/` |
 | **Skills** | Variant entry-points: `bugfix-light`, `feature-heavy`, `spec-light`, `audit-heavy`, etc. (`skills/`) |
-| **Hooks** | `sentinel-hook`, `dispatch-guard`, `edit-guard-hook`, `force-pipeline-agents`, `session-lock-hook`, `session-cleanup-hook`, `completion-checklist`, `skill-frontmatter-parser`, `scope-lock-hook` (v6.3.0), **`stop-hook`** (new v7.1.0) — 10 hooks total (`.claude/hooks/`) |
+| **Hooks** | `sentinel-hook`, `dispatch-guard`, `edit-guard-hook`, `force-pipeline-agents`, `session-lock-hook`, `session-cleanup-hook`, `completion-checklist`, `skill-frontmatter-parser`, `scope-lock-hook` (v6.3.0), `stop-hook` (v7.1.0), `cleanup-orphan-sentinel-state-hook` (v7.2.0), **`langfuse-hook`** (new v7.4.0) — 12 hooks total (`.claude/hooks/`) |
 | **Security libs** (v6.0.0+) | `sentinel-state-signer`, `jsonl-sanitizer`, `pipeline-local-parser`, `codex-operational-runtime` (`lib/`) |
-| **References (SSOT)** | `gates.md`, `gate-request-protocol.md`, `audit-trail.md`, `confidence.md`, `complexity-matrix.md`, `implementation-discipline.md` (v6.3.0), `stale-thresholds.md`, `glossary.md` (`references/`) |
-| **Tests** | 38 test suites: 39 regression tests in `tests/regression/v6.0.0`, 19 in `v6.1.0`/`v6.2.0`, 8 in `v6.3.0` (F8-F15), 7 new in `v7.1.0` (F1-F7 telemetry hygiene), 8 hook test suites in `.claude/hooks/__tests__/` |
+| **Observability libs** (v7.4.0) | `langfuse-client.cjs`, `langfuse-carrier.cjs`, `langfuse-sanitizer.cjs` (`lib/`) — credential-gated SDK wrapper, atomic span-carrier, prompt sanitizer |
+| **References (SSOT)** | `gates.md`, `gate-request-protocol.md`, `audit-trail.md`, `confidence.md`, `complexity-matrix.md`, `implementation-discipline.md` (v6.3.0), `skill-governance.md` (v7.4.0), `stale-thresholds.md`, `glossary.md` (`references/`) |
+| **Tests** | 45 test suites: 39 regression tests in `tests/regression/v6.0.0`, 19 in `v6.1.0`/`v6.2.0`, 8 in `v6.3.0` (F8-F15), 7 in `v7.1.0` (F1-F7 telemetry hygiene), Phase 0 hardening contract tests in `v7.2.0`, F1/F7 lockstep + Cursor-parity invariants in `v7.4.0`, 8 hook test suites in `.claude/hooks/__tests__/` |
 | **Audit Reports** | `docs/audits/2026-05-15-ifrs16-deep-audit/` (10 files), `docs/audits/2026-05-18-clarification-overhaul-dogfood/` |
 
 ### Bonus: standalone HTML diagrams
@@ -402,6 +521,8 @@ If any of these sound like your week, you are the target user.
 - *"I want to ship fast on small tasks AND have full ceremony on payment systems."* → **Proportional rigor**: SIMPLES gets light, COMPLEXA gets full adversarial team. Auto-detected, no configuration.
 
 - *"My team accepts AI PRs but no one knows what was actually decided along the way."* → **Glass-box audit trail** records every gate, every decision, every adversarial finding, every fix loop.
+
+- *"I want to see across runs how often the adversarial reviewer blocks us, where time is spent, which agents are slow."* → **Langfuse Cloud tracing (v7.4.0)** streams every subagent dispatch as a structured span with `phase`, `agent_name`, `plugin_version` metadata. Native dashboards. Sampling configurable. Opt-in via two env vars. **No code changes required.**
 
 - *"I need Gherkin files my QA team can run in Cucumber, not handwritten tests."* → **BDD Gherkin emission per slice** ships `.feature` files at `.pipeline/artifacts/bdd/SLICE-NN.feature`. ATDD scenarios derive Given/When/Then from your acceptance criteria automatically.
 
@@ -436,15 +557,16 @@ v6.2.0 added a dogfood audit at [`docs/audits/2026-05-18-clarification-overhaul-
 
 ## Tests
 
-38 test suites total — all PASS:
+45 test suites total — all PASS:
 
 ```
 tests/regression/v6.0.0/         13 suites · Achado #7 protocol + libs + stale thresholds
 tests/regression/v6.1.0/          5 suites · ATDD + BDD + DDD + cross-cutting docs + F1 gates
 tests/regression/v6.2.0/          5 suites · Clarification overhaul + alternatives
 tests/regression/v6.3.0/          8 suites · F8-F15 implementation discipline layer
-tests/regression/v7.1.0/          7 suites · F1-F7 telemetry hygiene
-.claude/hooks/__tests__/          8 suites · sentinel + dispatch-guard + scope-lock + ...
+tests/regression/v7.1.0/          7 suites · F1-F7 telemetry hygiene + F1 Cursor-parity + F7 v7.4.0 lockstep
+tests/regression/v7.2.0/          3 suites · Phase 0 hardening contract tests
+.claude/hooks/__tests__/         12 suites · sentinel + dispatch-guard + scope-lock + cleanup-orphan + langfuse + ...
 ```
 
 Run the full suite:
@@ -453,7 +575,7 @@ Run the full suite:
 npm test
 ```
 
-Result: **31 passed / 0 failed / 31 total**. Zero regressions across versions.
+Result: **45 passed / 0 failed / 45 total**. Zero regressions across versions.
 
 ---
 
@@ -466,6 +588,9 @@ v6.2.0 (2026-05-18) — MINOR — Pre-execution clarification overhaul + alterna
 v6.3.0 (2026-05-19) — MINOR — Implementation Discipline Layer + 3-way adversarial review
 v7.0.0 (2026-05-19) — MAJOR — License update: PolyForm Shield 1.0.0 (code identical to v6.3.0)
 v7.1.0 (2026-05-19) — MINOR — Telemetry hygiene: canonical writer SSOT + Stop hook + fidelity-reporter widening
+v7.1.1 (2026-05-21) — PATCH — Pipeline-overview HTML diagram enrichment (docs only)
+v7.2.0 (2026-05-21) — MINOR — Phase 0 hardening: 3 new gates (STATE_FILE_INIT_FAIL, PROTOCOL_HANDSHAKE_TIMEOUT, STRICT_SPEC_REJECTION) + cleanup-orphan hook
+v7.4.0 (2026-05-21) — MINOR — Langfuse Cloud observability + skills-patterns adoption + Cursor IDE parity
 ```
 
 Full lineage in [`CLAUDE.md`](CLAUDE.md). Tagged releases on GitHub. Marketplace updates within minutes of tag.
@@ -555,7 +680,8 @@ To report a suspected attribution or trademark violation, open an [issue](https:
 ---
 
 <div align="center">
-  <p><strong>Pipeline Orchestrator v7.1.0</strong> · 2026-05-19</p>
+  <p><strong>Pipeline Orchestrator v7.4.0</strong> · 2026-05-21</p>
   <p>Built by <a href="https://github.com/fernandoxavier02">FX Studio AI</a> · <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator">Source on GitHub</a> · <a href="https://github.com/sponsors/fernandoxavier02">Sponsor</a></p>
-  <p><em>"AI follows a contract, not its mood."</em></p>
+  <p>Observability powered by <a href="https://langfuse.com"><img src="https://langfuse.com/langfuse_logo.svg" alt="Langfuse" height="16" style="vertical-align: middle;"/></a> · Available on <strong>Claude Code</strong> + <strong>Cursor</strong></p>
+  <p><em>"AI follows a contract, not its mood — and now you can watch it do so in real time."</em></p>
 </div>
