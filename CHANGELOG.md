@@ -5,6 +5,30 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.4.2] - 2026-05-22 — Langfuse SDK vendored (PATCH, bugfix)
+
+**Patch release — fixes the production-blocking `Cannot find module 'langfuse'` thrown by every marketplace-cache install of v7.4.0/v7.4.1.** The previous releases declared `langfuse` as a regular dependency but never shipped the SDK inside the marketplace tarball; cache clones from the GitHub source were left without `node_modules/langfuse/`, so the very first `require('langfuse')` from the Stop hook crashed and the Langfuse dashboard stayed empty.
+
+### Fixed
+
+- **Vendored Langfuse SDK into the git tree.** The three runtime packages — `langfuse@3.38.4`, `langfuse-core@3.38.20`, and `mustache@4.2.0` — are now committed under `node_modules/` and shipped with the package. `.gitignore` and `.npmignore` carry matching four-line negation blocks (`node_modules/*` + three `!node_modules/<pkg>/` lines) so the vendor subtrees are tracked while the rest of `node_modules/` stays ignored. `package.json` declares `bundledDependencies: ["langfuse", "langfuse-core", "mustache"]` and lists the three vendor paths in `files[]`, guaranteeing they land in the npm tarball and the marketplace cache.
+- **`marketplace.json` version sync.** Bumped from `7.4.0` to `7.4.2` and `source.ref` retargeted to `v7.4.2`, closing the pre-existing drift between marketplace (`7.4.0`) and `plugin.json`/`package.json` (`7.4.1`) caught during the v7.4.2 audit.
+
+### Added
+
+- **SessionStart observability warning.** `.claude/hooks/cleanup-orphan-sentinel-state-hook.cjs` gains a new `checkLangfuseSdkThrows(pluginRoot)` helper that scans `.pipeline/langfuse-errors.jsonl` for `error_type === "sdk_throw"` entries newer than 24 hours; when at least one is found, the hook emits a single visible stderr message naming the log path and creates a per-day marker (`.pipeline/langfuse-sdk-warned-<YYYY-MM-DD>.marker`) to suppress repeated warnings for the rest of the UTC day. Soft-fail by design: any I/O error in the helper is swallowed and the SessionStart archive logic is never blocked.
+- **Regression tests `tests/regression/v7.4.2/`** — `F1-langfuse-bundle-present.test.cjs` asserts the three vendored `package.json` files declare the exact pinned versions, that the langfuse entry point exists, that `package.json[dependencies][langfuse]` matches `node_modules/langfuse/package.json.version`, and that `bundledDependencies` lists exactly the three packages; `F2-require-resolves-without-global.test.cjs` spawns a child Node process from `os.tmpdir()` with `NODE_PATH` and `NPM_CONFIG_PREFIX` removed to prove that `require('langfuse')` resolves the vendored copy (version 3.38.4) without any global fallback.
+
+### Documented risk
+
+- **Vendored deps are NOT scanned by Dependabot.** Once these three packages live in `node_modules/` and are committed, GitHub's default dependency graph and Dependabot alerts stop covering them — they look like first-party source files. A future CVE on langfuse/langfuse-core/mustache requires a **manual bump-and-republish workflow**: update the vendored copies, re-pin in `package.json`, re-run `tests/regression/v7.4.2/F1`, retag, repackage, republish. Maintainers should add a quarterly reminder to diff `npm view langfuse version` against `node_modules/langfuse/package.json` until a CI gate (Dependabot vendor scan or scheduled action) is wired.
+
+### Backward compatibility
+
+All changes additive. No agent, skill, reference, command, or hook logic changes beyond the additive `checkLangfuseSdkThrows` helper. The 22-row Mandatory Gates by Complexity table and the 27-row Gate Registry are untouched. Existing installs auto-pick up the vendored SDK on the next `/plugin update`; manual installs from source continue to work without `npm install` since the vendor lives inside the cache.
+
+---
+
 ## [7.4.1] - 2026-05-22 — Langfuse flush fix (PATCH, bugfix only)
 
 **Patch release — critical bugfix on the v7.3.0/v7.4.0 Langfuse hook.** Without this fix, traces queued by the hook were never delivered to Langfuse Cloud because the Node process exited before the SDK's background flush worker could send the buffered events.

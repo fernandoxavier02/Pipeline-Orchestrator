@@ -5,7 +5,10 @@
 .kiro/
 pipeline-runs/
 .claude/worktrees/
-node_modules/
+node_modules/*
+!node_modules/langfuse/
+!node_modules/langfuse-core/
+!node_modules/mustache/
 
 # Tests are kept inside the package for `npm test` to work, but
 # heavy fixtures and runtime artifacts are excluded:

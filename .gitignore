@@ -1,4 +1,7 @@
-node_modules/
+node_modules/*
+!node_modules/langfuse/
+!node_modules/langfuse-core/
+!node_modules/mustache/
 .DS_Store
 *.local.md
 .specs/scratchpad/

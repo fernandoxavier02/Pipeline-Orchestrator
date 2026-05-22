@@ -296,6 +296,96 @@ function checkHandshakeTimeouts(stateFile, opts) {
   return emitted;
 }
 
+/**
+ * v7.4.2 — Langfuse SDK observability warning.
+ *
+ * Scans <pluginRoot>/.pipeline/langfuse-errors.jsonl for `error_type:"sdk_throw"`
+ * entries with timestamp younger than 24h. If at least one recent failure is
+ * present AND we have not already warned today (per-day marker file under
+ * .pipeline/), emit ONE stderr message naming the log path and create the
+ * marker. Soft-fail: every branch swallows errors — this helper must never
+ * throw and must never block the SessionStart hook chain.
+ *
+ * Why this lives here and not inside the Langfuse hook itself: the
+ * langfuse-hook.cjs only runs when the user has credentials configured AND
+ * the hook fires for a tool event. A user whose SDK keeps throwing has no
+ * other visible signal — the dashboard stays empty silently. SessionStart
+ * is the only universally-fired event, so this is where the user-facing
+ * nudge lives.
+ *
+ * v7.4.2 — closes the silent-fail gap exposed when `Cannot find module
+ * 'langfuse'` left every cache install with an empty dashboard for days.
+ */
+function checkLangfuseSdkThrows(pluginRoot) {
+  try {
+    if (typeof pluginRoot !== 'string' || pluginRoot.length === 0) return;
+    if (!path.isAbsolute(pluginRoot)) return;
+
+    const errorsLog = path.join(pluginRoot, '.pipeline', 'langfuse-errors.jsonl');
+    let stat;
+    try {
+      stat = fs.statSync(errorsLog);
+    } catch {
+      return; // file absent — nothing to warn about
+    }
+    if (!stat.isFile()) return;
+
+    let raw;
+    try {
+      raw = fs.readFileSync(errorsLog, 'utf8');
+    } catch {
+      return;
+    }
+
+    const cutoff = Date.now() - 24 * 60 * 60 * 1000;
+    let recentCount = 0;
+    const lines = raw.split(/\r?\n/);
+    for (const line of lines) {
+      if (!line) continue;
+      let entry;
+      try {
+        entry = JSON.parse(line);
+      } catch {
+        continue; // skip malformed line
+      }
+      if (!entry || typeof entry !== 'object') continue;
+      if (entry.error_type !== 'sdk_throw') continue;
+      const ts = entry.timestamp ? Date.parse(entry.timestamp) : NaN;
+      if (!Number.isFinite(ts)) continue;
+      if (ts >= cutoff) recentCount++;
+    }
+
+    if (recentCount === 0) return;
+
+    // Anti-spam: one warning per UTC day per plugin root.
+    const today = new Date().toISOString().slice(0, 10);
+    const markerPath = path.join(
+      pluginRoot,
+      '.pipeline',
+      `langfuse-sdk-warned-${today}.marker`
+    );
+    try {
+      if (fs.existsSync(markerPath)) return;
+    } catch {
+      // proceed — if existsSync throws (perms), prefer firing the warning
+      // once and swallowing the marker write below.
+    }
+
+    try {
+      fs.mkdirSync(path.dirname(markerPath), { recursive: true });
+      fs.writeFileSync(markerPath, new Date().toISOString(), 'utf8');
+    } catch {
+      // best-effort; absent marker just means we might warn again later today.
+    }
+
+    process.stderr.write(
+      `[Pipeline-Orchestrator] Langfuse observability reported ${recentCount} recent SDK failures in the last 24h. Check ${errorsLog} for details. (This warning appears once per day per plugin root.)\n`
+    );
+  } catch {
+    // Hard catch-all — observability must never block the SessionStart chain.
+  }
+}
+
 function handleSessionStart(payload) {
   const summary = {
     scanned: 0, archived: 0, live: 0,
@@ -366,6 +456,15 @@ function handleSessionStart(payload) {
     );
   }
 
+  // v7.4.2: Langfuse SDK observability nudge — guarded by its own try/catch
+  // so any failure here (filesystem, parser, marker write) can never affect
+  // the archive logic above or this hook's exit code.
+  try {
+    checkLangfuseSdkThrows(cwd);
+  } catch {
+    // swallow — observability must never block the SessionStart chain
+  }
+
   return summary;
 }
 
@@ -400,5 +499,6 @@ module.exports = {
   findStateFiles,
   cleanupOrphan,
   checkHandshakeTimeouts,
+  checkLangfuseSdkThrows,
   handleSessionStart,
 };
