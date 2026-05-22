@@ -21,3 +21,6 @@ pipeline-runs/
 
 # Backups locais do /tts-style (working state)
 .claude/backups/
+
+# Secrets — never commit
+.env

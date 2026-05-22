@@ -76,5 +76,8 @@
   },
   "publishConfig": {
     "access": "restricted"
+  },
+  "dependencies": {
+    "langfuse": "3.38.4"
   }
 }

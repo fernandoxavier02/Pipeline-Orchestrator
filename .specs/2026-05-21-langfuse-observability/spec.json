@@ -1,0 +1,62 @@
+{
+  "spec_id": "2026-05-21-langfuse-observability",
+  "feature_name": "Langfuse Cloud Observability for Pipeline-Orchestrator",
+  "created_at": "2026-05-21T00:00:00Z",
+  "owner": "fernandocostaxavier02@gmail.com",
+  "plugin_version_target": "7.3.0",
+  "type": "Feature",
+  "complexity": "COMPLEXA",
+  "pipeline_variant": "feature-heavy",
+  "scope_summary": "Add opt-in Langfuse Cloud tracing to pipeline hooks. PreToolUse:Agent opens spans on subagent spawn; PostToolUse:Agent closes them on return. Spans flushed at Stop hook. All payloads sanitized (truncate + path-redact + secret-redact) before egress. Default OFF; zero behavior change when disabled.",
+  "in_scope": [
+    "New dedicated hook .claude/hooks/langfuse-hook.cjs (Codex mirror in .codex/hooks/)",
+    "New lib/langfuse-sanitizer.cjs (3-layer sanitization)",
+    "New lib/langfuse-client.cjs (SDK singleton + opt-in guard)",
+    "Add langfuse npm dep to package.json",
+    "Register PostToolUse:Agent matcher in hooks/hooks.json",
+    "Extend hooks/hooks.json PreToolUse:Agent chain with langfuse-hook",
+    "Stop hook flush with 3s timeout",
+    "Env config: LANGFUSE_ENABLED, LANGFUSE_PUBLIC_KEY, LANGFUSE_SECRET_KEY, LANGFUSE_HOST, LANGFUSE_SAMPLE_RATE",
+    ".env.example documenting all keys",
+    "Local error log .pipeline/langfuse-errors.jsonl on SDK failure",
+    "Regression tests F8-F10 in tests/regression/v7.3.0/"
+  ],
+  "out_of_scope": [
+    "Real-time contract verifier extending sentinel-hook (separate future pipeline)",
+    "Self-hosted Langfuse Docker instructions",
+    "Cross-run aggregation dashboards beyond what Langfuse Cloud UI provides",
+    "Telemetry opt-in flow for marketplace end-users (this is maintainer-local)",
+    "Modifying sentinel-hook.cjs (kept untouched per D1)",
+    "OpenTelemetry exporter port"
+  ],
+  "acceptance_criteria_summary": [
+    "AC1: With LANGFUSE_ENABLED unset or false, no Langfuse SDK code path is invoked and no network egress occurs",
+    "AC2: With mock endpoint configured, every Agent spawn produces a well-formed span (traceId, spanId, parent linkage, duration > 0)",
+    "AC3: Sanitizer removes NPM_TOKEN and LANGFUSE_SECRET_KEY values from any span payload before egress",
+    "AC4: Hook overhead is sub-100ms when LANGFUSE_ENABLED=false",
+    "AC5: Langfuse SDK exceptions never propagate to pipeline (exit 0 always; logged to .pipeline/langfuse-errors.jsonl)"
+  ],
+  "domains_touched": [
+    "hooks (CRITICAL PATH)",
+    "lib (sanitization + SDK wrapper)",
+    "secret-handling (.env keys)",
+    "external-network (Langfuse Cloud HTTP egress)",
+    "test-suite (regression v7.3.0)",
+    "package.json (new dep)",
+    "codex-mirror (.codex/hooks/)"
+  ],
+  "design_decisions_locked": {
+    "D1": "Dedicated langfuse-hook.cjs (not extending sentinel-hook)",
+    "D2": "/tmp/langfuse-span-<PPID>.json trace carrier",
+    "D3": "Fire-and-forget per hook + langfuse.flush(timeout=3000) at Stop",
+    "D4": "try/catch + exit 0 + log to .pipeline/langfuse-errors.jsonl (sanitized)",
+    "D5": "lib/langfuse-sanitizer.cjs 3-layer: truncate 2000 + paths-to-relative + secrets regex/process.env scan",
+    "D6": "LANGFUSE_SAMPLE_RATE=1.0 default, env-configurable 0.0-1.0",
+    "D7": "PostToolUse:Agent matcher registered in hooks/hooks.json"
+  },
+  "linked_pipeline_doc": ".pipeline/docs/Pre-Heavy-action/2026-05-21-langfuse-cloud-observability/",
+  "prep_run_id": "phase-1.5a-inline",
+  "status": "ready",
+  "phase_completed": "spec-init",
+  "next_artifact": "requirements.md"
+}
