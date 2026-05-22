@@ -15,6 +15,10 @@ tests/compat/results.json
 # v5.1+ working state — per-run brainstorm + spec lifecycle artifacts (NEVER commit)
 pipeline-runs/
 
+# Per-session HTML artifacts from html-artifacts skill (working state, NEVER commit)
+.claude/artifacts/
+.codex/artifacts/
+
 # Local Claude Code worktrees managed by superpowers/git-worktrees skill
 .claude/worktrees/
 
