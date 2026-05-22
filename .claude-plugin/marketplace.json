@@ -69,7 +69,7 @@
     {
       "name": "tts-minimax",
       "description": "Text-to-speech offline em portugues do Brasil para Claude Code. Hook Stop sintetiza audio do output do agente via Kokoro local (neural, voz feminina pf_dora) com pre-processamento que strippa codigo, paths e markdown antes de virar fala. Sem API key, sem limite, sem internet apos setup inicial. Windows 11 + PowerShell 7. Changelog completo em CHANGELOG.md no repo.",
-      "version": "4.2.3",
+      "version": "4.2.4",
       "author": {
         "name": "FX Studio AI",
         "url": "https://github.com/fernandoxavier02/tts-minimax"
@@ -77,7 +77,7 @@
       "source": {
         "source": "url",
         "url": "https://github.com/fernandoxavier02/tts-minimax.git",
-        "ref": "v4.2.3"
+        "ref": "v4.2.4"
       },
       "category": "productivity"
     }
