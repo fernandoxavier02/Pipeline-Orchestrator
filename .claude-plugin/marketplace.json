@@ -18,7 +18,7 @@
       "source": {
         "source": "url",
         "url": "https://github.com/fernandoxavier02/Pipeline-Orchestrator.git",
-        "ref": "v7.4.0"
+        "ref": "v7.4.1"
       },
       "category": "development"
     },

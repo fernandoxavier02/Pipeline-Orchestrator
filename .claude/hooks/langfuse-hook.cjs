@@ -347,8 +347,16 @@ function handlePost(payload, client, sanitize) {
 
 // ---------------------------------------------------------------------------
 // main — entry point. Wraps everything in try/catch + finally exit 0.
+//
+// CRITICAL (v7.4.1 fix): main() is now async because the Langfuse SDK
+// buffers events in memory and only ships them to the server on
+// flushAsync()/shutdownAsync(). Without an explicit flush, the hook
+// would queue the event and then process.exit(0) before the SDK's
+// background worker fired — every event lost. The finally block now
+// awaits a bounded shutdownAsync() (timeout 2s) before exiting.
 // ---------------------------------------------------------------------------
-function main() {
+async function main() {
+  let clientRef = null;
   try {
     // Fast-path: check enable gate BEFORE any heavy work. The disabled
     // path must exit 0 in <100ms (NFR-4) — defers reading stdin until
@@ -374,6 +382,7 @@ function main() {
 
     const client = getClient();
     if (!client) return;
+    clientRef = client;
 
     const { sanitizeSpanPayload } = require(path.join(PLUGIN_ROOT, 'lib', 'langfuse-sanitizer.cjs'));
 
@@ -392,6 +401,37 @@ function main() {
       try { process.stderr.write(`langfuse-hook: ${err && err.message}\n`); } catch (_e2) { /* ignore */ }
     }
   } finally {
+    // Bounded flush before exit: the Langfuse SDK buffers events; without
+    // this, every queued span/trace.update would be lost when process.exit
+    // fires. Timeout 2s — fires the flush_timeout diagnostic if exceeded
+    // but never blocks the hook chain indefinitely.
+    if (clientRef) {
+      const FLUSH_TIMEOUT_MS = 2000;
+      const flushFn = (typeof clientRef.shutdownAsync === 'function')
+        ? () => clientRef.shutdownAsync()
+        : (typeof clientRef.flushAsync === 'function')
+          ? () => clientRef.flushAsync()
+          : null;
+      if (flushFn) {
+        try {
+          await Promise.race([
+            flushFn(),
+            new Promise((_, reject) =>
+              setTimeout(() => reject(new Error('flush_timeout')), FLUSH_TIMEOUT_MS)
+            ),
+          ]);
+        } catch (err) {
+          try {
+            const { logError } = require(path.join(PLUGIN_ROOT, 'lib', 'langfuse-client.cjs'));
+            logError(
+              'flush_timeout',
+              `flush failed: ${err && err.message}`,
+              { hook_name: 'langfuse-hook' }
+            );
+          } catch (_e) { /* swallow */ }
+        }
+      }
+    }
     process.exit(0);
   }
 }

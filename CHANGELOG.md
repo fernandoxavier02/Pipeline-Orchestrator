@@ -5,6 +5,31 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.4.1] - 2026-05-22 — Langfuse flush fix (PATCH, bugfix only)
+
+**Patch release — critical bugfix on the v7.3.0/v7.4.0 Langfuse hook.** Without this fix, traces queued by the hook were never delivered to Langfuse Cloud because the Node process exited before the SDK's background flush worker could send the buffered events.
+
+### Fixed
+
+- **`.claude/hooks/langfuse-hook.cjs` + `.codex/hooks/langfuse-hook.cjs` (mirrored)** — `main()` is now `async` and the `finally` block awaits a bounded `shutdownAsync()` (or `flushAsync()` fallback) with a 2-second timeout. Previously the hook called `client.trace().span()` (synchronous enqueue) and then `process.exit(0)` immediately, killing the buffered events before the SDK's HTTP worker fired. **Result: every queued event was lost.** Now the buffered events are flushed before exit; `flush_timeout` diagnostics fire to `.pipeline/langfuse-errors.jsonl` on timeout but never block the hook chain.
+- **Iron Law preserved** — `.codex/hooks/langfuse-hook.cjs` re-mirrored byte-identical to `.claude/hooks/langfuse-hook.cjs`.
+
+### Why this was missed in v7.3.0/v7.4.0
+
+The v7.3.0 spec documented `flush_timeout` as a known error type but the hook never actually called any flush method. The contract documented behavior; the implementation skipped it. The smoke tests in v7.3.0 exercised the carrier-file lifecycle and `process.exit(0)` exit code, but never asserted that events landed on the server — the test stopped at the SDK queue boundary. Fixed retroactively under v7.4.1 + a manual end-to-end smoke test against `https://us.cloud.langfuse.com`.
+
+### Verified
+
+- Manual hook invocation (Pre+Post in same parent shell) → `flush_timeout` not raised, traces visible in dashboard within seconds.
+- Disabled fast-path (no credentials) still exits in <100ms (NFR-4 preserved — no SDK init when env vars absent).
+- 45/45 regression suites remain GREEN.
+
+### Backward compatibility
+
+All changes additive. Pipelines that never set `LANGFUSE_PUBLIC_KEY` continue the disabled fast-path (no SDK init, no flush attempt, exits in <100ms). For installs that already had v7.4.0 with credentials configured, this is a hot-fix — bump the install via `/plugin update pipeline-orchestrator@FX-studio-AI` and any subsequent pipeline run will start landing on Langfuse.
+
+---
+
 ## [7.4.0] - 2026-05-21 — Langfuse observability + skills-patterns adoption (MINOR)
 
 **Minor release — additive doc/metadata + observability opt-in. No behavioral changes to gates, agents, or hooks. Backward compatibility preserved.** Bundles two independently-merged work streams under a single bump because v7.3.0 (Langfuse observability) was committed (`8a18dd1`) but never bumped in `plugin.json` / `package.json` / `marketplace.json` — this release closes that lockstep gap and ships the skills-patterns adoption together.
