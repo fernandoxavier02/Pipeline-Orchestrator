@@ -5,6 +5,41 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.6.0] - 2026-05-22 — Paperclip Integration Layer + User Score Collection (MINOR)
+
+**Two-feature release** combining the previously-shipped User Score Collection foundation with the new Paperclip integration layer.
+
+### Added — Paperclip Integration Layer (NEW in 7.6.0)
+
+References under `references/paperclip/` enable the plugin to run inside [Paperclip](https://paperclip.ing) (open-source agent orchestration platform) via the `claude_local` adapter with effective parity to Claude Code standalone. End-to-end validation: `PARITY_VERDICT=PASS_WITH_NOTES` (pilot report `references/paperclip/pilot-information-gate.md`).
+
+- **`references/paperclip/PAPERCLIP-AXIOMS.md`** — contrato inquebravel + 4 axiomas (ambiguidade → canonico, adversarial → sempre, TDD/ATDD/BDD/DDD → mandatorios, closeout → auto) + hierarquia de fontes de decisao (workflow → projeto → engineering-principles → escalation) + canal de comunicacao (comments + status + Approver, NUNCA AskUserQuestion).
+- **6 workflow specs prompt-native** (`PAPERCLIP-{BUGFIX,FEATURE,AUDIT,UX,SPEC,ADVERSARIAL}-WORKFLOW.md`) — cada um especifica ordem rigorosa de cargos, decisoes pre-aprovadas por gate, criterios binarios de aceitacao, anti-padroes proibidos.
+- **`references/paperclip/skills/`** — 11 skills custom em formato Paperclip oficial (YAML frontmatter + corpo MD): `engineering-principles` (canonica universal — SOLID/KISS/DRY/YAGNI/SSOT/Clean Architecture) + 10 wrappers `pipeline-orchestrator-{contracts,iron-laws,classification,tdd,spec-protocol,adversarial,bugfix-method,vsa,ux-method,audit-method}`.
+- **`references/paperclip/paperclip-kb.md`** — KB operacional Paperclip (modelo conceitual, heartbeat 9 steps, skills system, PARA memory, identity files AGENTS.md/HEARTBEAT.md/SOUL.md/TOOLS.md, adapter config `codex_local` + `claude_local` com todos os campos, API endpoints essenciais, CLI commands, scoped wake, permissoes).
+- **`references/paperclip/paperclip-catalog.md`** — 46 agentes do plugin mapeados com 8 campos cada (name, category, description, when_to_use, tools, role_one_line, emits_protocol, paperclip_role_suggestion).
+- **`references/paperclip/paperclip-adaptation-spec.md`** — traducao do Achado #7 protocol (GATE_REQUEST/DISPATCH_REQUEST/AskUserQuestion modal) para o modelo Paperclip+Codex (comments + status + Approver assincrono).
+- **`references/paperclip/ZONING.md`** — regra de separacao entre 4 zonas (repo canonical D: / workspace local `.pipeline/` / Paperclip install `~/.paperclip/` / agent state files), source-of-truth, sync commands, anti-padroes, auditoria de drift.
+- **`references/paperclip/PLAN-46-AGENTS-UPDATE.md`** — procedimento de migracao em 11 fases / 7 batches por categoria, loop adversarial integrado (trio paralelo zero-context apos cada batch), rollback plan via snapshot pre-flight, definicao de done com 8 criterios binarios.
+- **`references/paperclip/pilot-information-gate.md`** — relatorio de validacao end-to-end PARITY_VERDICT=PASS_WITH_NOTES. information-gate rodando no Paperclip via claude_local + sonnet 4.6 (fallback de opus 4.7) leu agent.md original do plugin, confirmou GATE_REQUEST v1 schema (linhas 32-48), listou 22 SKILL.md detectadas, leu 4 references auxiliares (gates.md, complexity-matrix.md, audit-trail.md, gate-request-protocol.md), e emitiu YAML PARITY_VERDICT estruturado.
+- **`references/paperclip/install-junctions.bat`** — script Windows que cria 11 junctions em `~/.paperclip/instances/default/skills/` apontando para o canonical em `references/paperclip/skills/` (zero arquivos fisicos em C: alem do necessario Paperclip).
+- **`commands/setup-paperclip.md`** — novo slash command `/pipeline-orchestrator:setup-paperclip` que orquestra deteccao + install + configuracao end-to-end em 6 passos (pre-requisitos, install Paperclip via npx, junctions de skills, criar empresas + cargos via API, piloto de paridade, validacao cross-empresa).
+- **`docs/PAPERCLIP-INTEGRATION.md`** — doc de visao geral (por que integrar, arquitetura, setup rapido, estrutura canonical, modos `claude_local` vs `codex_local`, gaps conhecidos, quando usar standalone vs Paperclip).
+
+### Iron Law respected
+
+ZERO mudancas em `agents/`, `skills/` existentes (a nova `setup-paperclip` em `commands/` eh additive), `references/` originais (paperclip/ eh subdir adicional sob references/), ou `lib/`. 23-row Mandatory Gates by Complexity table e 35-row Gate Registry untouched. Backward compat 100%.
+
+### Known gaps (P1, non-blocking)
+
+| Gap | Symptom | Workaround |
+|---|---|---|
+| Opus 4.7 1M not recognized by Paperclip adapter | Automatic fallback to sonnet 4.6 | Acceptable — agent.md frontmatter already specifies sonnet |
+| `SessionStart:resume` hook fails in Paperclip subprocess (no conversation context) | 8s warning, doesn't block agent | Convert SessionStart prompt-type hooks to command-type, or ignore |
+| `.claude/hooks/*.cjs` don't execute in Paperclip claude_local mode | Sentinel/dispatch-guard validation skipped | Paperclip orchestrates heartbeat lifecycle natively |
+
+---
+
 ## [Unreleased] — 7.6.0 candidate — User Score Collection (MINOR)
 
 Adds a 4-axis user-grade collection step at the end of every pipeline run, attached to the Langfuse trace via SDK `client.score()`. Foundation for the future LLM-as-judge phase: each run becomes a labeled dataset point where a human grade sits next to the trace it grades. **Opt-in:** silent no-op when `LANGFUSE_ENABLED` is not `"true"`/`"1"`, so disabled users see zero behavior change.
