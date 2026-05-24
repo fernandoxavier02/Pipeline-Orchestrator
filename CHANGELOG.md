@@ -5,6 +5,40 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.6.1] - 2026-05-24 — Release Hygiene Closure (PATCH)
+
+**Doc drift closure** detectado durante a publicação npm da v7.6.0. ZERO mudanças de runtime — apenas três correções que restauram a invariante de cinco-arquivos-em-lockstep.
+
+### Fixed
+
+- `CLAUDE.md` Source-of-Truth Layer Map: linha canônica de versão atualizada de `7.5.0` → `7.6.1` com descrição atualizada da release. Estava defasada desde v7.6.0 shipped 2026-05-22.
+- `.cursor-plugin/plugin.json`: description re-sincronizada com `.claude-plugin/plugin.json` description. Estava defasada em duas minors (parou no v7.4.1).
+- `tests/regression/v7.1.0/F7_version_sync.cjs`: constante `VERSION` bumpada `7.6.0` → `7.6.1`; `PREV_VERSION` bumpada `7.5.0` → `7.6.0`. Estava forçando o test a verificar versões antigas dos cinco arquivos.
+
+### Added
+
+- Nova entrada na tabela de versões em `CLAUDE.md`: `v2.8` documentando este bump.
+
+### Test suite impact
+
+- Antes: 55/3 (3 falhas: F1 cursor parity, F7 version sync, F2 langfuse vendoring)
+- Depois: 58/1 (única falha remanescente é F2 langfuse vendoring, pre-existente desde v7.4.2 baseline, conhecida e aceita)
+
+### Iron Law
+
+Preservada 100%. ZERO mudanças em `agents/`, `skills/`, `references/`, `commands/`, `hooks/`, `lib/`. 23-row Mandatory Gates table e 35-row Registry untouched.
+
+### Release coordination
+
+- Marketplace.json bumpado pra `version: 7.6.1` + `source.ref: v7.6.1` neste mesmo commit
+- NPM publish da v7.6.1 acontece na mesma janela
+- GitHub Release v7.6.1 criado no mesmo commit
+- Cache local em `C:\.claude\plugins\cache\FX-studio-AI\pipeline-orchestrator\7.6.1\` populado via marketplace reload nesta mesma sessão
+
+### Note on parallel work
+
+Nesta mesma sessão (2026-05-24), foi draftada uma spec independente para um novo projeto Paperclip-nativo chamado `pipeline-orchestrator-paperclip` (PIP). Esse projeto vive em pasta totalmente separada (`D:/Pipeline Orchestrator Claude/paperclip-native-spec/`), não compartilha código com este plugin, não modifica este plugin de forma alguma, e NÃO faz parte deste release nem deste produto. O plugin Claude Code original (este) permanece intocado e independente conforme regra de ouro estabelecida.
+
 ## [7.6.0] - 2026-05-22 — Paperclip Integration Layer + User Score Collection (MINOR)
 
 **Two-feature release** combining the previously-shipped User Score Collection foundation with the new Paperclip integration layer.

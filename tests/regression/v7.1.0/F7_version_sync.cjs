@@ -2,13 +2,15 @@
 'use strict';
 
 /**
- * F7 — version 7.5.0 declared consistently across plugin.json, package.json,
- * marketplace.json, CLAUDE.md canonical line, and CHANGELOG [7.5.0] header.
+ * F7 — version 7.6.1 declared consistently across plugin.json, package.json,
+ * marketplace.json, CLAUDE.md canonical line, and CHANGELOG [7.6.1] header.
  *
- * v7.5.0 (2026-05-22) — concurrent-safe tracing (MINOR). Test rolled forward
- * from prior releases. The same five-file invariant applies: every release
- * MUST bump these surfaces in lockstep, or downstream consumers (marketplace,
- * NPM, vendored installs) will see version drift.
+ * v7.6.1 (2026-05-24) — release hygiene PATCH (CLAUDE.md + cursor manifest +
+ * F7 drift fixes). Rolled forward from v7.6.0 (Paperclip integration layer)
+ * (MINOR). Test rolled forward from prior releases. The same five-file
+ * invariant applies: every release MUST bump these surfaces in lockstep, or
+ * downstream consumers (marketplace, NPM, vendored installs) will see version
+ * drift.
  */
 
 const fs = require('node:fs');
@@ -16,8 +18,8 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 
 const ROOT = path.resolve(__dirname, '../../..');
-const VERSION = '7.5.0';
-const PREV_VERSION = '7.4.2';
+const VERSION = '7.6.1';
+const PREV_VERSION = '7.6.0';
 
 let pass = 0, fail = 0;
 function test(name, fn) {
