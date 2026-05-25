@@ -5,6 +5,28 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.7.0] - 2026-05-25 — OpenCode Adaptation Marketplace Release (MINOR)
+
+### Added
+
+- Added `opencode-adaptation/` to the marketplace release so OpenCode users can install the adaptation harness, commands, agents, skills, contract tests, and specs from the same tagged repository source.
+- Added OpenCode commands for audit, UX, and SPEC light/heavy flows, matching the hardened workflow coverage already validated by the adaptation test suite.
+
+### Changed
+
+- Hardened OpenCode workflow contracts for feature, audit, UX, SPEC, final validation, and closeout so they require physical evidence artifacts instead of boolean-only proof.
+- Included the OpenCode adaptation in package release files for distribution parity.
+
+### Test suite impact
+
+- OpenCode adaptation suite: `54 passed / 0 failed / 54 total`.
+- Canonical version-sync regression rolled forward to `7.7.0`.
+
+### Release coordination
+
+- Marketplace.json bumped to `version: 7.7.0` and `source.ref: v7.7.0`.
+- Global OpenCode config on this machine updated with audit/UX/SPEC light and heavy commands.
+
 ## [7.6.1] - 2026-05-24 — Release Hygiene Closure (PATCH)
 
 **Doc drift closure** detectado durante a publicação npm da v7.6.0. ZERO mudanças de runtime — apenas três correções que restauram a invariante de cinco-arquivos-em-lockstep.

@@ -1,0 +1,20 @@
+
+'use strict';
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { startRun } = require('../../src/state/run-store.cjs');
+const { readModeQualityJsonl } = require('../../src/opencode/mode-quality.cjs');
+const { validateEvidenceSequence } = require('../../src/validators/contract-validator.cjs');
+function runCase(name) { const stateRoot = fs.mkdtempSync(path.join(process.cwd(), 'tmp', `po-open-code-${name}-`)); const run = startRun({ stateRoot, prompt: `${name} fixture`, batchId: `batch-${name}`, sliceId: `slice-${name}`, observableOutcome: `${name} outcome`, allowedSurfaces: ['../opencode-adaptation/src/**', '../opencode-adaptation/tests/**', '../opencode-adaptation/tmp/**'] }); return { stateRoot, runId: run.runId }; }
+function writeArtifact(run, name, content) { const file = path.join(run.stateRoot, 'runs', run.runId, name); fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, content); return file; }
+function ev(run, name, content, summary) { return { command: `node ${name}.cjs token=secret-value`, artifactRef: writeArtifact(run, `${name}.log`, content), summary }; }
+function assertEvidence(run) { const evidence = readModeQualityJsonl(path.join(run.stateRoot, 'runs', run.runId, 'evidence.jsonl')); assert.equal(evidence.length >= 6, true); assert.equal(validateEvidenceSequence(evidence).ok, true); assert.equal(evidence.every((record) => fs.existsSync(path.join(run.stateRoot, record.artifactRef))), true); assert.equal(evidence.some((record) => record.commandOrPromptRef.includes('secret-value')), false); assert.equal(evidence.some((record) => record.commandOrPromptRef.includes('REDACTED')), true); assert.equal(evidence.some((record) => fs.readFileSync(path.join(run.stateRoot, record.artifactRef), 'utf8').includes('Generated evidence placeholder')), false); }
+
+const { runParityCloseout } = require('../../src/opencode/mode-quality.cjs');
+function validInput(run) { return { closeoutViaUi: ev(run,'closeout-ui','UI decision','Closeout UI decision.'), finalAdversarial: ev(run,'final-adversarial','PASS final review','Final review passed.'), reportArtifact: { ...ev(run,'parity-report','phase hook gate file agent skill mode evidence','Parity report complete.'), sections: ['phase','hook','gate','file','agent','skill','mode','evidence'] }, reportSections: ['phase','hook','gate','file','agent','skill','mode','evidence'], missingGate: false }; }
+{ const run = runCase('sprint18-boolean-ui'); const input = validInput(run); input.closeoutViaUi = true; const blocked = runParityCloseout({ stateRoot: run.stateRoot, runId: run.runId, sprint: '18', input }); assert.equal(blocked.ok, false); assert.equal(blocked.blockedGate, 'CLOSEOUT_CONFIRM'); }
+{ const run = runCase('sprint18-list-only-report'); const input = validInput(run); delete input.reportArtifact; const blocked = runParityCloseout({ stateRoot: run.stateRoot, runId: run.runId, sprint: '18', input }); assert.equal(blocked.ok, false); assert.equal(blocked.blockedGate, 'CLOSEOUT_REPORT_COMPLETE'); }
+{ const run = runCase('sprint18-missing-section'); const input = validInput(run); input.reportSections = ['phase','hook','gate']; const blocked = runParityCloseout({ stateRoot: run.stateRoot, runId: run.runId, sprint: '18', input }); assert.equal(blocked.ok, false); assert.equal(blocked.blockedGate, 'CLOSEOUT_REPORT_COMPLETE'); }
+{ const run = runCase('sprint18'); const result = runParityCloseout({ stateRoot: run.stateRoot, runId: run.runId, sprint: '18', input: validInput(run) }); assert.equal(result.ok, true); assert.equal(result.reportComplete, true); const decisions = readModeQualityJsonl(path.join(run.stateRoot, 'runs', run.runId, 'gate-decisions.jsonl')); assert.equal(decisions.some((decision) => decision.gate === 'CLOSEOUT_REPORT_COMPLETE' && decision.hardness === 'HARD'), true); assert.equal(decisions.some((decision) => decision.gate === 'FINAL_ADVERSARIAL_REWORK' && decision.hardness === 'HARD'), true); assertEvidence(run); }
+console.log('closeout parity sprint18 OK');
