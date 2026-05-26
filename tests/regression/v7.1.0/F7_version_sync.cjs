@@ -2,10 +2,10 @@
 'use strict';
 
 /**
- * F7 — version 7.7.0 declared consistently across plugin.json, package.json,
- * marketplace.json, CLAUDE.md canonical line, and CHANGELOG [7.7.0] header.
+ * F7 — version 7.8.0 declared consistently across plugin.json, package.json,
+ * marketplace.json, CLAUDE.md canonical line, and CHANGELOG [7.8.0] header.
  *
- * v7.7.0 (2026-05-25) — OpenCode adaptation marketplace release (MINOR).
+ * v7.8.0 (2026-05-26) — Paperclip company provisioner (MINOR).
  * Test rolled forward from prior releases. The same five-file
  * invariant applies: every release MUST bump these surfaces in lockstep, or
  * downstream consumers (marketplace, NPM, vendored installs) will see version
@@ -17,8 +17,8 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 
 const ROOT = path.resolve(__dirname, '../../..');
-const VERSION = '7.7.0';
-const PREV_VERSION = '7.6.1';
+const VERSION = '7.8.0';
+const PREV_VERSION = '7.7.0';
 
 let pass = 0, fail = 0;
 function test(name, fn) {

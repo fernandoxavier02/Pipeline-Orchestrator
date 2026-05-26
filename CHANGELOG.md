@@ -5,6 +5,20 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.8.0] - 2026-05-26 — Paperclip Company Provisioner (MINOR)
+
+### Added
+
+- Added `references/paperclip/scripts/provision-pipeline-company.cjs`: an ID-agnostic Node provisioner that stands up a Paperclip company with the full 47-cargo pipeline-orchestrator roster and the 11 custom skills, then attaches the right skills per cargo by category. Agents are created with heartbeat OFF — inert until an issue is assigned, so provisioning never triggers autonomous execution.
+- The provisioner resolves the target company by name (creating it if absent), captures agent IDs at runtime for org-chart wiring (all cargos report to `pipeline-controller`), and computes all plugin/skill/workflow-spec paths from `__dirname` — no hardcoded UUIDs or machine-specific paths, so it runs against any Paperclip instance.
+- Wired the provisioner into the `/pipeline-orchestrator:setup-paperclip` command as the programmatic provisioning step (previously prose/manual-only).
+
+### Notes
+
+- Skill→category and workflow-spec→category mappings follow `references/paperclip/PLAN-46-AGENTS-UPDATE.md` §2/§3. No agent receives `canCreateAgents` (cargos coordinate via issues, never by hiring each other).
+- Iron Law respected: additive script + command-doc edit only; ZERO changes to existing `agents/`, `skills/`, `references/` originals, or `lib/`. Gate registry and mandatory-gates table untouched.
+- Canonical version-sync regression (F7) rolled forward to `7.8.0`.
+
 ## [7.7.0] - 2026-05-25 — OpenCode Adaptation Marketplace Release (MINOR)
 
 ### Added

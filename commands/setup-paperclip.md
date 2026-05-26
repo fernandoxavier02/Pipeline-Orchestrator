@@ -67,6 +67,11 @@ done
 A criacao pode ser:
 - **Manual via painel:** navegar http://127.0.0.1:3100 → workspace switcher → Add company. Repetir pra cada empresa. Daí usar o CEO (Claude/Codex agent) pra contratar os 46 restantes via skill `paperclip-create-agent`.
 - **Automatica via Playwright** (se disponivel no ambiente): este command pode automatizar.
+- **Programatica (recomendada, sem UI):** rodar o provisionador onde a API Paperclip esta acessivel (ex: na propria VPS):
+  ```bash
+  node "${CLAUDE_PLUGIN_ROOT}/references/paperclip/scripts/provision-pipeline-company.cjs" "Pipeline Orchestrator"
+  ```
+  Cria a empresa (se nao existir), instala as 11 skills custom (a partir de `references/paperclip/skills/`), contrata os 47 cargos e anexa as skills por categoria. Batimento DESLIGADO (inerte ate atribuir uma issue ao cargo). ID-agnostic: resolve a empresa por nome e calcula todos os paths via `__dirname` (sem UUIDs fixos). Env overrides: `PAPERCLIP_API_URL`, `PAPERCLIP_COMPANY`, `PAPERCLIP_ADAPTER`, `PAPERCLIP_MODEL`, `PAPERCLIP_CWD`. Requer Node 18+ (global fetch).
 
 **Briefing pro CEO criar 46 cargos:**
 
