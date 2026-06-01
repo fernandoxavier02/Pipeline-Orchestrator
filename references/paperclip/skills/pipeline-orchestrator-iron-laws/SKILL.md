@@ -1,6 +1,6 @@
 ---
 name: pipeline-orchestrator-iron-laws
-description: Iron Laws inalteradas do pipeline-orchestrator original (TDD obrigatorio, ask-first em ambiguidade, self-review, stop rule, evidence-based decisions). Carregada por todos os 46 cargos.
+description: Iron Laws inalteradas do pipeline-orchestrator original (TDD obrigatorio, ask-first em ambiguidade, self-review, stop rule, evidence-based decisions). Carregada por todos os 47 cargos.
 when_to_use: Sempre. Aplicam a qualquer trabalho real (escrever codigo, validar entrega, decidir caminho). Sao as 7 leis que nao mudam entre Claude Code e Paperclip.
 ---
 
@@ -39,7 +39,7 @@ Voce mesmo: antes de POST do commit, busque por "test_X" novo ou modificado no d
 **O que NAO eh ambiguidade:**
 - Decisao puramente tecnica sem efeito observavel (ex: escolher entre dict vs list internamente). Use bom senso.
 
-**Acao:** Carregar skill `pipeline-orchestrator-contracts`, usar `### GATE_REQUEST v1` no comment, status=blocked + Board approver, exit.
+**Acao:** Carregar skill `pipeline-orchestrator-contracts`, usar `### GATE_REQUEST v1` no comment, abrir approval request (`request_board_approval`) + status=blocked, exit.
 
 ## Iron Law 3 — Self-review antes de marcar done
 
@@ -65,7 +65,7 @@ Se alguma resposta for "nao", voltar e corrigir antes de done.
    - Hipotese atual do porque
    - Sugestao de proximo caminho (mudar abordagem, escalar, pedir Board)
 2. Status=blocked
-3. Adicionar Board como approver
+3. Abrir approval request (`request_board_approval`) linkando esta issue
 4. Exit heartbeat
 
 **Por que:** loops infinitos consomem orcamento e degradam qualidade. Stop Rule eh circuit breaker.

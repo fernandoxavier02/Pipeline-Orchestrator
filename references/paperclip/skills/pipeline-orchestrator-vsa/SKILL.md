@@ -87,7 +87,7 @@ Para cada sub-issue de slice:
 2. RED: escrever 1 teste E2E (BDD-style) que captura o slice
 3. GREEN: implementar o minimo nas N camadas pra fazer passar
 4. REFACTOR: limpar duplicacao dentro do slice
-5. Status=ready_for_review → review-orchestrator pega
+5. Status=in_review → review-orchestrator pega
 
 ### 3.1 Constraint critico
 

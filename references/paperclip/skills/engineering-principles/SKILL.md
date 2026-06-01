@@ -1,12 +1,12 @@
 ---
 name: engineering-principles
-description: Principios canonicos de engenharia (SOLID, KISS, DRY, YAGNI, SSOT, Clean Architecture, fail-fast, defensive-at-boundaries). Fonte de regra default quando uma decisao tecnica nao esta coberta pela spec do workflow. Carregada por TODOS os 46 cargos como ultima linha de defesa antes de escalar ambiguidade.
+description: Principios canonicos de engenharia (SOLID, KISS, DRY, YAGNI, SSOT, Clean Architecture, fail-fast, defensive-at-boundaries). Fonte de regra default quando uma decisao tecnica nao esta coberta pela spec do workflow. Carregada por TODOS os 47 cargos como ultima linha de defesa antes de escalar ambiguidade.
 when_to_use: Quando voce esta executando uma tarefa e encontra uma decisao tecnica NAO COBERTA pela spec do workflow ativo (PAPERCLIP-{BUGFIX,FEATURE,AUDIT,UX,SPEC,ADVERSARIAL}-WORKFLOW.md). Consulte ESTA skill ANTES de criar approval issue. Se nem aqui ha resposta, ESCALE — nao improvise.
 ---
 
 # engineering-principles
 
-Skill **canonica e universal**. Carregada por todos os 46 cargos. Contem os principios que ditam decisoes tecnicas quando a spec especifica do workflow nao cobre o caso.
+Skill **canonica e universal**. Carregada por todos os 47 cargos. Contem os principios que ditam decisoes tecnicas quando a spec especifica do workflow nao cobre o caso.
 
 ## 1. Regra de uso (LEIA ANTES)
 

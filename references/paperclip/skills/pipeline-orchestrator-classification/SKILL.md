@@ -6,7 +6,7 @@ when_to_use: Inicio de qualquer issue nova. Cargo task-orchestrator usa pra emit
 
 # pipeline-orchestrator-classification
 
-Classificacao em duas dimensoes: **tipo da tarefa** + **complexidade**. Combinadas, definem qual pipeline (sub-conjunto dos 46 cargos) eh acionado e em que ordem.
+Classificacao em duas dimensoes: **tipo da tarefa** + **complexidade**. Combinadas, definem qual pipeline (sub-conjunto dos 47 cargos) eh acionado e em que ordem.
 
 ## 1. Tipos de tarefa (7)
 
@@ -74,7 +74,7 @@ risk_factors:
 | `complexity == COMPLEXA` E producao | Adicionar `final-adversarial-orchestrator` antes de final-validator |
 | `task_type == Spec` | Pular fase de execucao de codigo, ir direto pra spec lifecycle |
 | Touch em auth/payment | Adicionar `adversarial-security-scanner` mandatorio |
-| Touch em schema/migration | Adicionar `data-integrity-guardian` mandatorio (se existir) |
+| Touch em schema/migration | Adicionar `architecture-reviewer` mandatorio (revisao de migracao/schema) |
 
 ## 5. Quando proceder vs quando bloquear
 

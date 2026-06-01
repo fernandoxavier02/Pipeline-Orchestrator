@@ -26,6 +26,23 @@
  *     written; Post becomes a silent no-op (single-span invariant per
  *     design §3.2).
  *
+ * v7.9.0 (Langfuse telemetry fidelity — 3 cloud-audit findings):
+ *   - Finding 1 (null duration): handlePre sets the SDK-recognized span
+ *     startTime; handlePost sets a top-level endTime (paired with the persisted
+ *     startTime) so the Langfuse cloud computes a real positive duration. The
+ *     previous code only emitted metadata.duration_ms, a custom label the
+ *     cloud does NOT use for duration.
+ *   - Finding 2 (flat hierarchy): the trace carries a RUN-level name set once
+ *     at creation (never renamed to the latest agent on subsequent dispatches);
+ *     the per-agent name lives on the child span. Combined with the carrier's
+ *     session-id key tier (lib/langfuse-carrier.cjs), every agent in a run
+ *     shares one trace, yielding the run -> N-span tree instead of one
+ *     standalone trace per agent.
+ *   - Finding 2 / 3 (carrier key): main() exports CLAUDE_SESSION_ID from the
+ *     stdin payload's session_id BEFORE any carrier call, so open + close
+ *     (separate processes) land on the same carrier and the controller process
+ *     resolves the same trace for score / gate events.
+ *
  * Event detection:
  *   The Claude Code runtime supplies the event name via CLAUDE_HOOK_EVENT
  *   (preferred), with fallback to the JSON stdin payload's
@@ -132,6 +149,24 @@ function shouldTrace(toolName, scope) {
   }
 }
 
+// v7.9.0 (Finding 2): the trace represents ONE pipeline run, not one agent.
+// Its name is therefore set ONCE at creation to a run-level label and is NEVER
+// re-set to the latest agent on subsequent dispatches. The per-agent name lives
+// on the child SPAN, not the trace. A stable carrier (keyed by runId or the
+// session-id tier in lib/langfuse-carrier.cjs) guarantees every dispatch in a
+// run reuses this same trace + traceName, producing the run -> N-span tree the
+// cloud expects instead of one standalone trace per agent.
+function runLevelTraceName(runId) {
+  const docPath = process.env.PIPELINE_DOC_PATH || '';
+  // Prefer the run folder name (human-meaningful, session-stable) when present.
+  const leaf = docPath
+    ? String(docPath).replace(/[\\/]+$/, '').split(/[\\/]/).filter(Boolean).pop()
+    : '';
+  if (leaf) return `pipeline-run:${leaf}`;
+  if (runId) return `pipeline-run:${runId}`;
+  return 'pipeline-run';
+}
+
 function loadOrCreateTrace(runId, ppidFallback, agentName) {
   const existing = readTraceCarrier(runId, ppidFallback);
   if (existing) return existing;
@@ -142,6 +177,8 @@ function loadOrCreateTrace(runId, ppidFallback, agentName) {
     ppid: ppidFallback,
     pluginVersion: readPluginVersion(),
     pipelineDocPath: process.env.PIPELINE_DOC_PATH || null,
+    // traceName is fixed at creation (run-level) — never overwritten per agent.
+    traceName: runLevelTraceName(runId),
     initialAgent: agentName || null,
   };
   // Soft-fail: writeTraceCarrier swallows errors itself.
@@ -264,6 +301,12 @@ function handlePre(payload, client, sanitize) {
   const currentPhase = readSentinelPhase();
   const sanitizedDocPath = sanitize(process.env.PIPELINE_DOC_PATH || '', PLUGIN_ROOT);
 
+  // v7.9.0 (Finding 2): the trace carries the RUN-level name (set once at
+  // creation, persisted in the carrier), NOT the current agent name. The agent
+  // name belongs on the child span below. Reusing the same carrier across
+  // dispatches keeps traceId + traceName stable for the whole run.
+  const traceName = trace.traceName || runLevelTraceName(runId);
+
   // Fire SDK span.open. Wrapped in its own try/catch so an SDK throw
   // does not abort the rest of the hook.
   try {
@@ -272,10 +315,9 @@ function handlePre(payload, client, sanitize) {
     if (client && typeof client.trace === 'function') {
       const traceObj = client.trace({
         id: trace.traceId,
-        name: agentName,
+        name: traceName,
         metadata: {
           phase: currentPhase,
-          agent_name: agentName,
           pipeline_doc_path: sanitizedDocPath,
           plugin_version: trace.pluginVersion,
         },
@@ -284,6 +326,9 @@ function handlePre(payload, client, sanitize) {
         traceObj.span({
           id: spanId,
           name: agentName,
+          // v7.9.0 (Finding 1): set the SDK-recognized startTime so the cloud
+          // can compute a real observation duration when the span is closed.
+          startTime: startedAt,
           input: spanInput,
           metadata: {
             phase: currentPhase,
@@ -297,6 +342,8 @@ function handlePre(payload, client, sanitize) {
         traceId: trace.traceId,
         id: spanId,
         name: agentName,
+        // v7.9.0 (Finding 1): SDK-recognized startTime (see above).
+        startTime: startedAt,
         input: spanInput,
         metadata: {
           phase: currentPhase,
@@ -339,37 +386,72 @@ function handlePost(payload, client, sanitize) {
   // state if the process is killed.
   try { fs.unlinkSync(spanPath); } catch (_e) { /* ignore */ }
 
-  const endedAt = new Date().toISOString();
+  // v7.9.0 (Finding 1): compute the real start/end pair the cloud needs.
+  // startTime comes from the carrier (written at open in handlePre); endTime is
+  // now. The previous code only emitted metadata.duration_ms — a custom label
+  // the Langfuse cloud does NOT use to compute observation duration, so every
+  // span showed null duration. We now pass the SDK-recognized top-level
+  // startTime/endTime so duration is computed server-side.
+  const startedAtIso = spanCarrier.startedAt || null;
+  let endedAt = new Date().toISOString();
   let durationMs = 0;
   try {
-    const t0 = Date.parse(spanCarrier.startedAt);
+    const t0 = Date.parse(startedAtIso);
     const t1 = Date.parse(endedAt);
     if (Number.isFinite(t0) && Number.isFinite(t1) && t1 >= t0) {
       durationMs = t1 - t0;
     }
   } catch (_e) { /* keep 0 */ }
   // Langfuse spans require positive duration; clamp same-ms (instant) operations
-  // to 1ms to avoid the SDK's start>=end validation kicking in on fast paths.
-  if (durationMs === 0) durationMs = 1;
+  // to 1ms. The clamp now also applies to the SDK-recognized endTime (not only
+  // the metadata label), so endTime is strictly > startTime on instant ops.
+  if (durationMs === 0) {
+    durationMs = 1;
+    const t0 = Date.parse(startedAtIso);
+    if (Number.isFinite(t0)) {
+      endedAt = new Date(t0 + 1).toISOString();
+    }
+  }
 
   const toolResponse = (payload && payload.tool_response) || null;
   const outputText = toolResponse ? sanitize(JSON.stringify(toolResponse), PLUGIN_ROOT) : '';
 
   try {
     if (client && typeof client.span === 'function') {
+      // Re-create the span body carrying the persisted startTime (the open-side
+      // span object lives in a different process and is gone), then close it
+      // with the real endTime. Passing startTime here is what lets the cloud
+      // compute a positive duration despite Pre/Post being separate processes.
       const span = client.span({
         traceId: spanCarrier.traceId,
         id: spanCarrier.spanId,
+        startTime: startedAtIso,
       });
       if (span && typeof span.end === 'function') {
         span.end({
           output: outputText,
+          // SDK-recognized end timestamp — the field the cloud uses for duration.
+          endTime: endedAt,
           metadata: { duration_ms: durationMs, agent_name: spanCarrier.agentName },
         });
       }
     } else if (client && typeof client.trace === 'function') {
+      // Trace-only fallback: create the child span with real start/end so the
+      // observation still carries a positive duration, then keep the legacy
+      // metadata update for human-readable extras.
       const t = client.trace({ id: spanCarrier.traceId });
-      if (t && typeof t.update === 'function') {
+      if (t && typeof t.span === 'function') {
+        const s = t.span({
+          id: spanCarrier.spanId,
+          name: spanCarrier.agentName,
+          startTime: startedAtIso,
+          output: outputText,
+          metadata: { agent_name: spanCarrier.agentName },
+        });
+        if (s && typeof s.end === 'function') {
+          s.end({ endTime: endedAt, metadata: { duration_ms: durationMs } });
+        }
+      } else if (t && typeof t.update === 'function') {
         t.update({
           metadata: {
             duration_ms: durationMs,
@@ -413,6 +495,24 @@ async function main() {
     initializeForSession();
 
     const payload = readStdinSync();
+
+    // v7.9.0 (Finding 2 / 3): adopt the runtime session id as the stable
+    // cross-process carrier key. The Claude Code runtime supplies session_id
+    // in the hook stdin payload (the same field stop-hook.cjs reads). Pre and
+    // Post run as separate processes, so process.ppid is not a reliable shared
+    // key and PIPELINE_RUN_ID is not propagated into hook processes. Exporting
+    // it here — BEFORE any carrier call — lets lib/langfuse-carrier.cjs key the
+    // span/trace files by `sess-<id>`, so open + close land on the same carrier
+    // (real duration) and every agent in a run shares one trace (run -> N-span
+    // tree). Only set when absent so an explicit env value still wins; the
+    // carrier validates the format defensively.
+    if (!process.env.CLAUDE_SESSION_ID && payload && typeof payload === 'object') {
+      const sid = payload.session_id || payload.sessionId;
+      if (typeof sid === 'string' && sid.length > 0) {
+        process.env.CLAUDE_SESSION_ID = sid;
+      }
+    }
+
     const toolName = detectToolName(payload);
     const scope = process.env.PIPELINE_TRACING_SCOPE || TRACING_SCOPE_DEFAULT;
     if (!shouldTrace(toolName, scope)) {

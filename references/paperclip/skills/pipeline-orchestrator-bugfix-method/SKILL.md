@@ -148,7 +148,7 @@ new_test_passes: true
 ```
 ```
 
-Status muda pra `ready_for_review` ou `done` conforme governance.
+Status muda pra `in_review` ou `done` conforme governance.
 
 ## 5. Fluxo end-to-end
 

@@ -116,7 +116,7 @@ Cada slice eh um ciclo independente. Ate um slice estar verde, NAO comecar proxi
 
 ## 5. Auto-auditoria pre-commit
 
-Antes de marcar a issue como `in_progress → ready_for_review` ou similar:
+Antes de marcar a issue como `in_progress → in_review` ou similar:
 
 1. ✓ Diff inclui pelo menos 1 teste novo OU modificado?
 2. ✓ O teste falhou em algum momento (comment TDD_RED existe)?
@@ -131,5 +131,5 @@ Se algum NAO, voltar antes de marcar pronto.
 Se voce nao consegue fazer o teste passar apos 2 tentativas de GREEN:
 - POST `### STOP_RULE_TDD v1` com analise das 2 tentativas
 - Status=blocked
-- Add Board approver OU escalar pro spec-reviewer (talvez o requisito esta errado)
+- Abrir approval request OU escalar pro spec-reviewer (talvez o requisito esta errado)
 - Exit

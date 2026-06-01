@@ -1,7 +1,7 @@
 ---
 name: pipeline-orchestrator-contracts
 description: Contratos de comunicacao adaptados (GATE_REQUEST, DISPATCH_REQUEST, ORCHESTRATOR_DECISION, etc.) do pipeline-orchestrator original para o modelo Paperclip+Codex (assincrono, ticket-based, comment-driven).
-when_to_use: Qualquer cargo do pipeline-orchestrator que precise solicitar decisao do Board, despachar subordinado, emitir veredicto estruturado, ou registrar decisao de orquestracao. Carregada por TODOS os 46 cargos por default.
+when_to_use: Qualquer cargo do pipeline-orchestrator que precise solicitar decisao do Board, despachar subordinado, emitir veredicto estruturado, ou registrar decisao de orquestracao. Carregada por TODOS os 47 cargos por default.
 inputs:
   - issue_id: ID da issue atual (obtido via PAPERCLIP_TASK_ID)
   - cargo: nome do cargo emissor (obtido via PAPERCLIP_AGENT_ID + /api/agents/me)
@@ -52,14 +52,21 @@ POST `/api/issues/{issue_id}/comments` com body:
 **recommendation:** Opcao 1, porque {{justificativa curta}}
 ```
 
-### Passo B — Mudar status e adicionar approver
+### Passo B — Abrir approval request e mudar status
+
+O mecanismo real do Paperclip para decisao do Board eh um **approval object**, nao um campo de approver na issue. Crie o approval (que ja linka a issue e acorda o Board) e ponha a issue em `blocked`:
 
 ```bash
-# status -> blocked
-PATCH /api/issues/{issue_id}  body: { "status": "blocked", "blockedReason": "GATE_REQUEST aguardando Board" }
+# 1) abrir pedido formal de aprovacao do Board
+POST /api/companies/{$PAPERCLIP_COMPANY_ID}/approvals  body: {
+  "type": "request_board_approval",
+  "requestedByAgentId": "{your-agent-id}",
+  "issueIds": ["{issue_id}"],
+  "payload": { "title": "...", "summary": "...", "recommendedAction": "...", "risks": ["..."] }
+}
 
-# adicionar Board como approver
-POST /api/issues/{issue_id}/approvers  body: { "approverId": "board" }
+# 2) status -> blocked
+PATCH /api/issues/{issue_id}  body: { "status": "blocked" }
 ```
 
 ### Passo C — Sair do heartbeat
@@ -83,11 +90,13 @@ POST `/api/companies/{$PAPERCLIP_COMPANY_ID}/issues` com body:
 {
   "title": "Label curto da delegacao",
   "description": "...briefing completo, criterios de aceitacao...",
-  "assignee": "{{cargo-subordinado-slug}}",
-  "parent": "{{issue_id_atual}}",
+  "assigneeAgentId": "{{agent-id-do-subordinado}}",
+  "parentId": "{{issue_id_atual}}",
   "priority": "medium"
 }
 ```
+
+Os nomes de campo sao `assigneeAgentId` e `parentId` (ids, nao slugs). Resolva slug→id via `GET /api/companies/{$PAPERCLIP_COMPANY_ID}/agents` antes de criar a child.
 
 ### Passo B — Postar comment na issue-mae
 
@@ -102,7 +111,9 @@ POST `/api/companies/{$PAPERCLIP_COMPANY_ID}/issues` com body:
 
 ### Passo C — Mudar status da issue-mae
 
-PATCH `/api/issues/{issue_id}` body: `{ "status": "blocked", "blockedBy": ["{{novo-child-id}}"] }`
+PATCH `/api/issues/{issue_id}` body: `{ "status": "blocked", "blockedByIssueIds": ["{{novo-child-id}}"] }`
+
+O campo para **gravar** dependencia eh `blockedByIssueIds` (array, substitui o conjunto inteiro a cada PATCH). `blockedBy` eh somente-leitura na resposta do GET — gravar `blockedBy` eh ignorado em silencio e a dependencia nao pega.
 
 ### Passo D — Sair (ou continuar com proxima delegacao)
 
@@ -185,7 +196,7 @@ blocked_reason: {{se BLOCKED}}
 ```
 ```
 
-Se `BLOCKED`, mudar status do ticket-mae correspondente e adicionar Board approver.
+Se `BLOCKED`, mudar status do ticket-mae correspondente e abrir approval request (ver §1 Passo B).
 
 ## 6. PA_DE_CAL — Veredicto final
 
@@ -210,7 +221,7 @@ no_go_reasons: [...]  # se NO_GO
 PATCH status:
 - `GO` → `done`
 - `CONDITIONAL_GO` → `done` + comment com conditions
-- `NO_GO` → `blocked` + comment + add Board approver
+- `NO_GO` → `blocked` + comment + abrir approval request (ver §1 Passo B)
 
 ## 7. CHANGE_CONTRACT — Contrato de mudanca
 
@@ -263,7 +274,7 @@ stop_rule_count: {{0-2}}
 ```
 ```
 
-Se `STOP_RULE_TRIGGERED` (2 falhas consecutivas), status=blocked + add Board approver.
+Se `STOP_RULE_TRIGGERED` (2 falhas consecutivas), status=blocked + abrir approval request (ver §1 Passo B).
 
 ## 9. Naming e rastreabilidade
 
@@ -281,7 +292,7 @@ Seu agent.name eh slug literal do pipeline-orchestrator original (ex: `informati
 
 | Acao | Comment header | Mudanca de estado |
 |---|---|---|
-| Pedir decisao Board | `### GATE_REQUEST v1` | status=blocked + add approver |
+| Pedir decisao Board | `### GATE_REQUEST v1` | abrir approval request + status=blocked |
 | Despachar subordinado | `### DISPATCH_REQUEST v1` | criar child issue + status=blocked |
 | Registrar orquestracao | `### ORCHESTRATOR_DECISION v1` | nenhuma |
 | Modo research | `### PLAN_MODE_REQUEST v1` | self-policiar Read-only |
