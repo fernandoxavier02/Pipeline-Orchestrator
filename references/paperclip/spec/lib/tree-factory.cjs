@@ -201,23 +201,43 @@ function nodeSpecFanIn(complexity, step, stepToIssueIdMap, variant) {
 // Invariantes:
 //   INV-D6-1: as N fatias são irmãs — nenhuma trava outra (blockedByIssueIds = [prevIssueId]).
 //   INV-D6-2: todas as N fatias bloqueiam a junção downstream (fan-in real).
-//   INV-D6-3: n >= 1; n === 0 lança erro descritivo.
+//   INV-D6-3: n >= 1; n === 0 ou NaN lança erro descritivo.
 //   INV-D6-4: todas as fatias compartilham o mesmo prevIssueId.
 //   INV-D6-5: a junção downstream existe no molde — expandSlices não inventa junções.
+//   INV-D6-6: modos especiais (hotfix, review-only) não são fatiáveis.
+//   INV-D6-7: somente role 'feature-implementer' é fatiável — 'executor-fix' é fix-loop
+//             que NÃO deve ser expandido em fatias paralelas (contradiz D4).
 //
 // Estratégia de auto-descoberta do nó de implementação e da junção:
-//   1. Localizar o nó com role 'executor-fix' OU 'feature-implementer' (nó de implementação).
-//   2. Localizar a junção: primeiro, procura nó com blockedBy array que inclua o step da
-//      implementação; se não existir, usa o nó apontado por node.next (tronco linear).
+//   1. Localizar o nó com role 'feature-implementer' (nó de implementação fatiável).
+//      Roles de fix-loop (executor-fix) são explicitamente excluídos (INV-D6-7).
+//   2. Localizar a junção downstream:
+//      a. Se implNode.next aponta para um nó paralelo (tem campo 'parallel'), a junção
+//         real é o nó cujo blockedBy[] inclui implNode.next (fan-in dos paralelos).
+//      b. Senão, procura nó com blockedBy array que inclua o step de implementação.
+//      c. Senão, usa implNode.next diretamente (tronco linear — ex: bugfix.light).
 //
 // IDs das fatias na junção são placeholders sintéticos ('SLICE-1', 'SLICE-2', ...) porque
 // expandSlices é pura (sem rede). O I/O real (tree-factory-io.cjs, Grupo B) substitui
 // pelos IDs reais do Paperclip após criar as issues.
+
+// Modos especiais que NÃO devem ser fatiados (INV-D6-6):
+const SPECIAL_MODES = new Set(['hotfix', 'review-only']);
+
 function expandSlices(complexity, n, prevIssueId, variant) {
-  // Validação: n deve ser >= 1
-  if (typeof n !== 'number' || n < 1) {
+  // Validação: n deve ser número válido >= 1 (NaN passaria n < 1 sem este guarda)
+  if (typeof n !== 'number' || Number.isNaN(n) || n < 1) {
     throw new Error(
       `tree-factory/expandSlices: n inválido "${n}" — deve ser inteiro >= 1 (complexidade: ${complexity})`,
+    );
+  }
+
+  // Guarda: modos especiais não são fatiáveis (INV-D6-6)
+  const normalizedComplexity = (complexity || '').toLowerCase().replace(/\s+/g, '-');
+  if (SPECIAL_MODES.has(normalizedComplexity)) {
+    throw new Error(
+      `tree-factory/expandSlices: modo especial "${complexity}" não é fatiável — ` +
+      `hotfix e review-only têm estrutura fixa e não admitem fatias dinâmicas`,
     );
   }
 
@@ -231,25 +251,55 @@ function expandSlices(complexity, n, prevIssueId, variant) {
   }
   const label = variant ? `${complexity}.${variant}` : complexity;
 
-  // Auto-descoberta do nó de implementação (role executor-fix ou feature-implementer)
-  const IMPL_ROLES = ['executor-fix', 'feature-implementer'];
-  const implNode = nodes.find((node) => IMPL_ROLES.includes(node.role));
+  // Auto-descoberta do nó de implementação — somente 'feature-implementer' é fatiável.
+  // 'executor-fix' é excluído: é um fix-loop que itera internamente (D4/INV-D6-7).
+  // Slicear executor-fix contradiz o contrato D4 ('NAO crie cartoes novos por tentativa').
+  const SLICEABLE_ROLES = ['feature-implementer'];
+  const implNode = nodes.find((node) => SLICEABLE_ROLES.includes(node.role));
   if (!implNode) {
     throw new Error(
-      `tree-factory/expandSlices: nó de implementação não encontrado em "${label}" ` +
-      `(roles esperados: ${IMPL_ROLES.join(', ')})`,
+      `tree-factory/expandSlices: nó de implementação fatiável não encontrado em "${label}" ` +
+      `(role esperado: ${SLICEABLE_ROLES.join(', ')}). ` +
+      `Nota: executor-fix não é fatiável (D4/INV-D6-7).`,
     );
   }
 
-  // Auto-descoberta da junção downstream:
-  // Prioridade 1: nó com blockedBy array que inclua o step de implementação (fan-in declarado)
-  // Prioridade 2: nó apontado por implNode.next (tronco linear — ex: bugfix.light)
-  let junctionNode = nodes.find(
-    (node) => Array.isArray(node.blockedBy) && node.blockedBy.includes(implNode.step),
-  );
-  if (!junctionNode && implNode.next) {
-    junctionNode = nodes.find((node) => node.step === implNode.next);
+  // Auto-descoberta da junção downstream — três estratégias em ordem de prioridade:
+  //
+  // Prioridade A: Se implNode.next aponta para um nó paralelo (campo 'parallel'), a junção
+  //   real é o nó cujo blockedBy[] inclui implNode.next (ex: feature.heavy → checkpoint).
+  //   Razão: em templates heavy, implementar → review-spec ‖ review-quality → checkpoint.
+  //   O checkpoint tem blockedBy=['review-spec','review-quality']. review-spec não é a junção;
+  //   é metade do par paralelo. A junção é checkpoint.
+  //
+  // Prioridade B: Nó com blockedBy array que inclua diretamente o step de implementação.
+  //   (Fan-in declarado que aponta para o step do implNode — caso futuro ou legado.)
+  //
+  // Prioridade C: Nó apontado por implNode.next diretamente (tronco linear sem paralelos).
+  //   Ex: bugfix.light → executor-fix.next = 'regression-tester' (linear, sem paralelos).
+  let junctionNode = null;
+
+  const nextNode = implNode.next ? nodes.find((node) => node.step === implNode.next) : null;
+
+  if (nextNode && Array.isArray(nextNode.parallel) && nextNode.parallel.length > 0) {
+    // Prioridade A: implNode.next é paralelo → junção é o nó cujo blockedBy[] inclui implNode.next
+    junctionNode = nodes.find(
+      (node) => Array.isArray(node.blockedBy) && node.blockedBy.includes(implNode.next),
+    );
   }
+
+  if (!junctionNode) {
+    // Prioridade B: blockedBy[] inclui diretamente o step do implNode
+    junctionNode = nodes.find(
+      (node) => Array.isArray(node.blockedBy) && node.blockedBy.includes(implNode.step),
+    );
+  }
+
+  if (!junctionNode && nextNode) {
+    // Prioridade C: implNode.next direto (tronco linear)
+    junctionNode = nextNode;
+  }
+
   if (!junctionNode) {
     throw new Error(
       `tree-factory/expandSlices: junção downstream não encontrada em "${label}" ` +
