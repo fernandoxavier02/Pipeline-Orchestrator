@@ -1,8 +1,7 @@
 'use strict';
 // CLI: node measure-fidelity.cjs <companyId> [> relatorio.md]
 const { collectExecutions, assertSafeId } = require('./mirror-fidelity-collector.cjs');
-const { parseBlocks, parseComplexity } = require('./mirror-fidelity-parser.cjs');
-const { scoreExecution } = require('./mirror-fidelity-score.cjs');
+const { scoreTrees } = require('./mirror-fidelity-tree.cjs');
 const { buildReport } = require('./mirror-fidelity-report.cjs');
 
 async function main() {
@@ -10,12 +9,7 @@ async function main() {
   if (!companyId) { console.error('uso: node measure-fidelity.cjs <companyId>'); process.exit(2); }
   assertSafeId(companyId, 'companyId');
   const execs = await collectExecutions({ companyId });
-  const rows = execs.map((e) => {
-    const blocks = parseBlocks(e.comments);
-    const complexity = parseComplexity(e.comments);
-    const s = scoreExecution({ blocks, complexity });
-    return { identifier: e.identifier, complexity, ...s };
-  });
-  process.stdout.write(buildReport(rows) + '\n');
+  const result = scoreTrees(execs);
+  process.stdout.write(buildReport(result.trees, { orphanCount: result.orphanCount }) + '\n');
 }
 main().catch((e) => { console.error(e); process.exit(1); });
