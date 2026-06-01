@@ -19,3 +19,16 @@ test('coleta issues + comentários e devolve estrutura por execução', async ()
   assert.strictEqual(out[0].identifier, 'PIP-1');
   assert.strictEqual(out[0].comments.length, 2);
 });
+
+test('CORREÇÃO A: companyId com injeção de comando LANÇA antes de montar a URL', async () => {
+  let listIssuesCalled = false;
+  const guardTransport = {
+    async listIssues() { listIssuesCalled = true; return []; },
+    async getComments() { return []; },
+  };
+  await assert.rejects(
+    () => collectExecutions({ companyId: 'co; reboot', transport: guardTransport }),
+    /companyId/,
+  );
+  assert.strictEqual(listIssuesCalled, false, 'não deve nem chamar listIssues com id malicioso');
+});

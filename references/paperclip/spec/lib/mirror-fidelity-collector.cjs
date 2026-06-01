@@ -1,6 +1,17 @@
 'use strict';
 const { execFile } = require('node:child_process');
 
+// Defesa contra injeção de comando: os ids são interpolados numa string executada
+// pelo shell REMOTO via ssh. Exige um id alfanumérico curto (UUID/identifier) e
+// rejeita qualquer caractere de shell (;, $, espaço, aspas, etc.).
+const SAFE_ID = /^[A-Za-z0-9_-]{1,64}$/;
+function assertSafeId(value, name) {
+  if (typeof value !== 'string' || !SAFE_ID.test(value)) {
+    throw new Error(`${name} inválido: precisa casar /^[A-Za-z0-9_-]{1,64}$/ (recebido: ${JSON.stringify(value)})`);
+  }
+  return value;
+}
+
 // Transport default: SSH para a VPS + curl loopback (read-only). Substituível em teste.
 function sshTransport({ host = 'hostinger-vps', base = 'http://127.0.0.1:3100/api' } = {}) {
   function curl(path) {
@@ -18,15 +29,16 @@ function sshTransport({ host = 'hostinger-vps', base = 'http://127.0.0.1:3100/ap
 }
 
 async function collectExecutions({ companyId, transport }) {
+  assertSafeId(companyId, 'companyId');
   const t = transport || sshTransport();
   const issues = await t.listIssues(companyId);
   const arr = Array.isArray(issues) ? issues : (issues.issues || issues.data || []);
   const out = [];
   for (const it of arr) {
-    const comments = await t.getComments(it.id);
+    const comments = await t.getComments(assertSafeId(it.id, 'issueId'));
     out.push({ id: it.id, identifier: it.identifier, title: it.title, comments: Array.isArray(comments) ? comments : [] });
   }
   return out;
 }
 
-module.exports = { collectExecutions, sshTransport };
+module.exports = { collectExecutions, sshTransport, assertSafeId };
