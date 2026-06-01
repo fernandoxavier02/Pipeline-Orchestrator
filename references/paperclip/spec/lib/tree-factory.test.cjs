@@ -205,3 +205,95 @@ test('F2/F4 — allParallelSteps em feature.heavy review-spec retorna 2 irmãos 
   assert.ok(steps.includes('review-quality'), 'deve incluir review-quality');
   assert.strictEqual(siblings.length, 2, 'N12 deve ter 2 irmãos');
 });
+
+// ─── ACHADO 1 — nextStep linear + allParallelSteps = trio completo garantido ───
+// Prova que o padrão documentado (nextStep para chegar ao nó paralelo principal, então
+// allParallelSteps para expandir os irmãos) garante que o trio completo seja visitado.
+// Sem esse teste, um consumer usando nextStep sozinho colapsa o trio a 1 revisor.
+
+test('A1 — trio adversarial de bugfix.heavy: nextStep chega ao primeiro irmão, allParallelSteps expande os 3', () => {
+  // Caminha o tronco até encontrar o primeiro nó com campo parallel (trio entry)
+  let current = nextStep('bugfix', null, 'heavy');
+  let trioEntry = null;
+  while (current !== null) {
+    if (Array.isArray(current.parallel) && current.parallel.length >= 2) {
+      trioEntry = current;
+      break;
+    }
+    current = nextStep('bugfix', current.step, 'heavy');
+  }
+  assert.ok(trioEntry !== null, 'bugfix.heavy deve ter nó paralelo com ao menos 2 irmãos (trio)');
+  // Expande — deve retornar os 3 irmãos
+  const siblings = allParallelSteps('bugfix', trioEntry.step, 'heavy');
+  assert.strictEqual(siblings.length, 3,
+    `trio adversarial de bugfix.heavy deve ter 3 irmãos, encontrou ${siblings.length}`);
+  const roles = siblings.map((n) => n.role);
+  assert.ok(roles.includes('adversarial-security-scanner'), 'deve incluir security scanner');
+  assert.ok(roles.includes('adversarial-architecture-critic'), 'deve incluir architecture critic');
+  assert.ok(roles.includes('adversarial-quality-reviewer'), 'deve incluir quality reviewer');
+});
+
+test('A1 — trio adversarial de feature.light: padrão nextStep+allParallelSteps entrega os 3 irmãos', () => {
+  let current = nextStep('feature', null, 'light');
+  let trioEntry = null;
+  while (current !== null) {
+    if (Array.isArray(current.parallel) && current.parallel.length >= 2) {
+      trioEntry = current;
+      break;
+    }
+    current = nextStep('feature', current.step, 'light');
+  }
+  assert.ok(trioEntry !== null, 'feature.light deve ter nó paralelo com ao menos 2 irmãos (trio)');
+  const siblings = allParallelSteps('feature', trioEntry.step, 'light');
+  assert.strictEqual(siblings.length, 3,
+    `trio adversarial de feature.light deve ter 3 irmãos, encontrou ${siblings.length}`);
+});
+
+test('A1 — nós paralelos nunca-visitados pelo tronco .next são alcançáveis via allParallelSteps', () => {
+  // Reproduz o achado: tronco .next de feature.heavy visita 19 de 22 nós.
+  // Os 3 não-visitados (adv-batch-2, adv-architecture, adv-quality) são paralelos.
+  // Este teste prova que TODOS os nós do molde são alcançáveis quando o consumer
+  // expande grupos paralelos corretamente.
+  const type = 'feature';
+  const variant = 'heavy';
+  const nodes = templateFor(type, variant);
+  const allSteps = new Set(nodes.map((n) => n.step));
+
+  // Coleta todos os steps visitados pelo padrão correto (tronco + expansão paralela)
+  const visited = new Set();
+  let current = nextStep(type, null, variant);
+  while (current !== null) {
+    // Expande paralelos (inclui o próprio nó)
+    const group = allParallelSteps(type, current.step, variant);
+    for (const sibling of group) {
+      visited.add(sibling.step);
+    }
+    current = nextStep(type, current.step, variant);
+  }
+
+  // Todo nó do molde deve ser visitado com o padrão correto
+  for (const step of allSteps) {
+    assert.ok(visited.has(step),
+      `nó "${step}" não foi alcançado — padrão nextStep+allParallelSteps deve cobrir todos os nós`);
+  }
+});
+
+test('A1 — bugfix.heavy: padrão correto cobre todos os nós incluindo adv-batch-2 (nunca visitado pelo tronco sozinho)', () => {
+  const type = 'bugfix';
+  const variant = 'heavy';
+  const nodes = templateFor(type, variant);
+  const allSteps = new Set(nodes.map((n) => n.step));
+
+  const visited = new Set();
+  let current = nextStep(type, null, variant);
+  while (current !== null) {
+    const group = allParallelSteps(type, current.step, variant);
+    for (const sibling of group) visited.add(sibling.step);
+    current = nextStep(type, current.step, variant);
+  }
+
+  for (const step of allSteps) {
+    assert.ok(visited.has(step),
+      `bugfix.heavy nó "${step}" não alcançado — padrão nextStep+allParallelSteps deve cobrir tudo`);
+  }
+});

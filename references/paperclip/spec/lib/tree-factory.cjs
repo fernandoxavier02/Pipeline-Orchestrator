@@ -41,8 +41,12 @@ function nodeForStep(nodes, label, step) {
 //   - currentStep === null → a raiz (primeiro nó do template = nó com blockedBy === null).
 //   - currentStep === última etapa (next: null) → null.
 //   - complexidade/variante desconhecida → null.
-//   NOTE: nextStep segue SOMENTE a cadeia .next (walker linear do tronco).
-//         Para expandir nós paralelos use allParallelSteps().
+//   CONTRATO DE USO OBRIGATÓRIO (Axioma 2 — trio roda SEMPRE):
+//     nextStep segue SOMENTE a cadeia .next (walker linear do tronco principal).
+//     Quando o nó retornado tem campo `parallel`, TODOS os irmãos paralelos devem
+//     ser disparados simultaneamente — chame allParallelSteps(complexity, node.step, variant)
+//     para obter o conjunto completo. Usar nextStep sozinho em grupos paralelos colapsa
+//     o trio adversarial a um único revisor, violando a garantia de revisão zero-contexto.
 function nextStep(complexity, currentStep, variant) {
   const nodes = templateFor(complexity, variant);
   if (!nodes) return null;
