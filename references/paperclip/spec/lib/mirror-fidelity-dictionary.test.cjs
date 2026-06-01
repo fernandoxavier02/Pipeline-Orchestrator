@@ -59,3 +59,13 @@ test('conjunto de portões esperados por complexidade', () => {
   assert.ok(expectedGates('COMPLEXA').includes('ADVERSARIAL_GATE_MANDATORY'));
   assert.deepStrictEqual(expectedGates('XPTO'), []); // complexidade desconhecida → vazio
 });
+
+test('A1 — CLARIFICATION_DONE mapeia para INFO_GATE_BLOCKED (fecha lacuna do portão de entrada)', () => {
+  // Req 5.1/5.2: o nó "clarificar" da fábrica de árvore de tasks emite o bloco
+  // CLARIFICATION_DONE ao concluir o ciclo de info-gate. Antes deste mapeamento,
+  // INFO_GATE_BLOCKED estava em EXPECTED_GATES.SIMPLES mas não tinha NENHUM bloco-fonte
+  // em BLOCK_TO_GATE — o teto de uma execução SIMPLES perfeita era 4/5 = 0.80 em vez de 1.0.
+  // Este mapeamento FECHA essa lacuna: CLARIFICATION_DONE → INFO_GATE_BLOCKED.
+  assert.strictEqual(gateForBlock('CLARIFICATION_DONE'), 'INFO_GATE_BLOCKED');
+  assert.ok(Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, 'CLARIFICATION_DONE'));
+});

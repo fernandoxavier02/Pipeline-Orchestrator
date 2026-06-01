@@ -29,6 +29,12 @@
 // IMPLEMENTER_RERUN_HANDOFF, CANONICAL_FALLBACK_APPLIED — são handoffs/diagnóstico/
 // recuperação, não sinais de portão canônico.
 const BLOCK_TO_GATE = {
+  // → INFO_GATE_BLOCKED
+  // CLARIFICATION_DONE é o bloco que o nó "clarificar" da fábrica de árvore de tasks emite
+  // ao concluir o ciclo de info-gate (Req 5.1/5.2). Este mapeamento FECHA a lacuna histórica:
+  // INFO_GATE_BLOCKED estava em EXPECTED_GATES.SIMPLES mas não tinha bloco-fonte, limitando
+  // o teto de uma execução SIMPLES perfeita a 4/5 = 0.80. Agora o teto é 1.0.
+  CLARIFICATION_DONE: 'INFO_GATE_BLOCKED',
   // → COMPLEXITY_GATE
   ORCHESTRATOR_DECISION: 'COMPLEXITY_GATE',
   TRIAGE_RESULT: 'COMPLEXITY_GATE',
