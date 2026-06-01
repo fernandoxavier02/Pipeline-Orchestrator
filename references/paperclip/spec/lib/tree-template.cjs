@@ -268,28 +268,25 @@ function buildFeatureHeavy() {
 }
 
 // ─── BUGFIX.LIGHT ────────────────────────────────────────────────────────────
-// Fluxo (18 nós): classificar → clarificar → sentinel-1 → diagnostic → sentinel-2
-//       → planejar → aprovar-plan → sentinel-3 → executor-fix → regression-tester
-//       → sentinel-4 → review-orchestrator → sentinel-5 → sanity
-//       → adv-security ‖ adv-architecture ‖ adv-quality → final-adversarial → fechar
-// Sem design-interrogator, sem root-cause-analyzer (light)
+// Fluxo canônico (PAPERCLIP-BUGFIX-WORKFLOW.md §2, sem plan-architect):
+// classificar → clarificar → sentinel-1 → diagnostic → sentinel-2 → executor-fix
+// → regression-tester → sentinel-3 → review-orchestrator → sentinel-4 → sanity
+// → adv-security ‖ adv-architecture ‖ adv-quality → final-adversarial → fechar
+// Sem design-interrogator, sem root-cause-analyzer, sem plan-architect (light)
 function buildBugfixLight() {
   return [
     { step: 'classificar', role: 'task-orchestrator', blocks: [B_ORCHESTRATOR], blockedBy: null, next: 'clarificar' },
     { step: 'clarificar', role: 'information-gate', blocks: [B_CLARIFICATION], blockedBy: 'classificar', next: 'sentinel-1' },
     nodeSentinel('sentinel-1', 'clarificar', 'diagnostic'),
     { step: 'diagnostic', role: 'bugfix-diagnostic-agent', blocks: [], blockedBy: 'sentinel-1', next: 'sentinel-2' },
-    nodeSentinel('sentinel-2', 'diagnostic', 'planejar'),
-    // planejar: plan-architect define fix_guidance (blocks vazio — Grupo D backlog)
-    nodePlanArquiteto('sentinel-2', 'aprovar-plan'),
-    nodeAprovar('aprovar-plan', 'planejar', 'sentinel-3'),
-    nodeSentinel('sentinel-3', 'aprovar-plan', 'executor-fix'),
-    nodeExecutorFix('executor-fix', 'sentinel-3', 'regression-tester'),
-    { step: 'regression-tester', role: 'bugfix-regression-tester', blocks: [B_REGRESSION], blockedBy: 'executor-fix', next: 'sentinel-4' },
-    nodeSentinel('sentinel-4', 'regression-tester', 'review-orchestrator'),
-    nodeReviewOrchestrator('review-orchestrator', 'sentinel-4', 'sentinel-5'),
-    nodeSentinel('sentinel-5', 'review-orchestrator', 'sanity'),
-    nodeSanityChecker('sanity', 'sentinel-5', 'adv-security'),
+    // diagnostic entrega fix_guidance diretamente ao executor-fix (sem plan-architect em light)
+    nodeSentinel('sentinel-2', 'diagnostic', 'executor-fix'),
+    nodeExecutorFix('executor-fix', 'sentinel-2', 'regression-tester'),
+    { step: 'regression-tester', role: 'bugfix-regression-tester', blocks: [B_REGRESSION], blockedBy: 'executor-fix', next: 'sentinel-3' },
+    nodeSentinel('sentinel-3', 'regression-tester', 'review-orchestrator'),
+    nodeReviewOrchestrator('review-orchestrator', 'sentinel-3', 'sentinel-4'),
+    nodeSentinel('sentinel-4', 'review-orchestrator', 'sanity'),
+    nodeSanityChecker('sanity', 'sentinel-4', 'adv-security'),
     ...nodeTrio('sanity', 'final-adversarial'),
     nodeFinalAdversarial('final-adversarial', 'adv-quality', 'fechar'),
     { step: 'fechar', role: 'final-validator', blocks: [B_SLICE_CLOSEOUT, B_PA_DE_CAL], blockedBy: 'final-adversarial', next: null },
@@ -297,8 +294,10 @@ function buildBugfixLight() {
 }
 
 // ─── BUGFIX.HEAVY ────────────────────────────────────────────────────────────
-// Fluxo (28 nós): design-interrogator + diagnostic + root-cause + plan-architect
-// + quality-gate-router + pre-tester (TDD obrigatório no heavy) + executor-fix
+// Fluxo canônico (PAPERCLIP-BUGFIX-WORKFLOW.md §2):
+// design-interrogator + diagnostic + root-cause + executor-fix (sem plan-architect,
+// sem quality-gate-router, sem pre-tester — TDD do bug fix é o test_to_confirm
+// da fase diagnostic, não um ciclo quality-gate-router separado)
 // + regression-tester + review-orchestrator + N12 paralelo + checkpoint
 // + sanity + sentinels intercalados + N17 trio adversarial + final-adversarial + fechar
 function buildBugfixHeavy() {
@@ -310,18 +309,12 @@ function buildBugfixHeavy() {
     { step: 'diagnostic', role: 'bugfix-diagnostic-agent', blocks: [], blockedBy: 'sentinel-1', next: 'sentinel-2' },
     nodeSentinel('sentinel-2', 'diagnostic', 'root-cause'),
     { step: 'root-cause', role: 'bugfix-root-cause-analyzer', blocks: [], blockedBy: 'sentinel-2', next: 'sentinel-3' },
-    nodeSentinel('sentinel-3', 'root-cause', 'planejar'),
-    nodePlanArquiteto('sentinel-3', 'aprovar-plan'),
-    nodeAprovar('aprovar-plan', 'planejar', 'sentinel-4'),
-    nodeSentinel('sentinel-4', 'aprovar-plan', 'gerar-cenarios'),
-    // TDD obrigatório em heavy (Axioma 3): quality-gate-router + pre-tester
-    nodeQualityGateRouter('sentinel-4', 'pre-tester'),
-    nodePreTester('gerar-cenarios', 'sentinel-5'),
-    nodeSentinel('sentinel-5', 'pre-tester', 'executor-fix'),
-    nodeExecutorFix('executor-fix', 'sentinel-5', 'regression-tester'),
-    { step: 'regression-tester', role: 'bugfix-regression-tester', blocks: [B_REGRESSION], blockedBy: 'executor-fix', next: 'sentinel-6' },
-    nodeSentinel('sentinel-6', 'regression-tester', 'review-orchestrator'),
-    nodeReviewOrchestrator('review-orchestrator', 'sentinel-6', 'adv-batch-1'),
+    // root-cause entrega fix_guidance; executor-fix aplica TDD usando test_to_confirm do diagnostic
+    nodeSentinel('sentinel-3', 'root-cause', 'executor-fix'),
+    nodeExecutorFix('executor-fix', 'sentinel-3', 'regression-tester'),
+    { step: 'regression-tester', role: 'bugfix-regression-tester', blocks: [B_REGRESSION], blockedBy: 'executor-fix', next: 'sentinel-4' },
+    nodeSentinel('sentinel-4', 'regression-tester', 'review-orchestrator'),
+    nodeReviewOrchestrator('review-orchestrator', 'sentinel-4', 'adv-batch-1'),
     // N12: paralelo de revisão por lote
     {
       step: 'adv-batch-1', role: 'adversarial-security-scanner',
@@ -333,9 +326,9 @@ function buildBugfixHeavy() {
       blocks: [B_QUAL_FINDINGS], blockedBy: 'review-orchestrator', next: 'checkpoint',
       parallel: ['adv-batch-1'],
     },
-    { step: 'checkpoint', role: 'checkpoint-validator', blocks: [], blockedBy: 'adv-batch-2', next: 'sentinel-7' },
-    nodeSentinel('sentinel-7', 'checkpoint', 'sanity'),
-    nodeSanityChecker('sanity', 'sentinel-7', 'adv-security'),
+    { step: 'checkpoint', role: 'checkpoint-validator', blocks: [], blockedBy: 'adv-batch-2', next: 'sentinel-5' },
+    nodeSentinel('sentinel-5', 'checkpoint', 'sanity'),
+    nodeSanityChecker('sanity', 'sentinel-5', 'adv-security'),
     // N17: trio adversarial final
     ...nodeTrio('sanity', 'final-adversarial'),
     nodeFinalAdversarial('final-adversarial', 'adv-quality', 'fechar'),
@@ -414,11 +407,13 @@ function buildUserStoryHeavy() {
 }
 
 // ─── AUDIT.LIGHT ─────────────────────────────────────────────────────────────
-// Read-only. Sem TDD, sem adversarial trio final, sem design-interrogator.
-// Fluxo (18 nós): classificar → clarificar → sentinel-1 → audit-intake → sentinel-2
-//       → audit-compliance → sentinel-3 → audit-risk → sentinel-4 → review-orchestrator
-//       → sentinel-5 → executor-fix → sentinel-6 → sanity → sentinel-7
-//       → spec-closer → sentinel-8 → fechar
+// Read-only (PAPERCLIP-AUDIT-WORKFLOW.md §2 Iron Law). Sem TDD, sem executor-fix,
+// sem review-orchestrator, sem sanity-checker, sem adversarial trio.
+// Fluxo canônico: classificar → clarificar → sentinel-1 → audit-intake → sentinel-2
+//       → audit-compliance → sentinel-3 → audit-risk → sentinel-4
+//       → aprovar → sentinel-5 → spec-closer → fechar
+// aprovar = final-validator emite PA_DE_CAL (item 7 do workflow)
+// spec-closer entrega 2 relatórios; fechar = terminal
 function buildAuditLight() {
   return [
     { step: 'classificar', role: 'task-orchestrator', blocks: [B_ORCHESTRATOR], blockedBy: null, next: 'clarificar' },
@@ -429,22 +424,20 @@ function buildAuditLight() {
     { step: 'audit-compliance', role: 'audit-compliance-checker', blocks: [], blockedBy: 'sentinel-2', next: 'sentinel-3' },
     nodeSentinel('sentinel-3', 'audit-compliance', 'audit-risk'),
     { step: 'audit-risk', role: 'audit-risk-matrix-generator', blocks: [], blockedBy: 'sentinel-3', next: 'sentinel-4' },
-    nodeSentinel('sentinel-4', 'audit-risk', 'review-orchestrator'),
-    nodeReviewOrchestrator('review-orchestrator', 'sentinel-4', 'sentinel-5'),
-    nodeSentinel('sentinel-5', 'review-orchestrator', 'executor-fix'),
-    nodeExecutorFix('executor-fix', 'sentinel-5', 'sentinel-6'),
-    nodeSentinel('sentinel-6', 'executor-fix', 'sanity'),
-    nodeSanityChecker('sanity', 'sentinel-6', 'sentinel-7'),
-    nodeSentinel('sentinel-7', 'sanity', 'spec-closer'),
+    nodeSentinel('sentinel-4', 'audit-risk', 'aprovar'),
+    // PA_DE_CAL adaptado para audit (PAPERCLIP-AUDIT-WORKFLOW.md §2 item 7)
+    nodeAprovar('aprovar', 'sentinel-4', 'sentinel-5'),
+    nodeSentinel('sentinel-5', 'aprovar', 'spec-closer'),
     // spec-closer entrega 2 relatórios (technical + executive)
-    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'sentinel-7', next: 'sentinel-8' },
-    nodeSentinel('sentinel-8', 'spec-closer', 'fechar'),
-    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'sentinel-8', next: null },
+    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'sentinel-5', next: 'fechar' },
+    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
   ];
 }
 
 // ─── AUDIT.HEAVY ─────────────────────────────────────────────────────────────
 // Como audit.light + design-interrogator + audit-domain-analyzer entre intake e compliance
+// Read-only (PAPERCLIP-AUDIT-WORKFLOW.md §2 Iron Law). Sem executor-fix, sem review-orchestrator,
+// sem sanity-checker, sem adversarial trio.
 function buildAuditHeavy() {
   return [
     { step: 'classificar', role: 'task-orchestrator', blocks: [B_ORCHESTRATOR], blockedBy: null, next: 'clarificar' },
@@ -458,22 +451,22 @@ function buildAuditHeavy() {
     { step: 'audit-compliance', role: 'audit-compliance-checker', blocks: [], blockedBy: 'sentinel-3', next: 'sentinel-4' },
     nodeSentinel('sentinel-4', 'audit-compliance', 'audit-risk'),
     { step: 'audit-risk', role: 'audit-risk-matrix-generator', blocks: [], blockedBy: 'sentinel-4', next: 'sentinel-5' },
-    nodeSentinel('sentinel-5', 'audit-risk', 'review-orchestrator'),
-    nodeReviewOrchestrator('review-orchestrator', 'sentinel-5', 'sentinel-6'),
-    nodeSentinel('sentinel-6', 'review-orchestrator', 'executor-fix'),
-    nodeExecutorFix('executor-fix', 'sentinel-6', 'sentinel-7'),
-    nodeSentinel('sentinel-7', 'executor-fix', 'sanity'),
-    nodeSanityChecker('sanity', 'sentinel-7', 'fechar'),
-    { step: 'fechar', role: 'final-validator', blocks: [B_SLICE_CLOSEOUT, B_PA_DE_CAL], blockedBy: 'sanity', next: null },
+    nodeSentinel('sentinel-5', 'audit-risk', 'aprovar'),
+    // PA_DE_CAL adaptado para audit (PAPERCLIP-AUDIT-WORKFLOW.md §2 item 7)
+    nodeAprovar('aprovar', 'sentinel-5', 'sentinel-6'),
+    nodeSentinel('sentinel-6', 'aprovar', 'spec-closer'),
+    // spec-closer entrega 2 relatórios (technical + executive)
+    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'sentinel-6', next: 'fechar' },
+    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
   ];
 }
 
 // ─── UX.LIGHT ────────────────────────────────────────────────────────────────
-// Read-only. Sem TDD, sem adversarial trio final (G-UX-03: SKIPPED).
+// Read-only (PAPERCLIP-UX-WORKFLOW.md §2 Iron Law). Sem TDD, sem adversarial trio,
+// sem review-orchestrator, sem sanity-checker, sem executor-fix.
 // ux-simulator roda sozinho (sem ux-accessibility-auditor em light).
-// Fluxo (12 nós): classificar → clarificar → sentinel-1 → ux-simulator → sentinel-2
-//       → ux-qa-validator → sentinel-3 → review-orchestrator → sentinel-4 → sanity
-//       → spec-closer → fechar
+// Fluxo canônico: classificar → clarificar → sentinel-1 → ux-simulator → sentinel-2
+//       → ux-qa-validator → sentinel-3 → aprovar → sentinel-4 → spec-closer → fechar
 function buildUxLight() {
   return [
     { step: 'classificar', role: 'task-orchestrator', blocks: [B_ORCHESTRATOR], blockedBy: null, next: 'clarificar' },
@@ -482,26 +475,23 @@ function buildUxLight() {
     { step: 'ux-simulator', role: 'ux-simulator', blocks: [], blockedBy: 'sentinel-1', next: 'sentinel-2' },
     nodeSentinel('sentinel-2', 'ux-simulator', 'ux-qa-validator'),
     { step: 'ux-qa-validator', role: 'ux-qa-validator', blocks: [], blockedBy: 'sentinel-2', next: 'sentinel-3' },
-    nodeSentinel('sentinel-3', 'ux-qa-validator', 'review-orchestrator'),
-    // review-orchestrator leve (coordina, sem trio adversarial — G-UX-03 SKIPPED)
-    nodeReviewOrchestrator('review-orchestrator', 'sentinel-3', 'sentinel-4'),
-    nodeSentinel('sentinel-4', 'review-orchestrator', 'sanity'),
-    nodeSanityChecker('sanity', 'sentinel-4', 'spec-closer'),
+    nodeSentinel('sentinel-3', 'ux-qa-validator', 'aprovar'),
+    // PA_DE_CAL adaptado para UX (PAPERCLIP-UX-WORKFLOW.md §2 item 5)
+    nodeAprovar('aprovar', 'sentinel-3', 'sentinel-4'),
+    nodeSentinel('sentinel-4', 'aprovar', 'spec-closer'),
     // spec-closer entrega 2 relatórios UX (technical + executive)
-    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'sanity', next: 'fechar' },
+    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'sentinel-4', next: 'fechar' },
     { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
   ];
 }
 
 // ─── UX.HEAVY ────────────────────────────────────────────────────────────────
-// Como ux.light + design-interrogator + ux-accessibility-auditor em paralelo com ux-simulator
-// + review-orchestrator (G-UX-02: presente com blocks:[] — lacuna de superfície)
-// + executor-fix pós-review + spec-closer com relatórios
-// Adversarial trio SKIPPED (G-UX-03: zero code review surface)
-// Fluxo (18 nós): classificar → clarificar → design-interrogar → sentinel-1
+// Read-only (PAPERCLIP-UX-WORKFLOW.md §2 Iron Law). Sem executor-fix, sem review-orchestrator,
+// sem sanity-checker, sem adversarial trio (G-UX-03: zero code review surface).
+// Como ux.light + design-interrogator + ux-accessibility-auditor em paralelo com ux-simulator.
+// Fluxo canônico: classificar → clarificar → design-interrogar → sentinel-1
 //       → ux-simulator ‖ ux-accessibility-auditor (paralelo) → ux-qa-validator
-//       → sentinel-2 → review-orchestrator → sentinel-3 → executor-fix
-//       → sentinel-4 → sanity → sentinel-5 → spec-closer → sentinel-6 → fechar
+//       → sentinel-2 → aprovar → sentinel-3 → spec-closer → fechar
 function buildUxHeavy() {
   return [
     { step: 'classificar', role: 'task-orchestrator', blocks: [B_ORCHESTRATOR], blockedBy: null, next: 'clarificar' },
@@ -521,20 +511,13 @@ function buildUxHeavy() {
     },
     // junção
     { step: 'ux-qa-validator', role: 'ux-qa-validator', blocks: [], blockedBy: 'ux-accessibility-auditor', next: 'sentinel-2' },
-    nodeSentinel('sentinel-2', 'ux-qa-validator', 'review-orchestrator'),
-    // review-orchestrator com blocks:[] — G-UX-02: lacuna de superfície clara
-    nodeReviewOrchestrator('review-orchestrator', 'sentinel-2', 'sentinel-3'),
-    nodeSentinel('sentinel-3', 'review-orchestrator', 'executor-fix'),
-    // executor-fix para recommendations de UX (D4: iteração interna)
-    nodeExecutorFix('executor-fix', 'sentinel-3', 'sentinel-4'),
-    nodeSentinel('sentinel-4', 'executor-fix', 'sanity'),
-    nodeSanityChecker('sanity', 'sentinel-4', 'sentinel-5'),
-    nodeSentinel('sentinel-5', 'sanity', 'spec-closer'),
+    nodeSentinel('sentinel-2', 'ux-qa-validator', 'aprovar'),
+    // PA_DE_CAL adaptado para UX (PAPERCLIP-UX-WORKFLOW.md §2 item 5)
+    nodeAprovar('aprovar', 'sentinel-2', 'sentinel-3'),
+    nodeSentinel('sentinel-3', 'aprovar', 'spec-closer'),
     // spec-closer entrega 2 relatórios UX (technical + executive)
-    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'sentinel-5', next: 'sentinel-6' },
-    nodeSentinel('sentinel-6', 'spec-closer', 'sentinel-7'),
-    nodeSentinel('sentinel-7', 'sentinel-6', 'fechar'),
-    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'sentinel-7', next: null },
+    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'sentinel-3', next: 'fechar' },
+    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
   ];
 }
 

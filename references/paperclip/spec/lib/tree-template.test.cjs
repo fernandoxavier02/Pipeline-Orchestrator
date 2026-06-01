@@ -285,33 +285,37 @@ test('T-10 Blocos no dicionário (P6) — todos os moldes canônicos', () => {
 });
 
 // T-11: tamanho mínimo — variante light
+// (limites revisados pós-correção G1-Moldes: bugfix.light removeu plan-architect+aprovar;
+//  audit.light e ux.light removeram executor-fix+review-orchestrator+sanity per Iron Law)
 test('T-11 Tamanho mínimo dos moldes — light', () => {
-  assert.ok(TEMPLATES.bugfix.light.length >= 18,
-    `bugfix.light tem ${TEMPLATES.bugfix.light.length} nós, esperado >= 18`);
+  assert.ok(TEMPLATES.bugfix.light.length >= 14,
+    `bugfix.light tem ${TEMPLATES.bugfix.light.length} nós, esperado >= 14`);
   assert.ok(TEMPLATES.feature.light.length >= 18,
     `feature.light tem ${TEMPLATES.feature.light.length} nós, esperado >= 18`);
   assert.ok(TEMPLATES['user-story'].light.length >= 20,
     `user-story.light tem ${TEMPLATES['user-story'].light.length} nós, esperado >= 20`);
-  assert.ok(TEMPLATES.audit.light.length >= 18,
-    `audit.light tem ${TEMPLATES.audit.light.length} nós, esperado >= 18`);
-  assert.ok(TEMPLATES.ux.light.length >= 12,
-    `ux.light tem ${TEMPLATES.ux.light.length} nós, esperado >= 12`);
+  assert.ok(TEMPLATES.audit.light.length >= 11,
+    `audit.light tem ${TEMPLATES.audit.light.length} nós, esperado >= 11`);
+  assert.ok(TEMPLATES.ux.light.length >= 9,
+    `ux.light tem ${TEMPLATES.ux.light.length} nós, esperado >= 9`);
   assert.ok(TEMPLATES.spec.light.length >= 11,
     `spec.light tem ${TEMPLATES.spec.light.length} nós, esperado >= 11`);
 });
 
 // T-12: tamanho mínimo — variante heavy
+// (limites revisados pós-correção G1-Moldes: bugfix.heavy removeu plan-architect+aprovar+
+//  quality-gate-router+pre-tester; audit.heavy e ux.heavy removeram executor-fix etc.)
 test('T-12 Tamanho mínimo dos moldes — heavy', () => {
-  assert.ok(TEMPLATES.bugfix.heavy.length >= 28,
-    `bugfix.heavy tem ${TEMPLATES.bugfix.heavy.length} nós, esperado >= 28`);
+  assert.ok(TEMPLATES.bugfix.heavy.length >= 20,
+    `bugfix.heavy tem ${TEMPLATES.bugfix.heavy.length} nós, esperado >= 20`);
   assert.ok(TEMPLATES.feature.heavy.length >= 20,
     `feature.heavy tem ${TEMPLATES.feature.heavy.length} nós, esperado >= 20`);
   assert.ok(TEMPLATES['user-story'].heavy.length >= 25,
     `user-story.heavy tem ${TEMPLATES['user-story'].heavy.length} nós, esperado >= 25`);
-  assert.ok(TEMPLATES.audit.heavy.length >= 18,
-    `audit.heavy tem ${TEMPLATES.audit.heavy.length} nós, esperado >= 18`);
-  assert.ok(TEMPLATES.ux.heavy.length >= 18,
-    `ux.heavy tem ${TEMPLATES.ux.heavy.length} nós, esperado >= 18`);
+  assert.ok(TEMPLATES.audit.heavy.length >= 14,
+    `audit.heavy tem ${TEMPLATES.audit.heavy.length} nós, esperado >= 14`);
+  assert.ok(TEMPLATES.ux.heavy.length >= 10,
+    `ux.heavy tem ${TEMPLATES.ux.heavy.length} nós, esperado >= 10`);
   assert.ok(TEMPLATES.spec.heavy.length >= 16,
     `spec.heavy tem ${TEMPLATES.spec.heavy.length} nós, esperado >= 16`);
 });
