@@ -334,11 +334,14 @@ function expandSlices(complexity, n, prevIssueId, variant) {
   // Gerar IDs placeholder para as N fatias
   const placeholderIds = Array.from({ length: n }, (_, i) => `SLICE-${i + 1}`);
 
-  // Criar os N nodeSpecs irmãos de implementação (cada um bloqueado por prevIssueId)
+  // Criar os N nodeSpecs irmãos de implementação (cada um bloqueado por prevIssueId).
+  // Guard: prevIssueId nulo/indefinido → [] (igual a nodeSpec e nodeSpecFanIn para raiz).
+  // Sem esse guard, blockedByIssueIds:[null] chegaria à API do Paperclip como blocker inválido.
+  const sliceBlockers = prevIssueId ? [prevIssueId] : [];
   const slices = placeholderIds.map((placeholderId, i) => ({
     title: `[${label}] ${implNode.step} #${i + 1}`,
     assigneeAgentId: implNode.role,
-    blockedByIssueIds: [prevIssueId],
+    blockedByIssueIds: sliceBlockers,
     body: buildBody(implNode),
   }));
 

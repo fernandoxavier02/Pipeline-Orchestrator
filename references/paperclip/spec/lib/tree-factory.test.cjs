@@ -811,6 +811,58 @@ test('T-D6-30 — coerência interna da árvore expandida em feature.heavy: bodi
     'intermediaries deve incluir review-quality (irmão paralelo do par N12)');
 });
 
+// ─── G2-FÁBRICA D6: achado high — expandSlices não protegia prevIssueId nulo ──
+// INV-D6-4b: quando prevIssueId é null ou undefined, cada fatia deve ter
+// blockedByIssueIds=[] (igual ao comportamento de nodeSpec e nodeSpecFanIn para raiz).
+// Antes da correção: blockedByIssueIds:[null] — blocker inválido que corrompe o grafo
+// de dependências do Paperclip ou é rejeitado pela API.
+
+// T-D6-31: expandSlices com prevIssueId=null retorna fatias com blockedByIssueIds=[]
+test('T-D6-31 — expandSlices com prevIssueId=null retorna fatias com blockedByIssueIds=[] (sem [null])', () => {
+  const result = expandSlices('feature', 2, null, 'light');
+  for (const slice of result.slices) {
+    assert.deepStrictEqual(slice.blockedByIssueIds, [],
+      `fatia "${slice.title}" com prevIssueId=null deve ter blockedByIssueIds=[], não [null]`);
+    assert.ok(!slice.blockedByIssueIds.includes(null),
+      'blockedByIssueIds NÃO deve conter null — seria blocker inválido na API do Paperclip');
+  }
+});
+
+// T-D6-32: expandSlices com prevIssueId=undefined retorna fatias com blockedByIssueIds=[]
+test('T-D6-32 — expandSlices com prevIssueId=undefined retorna fatias com blockedByIssueIds=[] (sem [null])', () => {
+  const result = expandSlices('feature', 1, undefined, 'light');
+  assert.deepStrictEqual(result.slices[0].blockedByIssueIds, [],
+    'prevIssueId=undefined deve produzir blockedByIssueIds=[], não [undefined]');
+  assert.ok(!result.slices[0].blockedByIssueIds.includes(null),
+    'blockedByIssueIds NÃO deve conter null');
+  assert.ok(!result.slices[0].blockedByIssueIds.includes(undefined),
+    'blockedByIssueIds NÃO deve conter undefined');
+});
+
+// T-D6-33: comportamento idêntico ao nodeSpec — prevIssueId=null → [] em ambos
+test('T-D6-33 — expandSlices com prevIssueId=null tem simetria de contrato com nodeSpec (raiz = [])', () => {
+  const { nodeSpec } = require('./tree-factory.cjs');
+  // nodeSpec com prevIssueId=null deve ser []
+  const ns = nodeSpec('feature', 'implementar', null, 'light');
+  assert.deepStrictEqual(ns.blockedByIssueIds, [],
+    'nodeSpec com prevIssueId=null deve ter blockedByIssueIds=[]');
+  // expandSlices com prevIssueId=null — cada fatia deve ter o mesmo comportamento
+  const result = expandSlices('feature', 2, null, 'light');
+  for (const slice of result.slices) {
+    assert.deepStrictEqual(slice.blockedByIssueIds, [],
+      `expandSlices com prevIssueId=null deve ter mesma simetria que nodeSpec: blockedByIssueIds=[]`);
+  }
+});
+
+// T-D6-34: com prevIssueId válido, expansão ainda funciona corretamente (sem regressão)
+test('T-D6-34 — expandSlices com prevIssueId válido continua retornando [prevIssueId] por fatia (sem regressão)', () => {
+  const result = expandSlices('feature', 3, 'ISSUE-VALID', 'light');
+  for (const slice of result.slices) {
+    assert.deepStrictEqual(slice.blockedByIssueIds, ['ISSUE-VALID'],
+      `fatia "${slice.title}" com prevIssueId válido deve ter [prevIssueId]`);
+  }
+});
+
 // T-REGR-01: suite pré-existente de nextStep, nodeSpec, allParallelSteps permanece 100% verde
 // (verificado via execução completa — este teste serve como marcador semântico)
 test('T-REGR-01 — nextStep continua funcionando em feature.light após D4 e D6', () => {
