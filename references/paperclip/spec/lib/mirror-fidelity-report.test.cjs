@@ -33,3 +33,21 @@ test('CORREÇÃO D: row pontuada sem o campo missing não derruba o relatório',
   assert.doesNotThrow(() => { md = buildReport(rows); });
   assert.match(md, /PIP-1 \[SIMPLES\]: 0\.40/);
 });
+
+test('MUDANÇA 4: orphanCount passado como segundo parâmetro aparece no relatório', () => {
+  const rows = [
+    { identifier: 'PIP-1', complexity: 'SIMPLES', score: 0.4, missing: [], indeterminate: false },
+  ];
+  const md = buildReport(rows, { orphanCount: 3 });
+  assert.match(md, /[Óó]rf[aã]/i, 'deve mencionar órfãs');
+  assert.match(md, /3/, 'deve mostrar o número 3');
+});
+
+test('MUDANÇA 4: orphanCount ausente (chamada legada sem segundo parâmetro) não quebra', () => {
+  const rows = [
+    { identifier: 'PIP-1', complexity: 'SIMPLES', score: 0.6, missing: [], indeterminate: false },
+  ];
+  let md;
+  assert.doesNotThrow(() => { md = buildReport(rows); });
+  assert.match(md, /Nota média: 0\.60/);
+});

@@ -1,5 +1,5 @@
 'use strict';
-function buildReport(rows) {
+function buildReport(rows, { orphanCount } = {}) {
   const scored = rows.filter((r) => !r.indeterminate && typeof r.score === 'number');
   const indet = rows.filter((r) => r.indeterminate);
   const missCount = {};
@@ -16,6 +16,9 @@ function buildReport(rows) {
   }
   lines.push('## Portões mais ausentes (onde a fidelidade vaza)', '');
   for (const [g, n] of ranked) lines.push(`- ${g}: ${n}`);
+  if (typeof orphanCount === 'number') {
+    lines.push(`Execuções órfãs (sem raiz de complexidade): ${orphanCount}`, '');
+  }
   lines.push('', '## Por execução', '');
   for (const r of rows) {
     lines.push(r.indeterminate
