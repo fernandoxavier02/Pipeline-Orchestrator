@@ -131,13 +131,40 @@ function keywordMatches(lower, kw) {
 // Elevation rules do complexity-matrix.md §Automatic Elevation Rules.
 
 /** Sinais que elevam para mínimo COMPLEXA */
-const COMPLEXA_SIGNALS = ['production', 'urgent', 'prod'];
+const COMPLEXA_SIGNALS = ['production', 'urgent'];
+// NOTE: 'prod' foi removido — é substring de palavras comuns (product, reproduce,
+// productivity, byproduct). 'production' (com \b em signalMatches) é suficiente.
 
 /** Sinais que elevam para mínimo MEDIA */
-const MEDIA_SIGNALS = ['auth', 'security', 'autenticação', 'autenticacao', 'data model', 'schema', 'modelo de dados'];
+const MEDIA_SIGNALS = ['authentication', 'auth', 'security', 'autenticação', 'autenticacao', 'data model', 'schema', 'modelo de dados'];
+// NOTE: 'authentication' adicionado para cobrir a forma por extenso;
+// 'auth' mantido mas agora recebe \b matching em signalMatches() —
+// não bate mais em 'author', 'authorize-as-noun', etc.
 
 /** Sinais de escopo grande que elevam para COMPLEXA */
 const LARGE_SCOPE_SIGNALS = ['6 files', 'multiple domains', 'large', 'extensive', '6 arquivos', 'múltiplos domínios'];
+
+/**
+ * Verifica se desc contém o sinal de complexidade.
+ * Mesma estratégia de keywordMatches: sinais de uma palavra usam \b word-boundary
+ * (evita 'auth' dentro de 'author', 'prod' dentro de 'product', etc.).
+ * Frases multi-palavra usam includes() diretamente.
+ *
+ * @param {string} lower Descrição em lower-case
+ * @param {string} sig Sinal a testar
+ * @returns {boolean}
+ */
+function signalMatches(lower, sig) {
+  const sigLower = sig.toLowerCase();
+  if (sigLower.includes(' ')) {
+    return lower.includes(sigLower);
+  }
+  try {
+    return new RegExp(`\\b${sigLower}\\b`, 'i').test(lower);
+  } catch (_) {
+    return lower.includes(sigLower);
+  }
+}
 
 // ─── FUNÇÕES PURAS INTERNAS ───────────────────────────────────
 
@@ -193,7 +220,7 @@ function inferComplexity(desc) {
 
   // Sinais de escopo grande → COMPLEXA
   for (const sig of LARGE_SCOPE_SIGNALS) {
-    if (lower.includes(sig.toLowerCase())) {
+    if (signalMatches(lower, sig)) {
       level = 'COMPLEXA';
       notes.push(`complexity heuristic: large-scope signal "${sig}" → elevated to COMPLEXA`);
       break;
@@ -202,7 +229,7 @@ function inferComplexity(desc) {
 
   // Sinais de COMPLEXA por produção/urgência (Elevation Rule 5 do matrix)
   for (const sig of COMPLEXA_SIGNALS) {
-    if (lower.includes(sig.toLowerCase())) {
+    if (signalMatches(lower, sig)) {
       level = 'COMPLEXA';
       notes.push(`complexity heuristic: production/urgent signal "${sig}" → elevated to COMPLEXA (elevation rule: production incident)`);
       break;
@@ -211,7 +238,7 @@ function inferComplexity(desc) {
 
   // Sinais de mínimo MEDIA (Elevation Rules 1+2 do matrix)
   for (const sig of MEDIA_SIGNALS) {
-    if (lower.includes(sig.toLowerCase())) {
+    if (signalMatches(lower, sig)) {
       if (level === 'SIMPLES') {
         level = 'MEDIA';
       }

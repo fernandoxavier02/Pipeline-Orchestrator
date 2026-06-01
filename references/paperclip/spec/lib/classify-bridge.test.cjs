@@ -330,3 +330,20 @@ test('BDD — elevação urgent: "urgent production incident users cannot login"
     'notes deve mencionar a regra de elevação',
   );
 });
+
+// ─── T38-T41: Complexity false positives — substring 'prod'/'auth' ──
+test('T38 — complexity: "product catalog page" NÃO deve ser COMPLEXA (substring prod)', () => {
+  assert.strictEqual(classify('product catalog page', {}).complexity, 'SIMPLES');
+});
+
+test('T39 — complexity: "reproduce the issue" NÃO deve ser COMPLEXA (substring prod)', () => {
+  assert.strictEqual(classify('reproduce the issue', {}).complexity, 'SIMPLES');
+});
+
+test('T40 — complexity: "productivity dashboard" NÃO deve ser COMPLEXA (substring prod)', () => {
+  assert.strictEqual(classify('productivity dashboard', {}).complexity, 'SIMPLES');
+});
+
+test('T41 — complexity: "add author bio field" NÃO deve ser MEDIA (substring auth)', () => {
+  assert.strictEqual(classify('add author bio field', {}).complexity, 'SIMPLES');
+});
