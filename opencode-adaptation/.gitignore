@@ -1,6 +1,0 @@
-tmp/*
-!tmp/.gitkeep
-.opencode/node_modules/
-.opencode/package-lock.json
-node_modules/
-package-lock.json

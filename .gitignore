@@ -31,3 +31,9 @@ pipeline-runs/
 
 # Secrets — never commit
 .env
+
+# OpenCode adaptation — separado para projeto irmão standalone; working state local, NEVER commit
+opencode-adaptation/
+
+# Lixo de sessão (saída de ferramenta salva por engano)
+context.md
