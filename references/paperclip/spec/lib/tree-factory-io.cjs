@@ -13,8 +13,10 @@
 //   S1: assertSafeId valida /^[A-Za-z0-9_-]{1,64}$/ antes de qualquer chamada de rede.
 //   P1: assigneeAgentId no payload é SEMPRE o uuid real, nunca o nome nominal.
 //   P2: body do nodeSpec é traduzido para description no payload REST.
+//   PAR: quando o nó tem campo `parallel`, TODOS os irmãos são criados via allParallelSteps.
+//   FAN: nó de junção (blockedBy array) usa nodeSpecFanIn com mapa step→issueId.
 
-const { nextStep, nodeSpec } = require('./tree-factory.cjs');
+const { nextStep, allParallelSteps, nodeSpec, nodeSpecFanIn } = require('./tree-factory.cjs');
 
 // ─── SAFE ID VALIDATION (S1) ─────────────────────────────────────────────────
 // Regex conforme spec: /^[A-Za-z0-9_-]{1,64}$/
@@ -125,53 +127,113 @@ async function createIssue(transport, companyId, payload) {
 // ─── GROW SPINE (AC-IO-10..11) ───────────────────────────────────────────────
 
 /**
- * growSpine(transport, companyId, complexity, currentStep, prevIssueId, agentsById)
- *   → Promise<{ issueId: string, nextStepNode: object|null }>
+ * growSpine(transport, companyId, complexity, currentStep, prevIssueId, agentsById [, variant])
+ *   → Promise<{ issueIds: string[], steps: string[], nextStepNode: object|null }>
  *
- * Percorre a fábrica criando o próximo nó da espinha.
- * - currentStep === null → cria a raiz (primeiro nó do template).
- * - prevIssueId → blockedByIssueIds do nó.
- * - Resolve o cargo nominal para uuid via resolveRole antes de criar.
+ * Percorre a fábrica criando o(s) próximo(s) nó(s) da espinha.
+ *
+ * Semântica de currentStep:
+ *   - currentStep === null → cria a raiz (primeiro nó do template).
+ *   - currentStep = 'classificar' → cria o nó APÓS 'classificar'.
+ *
+ * Paralelismo (Invariante PAR):
+ *   - Quando o próximo nó tem campo `parallel`, TODOS os irmãos são criados
+ *     simultaneamente — chama allParallelSteps e cria cada um.
+ *   - Retorna issueIds[] e steps[] com todos os nós criados nesta chamada.
+ *
+ * Fan-in (Invariante FAN):
+ *   - Para nós de junção (blockedBy = string[] no molde), usa nodeSpecFanIn
+ *     com o mapa step→issueId fornecido em stepToIssueIdMap.
+ *   - prevIssueId é ignorado para nós de junção — usar stepToIssueIdMap.
+ *
+ * Compatibilidade reversa:
+ *   - Para nós simples sem paralelo, retorna issueIds=[id], steps=[step]
+ *     e o campo legado issueId=id é mantido para compatibilidade.
  *
  * @param {object} transport Transport injetável
  * @param {string} companyId ID da empresa
- * @param {string} complexity Ex: 'SIMPLES', 'COMPLEXA'
+ * @param {string} complexity Ex: 'SIMPLES', 'COMPLEXA', 'feature'
  * @param {string|null} currentStep Step atual (null = criar raiz)
  * @param {string|null} prevIssueId ID da issue anterior (null = raiz)
  * @param {Object<string, string>} agentsById Mapa nome→uuid
- * @returns {Promise<{ issueId: string, nextStepNode: object|null }>}
+ * @param {string|null} [variant] Variante hierárquica (ex: 'light', 'heavy') — null para legados
+ * @param {Object<string, string>} [stepToIssueIdMap] Mapa step→issueId para fan-in de junções
+ * @returns {Promise<{ issueId: string, issueIds: string[], steps: string[], nextStepNode: object|null }>}
  */
-async function growSpine(transport, companyId, complexity, currentStep, prevIssueId, agentsById) {
-  // Descobrir qual nó criar a seguir
-  const nodeToCreate = nextStep(complexity, currentStep);
+async function growSpine(
+  transport,
+  companyId,
+  complexity,
+  currentStep,
+  prevIssueId,
+  agentsById,
+  variant,
+  stepToIssueIdMap,
+) {
+  // Descobrir qual nó criar a seguir (walker linear do tronco)
+  const nodeToCreate = nextStep(complexity, currentStep, variant || undefined);
   if (!nodeToCreate) {
     throw new Error(
       `tree-factory-io/growSpine: nenhum nó a criar. ` +
-      `complexity="${complexity}", currentStep="${currentStep}" — fim de cadeia ou complexidade inválida.`,
+      `complexity="${complexity}"${variant ? `, variant="${variant}"` : ''}, ` +
+      `currentStep="${currentStep}" — fim de cadeia ou complexidade inválida.`,
     );
   }
 
-  // Montar o nodeSpec (lógica pura do tree-factory)
-  const spec = nodeSpec(complexity, nodeToCreate.step, prevIssueId);
+  // Verificar se este nó tem irmãos paralelos (Invariante PAR)
+  const parallelNodes = allParallelSteps(complexity, nodeToCreate.step, variant || undefined);
+  // parallelNodes sempre inclui o nó atual + quaisquer irmãos paralelos
 
-  // Resolver o cargo para uuid (lança se cargo ausente — AC-IO-25)
-  const assigneeUuid = resolveRole(spec.assigneeAgentId, agentsById);
+  const createdIssueIds = [];
+  const createdSteps = [];
 
-  // Montar payload REST (P1 + P2)
-  const payload = {
-    title: spec.title,
-    description: spec.body,      // P2: body → description
-    assigneeAgentId: assigneeUuid, // P1: uuid real
-    blockedByIssueIds: spec.blockedByIssueIds,
+  for (const parallelNode of parallelNodes) {
+    let spec;
+
+    // Verificar se é nó de junção (blockedBy = array no molde) — Invariante FAN
+    // A junção é detectada verificando se blockedBy no molde é um array.
+    // Isso requer olhar o template diretamente ou usar nodeSpecFanIn com mapa.
+    const isJunction = Array.isArray(parallelNode.blockedBy);
+
+    if (isJunction) {
+      // Fan-in real: usa nodeSpecFanIn com mapa step→issueId
+      const fanInMap = stepToIssueIdMap || {};
+      spec = nodeSpecFanIn(complexity, parallelNode.step, fanInMap, variant || undefined);
+    } else {
+      // Nó linear ou nó paralelo simples: usa nodeSpec com prevIssueId
+      spec = nodeSpec(complexity, parallelNode.step, prevIssueId, variant || undefined);
+    }
+
+    // Resolver o cargo para uuid (lança se cargo ausente — AC-IO-25)
+    const assigneeUuid = resolveRole(spec.assigneeAgentId, agentsById);
+
+    // Montar payload REST (P1 + P2)
+    const payload = {
+      title: spec.title,
+      description: spec.body,       // P2: body → description
+      assigneeAgentId: assigneeUuid, // P1: uuid real
+      blockedByIssueIds: spec.blockedByIssueIds,
+    };
+
+    // Criar a issue via transport injetado
+    const issueId = await createIssue(transport, companyId, payload);
+    createdIssueIds.push(issueId);
+    createdSteps.push(parallelNode.step);
+  }
+
+  // Descobrir o próximo nó a partir do step recém-criado (tronco linear)
+  // Se há irmãos paralelos, o próximo nó no tronco é o mesmo para todos
+  // (todos convergem na mesma junção via next).
+  const nextNode = nextStep(complexity, nodeToCreate.step, variant || undefined);
+
+  return {
+    // Compatibilidade reversa: issueId = primeiro ID criado
+    issueId: createdIssueIds[0],
+    // Novos campos para suporte a paralelo e fan-in
+    issueIds: createdIssueIds,
+    steps: createdSteps,
+    nextStepNode: nextNode,
   };
-
-  // Criar a issue via transport injetado
-  const issueId = await createIssue(transport, companyId, payload);
-
-  // Descobrir o próximo nó (para retornar ao chamador)
-  const nextNode = nextStep(complexity, nodeToCreate.step);
-
-  return { issueId, nextStepNode: nextNode };
 }
 
 // ─── EXPORTS ─────────────────────────────────────────────────────────────────
