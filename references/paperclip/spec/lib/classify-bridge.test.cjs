@@ -147,11 +147,12 @@ test('T18 — heurística: "simulate user journey on checkout" → UX Simulation
   assert.strictEqual(classify('simulate user journey on checkout', {}).type, 'UX Simulation');
 });
 
-// ─── T19: (mantido para compatibilidade; ver T42/T43 para regressão spec-prose)
-// Neste ponto do ciclo, T19 ainda mantém o comportamento pré-fix-3.
-// T19 será atualizado no commit da correção do achado 3 (spec-from-prose).
-test('T19 — heurística: "valida spec do módulo" → Spec (sem sinal de maior prioridade)', () => {
-  assert.strictEqual(classify('valida spec do módulo', {}).type, 'Spec');
+// ─── T19: Heurística de tipo — Spec (CORRIGIDO: bare prose NÃO resolve para Spec)
+// Canônico (task-orchestrator Phase 0): Spec exige Signal 1 (path), Signal 2 (--type=spec)
+// ou Signal 3 (prose regex + feature dir + AskUserQuestion). "valida spec" sem sinal
+// explícito deve cair no fallback Feature — não há keyword Bug Fix/User Story/Audit.
+test('T19 — heurística: "valida spec do módulo" → Feature (bare spec prose não resolve para Spec)', () => {
+  assert.strictEqual(classify('valida spec do módulo', {}).type, 'Feature');
 });
 
 // ─── T33-T37: Inflected Bug Fix keywords — plurals/gerunds ───
@@ -346,4 +347,13 @@ test('T40 — complexity: "productivity dashboard" NÃO deve ser COMPLEXA (subst
 
 test('T41 — complexity: "add author bio field" NÃO deve ser MEDIA (substring auth)', () => {
   assert.strictEqual(classify('add author bio field', {}).complexity, 'SIMPLES');
+});
+
+// ─── T42-T43: Spec from bare prose must NOT resolve to Spec ──
+test('T42 — spec prose: "write a specification for the API" → Feature (bare prose não é Spec)', () => {
+  assert.strictEqual(classify('write a specification for the API', {}).type, 'Feature');
+});
+
+test('T43 — spec prose: "update the spec section" → Feature (bare prose não é Spec)', () => {
+  assert.strictEqual(classify('update the spec section', {}).type, 'Feature');
 });

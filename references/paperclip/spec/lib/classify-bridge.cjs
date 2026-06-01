@@ -95,10 +95,15 @@ const TYPE_KEYWORDS = [
     type: 'UX Simulation',
     keywords: ['simulate', 'user journey', 'test ux', 'walkthrough', 'simular', 'jornada'],
   },
-  {
-    type: 'Spec',
-    keywords: ['spec', 'specification'],
-  },
+  // NOTE: 'Spec' is intentionally absent from prose heuristics.
+  // Canonical task-orchestrator Phase 0 requires an explicit signal to reach type=Spec:
+  //   Signal 1 (path arg with requirements.md+design.md+tasks.md),
+  //   Signal 2 (--type=spec flag), or
+  //   Signal 3 (prose regex /valida.*spec|implementa.*spec|fech[ae].*spec/
+  //             + real feature dir + AskUserQuestion confirmation).
+  // A bare keyword like "spec" or "specification" satisfies none of these signals.
+  // The pilot must use override.type='Spec' when it has verified the explicit signal.
+  // Tiebreaker entry kept in TYPE_PRIORITY at priority 0 so it never wins over other types.
 ];
 
 /**
