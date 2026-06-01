@@ -14,6 +14,17 @@ test('extrai nomes de bloco (### NOME vN), deduplicado', () => {
   assert.deepStrictEqual(parseBlocks(comments).sort(), ['ORCHESTRATOR_DECISION', 'PA_DE_CAL', 'TDD_GREEN']);
 });
 
+test('cabeçalho citado na prosa (não abre o comentário) NÃO conta como bloco emitido', () => {
+  // Cabeçalho em início de linha, mas a primeira linha não-vazia é prosa.
+  const cited = [{ body: 'Nota: deveria ter emitido o bloco abaixo mas não emitiu:\n### TDD_GREEN v1' }];
+  assert.deepStrictEqual(parseBlocks(cited), []);
+});
+
+test('só o bloco que abre o comentário conta (cabeçalho posterior em linha própria é ignorado)', () => {
+  const c = [{ body: '### TDD_GREEN v1\nissue: PIP-1\n### PA_DE_CAL v1' }];
+  assert.deepStrictEqual(parseBlocks(c), ['TDD_GREEN']);
+});
+
 test('extrai complexidade do bloco ORCHESTRATOR_DECISION', () => {
   assert.strictEqual(parseComplexity(comments), 'COMPLEXA');
 });

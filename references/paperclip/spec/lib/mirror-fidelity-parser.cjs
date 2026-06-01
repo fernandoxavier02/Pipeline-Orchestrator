@@ -1,19 +1,7 @@
 'use strict';
 // Parser dos comentários: detecta cabeçalhos de bloco "### NOME vN" e a complexidade.
-const BLOCK_HEADER = /^###\s+([A-Z0-9_]+)\s+v\d+/m;
-const BLOCK_HEADER_G = /^###\s+([A-Z0-9_]+)\s+v\d+/gm;
+const BLOCK_HEADER = /^###\s+([A-Z0-9_]+)\s+v\d+/;
 const COMPLEXITY = /complexity:\s*(SIMPLES|MEDIA|COMPLEXA)/i;
-
-function parseBlocks(comments) {
-  const found = new Set();
-  for (const c of comments || []) {
-    const body = (c && c.body) || '';
-    let m;
-    BLOCK_HEADER_G.lastIndex = 0;
-    while ((m = BLOCK_HEADER_G.exec(body)) !== null) found.add(m[1]);
-  }
-  return [...found];
-}
 
 // Nome do bloco que ABRE o comentário (cabeçalho na primeira linha não-vazia), ou null.
 function openingBlock(body) {
@@ -22,6 +10,18 @@ function openingBlock(body) {
   if (!firstNonEmpty) return null;
   const m = BLOCK_HEADER.exec(firstNonEmpty);
   return m ? m[1] : null;
+}
+
+// Um comentário contribui com UM bloco apenas se o cabeçalho ### NOME vN for a
+// PRIMEIRA linha não-vazia (R-CRIT-2): os blocos reais ABREM o comentário. Um
+// cabeçalho citado no meio da prosa é falso positivo e não conta.
+function parseBlocks(comments) {
+  const found = new Set();
+  for (const c of comments || []) {
+    const name = openingBlock((c && c.body) || '');
+    if (name) found.add(name);
+  }
+  return [...found];
 }
 
 // Complexidade lida APENAS de dentro do bloco ORCHESTRATOR_DECISION (R-CRIT-1): um
