@@ -1,27 +1,61 @@
 'use strict';
-// Dicionário de tradução bloco→portão (v0). Fonte: blocos observados nas 54 execuções
-// reais (A5 §4) + conjuntos de portões esperados da spec (A4-validation §2, gates.md).
+// Dicionário de tradução bloco→portão (v1). Fonte: INVENTÁRIO REAL de blocos das 54
+// execuções (30 tipos distintos observados) + conjuntos de portões esperados da spec
+// (A4-validation §2, gates.md).
 
 // Blocos que os cargos JÁ emitem → portão canônico equivalente.
 //
-// POR DESIGN, vários portões esperados NÃO têm bloco-fonte aqui (INFO_GATE_BLOCKED,
-// CHECKPOINT_FAIL, PLAN_REJECTED, MICRO_GATE_GAP e os de aprovação): os agentes ainda
-// não emitem esses blocos. Essa ausência é exatamente o gap de fidelidade que o medidor
-// revela — o teto da nota com o dicionário atual é < 1.0 de propósito, refletindo a
-// realidade observada, não uma meta atingível hoje.
+// Estes são mapeamentos-INFERÊNCIA v1 (bloco→portão): cada um é a leitura defensável de
+// qual portão canônico o bloco representa, com base no inventário real — NÃO um contrato
+// fixo. Sujeitos a refino conforme observamos mais execuções.
 //
-// SLICE_CLOSEOUT e HANDOFF_STATUS mapeiam AMBOS para CLOSEOUT_CONFIRM por design: ambos
-// sinalizam fechamento. O medidor afere PRESENÇA do portão, não a qualidade do conteúdo.
+// POR DESIGN, vários portões esperados NÃO têm bloco-fonte aqui — não há NENHUM bloco que
+// os agentes emitam para sinalizá-los: INFO_GATE_BLOCKED, PLAN_REJECTED, MICRO_GATE_GAP,
+// STOP_RULE, STATE_FILE_INIT_FAIL, FINAL_ADVERSARIAL_REWORK, FIX_LOOP_EXHAUSTED,
+// ADVERSARIAL_GATE_MANDATORY, SSOT_CONFLICT. Essa ausência é exatamente o gap de fidelidade
+// que o medidor revela — o teto da nota com o dicionário atual é < 1.0 de propósito,
+// refletindo a realidade observada, não uma meta atingível hoje.
 //
-// DISPATCH_REQUEST foi removido: é informacional (handoff), não um portão medido — não
-// está em nenhum conjunto esperado, então mapeá-lo seria um mapeamento morto e enganoso.
+// Vários blocos colapsam no MESMO portão por design (o medidor afere PRESENÇA do portão,
+// não a qualidade nem a contagem do conteúdo): SLICE_CLOSEOUT/HANDOFF_STATUS/SPEC_CLOSER →
+// CLOSEOUT_CONFIRM; SECURITY/QUALITY/ARCHITECTURE/SECURITY_RERUN_FINDINGS +
+// ADVERSARIAL_CONSOLIDATED(_CORRECTION) → ADVERSARIAL_GATE; EXECUTOR_FIX_DONE/FIX_COMPLETE/
+// FIX_APPLIED → ADVERSARIAL_BLOCK (fix só ocorre após findings que bloquearam).
+//
+// Blocos INFORMACIONAIS observados no inventário que NÃO são portões medidos e por isso
+// ficam de fora (mapeá-los seria morto e enganoso, como o antigo DISPATCH_REQUEST):
+// DISPATCH_REQUEST, DELEGATED_FOLLOWUP, RECOVERY_COMPLETE, RECOVERY_DISPOSITION,
+// RECOVERY_RESUME_ACK, DISPATCH_CORRECTION, ROOT_CAUSE_RESULT, HANDOFF_FOR_REVIEW,
+// IMPLEMENTER_RERUN_HANDOFF, CANONICAL_FALLBACK_APPLIED — são handoffs/diagnóstico/
+// recuperação, não sinais de portão canônico.
 const BLOCK_TO_GATE = {
+  // → COMPLEXITY_GATE
   ORCHESTRATOR_DECISION: 'COMPLEXITY_GATE',
+  TRIAGE_RESULT: 'COMPLEXITY_GATE',
+  // → TDD_APPROVAL
   TDD_GREEN: 'TDD_APPROVAL',
+  TDD_RED: 'TDD_APPROVAL',
+  // → CHECKPOINT_FAIL (resultado de teste/regressão = portão de build/test)
+  REGRESSION_RESULT: 'CHECKPOINT_FAIL',
+  REGRESSION_CLOSEOUT: 'CHECKPOINT_FAIL',
+  // → ADVERSARIAL_GATE
   ADVERSARIAL_CONSOLIDATED: 'ADVERSARIAL_GATE',
+  ADVERSARIAL_CONSOLIDATED_CORRECTION: 'ADVERSARIAL_GATE',
+  SECURITY_FINDINGS: 'ADVERSARIAL_GATE',
+  QUALITY_FINDINGS: 'ADVERSARIAL_GATE',
+  ARCHITECTURE_FINDINGS: 'ADVERSARIAL_GATE',
+  SECURITY_RERUN_FINDINGS: 'ADVERSARIAL_GATE',
+  // → ADVERSARIAL_BLOCK (fix só ocorre após findings que bloquearam)
+  EXECUTOR_FIX_DONE: 'ADVERSARIAL_BLOCK',
+  FIX_COMPLETE: 'ADVERSARIAL_BLOCK',
+  FIX_APPLIED: 'ADVERSARIAL_BLOCK',
+  // → FINAL_ADVERSARIAL_GATE
   PA_DE_CAL: 'FINAL_ADVERSARIAL_GATE',
+  ADVERSARIAL_FINAL_VERDICT: 'FINAL_ADVERSARIAL_GATE',
+  // → CLOSEOUT_CONFIRM
   SLICE_CLOSEOUT: 'CLOSEOUT_CONFIRM',
   HANDOFF_STATUS: 'CLOSEOUT_CONFIRM',
+  SPEC_CLOSER: 'CLOSEOUT_CONFIRM',
 };
 
 // Conjuntos mandatórios por complexidade (A4-validation §2 + canônico).
