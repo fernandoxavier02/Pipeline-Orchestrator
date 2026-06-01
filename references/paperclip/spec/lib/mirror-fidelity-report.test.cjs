@@ -24,3 +24,12 @@ test('CORREÇÃO C: nenhuma execução pontuada → Nota média N/A, nunca 0.00'
   assert.match(md, /Nota média: N\/A/);
   assert.doesNotMatch(md, /Nota média: 0\.00/);
 });
+
+test('CORREÇÃO D: row pontuada sem o campo missing não derruba o relatório', () => {
+  const rows = [
+    { identifier: 'PIP-1', complexity: 'SIMPLES', score: 0.4, indeterminate: false }, // sem missing
+  ];
+  let md;
+  assert.doesNotThrow(() => { md = buildReport(rows); });
+  assert.match(md, /PIP-1 \[SIMPLES\]: 0\.40/);
+});

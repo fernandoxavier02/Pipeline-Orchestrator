@@ -3,7 +3,7 @@ function buildReport(rows) {
   const scored = rows.filter((r) => !r.indeterminate && typeof r.score === 'number');
   const indet = rows.filter((r) => r.indeterminate);
   const missCount = {};
-  for (const r of scored) for (const g of r.missing) missCount[g] = (missCount[g] || 0) + 1;
+  for (const r of scored) for (const g of (r.missing || [])) missCount[g] = (missCount[g] || 0) + 1;
   const ranked = Object.entries(missCount).sort((a, b) => b[1] - a[1]);
   const lines = [];
   lines.push('# Relatório de Fidelidade — Paperclip', '');
@@ -20,7 +20,7 @@ function buildReport(rows) {
   for (const r of rows) {
     lines.push(r.indeterminate
       ? `- ${r.identifier}: indeterminada (complexidade não detectada)`
-      : `- ${r.identifier} [${r.complexity}]: ${r.score.toFixed(2)} — faltam: ${r.missing.join(', ') || '—'}`);
+      : `- ${r.identifier} [${r.complexity}]: ${r.score.toFixed(2)} — faltam: ${(r.missing || []).join(', ') || '—'}`);
   }
   return lines.join('\n');
 }
