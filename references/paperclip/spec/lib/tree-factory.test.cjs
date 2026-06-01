@@ -1,7 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { nextStep, nodeSpec, allParallelSteps, templateFor } = require('./tree-factory.cjs');
+const { nextStep, nodeSpec, nodeSpecFanIn, allParallelSteps, templateFor } = require('./tree-factory.cjs');
 const { TEMPLATES } = require('./tree-template.cjs');
 
 // GEN2 — nextStep(complexity, currentStep): decide o próximo nó (lê `next` do nó atual).
@@ -296,4 +296,75 @@ test('A1 — bugfix.heavy: padrão correto cobre todos os nós incluindo adv-bat
     assert.ok(visited.has(step),
       `bugfix.heavy nó "${step}" não alcançado — padrão nextStep+allParallelSteps deve cobrir tudo`);
   }
+});
+
+// ─── ACHADO 2 — nodeSpecFanIn garante todos os bloqueadores na junção ────────
+// Prova que nodeSpec (single prevIssueId) era insuficiente para junções: a junção
+// desblockava ao receber apenas UM dos irmãos. nodeSpecFanIn recebe o mapa completo
+// e produz blockedByIssueIds com TODOS os irmãos — fan-in real.
+
+test('FanIn-1 — nodeSpecFanIn em feature.heavy checkpoint produz 2 bloqueadores (review-spec + review-quality)', () => {
+  const map = { 'review-spec': 'ISSUE-RS-1', 'review-quality': 'ISSUE-RQ-2' };
+  const spec = nodeSpecFanIn('feature', 'checkpoint', map, 'heavy');
+  assert.strictEqual(spec.assigneeAgentId, 'checkpoint-validator');
+  assert.strictEqual(spec.blockedByIssueIds.length, 2,
+    'junção N12 deve ter exatamente 2 bloqueadores');
+  assert.ok(spec.blockedByIssueIds.includes('ISSUE-RS-1'), 'deve incluir ISSUE de review-spec');
+  assert.ok(spec.blockedByIssueIds.includes('ISSUE-RQ-2'), 'deve incluir ISSUE de review-quality');
+});
+
+test('FanIn-2 — nodeSpecFanIn em feature.light final-adversarial produz 3 bloqueadores (trio completo)', () => {
+  const map = {
+    'adv-security': 'ISSUE-SEC-1',
+    'adv-architecture': 'ISSUE-ARCH-2',
+    'adv-quality': 'ISSUE-QUAL-3',
+  };
+  const spec = nodeSpecFanIn('feature', 'final-adversarial', map, 'light');
+  assert.strictEqual(spec.assigneeAgentId, 'final-adversarial-orchestrator');
+  assert.strictEqual(spec.blockedByIssueIds.length, 3,
+    'junção final-adversarial deve ter 3 bloqueadores (trio completo)');
+  assert.ok(spec.blockedByIssueIds.includes('ISSUE-SEC-1'), 'deve incluir ISSUE de adv-security');
+  assert.ok(spec.blockedByIssueIds.includes('ISSUE-ARCH-2'), 'deve incluir ISSUE de adv-architecture');
+  assert.ok(spec.blockedByIssueIds.includes('ISSUE-QUAL-3'), 'deve incluir ISSUE de adv-quality');
+});
+
+test('FanIn-3 — nodeSpecFanIn com mapa incompleto lança (proteção contra fan-in parcial)', () => {
+  // Simula o bug antigo: consumer passa só UM irmão, esperando que nodeSpec aceite.
+  // nodeSpecFanIn protege: lança se algum step de blockedBy[] não está no mapa.
+  const mapaIncompleto = { 'review-spec': 'ISSUE-RS-1' }; // falta 'review-quality'
+  assert.throws(
+    () => nodeSpecFanIn('feature', 'checkpoint', mapaIncompleto, 'heavy'),
+    /review-quality.*não encontrado no mapa/,
+    'deve lançar quando mapa de fan-in está incompleto',
+  );
+});
+
+test('FanIn-4 — nodeSpecFanIn em nó linear (blockedBy = scalar) comporta-se como nodeSpec', () => {
+  // Garante backward-compat: se o nó é linear (não é junção), funciona igual ao nodeSpec.
+  const map = { 'classificar': 'ISSUE-CLASS-1' };
+  const spec = nodeSpecFanIn('feature', 'clarificar', map, 'light');
+  assert.strictEqual(spec.assigneeAgentId, 'information-gate');
+  assert.deepStrictEqual(spec.blockedByIssueIds, ['ISSUE-CLASS-1'],
+    'nó linear deve ter exatamente 1 bloqueador');
+});
+
+test('FanIn-5 — nodeSpec original (single prevIssueId) ainda funciona para nós lineares (sem regressão)', () => {
+  // Garante que nodeSpec não foi quebrado pela adição de nodeSpecFanIn.
+  const spec = nodeSpec('feature', 'clarificar', 'ISSUE-CLASS-1', 'light');
+  assert.strictEqual(spec.blockedByIssueIds.length, 1);
+  assert.deepStrictEqual(spec.blockedByIssueIds, ['ISSUE-CLASS-1']);
+});
+
+test('FanIn-6 — nodeSpecFanIn hotfix HF-N9 produz 3 bloqueadores (trio hotfix)', () => {
+  const map = {
+    'HF-N6-adv-sec': 'ISSUE-H6',
+    'HF-N7-adv-arch': 'ISSUE-H7',
+    'HF-N8-adv-qual': 'ISSUE-H8',
+  };
+  const spec = nodeSpecFanIn('hotfix', 'HF-N9-juncao', map);
+  assert.strictEqual(spec.blockedByIssueIds.length, 3,
+    'HF-N9 deve ter 3 bloqueadores — um por irmão do trio hotfix');
+  assert.ok(spec.blockedByIssueIds.includes('ISSUE-H6'), 'deve incluir ISSUE de HF-N6');
+  assert.ok(spec.blockedByIssueIds.includes('ISSUE-H7'), 'deve incluir ISSUE de HF-N7');
+  assert.ok(spec.blockedByIssueIds.includes('ISSUE-H8'), 'deve incluir ISSUE de HF-N8');
 });

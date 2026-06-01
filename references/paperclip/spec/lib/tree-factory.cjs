@@ -111,6 +111,8 @@ function buildBody(node) {
 //   - body = instrução de emitir o(s) bloco(s) + linha NEXT_STEP.
 //   Para tipos hierárquicos: nodeSpec('feature', 'classificar', null, 'light')
 //   Para tipos legados:      nodeSpec('SIMPLES', 'classificar', null)
+//   AVISO: para nós de junção (blockedBy = string[] no molde), use nodeSpecFanIn.
+//   nodeSpec sempre produz UM único bloqueador — correto para nós do tronco linear.
 function nodeSpec(complexity, step, prevIssueId, variant) {
   const nodes = templateFor(complexity, variant);
   if (!nodes) {
@@ -127,4 +129,52 @@ function nodeSpec(complexity, step, prevIssueId, variant) {
   };
 }
 
-module.exports = { nextStep, nodeSpec, allParallelSteps, templateFor };
+// nodeSpecFanIn(complexity, step, stepToIssueIdMap [, variant]) → payload de junção.
+//   Idêntico a nodeSpec mas resolve blockedByIssueIds para TODOS os irmãos declarados
+//   em node.blockedBy[] do molde, usando o mapa step→issueId fornecido.
+//   Garante fan-in real: a junção só desbloqueia quando TODOS os irmãos concluíram.
+//
+//   - stepToIssueIdMap: { [stepName]: issueId } — contém o ID da issue criada para
+//     cada irmão paralelo que converge nesta junção.
+//   - Se node.blockedBy for scalar (nó linear comum), comporta-se como nodeSpec
+//     com prevIssueId = stepToIssueIdMap[node.blockedBy].
+//   - Lança se um step em blockedBy[] não estiver no mapa (proteção contra fan-in parcial).
+//
+//   Uso: nodeSpecFanIn('feature', 'checkpoint', {'review-spec':'I-1','review-quality':'I-2'}, 'heavy')
+function nodeSpecFanIn(complexity, step, stepToIssueIdMap, variant) {
+  const nodes = templateFor(complexity, variant);
+  if (!nodes) {
+    const label = variant ? `${complexity}.${variant}` : complexity;
+    throw new Error(`tree-factory: complexidade "${label}" desconhecida`);
+  }
+  const label = variant ? `${complexity}.${variant}` : complexity;
+  const node = nodeForStep(nodes, label, step);
+
+  let blockedByIssueIds;
+  if (Array.isArray(node.blockedBy)) {
+    // Junção real: resolve TODOS os irmãos paralelos
+    blockedByIssueIds = node.blockedBy.map((sibStep) => {
+      const issueId = stepToIssueIdMap[sibStep];
+      if (issueId === undefined || issueId === null) {
+        throw new Error(
+          `tree-factory/nodeSpecFanIn: step "${sibStep}" de blockedBy não encontrado no mapa` +
+          ` (junção "${step}" em ${label}). Fan-in incompleto bloqueado.`,
+        );
+      }
+      return issueId;
+    });
+  } else {
+    // Nó linear — comporta-se como nodeSpec
+    const prevId = node.blockedBy ? stepToIssueIdMap[node.blockedBy] : null;
+    blockedByIssueIds = prevId ? [prevId] : [];
+  }
+
+  return {
+    title: `[${label}] ${node.step}`,
+    assigneeAgentId: node.role,
+    blockedByIssueIds,
+    body: buildBody(node),
+  };
+}
+
+module.exports = { nextStep, nodeSpec, nodeSpecFanIn, allParallelSteps, templateFor };
