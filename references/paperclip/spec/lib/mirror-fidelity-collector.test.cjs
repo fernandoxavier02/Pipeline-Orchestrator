@@ -54,3 +54,19 @@ test('CORREÇÃO A: companyId com injeção de comando LANÇA antes de montar a 
   );
   assert.strictEqual(listIssuesCalled, false, 'não deve nem chamar listIssues com id malicioso');
 });
+
+test('MUDANÇA 1: parentId exposto no objeto de saída (null quando ausente)', async () => {
+  const transport = {
+    async listIssues() {
+      return [
+        { id: 'i1', identifier: 'PIP-1', title: 'raiz', parentId: null },
+        { id: 'i2', identifier: 'PIP-2', title: 'filho', parentId: 'i1' },
+      ];
+    },
+    async getComments() { return []; },
+  };
+  const out = await collectExecutions({ companyId: 'co', transport });
+  assert.strictEqual(out.length, 2);
+  assert.strictEqual(out[0].parentId, null);
+  assert.strictEqual(out[1].parentId, 'i1');
+});

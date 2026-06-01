@@ -44,7 +44,7 @@ async function collectExecutions({ companyId, transport }) {
     } catch (e) {
       console.warn(`[mirror] aviso: falha ao coletar comentários de ${it.identifier || it.id || '(sem id)'}: ${e.message}`);
     }
-    out.push({ id: it.id, identifier: it.identifier, title: it.title, comments });
+    out.push({ id: it.id, parentId: it.parentId !== undefined ? it.parentId : null, identifier: it.identifier, title: it.title, comments });
   }
   return out;
 }
