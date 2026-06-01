@@ -20,6 +20,28 @@ test('coleta issues + comentários e devolve estrutura por execução', async ()
   assert.strictEqual(out[0].comments.length, 2);
 });
 
+test('CORREÇÃO B: getComments que falha para UMA issue não derruba a coleta das demais', async () => {
+  const transport = {
+    async listIssues() {
+      return [
+        { id: 'i1', identifier: 'PIP-1', title: 'a' },
+        { id: 'i2', identifier: 'PIP-2', title: 'b' },
+        { id: 'i3', identifier: 'PIP-3', title: 'c' },
+      ];
+    },
+    async getComments(id) {
+      if (id === 'i2') throw new Error('JSON inválido / rede caiu');
+      return [{ body: '### TDD_GREEN v1' }];
+    },
+  };
+  const out = await collectExecutions({ companyId: 'co', transport });
+  assert.strictEqual(out.length, 3, 'todas as 3 issues são coletadas');
+  assert.strictEqual(out[0].comments.length, 1);
+  assert.strictEqual(out[1].identifier, 'PIP-2');
+  assert.deepStrictEqual(out[1].comments, [], 'a issue problemática volta com comments vazio');
+  assert.strictEqual(out[2].comments.length, 1);
+});
+
 test('CORREÇÃO A: companyId com injeção de comando LANÇA antes de montar a URL', async () => {
   let listIssuesCalled = false;
   const guardTransport = {

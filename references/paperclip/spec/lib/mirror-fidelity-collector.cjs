@@ -35,8 +35,16 @@ async function collectExecutions({ companyId, transport }) {
   const arr = Array.isArray(issues) ? issues : (issues.issues || issues.data || []);
   const out = [];
   for (const it of arr) {
-    const comments = await t.getComments(assertSafeId(it.id, 'issueId'));
-    out.push({ id: it.id, identifier: it.identifier, title: it.title, comments: Array.isArray(comments) ? comments : [] });
+    // Isolamento por issue: id ausente/inválido, falha de rede ou JSON quebrado
+    // não derrubam a coleta inteira — registra aviso e segue com comments vazio.
+    let comments = [];
+    try {
+      const raw = await t.getComments(assertSafeId(it.id, 'issueId'));
+      comments = Array.isArray(raw) ? raw : [];
+    } catch (e) {
+      console.warn(`[mirror] aviso: falha ao coletar comentários de ${it.identifier || it.id || '(sem id)'}: ${e.message}`);
+    }
+    out.push({ id: it.id, identifier: it.identifier, title: it.title, comments });
   }
   return out;
 }
