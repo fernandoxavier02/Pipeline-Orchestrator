@@ -37,11 +37,11 @@ test('A2 — teto SIMPLES: execução com blocos que cobrem os 5 portões espera
 // ─── G3-Régua: D8 score — modo REVIEW_ONLY ────────────────────────────────────
 
 test('T-G3-08 — REVIEW_ONLY cobertura total: score 1.0, indeterminate false (D8 caminho feliz)', () => {
-  // SECURITY_FINDINGS → ADVERSARIAL_GATE; ADVERSARIAL_FINAL_VERDICT → FINAL_ADVERSARIAL_GATE.
-  // complexity: null seria órfã sem REVIEW_ONLY_MODE — com o marcador, não é.
+  // complexity:'REVIEW_ONLY' é o que parseComplexity retorna quando detecta REVIEW_ONLY_SCORE.
+  // ADVERSARIAL_CONSOLIDATED → ADVERSARIAL_GATE; ADVERSARIAL_FINAL_VERDICT → FINAL_ADVERSARIAL_GATE.
   const r = scoreExecution({
-    blocks: ['REVIEW_ONLY_MODE', 'SECURITY_FINDINGS', 'ADVERSARIAL_FINAL_VERDICT'],
-    complexity: null,
+    blocks: ['REVIEW_ONLY_SCORE', 'ADVERSARIAL_CONSOLIDATED', 'ADVERSARIAL_FINAL_VERDICT'],
+    complexity: 'REVIEW_ONLY',
   });
   assert.strictEqual(r.indeterminate, false);
   assert.strictEqual(r.score, 1.0);
@@ -49,21 +49,21 @@ test('T-G3-08 — REVIEW_ONLY cobertura total: score 1.0, indeterminate false (D
 });
 
 test('T-G3-09 — REVIEW_ONLY cobertura parcial: score 0.5, FINAL_ADVERSARIAL_GATE ausente (D8)', () => {
-  // Apenas SECURITY_FINDINGS → ADVERSARIAL_GATE; FINAL_ADVERSARIAL_GATE falta.
+  // Apenas ADVERSARIAL_CONSOLIDATED → ADVERSARIAL_GATE; FINAL_ADVERSARIAL_GATE falta.
   const r = scoreExecution({
-    blocks: ['REVIEW_ONLY_MODE', 'SECURITY_FINDINGS'],
-    complexity: null,
+    blocks: ['REVIEW_ONLY_SCORE', 'ADVERSARIAL_CONSOLIDATED'],
+    complexity: 'REVIEW_ONLY',
   });
   assert.strictEqual(r.indeterminate, false);
   assert.strictEqual(r.score, 0.5);
   assert.ok(r.missing.includes('FINAL_ADVERSARIAL_GATE'), 'FINAL_ADVERSARIAL_GATE deve estar em missing');
 });
 
-test('T-G3-10 — REVIEW_ONLY sobrepõe complexidade declarada COMPLEXA (D8 modo > complexity)', () => {
-  // Com REVIEW_ONLY_MODE, usa lista de 2 portões, não a lista COMPLEXA de 16.
+test('T-G3-10 — complexity REVIEW_ONLY usa lista de 2 portões, não COMPLEXA (D8)', () => {
+  // complexity:'REVIEW_ONLY' produz expectedGates de 2 portões, independente de outros blocos.
   const r = scoreExecution({
-    blocks: ['REVIEW_ONLY_MODE'],
-    complexity: 'COMPLEXA',
+    blocks: ['REVIEW_ONLY_SCORE'],
+    complexity: 'REVIEW_ONLY',
   });
   // expected deve ser a lista REVIEW_ONLY (2 portões), não COMPLEXA (16 portões)
   assert.strictEqual(r.indeterminate, false, 'modo REVIEW_ONLY nunca produz execução órfã');
@@ -71,10 +71,10 @@ test('T-G3-10 — REVIEW_ONLY sobrepõe complexidade declarada COMPLEXA (D8 modo
 });
 
 test('T-G3-11 — REVIEW_ONLY sem blocos de portão: score 0, ambos os portões ausentes, não-órfã (D8)', () => {
-  // REVIEW_ONLY_MODE sozinho — sem nenhum bloco de portão coberto.
+  // REVIEW_ONLY_SCORE sozinho — sem nenhum bloco de portão adversarial coberto.
   const r = scoreExecution({
-    blocks: ['REVIEW_ONLY_MODE'],
-    complexity: null,
+    blocks: ['REVIEW_ONLY_SCORE'],
+    complexity: 'REVIEW_ONLY',
   });
   assert.strictEqual(r.indeterminate, false);
   assert.strictEqual(r.score, 0);
@@ -82,22 +82,22 @@ test('T-G3-11 — REVIEW_ONLY sem blocos de portão: score 0, ambos os portões 
   assert.ok(r.missing.includes('FINAL_ADVERSARIAL_GATE'), 'FINAL_ADVERSARIAL_GATE deve estar em missing');
 });
 
-test('T-G3-12 — sem REVIEW_ONLY_MODE e sem complexity: continua órfã (regressão D8)', () => {
+test('T-G3-12 — sem complexity REVIEW_ONLY e sem complexity: continua órfã (regressão D8)', () => {
   // Garante que o comportamento existente de indeterminate não regride.
   const r = scoreExecution({ blocks: ['TDD_GREEN'], complexity: null });
   assert.strictEqual(r.indeterminate, true);
   assert.strictEqual(r.score, null);
 });
 
-test('T-G3-13 — D7+D8 combinados: SANITY_RESULT cobre CHECKPOINT_FAIL em execução SIMPLES (score 1.0)', () => {
-  // SANITY_RESULT (D7) é alternativa a REGRESSION_RESULT para cobrir CHECKPOINT_FAIL.
+test('T-G3-13 — D7: SANITY_CHECK cobre CHECKPOINT_FAIL em execução SIMPLES (score 1.0)', () => {
+  // SANITY_CHECK (D7) é o bloco real emitido pelo nó de sanidade — alternativa a REGRESSION_RESULT.
   // Blocos: CLARIFICATION_DONE→INFO_GATE_BLOCKED, TDD_GREEN→TDD_APPROVAL,
-  //         SANITY_RESULT→CHECKPOINT_FAIL, ORCHESTRATOR_DECISION→COMPLEXITY_GATE, SLICE_CLOSEOUT→CLOSEOUT_CONFIRM.
+  //         SANITY_CHECK→CHECKPOINT_FAIL, ORCHESTRATOR_DECISION→COMPLEXITY_GATE, SLICE_CLOSEOUT→CLOSEOUT_CONFIRM.
   const r = scoreExecution({
-    blocks: ['CLARIFICATION_DONE', 'TDD_GREEN', 'SANITY_RESULT', 'ORCHESTRATOR_DECISION', 'SLICE_CLOSEOUT'],
+    blocks: ['CLARIFICATION_DONE', 'TDD_GREEN', 'SANITY_CHECK', 'ORCHESTRATOR_DECISION', 'SLICE_CLOSEOUT'],
     complexity: 'SIMPLES',
   });
   assert.strictEqual(r.score, 1.0, `score deve ser 1.0; ausentes: ${JSON.stringify(r.missing)}`);
   assert.deepStrictEqual(r.missing, []);
-  assert.ok(r.emitted.includes('CHECKPOINT_FAIL'), 'CHECKPOINT_FAIL deve estar em emitted via SANITY_RESULT');
+  assert.ok(r.emitted.includes('CHECKPOINT_FAIL'), 'CHECKPOINT_FAIL deve estar em emitted via SANITY_CHECK');
 });

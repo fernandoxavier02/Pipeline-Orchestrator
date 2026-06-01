@@ -100,3 +100,59 @@ test('caso 5: ciclo A→B→A sem complexity → não trava, orphanCount=2', () 
   assert.strictEqual(result.orphanCount, 2, 'ambos devem ser órfãos');
   assert.strictEqual(result.trees.length, 0);
 });
+
+// ─── G3-D8: integração ponta-a-ponta do modo REVIEW_ONLY ──────────────────────
+
+// CASO 6 — Review-only real: 4 nós, RO-N0 emite REVIEW_ONLY_SCORE
+// Este teste falha se o D8 não funcionar — é o contra-prova que os testes sintéticos
+// do G3 não podiam fornecer.
+test('T-D8-tree-01 — review-only real (4 nós, sem ORCHESTRATOR_DECISION) NÃO é órfã (D8)', () => {
+  // Simula o resultado de collectExecutions para um pipeline review-only:
+  // RO-N0: emite REVIEW_ONLY_SCORE (parseComplexity retorna 'REVIEW_ONLY')
+  // RO-N1: emite ADVERSARIAL_CONSOLIDATED
+  // RO-N2: emite ADVERSARIAL_FINAL_VERDICT
+  // RO-N3: emite PA_DE_CAL + SLICE_CLOSEOUT
+  const executions = [
+    { id: 'RO-0', parentId: null,  identifier: 'PIP-50', title: 'detectar-diff',
+      comments: [{ body: '### REVIEW_ONLY_SCORE v1\nescopo: diff HEAD~1' }] },
+    { id: 'RO-1', parentId: 'RO-0', identifier: 'PIP-51', title: 'adv-coord',
+      comments: [{ body: '### ADVERSARIAL_CONSOLIDATED v1\nfindings: [f1,f2]' }] },
+    { id: 'RO-2', parentId: 'RO-0', identifier: 'PIP-52', title: 'final-adv',
+      comments: [{ body: '### ADVERSARIAL_FINAL_VERDICT v1\nverdict: GO' }] },
+    { id: 'RO-3', parentId: 'RO-0', identifier: 'PIP-53', title: 'fechar',
+      comments: [
+        { body: '### PA_DE_CAL v1\nresult: PASS' },
+        { body: '### SLICE_CLOSEOUT v1\nstatus: done' },
+      ] },
+  ];
+  const result = scoreTrees(executions);
+
+  // O objetivo declarado de D8: execuções review-only NÃO devem ser órfãs
+  assert.strictEqual(result.orphanCount, 0, `review-only não deve ter órfãos; orphans=${JSON.stringify(result.orphanIdentifiers)}`);
+  assert.strictEqual(result.trees.length, 1, 'deve haver exatamente 1 árvore review-only');
+
+  const tree = result.trees[0];
+  assert.strictEqual(tree.complexity, 'REVIEW_ONLY', 'complexidade deve ser REVIEW_ONLY');
+  assert.strictEqual(tree.indeterminate, false, 'nota deve ser determinada (não indeterminate)');
+  assert.strictEqual(tree.score, 1.0, `score deve ser 1.0 (ADVERSARIAL_GATE + FINAL_ADVERSARIAL_GATE cobertos); ausentes=${JSON.stringify(tree.missing)}`);
+  assert.deepStrictEqual(tree.missing, []);
+});
+
+test('T-D8-tree-02 — review-only parcial: score 0.5 quando apenas ADVERSARIAL_GATE coberto (D8)', () => {
+  // Simula review-only onde RO-N2 (final adversarial) não completou.
+  // RO-N3 também não completou (sem PA_DE_CAL nem ADVERSARIAL_FINAL_VERDICT).
+  const executions = [
+    { id: 'RO-0', parentId: null, identifier: 'PIP-60', title: 'detectar-diff',
+      comments: [{ body: '### REVIEW_ONLY_SCORE v1\nescopo: diff' }] },
+    { id: 'RO-1', parentId: 'RO-0', identifier: 'PIP-61', title: 'adv-coord',
+      comments: [{ body: '### ADVERSARIAL_CONSOLIDATED v1\nfindings: [f1]' }] },
+    // Sem RO-N2/RO-N3 — FINAL_ADVERSARIAL_GATE não coberto
+  ];
+  const result = scoreTrees(executions);
+
+  assert.strictEqual(result.orphanCount, 0, 'review-only parcial não deve ter órfãos');
+  assert.strictEqual(result.trees.length, 1);
+  const tree = result.trees[0];
+  assert.strictEqual(tree.score, 0.5, `score deve ser 0.5 (só ADVERSARIAL_GATE coberto); emitidos=${JSON.stringify(tree.emitted)}`);
+  assert.ok(tree.missing.includes('FINAL_ADVERSARIAL_GATE'), 'FINAL_ADVERSARIAL_GATE deve estar ausente');
+});

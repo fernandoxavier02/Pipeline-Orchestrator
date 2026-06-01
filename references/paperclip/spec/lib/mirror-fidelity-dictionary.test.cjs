@@ -72,22 +72,23 @@ test('A1 — CLARIFICATION_DONE mapeia para INFO_GATE_BLOCKED (fecha lacuna do p
 
 // ─── G3-Régua: D7 (SANITY_RESULT) + D8 (REVIEW_ONLY) ─────────────────────────
 
-test('T-G3-01 — SANITY_RESULT mapeia para CHECKPOINT_FAIL (D7)', () => {
-  // Decisão D7: o nó de sanidade do tronco e do HOTFIX emite SANITY_RESULT ao concluir.
+test('T-G3-01 — SANITY_CHECK mapeia para CHECKPOINT_FAIL (D7)', () => {
+  // Decisão D7: o nó de sanidade do tronco emite SANITY_CHECK ao concluir
+  // (agents/core/sanity-checker.md:78 + agents/core/final-validator.md:56).
   // Sem mapeamento, esse bloco era invisível para a régua (gap G2/G-HF2).
-  // Com o mapeamento, a sanidade reduzida do HOTFIX (build+test) aparece na nota.
-  assert.strictEqual(gateForBlock('SANITY_RESULT'), 'CHECKPOINT_FAIL');
+  // Com o mapeamento, a sanidade aparece na nota como CHECKPOINT_FAIL.
+  assert.strictEqual(gateForBlock('SANITY_CHECK'), 'CHECKPOINT_FAIL');
 });
 
-test('T-G3-02 — SANITY_RESULT é chave própria de BLOCK_TO_GATE (D7)', () => {
-  assert.ok(Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, 'SANITY_RESULT'));
+test('T-G3-02 — SANITY_CHECK é chave própria de BLOCK_TO_GATE (D7)', () => {
+  assert.ok(Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, 'SANITY_CHECK'));
 });
 
-test('T-G3-03 — SANITY_CHECK (bloco informacional homônimo) não mapeia para portão (regressão D7)', () => {
-  // SANITY_CHECK é bloco informacional listado em _fidelidade.md §5 como excluído por design.
-  // Não deve colidir com o mapeamento D7 de SANITY_RESULT.
-  assert.strictEqual(gateForBlock('SANITY_CHECK'), null);
-  assert.ok(!Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, 'SANITY_CHECK'));
+test('T-G3-03 — REVIEW_ONLY_SCORE é chave própria de BLOCK_TO_GATE (D8)', () => {
+  // REVIEW_ONLY_SCORE é o marcador de modo emitido pelo RO-N0. Mapeia para COMPLEXITY_GATE
+  // para que P6 (todo bloco emitido por nó → portão) passe.
+  assert.strictEqual(gateForBlock('REVIEW_ONLY_SCORE'), 'COMPLEXITY_GATE');
+  assert.ok(Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, 'REVIEW_ONLY_SCORE'));
 });
 
 test('T-G3-04 — expectedGates(REVIEW_ONLY) tem exatamente 2 portões (D8)', () => {

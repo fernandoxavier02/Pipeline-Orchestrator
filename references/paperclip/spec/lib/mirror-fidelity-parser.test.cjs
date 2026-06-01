@@ -44,3 +44,35 @@ test('ignora "complexity:" de comentário humano; só lê do bloco ORCHESTRATOR_
 test('sem bloco ORCHESTRATOR_DECISION → null mesmo que prosa cite complexity', () => {
   assert.strictEqual(parseComplexity([{ body: 'complexity: COMPLEXA citada em prosa' }]), null);
 });
+
+// ─── G3-D8: parseComplexity detecta REVIEW_ONLY_SCORE ─────────────────────────
+
+test('T-D8-parser-01 — comentário abrindo com REVIEW_ONLY_SCORE retorna REVIEW_ONLY', () => {
+  // RO-N0 emite REVIEW_ONLY_SCORE v1; parseComplexity deve retornar 'REVIEW_ONLY'
+  // sem precisar de ORCHESTRATOR_DECISION no corpo do bloco.
+  const comments = [{ body: '### REVIEW_ONLY_SCORE v1\nescopo: diff HEAD~1' }];
+  assert.strictEqual(parseComplexity(comments), 'REVIEW_ONLY');
+});
+
+test('T-D8-parser-02 — REVIEW_ONLY_SCORE tem precedência sobre ORCHESTRATOR_DECISION (ordem de varredura)', () => {
+  // Se ambos aparecem (cenário hipotético), REVIEW_ONLY_SCORE é o primeiro a ser varrido
+  // → retorna 'REVIEW_ONLY' se vier antes na lista de comentários.
+  const commentsROFirst = [
+    { body: '### REVIEW_ONLY_SCORE v1\nescopo: diff' },
+    { body: '### ORCHESTRATOR_DECISION v1\ncomplexity: COMPLEXA' },
+  ];
+  assert.strictEqual(parseComplexity(commentsROFirst), 'REVIEW_ONLY');
+});
+
+test('T-D8-parser-03 — comentário real de review-only: blocos detectados incluem REVIEW_ONLY_SCORE', () => {
+  // Verifica que parseBlocks também detecta REVIEW_ONLY_SCORE na lista de blocos.
+  const comments = [
+    { body: '### REVIEW_ONLY_SCORE v1\nescopo: diff HEAD~1' },
+    { body: '### ADVERSARIAL_CONSOLIDATED v1\nfindings: [...]' },
+    { body: '### ADVERSARIAL_FINAL_VERDICT v1\nverdict: GO' },
+  ];
+  const blocks = parseBlocks(comments);
+  assert.ok(blocks.includes('REVIEW_ONLY_SCORE'), 'REVIEW_ONLY_SCORE deve estar nos blocos');
+  assert.ok(blocks.includes('ADVERSARIAL_CONSOLIDATED'), 'ADVERSARIAL_CONSOLIDATED deve estar nos blocos');
+  assert.ok(blocks.includes('ADVERSARIAL_FINAL_VERDICT'), 'ADVERSARIAL_FINAL_VERDICT deve estar nos blocos');
+});
