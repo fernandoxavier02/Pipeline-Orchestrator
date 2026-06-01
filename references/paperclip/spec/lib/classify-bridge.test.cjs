@@ -357,3 +357,37 @@ test('T42 — spec prose: "write a specification for the API" → Feature (bare 
 test('T43 — spec prose: "update the spec section" → Feature (bare prose não é Spec)', () => {
   assert.strictEqual(classify('update the spec section', {}).type, 'Feature');
 });
+
+// ─── T44–T47: Multi-word phrase false positives (word-boundary enforcement) ──
+// Adversarial finding: multi-word phrases used raw includes() so "as a user" matched
+// inside "canvas" or "overseas", and "data model" matched inside "metadata model".
+// Fix: phrases now use \b...\b regex (same class as single-word fix for 'prod'/'auth').
+
+test('T44 — phrase boundary: "the canvas a user can drag" NAO deve ser User Story ("as" dentro de "canvas")', () => {
+  // "canvAS A USER" — "as a user" aparecia por substring. Com \b, nao deve mais.
+  const r = classify('the canvas a user can drag', {});
+  assert.notStrictEqual(r.type, 'User Story',
+    'canvas contem "as" como sufixo — nao deve disparar "as a user"');
+});
+
+test('T45 — phrase boundary: "overseas a user reported a problem" NAO deve ser User Story ("as" dentro de "overseas")', () => {
+  // "oversEAS A USER" — mesmo bug.
+  const r = classify('overseas a user reported a problem', {});
+  assert.notStrictEqual(r.type, 'User Story',
+    'overseas contem "as" como sufixo — nao deve disparar "as a user"');
+});
+
+test('T46 — phrase boundary: "update the metadata model fields" NAO deve elevar complexidade via "data model" (dentro de "metadata")', () => {
+  // "metaDATA MODEL" — "data model" aparecia dentro de "metadata model".
+  const c = classify('update the metadata model fields', {}).complexity;
+  assert.strictEqual(c, 'SIMPLES',
+    '"metadata" contem "data" como sufixo — nao deve disparar sinal "data model"');
+});
+
+test('T47 — phrase boundary: frases canonicas legitimas continuam funcionando apos correcao', () => {
+  // Garantia de regressao: as frases reais ainda batem.
+  assert.strictEqual(classify('as a user I want to see my orders', {}).type, 'User Story',
+    '"as a user" no inicio deve continuar sendo User Story');
+  assert.ok(classify('change the data model for users', {}).complexity !== 'SIMPLES',
+    '"data model" autonomo deve continuar elevando complexidade');
+});

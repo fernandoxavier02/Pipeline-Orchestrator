@@ -60,9 +60,9 @@ const TYPE_PRIORITY = {
 // Fonte: CLASSIFICATION TABLE em agents/core/task-orchestrator.md
 // Mais palavras em português foram adicionadas conforme AC9–AC14.
 //
-// Matching: keywords de uma única palavra usam word-boundary (\b) para evitar
-// falsos positivos (ex.: "check" dentro de "checkout", "fix" dentro de "prefix").
-// Frases multi-palavra usam substring simples (já são específicas por natureza).
+// Matching: todos os keywords (palavra única e frases multi-palavra) usam \b
+// word-boundary para evitar falsos positivos de substring.
+// Ex.: "check" não bate em "checkout"; "as a user" não bate em "canvas a user".
 const TYPE_KEYWORDS = [
   // Maior prioridade primeiro (Bug Fix = tiebreaker 5)
   {
@@ -108,9 +108,14 @@ const TYPE_KEYWORDS = [
 
 /**
  * Verifica se desc contém o keyword.
- * Palavras simples (sem espaço): usa \b word-boundary para evitar falsos positivos
- * (ex.: "check" não bate em "checkout"; "fix" não bate em "prefix").
- * Frases multi-palavra: usa includes() diretamente.
+ * Usa \b word-boundary tanto para palavras simples quanto para frases
+ * multi-palavra (tokens separados por \s+), evitando falsos positivos
+ * de substring em ambos os casos.
+ *
+ * Exemplos corrigidos:
+ *   "check" não bate em "checkout" (single-word \b, já corrigido antes)
+ *   "as a user" não bate em "canvas a user" ("as" dentro de "canvas")
+ *   "data model" não bate em "metadata model" ("data" dentro de "metadata")
  *
  * @param {string} lower Descrição em lower-case
  * @param {string} kw Keyword a testar
@@ -118,16 +123,16 @@ const TYPE_KEYWORDS = [
  */
 function keywordMatches(lower, kw) {
   const kwLower = kw.toLowerCase();
-  if (kwLower.includes(' ')) {
-    // Frase multi-palavra: substring matching é suficientemente específico
-    return lower.includes(kwLower);
-  }
-  // Palavra simples: word-boundary para evitar correspondências parciais
-  // Usamos \b dos dois lados; funcionam para ASCII e caracteres latinos simples.
+  // Para frases multi-palavra: constrói regex com \b nas bordas e \s+ entre tokens.
+  // Para palavras simples: \b dos dois lados (comportamento anterior preservado).
+  // Ambos os casos usam a mesma estratégia — sem branch separado.
+  const tokens = kwLower.trim().split(/\s+/);
+  const escapedTokens = tokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const pattern = `\\b${escapedTokens.join('\\s+')}\\b`;
   try {
-    return new RegExp(`\\b${kwLower}\\b`, 'i').test(lower);
+    return new RegExp(pattern, 'i').test(lower);
   } catch (_) {
-    // Fallback seguro caso o keyword tenha caracteres especiais de regex
+    // Fallback seguro caso o keyword tenha caracteres especiais de regex inesperados
     return lower.includes(kwLower);
   }
 }
@@ -151,9 +156,9 @@ const LARGE_SCOPE_SIGNALS = ['6 files', 'multiple domains', 'large', 'extensive'
 
 /**
  * Verifica se desc contém o sinal de complexidade.
- * Mesma estratégia de keywordMatches: sinais de uma palavra usam \b word-boundary
- * (evita 'auth' dentro de 'author', 'prod' dentro de 'product', etc.).
- * Frases multi-palavra usam includes() diretamente.
+ * Mesma estratégia de keywordMatches: usa \b word-boundary tanto para sinais
+ * de uma palavra quanto para frases multi-palavra (tokens separados por \s+).
+ * Evita falsos positivos como "data model" dentro de "metadata model".
  *
  * @param {string} lower Descrição em lower-case
  * @param {string} sig Sinal a testar
@@ -161,11 +166,11 @@ const LARGE_SCOPE_SIGNALS = ['6 files', 'multiple domains', 'large', 'extensive'
  */
 function signalMatches(lower, sig) {
   const sigLower = sig.toLowerCase();
-  if (sigLower.includes(' ')) {
-    return lower.includes(sigLower);
-  }
+  const tokens = sigLower.trim().split(/\s+/);
+  const escapedTokens = tokens.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const pattern = `\\b${escapedTokens.join('\\s+')}\\b`;
   try {
-    return new RegExp(`\\b${sigLower}\\b`, 'i').test(lower);
+    return new RegExp(pattern, 'i').test(lower);
   } catch (_) {
     return lower.includes(sigLower);
   }
