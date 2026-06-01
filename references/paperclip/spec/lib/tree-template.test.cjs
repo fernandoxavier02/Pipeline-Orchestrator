@@ -567,6 +567,37 @@ test('T-32 Variante heavy contém exatamente 1 design-interrogator', () => {
   }
 });
 
+// T-34: Fan-in completeness — junção lista TODOS os irmãos do grupo paralelo em blockedBy
+// Prova que a regressão de Finding 2 (race onde junção desbloqueava com 1 de 3 irmãos)
+// não pode ser reintroduzida sem quebrar este teste.
+test('T-34 Fan-in completeness — toda junção lista TODOS os irmãos paralelos em blockedBy[]', () => {
+  for (const { key, nodes } of canonicalTemplates()) {
+    for (const node of nodes) {
+      // Nó é junção se blockedBy é array (fan-in de paralelos)
+      if (!Array.isArray(node.blockedBy)) continue;
+      const junctionBlockedBy = new Set(node.blockedBy);
+      // Acha todos os nós que têm next === este nó (irmãos que convergem aqui)
+      const siblings = nodes.filter((n) => n.next === node.step && n.step !== node.step);
+      const siblingSteps = new Set(siblings.map((n) => n.step));
+      // Cada irmão que aponta para esta junção deve estar em blockedBy[]
+      for (const sibStep of siblingSteps) {
+        assert.ok(
+          junctionBlockedBy.has(sibStep),
+          `[${key}/${node.step}] junção deve ter "${sibStep}" em blockedBy[] (fan-in incompleto = race condition)`,
+        );
+      }
+      // blockedBy[] não deve ter entradas que não existam no molde como irmãos reais
+      const stepSet = new Set(nodes.map((n) => n.step));
+      for (const blocked of node.blockedBy) {
+        assert.ok(stepSet.has(blocked),
+          `[${key}/${node.step}] blockedBy contém "${blocked}" que não é step do molde`);
+        assert.ok(siblingSteps.has(blocked),
+          `[${key}/${node.step}] blockedBy contém "${blocked}" que NÃO aponta para esta junção (fan-in fantasma)`);
+      }
+    }
+  }
+});
+
 // T-33: BLOCK_TO_GATE não cresce após require de tree-template.cjs
 test('T-33 Módulo não modifica BLOCK_TO_GATE — nenhum bloco inventado inserido como efeito colateral', () => {
   // O dicionário foi importado antes dos templates; se um bloco inventado tivesse sido
