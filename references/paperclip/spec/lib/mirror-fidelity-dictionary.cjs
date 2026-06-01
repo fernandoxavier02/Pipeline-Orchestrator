@@ -44,15 +44,15 @@ const BLOCK_TO_GATE = {
   // → CHECKPOINT_FAIL (resultado de teste/regressão = portão de build/test)
   REGRESSION_RESULT: 'CHECKPOINT_FAIL',
   REGRESSION_CLOSEOUT: 'CHECKPOINT_FAIL',
-  // D7: bloco emitido pelo nó de sanidade (agentes sanity-checker, tronco) ao concluir.
-  // Nome real verificado em agents/core/sanity-checker.md:78 + agents/core/final-validator.md:56.
-  // Reusa CHECKPOINT_FAIL existente; nenhum portão novo criado.
+  // D7: entrada sancionada pelo usuário para o bloco SANITY_CHECK (gap G2/_tronco.md:331-333
+  // e G-HF2/_modos.md:174-176). ATENÇÃO DE IMPLEMENTAÇÃO: o agente real emite SANITY_CHECK
+  // como bloco YAML ("SANITY_CHECK:" — agents/core/sanity-checker.md:78), NÃO como cabeçalho
+  // "### SANITY_CHECK v1". O parser só reconhece cabeçalhos "### NOME vN"; portanto este
+  // mapeamento é inerte em dados reais de execução — o gap G2 permanece aberto na prática.
+  // A entrada fica no dicionário porque foi sancionada pelo usuário; o mapeador real
+  // requereria que o agente adotasse o formato de cabeçalho, ou que o parser fosse estendido
+  // para reconhecer blocos YAML (decisão de produto pendente).
   SANITY_CHECK: 'CHECKPOINT_FAIL',
-  // D8: bloco declarado pelo pipeline-controller (RO-N0) no início de cada execução
-  // review-only. Atua como substituto de ORCHESTRATOR_DECISION para a detecção de modo
-  // review-only em mirror-fidelity-parser.cjs::parseComplexity.
-  // Mapeia para COMPLEXITY_GATE para que P6 (todo bloco emitido por nó → portão) passe.
-  REVIEW_ONLY_SCORE: 'COMPLEXITY_GATE',
   // → ADVERSARIAL_GATE
   ADVERSARIAL_CONSOLIDATED: 'ADVERSARIAL_GATE',
   ADVERSARIAL_CONSOLIDATED_CORRECTION: 'ADVERSARIAL_GATE',
@@ -80,14 +80,15 @@ const COMPLEXA = MEDIA.concat([
   'STATE_FILE_INIT_FAIL', 'FINAL_ADVERSARIAL_GATE', 'FINAL_ADVERSARIAL_REWORK',
   'FIX_LOOP_EXHAUSTED', 'ADVERSARIAL_GATE_MANDATORY', 'SSOT_CONFLICT',
 ]);
-// D8: portões que o modo review-only realmente exercita (_modos.md §2.4–2.5).
-// RO-N1 (adversarial-review-coordinator) emite ADVERSARIAL_CONSOLIDATED → ADVERSARIAL_GATE.
-// RO-N2 (final-adversarial-orchestrator) emite ADVERSARIAL_FINAL_VERDICT → FINAL_ADVERSARIAL_GATE.
-// RO-N0 emite REVIEW_ONLY_SCORE (mapeado para COMPLEXITY_GATE) — sinaliza o modo ao parser.
-// parseComplexity detecta REVIEW_ONLY_SCORE e retorna 'REVIEW_ONLY', permitindo que
-// scoreTrees resolva a raiz sem ORCHESTRATOR_DECISION.
-const REVIEW_ONLY = ['ADVERSARIAL_GATE', 'FINAL_ADVERSARIAL_GATE'];
-const EXPECTED_GATES = { SIMPLES, MEDIA, COMPLEXA, REVIEW_ONLY };
+// REVIEW-ONLY: excluído da régua por design (G-RO2, _modos.md §2.6).
+// O pipeline-controller.md:207-215 define que no modo review-only as Phases 0-2 são puladas,
+// portanto ORCHESTRATOR_DECISION nunca é emitido. A spec deixou como decisão aberta:
+// "criar bloco sintético" OU "aceitar que REVIEW-ONLY é score = N/A". A decisão adotada
+// é a opção 2: execuções review-only resultam em complexidade null → indeterminate=true
+// (tratamento idêntico ao de qualquer execução órfã). Isso é honesto: a régua não mede
+// o que não tem como medir sem bloco real de um agente.
+// NÃO há entrada REVIEW_ONLY em EXPECTED_GATES — expectedGates('REVIEW_ONLY') retorna [].
+const EXPECTED_GATES = { SIMPLES, MEDIA, COMPLEXA };
 
 function gateForBlock(name) {
   return Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, name) ? BLOCK_TO_GATE[name] : null;

@@ -652,13 +652,14 @@ test('T-34 Fan-in completeness — toda junção lista TODOS os irmãos paralelo
 test('T-33 Módulo não modifica BLOCK_TO_GATE — nenhum bloco inventado inserido como efeito colateral', () => {
   // O dicionário foi importado antes dos templates; se um bloco inventado tivesse sido
   // inserido, ele estaria aqui. Verificamos que as chaves são exatamente o conjunto canônico.
-  // G3-D7: SANITY_CHECK (bloco real do agente de sanidade — agents/core/sanity-checker.md:78).
-  // G3-D8: REVIEW_ONLY_SCORE (marcador de modo emitido por RO-N0 → COMPLEXITY_GATE).
+  // G3-D7: SANITY_CHECK (entrada sancionada pelo usuário, gap G2 — mapeamento inerte em dados reais).
+  // G3-D8-fix: REVIEW_ONLY_SCORE REMOVIDO (bloco inventado; nenhum agente real o emite).
   const knownGateBlocks = [
     'CLARIFICATION_DONE', 'ORCHESTRATOR_DECISION', 'TRIAGE_RESULT',
     'TDD_GREEN', 'TDD_RED', 'REGRESSION_RESULT', 'REGRESSION_CLOSEOUT',
-    'SANITY_CHECK', // G3-D7: bloco real do nó de sanidade → CHECKPOINT_FAIL
-    'REVIEW_ONLY_SCORE', // G3-D8: marcador de modo review-only → COMPLEXITY_GATE
+    'SANITY_CHECK', // G3-D7: entrada sancionada pelo usuário → CHECKPOINT_FAIL
+    // REVIEW_ONLY_SCORE foi removido (G3-D8-fix): bloco inventado, nenhum agente real o emite.
+    // Execuções review-only ficam com complexity=null (indeterminate=true) por design.
     'ADVERSARIAL_CONSOLIDATED', 'ADVERSARIAL_CONSOLIDATED_CORRECTION',
     'SECURITY_FINDINGS', 'QUALITY_FINDINGS', 'ARCHITECTURE_FINDINGS', 'SECURITY_RERUN_FINDINGS',
     'EXECUTOR_FIX_DONE', 'FIX_COMPLETE', 'FIX_APPLIED',
@@ -669,7 +670,7 @@ test('T-33 Módulo não modifica BLOCK_TO_GATE — nenhum bloco inventado inseri
     assert.ok(Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, k),
       `chave esperada "${k}" deve existir em BLOCK_TO_GATE`);
   }
-  // Número total bate com o conjunto canônico (23 após G3-D7+D8)
+  // Número total bate com o conjunto canônico (22 após G3-D7 + remoção de D8)
   assert.strictEqual(Object.keys(BLOCK_TO_GATE).length, knownGateBlocks.length,
     'BLOCK_TO_GATE deve ter exatamente as chaves canônicas');
 });

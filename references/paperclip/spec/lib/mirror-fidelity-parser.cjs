@@ -26,14 +26,15 @@ function parseBlocks(comments) {
 
 // Complexidade lida APENAS de dentro do bloco ORCHESTRATOR_DECISION (R-CRIT-1): um
 // comentário humano citando "complexity: SIMPLES" não pode envenenar o resultado.
-// Exceção D8: se algum comentário abre com REVIEW_ONLY_SCORE, retorna 'REVIEW_ONLY'
-// sem exigir ORCHESTRATOR_DECISION (execuções review-only não têm task-orchestrator).
+//
+// Nota sobre REVIEW-ONLY (G-RO2, _modos.md §2.6): o pipeline-controller não emite
+// ORCHESTRATOR_DECISION nesse modo, portanto parseComplexity retorna null. Execuções
+// review-only ficam com complexity=null → indeterminate=true (excluídas da régua por design).
+// Ver mirror-fidelity-dictionary.cjs §REVIEW-ONLY para a justificativa da decisão.
 function parseComplexity(comments) {
   for (const c of comments || []) {
     const body = (c && c.body) || '';
     const opening = openingBlock(body);
-    // D8: REVIEW_ONLY_SCORE sinaliza modo review-only — sem complexity textual no bloco
-    if (opening === 'REVIEW_ONLY_SCORE') return 'REVIEW_ONLY';
     if (opening !== 'ORCHESTRATOR_DECISION') continue;
     const m = COMPLEXITY.exec(body);
     if (m) return m[1].toUpperCase();

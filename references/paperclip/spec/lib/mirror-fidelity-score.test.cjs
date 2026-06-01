@@ -34,58 +34,56 @@ test('A2 — teto SIMPLES: execução com blocos que cobrem os 5 portões espera
   assert.deepStrictEqual(r.missing, []);
 });
 
-// ─── G3-Régua: D8 score — modo REVIEW_ONLY ────────────────────────────────────
+// ─── G3-D8-fix: REVIEW-ONLY = indeterminate por design (G-RO2 opção 2) ────────
 
-test('T-G3-08 — REVIEW_ONLY cobertura total: score 1.0, indeterminate false (D8 caminho feliz)', () => {
-  // complexity:'REVIEW_ONLY' é o que parseComplexity retorna quando detecta REVIEW_ONLY_SCORE.
-  // ADVERSARIAL_CONSOLIDATED → ADVERSARIAL_GATE; ADVERSARIAL_FINAL_VERDICT → FINAL_ADVERSARIAL_GATE.
+test('T-G3-08 — execução review-only real (sem ORCHESTRATOR_DECISION): indeterminate=true, score=null', () => {
+  // Blocos reais de uma execução review-only: adversarial + final adversarial + pa de cal.
+  // Sem ORCHESTRATOR_DECISION, complexity=null → scoreExecution retorna indeterminate=true.
+  // Isso é por design (G-RO2): a régua não avalia o que não tem bloco-fonte de complexidade.
   const r = scoreExecution({
-    blocks: ['REVIEW_ONLY_SCORE', 'ADVERSARIAL_CONSOLIDATED', 'ADVERSARIAL_FINAL_VERDICT'],
+    blocks: ['ADVERSARIAL_CONSOLIDATED', 'ADVERSARIAL_FINAL_VERDICT', 'PA_DE_CAL', 'SLICE_CLOSEOUT'],
+    complexity: null,
+  });
+  assert.strictEqual(r.indeterminate, true, 'execução review-only deve ser indeterminate');
+  assert.strictEqual(r.score, null, 'score deve ser null (N/A)');
+});
+
+test('T-G3-09 — complexity=REVIEW_ONLY retorna indeterminate=true (expectedGates vazio)', () => {
+  // Não há entrada REVIEW_ONLY em EXPECTED_GATES; expectedGates('REVIEW_ONLY') = [].
+  // scoreExecution com expected.length=0 retorna indeterminate=true.
+  const r = scoreExecution({
+    blocks: ['ADVERSARIAL_CONSOLIDATED'],
     complexity: 'REVIEW_ONLY',
+  });
+  assert.strictEqual(r.indeterminate, true, 'REVIEW_ONLY não é complexidade avaliável');
+  assert.strictEqual(r.score, null);
+});
+
+test('T-G3-10 — execução SIMPLES não regride após remoção de REVIEW_ONLY_SCORE', () => {
+  // Garante que a remoção do REVIEW_ONLY_SCORE não afetou o caminho SIMPLES.
+  const r = scoreExecution({
+    blocks: ['CLARIFICATION_DONE', 'TDD_GREEN', 'REGRESSION_RESULT', 'ORCHESTRATOR_DECISION', 'SLICE_CLOSEOUT'],
+    complexity: 'SIMPLES',
   });
   assert.strictEqual(r.indeterminate, false);
   assert.strictEqual(r.score, 1.0);
-  assert.deepStrictEqual(r.missing, []);
 });
 
-test('T-G3-09 — REVIEW_ONLY cobertura parcial: score 0.5, FINAL_ADVERSARIAL_GATE ausente (D8)', () => {
-  // Apenas ADVERSARIAL_CONSOLIDATED → ADVERSARIAL_GATE; FINAL_ADVERSARIAL_GATE falta.
-  const r = scoreExecution({
-    blocks: ['REVIEW_ONLY_SCORE', 'ADVERSARIAL_CONSOLIDATED'],
-    complexity: 'REVIEW_ONLY',
-  });
-  assert.strictEqual(r.indeterminate, false);
-  assert.strictEqual(r.score, 0.5);
-  assert.ok(r.missing.includes('FINAL_ADVERSARIAL_GATE'), 'FINAL_ADVERSARIAL_GATE deve estar em missing');
-});
-
-test('T-G3-10 — complexity REVIEW_ONLY usa lista de 2 portões, não COMPLEXA (D8)', () => {
-  // complexity:'REVIEW_ONLY' produz expectedGates de 2 portões, independente de outros blocos.
-  const r = scoreExecution({
-    blocks: ['REVIEW_ONLY_SCORE'],
-    complexity: 'REVIEW_ONLY',
-  });
-  // expected deve ser a lista REVIEW_ONLY (2 portões), não COMPLEXA (16 portões)
-  assert.strictEqual(r.indeterminate, false, 'modo REVIEW_ONLY nunca produz execução órfã');
-  assert.strictEqual(r.expected.length, 2, `esperado 2 portões (REVIEW_ONLY), obteve ${r.expected.length}`);
-});
-
-test('T-G3-11 — REVIEW_ONLY sem blocos de portão: score 0, ambos os portões ausentes, não-órfã (D8)', () => {
-  // REVIEW_ONLY_SCORE sozinho — sem nenhum bloco de portão adversarial coberto.
-  const r = scoreExecution({
-    blocks: ['REVIEW_ONLY_SCORE'],
-    complexity: 'REVIEW_ONLY',
-  });
-  assert.strictEqual(r.indeterminate, false);
-  assert.strictEqual(r.score, 0);
-  assert.ok(r.missing.includes('ADVERSARIAL_GATE'), 'ADVERSARIAL_GATE deve estar em missing');
-  assert.ok(r.missing.includes('FINAL_ADVERSARIAL_GATE'), 'FINAL_ADVERSARIAL_GATE deve estar em missing');
-});
-
-test('T-G3-12 — sem complexity REVIEW_ONLY e sem complexity: continua órfã (regressão D8)', () => {
-  // Garante que o comportamento existente de indeterminate não regride.
+test('T-G3-11 — execução sem complexity e sem blocos adversariais: indeterminate=true (regressão)', () => {
+  // Caso base: sem complexidade, qualquer execução é indeterminate.
   const r = scoreExecution({ blocks: ['TDD_GREEN'], complexity: null });
   assert.strictEqual(r.indeterminate, true);
+  assert.strictEqual(r.score, null);
+});
+
+test('T-G3-12 — complexity=null com blocos review-only reais: indeterminate=true (prova do D8-fix)', () => {
+  // Prova que uma execução review-only realista (PA_DE_CAL + ADVERSARIAL sem ORCHESTRATOR_DECISION)
+  // retorna indeterminate, não score 1.0 como o D8 original prometia.
+  const r = scoreExecution({
+    blocks: ['PA_DE_CAL', 'ADVERSARIAL_FINAL_VERDICT', 'ADVERSARIAL_CONSOLIDATED'],
+    complexity: null,
+  });
+  assert.strictEqual(r.indeterminate, true, 'review-only real deve ser indeterminate (não score 1.0)');
   assert.strictEqual(r.score, null);
 });
 

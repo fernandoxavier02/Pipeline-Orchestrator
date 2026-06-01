@@ -8,10 +8,10 @@ const { gateForBlock, expectedGates } = require('./mirror-fidelity-dictionary.cj
 // que é DIFERENTE de score 0 = "avaliado e zerou". Tratar null como 0 distorce a
 // média agregada para baixo.
 //
-// D8: complexity='REVIEW_ONLY' é detectada por parseComplexity quando o comentário
-// de abertura é REVIEW_ONLY_SCORE (bloco real emitido por RO-N0 no pipeline). A partir
-// dessa complexidade, expectedGates('REVIEW_ONLY') devolve [ADVERSARIAL_GATE,
-// FINAL_ADVERSARIAL_GATE] e o cálculo segue o caminho normal sem nenhum ramo especial.
+// Nota sobre REVIEW-ONLY (G-RO2): execuções review-only não emitem ORCHESTRATOR_DECISION,
+// portanto parseComplexity retorna null → complexity=null → indeterminate=true (score=N/A).
+// Essa é a saída correta por design: a régua é excluída do modo review-only.
+// Ver mirror-fidelity-dictionary.cjs §REVIEW-ONLY para detalhes da decisão.
 function scoreExecution({ blocks, complexity }) {
   const blockList = blocks || [];
 

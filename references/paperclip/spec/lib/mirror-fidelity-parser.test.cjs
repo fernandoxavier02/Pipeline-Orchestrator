@@ -45,34 +45,37 @@ test('sem bloco ORCHESTRATOR_DECISION → null mesmo que prosa cite complexity',
   assert.strictEqual(parseComplexity([{ body: 'complexity: COMPLEXA citada em prosa' }]), null);
 });
 
-// ─── G3-D8: parseComplexity detecta REVIEW_ONLY_SCORE ─────────────────────────
+// ─── G3-D8-fix: REVIEW-ONLY é excluído da régua (G-RO2 opção 2) ───────────────
 
-test('T-D8-parser-01 — comentário abrindo com REVIEW_ONLY_SCORE retorna REVIEW_ONLY', () => {
-  // RO-N0 emite REVIEW_ONLY_SCORE v1; parseComplexity deve retornar 'REVIEW_ONLY'
-  // sem precisar de ORCHESTRATOR_DECISION no corpo do bloco.
-  const comments = [{ body: '### REVIEW_ONLY_SCORE v1\nescopo: diff HEAD~1' }];
-  assert.strictEqual(parseComplexity(comments), 'REVIEW_ONLY');
+test('T-D8-parser-01 — execução review-only real: parseComplexity retorna null (sem ORCHESTRATOR_DECISION)', () => {
+  // pipeline-controller.md:207-215: no review-only a Phase 0 é pulada, ORCHESTRATOR_DECISION
+  // nunca é emitido. parseComplexity deve retornar null → execução fica indeterminate=true.
+  // REVIEW_ONLY_SCORE foi removido (bloco inventado — nenhum agente real o emite).
+  const comments = [
+    { body: '### ADVERSARIAL_CONSOLIDATED v1\nfindings: [f1,f2]' },
+    { body: '### ADVERSARIAL_FINAL_VERDICT v1\nverdict: GO' },
+    { body: '### PA_DE_CAL v1\nresult: PASS' },
+  ];
+  assert.strictEqual(parseComplexity(comments), null, 'review-only sem ORCHESTRATOR_DECISION → null');
 });
 
-test('T-D8-parser-02 — REVIEW_ONLY_SCORE tem precedência sobre ORCHESTRATOR_DECISION (ordem de varredura)', () => {
-  // Se ambos aparecem (cenário hipotético), REVIEW_ONLY_SCORE é o primeiro a ser varrido
-  // → retorna 'REVIEW_ONLY' se vier antes na lista de comentários.
-  const commentsROFirst = [
-    { body: '### REVIEW_ONLY_SCORE v1\nescopo: diff' },
+test('T-D8-parser-02 — ORCHESTRATOR_DECISION ainda detecta complexidade normalmente (regressão D8-fix)', () => {
+  // Garante que a remoção do REVIEW_ONLY_SCORE não afetou a detecção normal de complexidade.
+  const comments = [
     { body: '### ORCHESTRATOR_DECISION v1\ncomplexity: COMPLEXA' },
   ];
-  assert.strictEqual(parseComplexity(commentsROFirst), 'REVIEW_ONLY');
+  assert.strictEqual(parseComplexity(comments), 'COMPLEXA');
 });
 
-test('T-D8-parser-03 — comentário real de review-only: blocos detectados incluem REVIEW_ONLY_SCORE', () => {
-  // Verifica que parseBlocks também detecta REVIEW_ONLY_SCORE na lista de blocos.
+test('T-D8-parser-03 — execução review-only real: blocos detectados são os que agentes reais emitem', () => {
+  // Uma execução review-only real emite ADVERSARIAL_CONSOLIDATED, ADVERSARIAL_FINAL_VERDICT,
+  // PA_DE_CAL — nunca REVIEW_ONLY_SCORE (bloco removido por ser inventado).
   const comments = [
-    { body: '### REVIEW_ONLY_SCORE v1\nescopo: diff HEAD~1' },
     { body: '### ADVERSARIAL_CONSOLIDATED v1\nfindings: [...]' },
     { body: '### ADVERSARIAL_FINAL_VERDICT v1\nverdict: GO' },
   ];
   const blocks = parseBlocks(comments);
-  assert.ok(blocks.includes('REVIEW_ONLY_SCORE'), 'REVIEW_ONLY_SCORE deve estar nos blocos');
+  assert.ok(!blocks.includes('REVIEW_ONLY_SCORE'), 'REVIEW_ONLY_SCORE não deve aparecer em dados reais');
   assert.ok(blocks.includes('ADVERSARIAL_CONSOLIDATED'), 'ADVERSARIAL_CONSOLIDATED deve estar nos blocos');
   assert.ok(blocks.includes('ADVERSARIAL_FINAL_VERDICT'), 'ADVERSARIAL_FINAL_VERDICT deve estar nos blocos');
 });

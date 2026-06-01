@@ -23,11 +23,12 @@
 //   Aprovação é trava estrutural + audit; não emite portão (Decisão D-F1).
 //   PROPOSAL_CONFIRMED gap G1 do _tronco.md → blocks: [].
 //   D4: nós de fix-loop são UM nó único; comentário instrui iteração interna.
-// D7: nodeSanityChecker emite SANITY_CHECK (gap G2 fechado — agente real emite esse bloco).
+// D7: nodeSanityChecker declara SANITY_CHECK (entrada sancionada pelo usuário para gap G2).
+//     ATENÇÃO: o agente real emite "SANITY_CHECK:" como YAML, não como cabeçalho "### SANITY_CHECK v1".
+//     O parser só reconhece cabeçalhos; o mapeamento é inerte em dados reais (gap G2 continua aberto).
 
 // ─── BLOCOS CANÔNICOS REUTILIZADOS ──────────────────────────────────────────
 const B_ORCHESTRATOR = 'ORCHESTRATOR_DECISION';
-const B_REVIEW_ONLY_SCORE = 'REVIEW_ONLY_SCORE'; // D8: marcador de modo para parseComplexity
 const B_CLARIFICATION = 'CLARIFICATION_DONE';
 const B_TDD_GREEN = 'TDD_GREEN';
 const B_REGRESSION = 'REGRESSION_RESULT';
@@ -113,9 +114,11 @@ function nodeReviewOrchestrator(step, blockedBy, nextStep) {
 function nodeSanityChecker(step, blockedBy, nextStep) {
   return {
     step, role: 'sanity-checker',
-    // D7: SANITY_CHECK é o bloco real emitido pelo agente de sanidade
-    // (agents/core/sanity-checker.md:78 + agents/core/final-validator.md:56).
-    // Fecha gap G2 do _tronco.md — mapeado para CHECKPOINT_FAIL no dicionário.
+    // D7: SANITY_CHECK é o bloco declarado pelo nó de sanidade (entrada sancionada pelo usuário,
+    // gap G2/_tronco.md:331-333). ATENÇÃO: o agente real (sanity-checker.md:78) emite o bloco
+    // como YAML ("SANITY_CHECK:"), NÃO como cabeçalho "### SANITY_CHECK v1". O parser de
+    // fidelidade só reconhece cabeçalhos — portanto este bloco é inerte em dados reais de
+    // execução. Gap G2 permanece aberto na prática (decisão de parser pendente).
     blocks: ['SANITY_CHECK'], blockedBy, next: nextStep,
   };
 }
@@ -671,12 +674,16 @@ const HOTFIX = [
 // ─── REVIEW-ONLY (4 nós exatos) ─────────────────────────────────────────────
 // Modo especial: revisão standalone de código já escrito.
 // Sem task-orchestrator, sem information-gate, sem plan-architect, sem pre-tester.
-// Fluxo: RO-N0..RO-N3 = 4 nós exatos.
+// Fluxo: RO-N0..RO-N3 = 4 nós exatos (_modos.md §2.2–2.3).
+//
+// NOTA DE FIDELIDADE (G-RO2, _modos.md §2.6): execuções review-only não emitem
+// ORCHESTRATOR_DECISION (Phase 0 é pulada). O medidor de fidelidade retorna
+// complexity=null → indeterminate=true para essas execuções. Isso é por design:
+// a régua não mede o que não tem bloco-fonte real. Score = N/A.
 const REVIEW_ONLY = [
   // RO-N0: detectar diff (pipeline-controller lê o diff e prepara escopo).
-  // D8: emite REVIEW_ONLY_SCORE para sinalizar o modo ao parseComplexity —
-  // sem ORCHESTRATOR_DECISION, a árvore ficaria órfã sem esse marcador.
-  { step: 'RO-N0-detectar-diff', role: 'pipeline-controller', blocks: [B_REVIEW_ONLY_SCORE], blockedBy: null, next: 'RO-N1-adv-coord' },
+  // blocks: [] — passo de coleta de dados; sem portão de fidelidade (_modos.md §2.3 linha 230).
+  { step: 'RO-N0-detectar-diff', role: 'pipeline-controller', blocks: [], blockedBy: null, next: 'RO-N1-adv-coord' },
   // RO-N1: coordinator adversarial
   { step: 'RO-N1-adv-coord', role: 'adversarial-review-coordinator', blocks: [B_ADV_CONSOLIDATED], blockedBy: 'RO-N0-detectar-diff', next: 'RO-N2-final-adv' },
   // RO-N2: final adversarial orchestrator

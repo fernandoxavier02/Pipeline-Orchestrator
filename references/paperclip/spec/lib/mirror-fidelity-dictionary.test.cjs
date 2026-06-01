@@ -70,13 +70,12 @@ test('A1 — CLARIFICATION_DONE mapeia para INFO_GATE_BLOCKED (fecha lacuna do p
   assert.ok(Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, 'CLARIFICATION_DONE'));
 });
 
-// ─── G3-Régua: D7 (SANITY_RESULT) + D8 (REVIEW_ONLY) ─────────────────────────
+// ─── G3-Régua: D7 (SANITY_CHECK) + D8-fix (REVIEW_ONLY = N/A por design) ─────
 
-test('T-G3-01 — SANITY_CHECK mapeia para CHECKPOINT_FAIL (D7)', () => {
-  // Decisão D7: o nó de sanidade do tronco emite SANITY_CHECK ao concluir
-  // (agents/core/sanity-checker.md:78 + agents/core/final-validator.md:56).
-  // Sem mapeamento, esse bloco era invisível para a régua (gap G2/G-HF2).
-  // Com o mapeamento, a sanidade aparece na nota como CHECKPOINT_FAIL.
+test('T-G3-01 — SANITY_CHECK mapeia para CHECKPOINT_FAIL (D7 — entrada sancionada pelo usuário)', () => {
+  // Entrada sancionada pelo usuário para gap G2/_tronco.md:331-333 e G-HF2/_modos.md:174-176.
+  // ATENÇÃO: o agente real emite "SANITY_CHECK:" como YAML, não como "### SANITY_CHECK v1".
+  // O parser só reconhece cabeçalhos — mapeamento inerte em dados reais. Gap G2 permanece aberto.
   assert.strictEqual(gateForBlock('SANITY_CHECK'), 'CHECKPOINT_FAIL');
 });
 
@@ -84,31 +83,40 @@ test('T-G3-02 — SANITY_CHECK é chave própria de BLOCK_TO_GATE (D7)', () => {
   assert.ok(Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, 'SANITY_CHECK'));
 });
 
-test('T-G3-03 — REVIEW_ONLY_SCORE é chave própria de BLOCK_TO_GATE (D8)', () => {
-  // REVIEW_ONLY_SCORE é o marcador de modo emitido pelo RO-N0. Mapeia para COMPLEXITY_GATE
-  // para que P6 (todo bloco emitido por nó → portão) passe.
-  assert.strictEqual(gateForBlock('REVIEW_ONLY_SCORE'), 'COMPLEXITY_GATE');
-  assert.ok(Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, 'REVIEW_ONLY_SCORE'));
+test('T-G3-03 — REVIEW_ONLY_SCORE NÃO está em BLOCK_TO_GATE (bloco inventado removido — G-RO2)', () => {
+  // REVIEW_ONLY_SCORE foi removido porque nenhum agente real o emite.
+  // pipeline-controller.md:207-215 não emite marcador; execuções review-only ficam
+  // com complexity=null (indeterminate=true). Decisão G-RO2 opção 2: score = N/A.
+  assert.strictEqual(gateForBlock('REVIEW_ONLY_SCORE'), null);
+  assert.ok(!Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, 'REVIEW_ONLY_SCORE'));
 });
 
-test('T-G3-04 — expectedGates(REVIEW_ONLY) tem exatamente 2 portões (D8)', () => {
-  // EXPECTED_GATES.REVIEW_ONLY: portões que o modo review-only realmente exercita
-  // segundo _modos.md §2.4–2.5 (RO-N2 emite ADVERSARIAL_GATE; RO-N3 emite FINAL_ADVERSARIAL_GATE).
-  assert.strictEqual(expectedGates('REVIEW_ONLY').length, 2);
+test('T-G3-04 — expectedGates(REVIEW_ONLY) retorna [] (REVIEW-ONLY excluído da régua — G-RO2)', () => {
+  // Não há entrada REVIEW_ONLY em EXPECTED_GATES. expectedGates de complexidade
+  // desconhecida retorna [], o que faz scoreExecution retornar indeterminate=true.
+  assert.strictEqual(expectedGates('REVIEW_ONLY').length, 0);
 });
 
-test('T-G3-05 — expectedGates(REVIEW_ONLY) contém ADVERSARIAL_GATE e FINAL_ADVERSARIAL_GATE (D8)', () => {
-  const gates = expectedGates('REVIEW_ONLY');
-  assert.ok(gates.includes('ADVERSARIAL_GATE'), 'deve incluir ADVERSARIAL_GATE');
-  assert.ok(gates.includes('FINAL_ADVERSARIAL_GATE'), 'deve incluir FINAL_ADVERSARIAL_GATE');
-});
-
-test('T-G3-06 — REVIEW_ONLY_MODE não está em BLOCK_TO_GATE (marcador de modo, não portão de fidelidade)', () => {
+test('T-G3-05 — REVIEW_ONLY_MODE não está em BLOCK_TO_GATE (nunca foi emitido por agente real)', () => {
+  // Nem REVIEW_ONLY_MODE (nome proposto na spec) nem REVIEW_ONLY_SCORE (nome implementado)
+  // são emitidos por agentes reais. Ambos devem retornar null.
   assert.strictEqual(gateForBlock('REVIEW_ONLY_MODE'), null);
   assert.ok(!Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, 'REVIEW_ONLY_MODE'));
 });
 
-test('T-G3-07 — conjuntos existentes SIMPLES e COMPLEXA não regridem (D8 regressão)', () => {
+test('T-G3-06 — execução review-only real resulta em indeterminate=true (G-RO2 opção 2)', () => {
+  // Uma execução real review-only tem PA_DE_CAL + ADVERSARIAL blocos mas sem ORCHESTRATOR_DECISION.
+  // Resultado esperado: complexity=null → scoreExecution retorna indeterminate=true.
+  const { scoreExecution } = require('./mirror-fidelity-score.cjs');
+  const r = scoreExecution({
+    blocks: ['PA_DE_CAL', 'ADVERSARIAL_CONSOLIDATED', 'ADVERSARIAL_FINAL_VERDICT'],
+    complexity: null,
+  });
+  assert.strictEqual(r.indeterminate, true, 'execução review-only sem complexity deve ser indeterminate');
+  assert.strictEqual(r.score, null, 'score deve ser null (N/A), não 0');
+});
+
+test('T-G3-07 — conjuntos existentes SIMPLES e COMPLEXA não regridem (regressão)', () => {
   assert.strictEqual(expectedGates('SIMPLES').length, 5);
   assert.strictEqual(expectedGates('COMPLEXA').length, 16);
 });
