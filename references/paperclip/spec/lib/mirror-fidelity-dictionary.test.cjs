@@ -69,3 +69,45 @@ test('A1 — CLARIFICATION_DONE mapeia para INFO_GATE_BLOCKED (fecha lacuna do p
   assert.strictEqual(gateForBlock('CLARIFICATION_DONE'), 'INFO_GATE_BLOCKED');
   assert.ok(Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, 'CLARIFICATION_DONE'));
 });
+
+// ─── G3-Régua: D7 (SANITY_RESULT) + D8 (REVIEW_ONLY) ─────────────────────────
+
+test('T-G3-01 — SANITY_RESULT mapeia para CHECKPOINT_FAIL (D7)', () => {
+  // Decisão D7: o nó de sanidade do tronco e do HOTFIX emite SANITY_RESULT ao concluir.
+  // Sem mapeamento, esse bloco era invisível para a régua (gap G2/G-HF2).
+  // Com o mapeamento, a sanidade reduzida do HOTFIX (build+test) aparece na nota.
+  assert.strictEqual(gateForBlock('SANITY_RESULT'), 'CHECKPOINT_FAIL');
+});
+
+test('T-G3-02 — SANITY_RESULT é chave própria de BLOCK_TO_GATE (D7)', () => {
+  assert.ok(Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, 'SANITY_RESULT'));
+});
+
+test('T-G3-03 — SANITY_CHECK (bloco informacional homônimo) não mapeia para portão (regressão D7)', () => {
+  // SANITY_CHECK é bloco informacional listado em _fidelidade.md §5 como excluído por design.
+  // Não deve colidir com o mapeamento D7 de SANITY_RESULT.
+  assert.strictEqual(gateForBlock('SANITY_CHECK'), null);
+  assert.ok(!Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, 'SANITY_CHECK'));
+});
+
+test('T-G3-04 — expectedGates(REVIEW_ONLY) tem exatamente 2 portões (D8)', () => {
+  // EXPECTED_GATES.REVIEW_ONLY: portões que o modo review-only realmente exercita
+  // segundo _modos.md §2.4–2.5 (RO-N2 emite ADVERSARIAL_GATE; RO-N3 emite FINAL_ADVERSARIAL_GATE).
+  assert.strictEqual(expectedGates('REVIEW_ONLY').length, 2);
+});
+
+test('T-G3-05 — expectedGates(REVIEW_ONLY) contém ADVERSARIAL_GATE e FINAL_ADVERSARIAL_GATE (D8)', () => {
+  const gates = expectedGates('REVIEW_ONLY');
+  assert.ok(gates.includes('ADVERSARIAL_GATE'), 'deve incluir ADVERSARIAL_GATE');
+  assert.ok(gates.includes('FINAL_ADVERSARIAL_GATE'), 'deve incluir FINAL_ADVERSARIAL_GATE');
+});
+
+test('T-G3-06 — REVIEW_ONLY_MODE não está em BLOCK_TO_GATE (marcador de modo, não portão de fidelidade)', () => {
+  assert.strictEqual(gateForBlock('REVIEW_ONLY_MODE'), null);
+  assert.ok(!Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, 'REVIEW_ONLY_MODE'));
+});
+
+test('T-G3-07 — conjuntos existentes SIMPLES e COMPLEXA não regridem (D8 regressão)', () => {
+  assert.strictEqual(expectedGates('SIMPLES').length, 5);
+  assert.strictEqual(expectedGates('COMPLEXA').length, 16);
+});

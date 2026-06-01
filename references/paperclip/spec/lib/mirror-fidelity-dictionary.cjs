@@ -44,6 +44,9 @@ const BLOCK_TO_GATE = {
   // → CHECKPOINT_FAIL (resultado de teste/regressão = portão de build/test)
   REGRESSION_RESULT: 'CHECKPOINT_FAIL',
   REGRESSION_CLOSEOUT: 'CHECKPOINT_FAIL',
+  // D7: bloco emitido pelo nó de sanidade (tronco + HOTFIX) ao concluir → fecha gap G2/G-HF2.
+  // Reusa CHECKPOINT_FAIL existente; nenhum portão novo criado.
+  SANITY_RESULT: 'CHECKPOINT_FAIL',
   // → ADVERSARIAL_GATE
   ADVERSARIAL_CONSOLIDATED: 'ADVERSARIAL_GATE',
   ADVERSARIAL_CONSOLIDATED_CORRECTION: 'ADVERSARIAL_GATE',
@@ -71,7 +74,12 @@ const COMPLEXA = MEDIA.concat([
   'STATE_FILE_INIT_FAIL', 'FINAL_ADVERSARIAL_GATE', 'FINAL_ADVERSARIAL_REWORK',
   'FIX_LOOP_EXHAUSTED', 'ADVERSARIAL_GATE_MANDATORY', 'SSOT_CONFLICT',
 ]);
-const EXPECTED_GATES = { SIMPLES, MEDIA, COMPLEXA };
+// D8: portões que o modo review-only realmente exercita (_modos.md §2.4–2.5).
+// RO-N2 → trio paralelo emite SECURITY_FINDINGS/ARCHITECTURE_FINDINGS/QUALITY_FINDINGS → ADVERSARIAL_GATE.
+// RO-N3 → ADVERSARIAL_FINAL_VERDICT → FINAL_ADVERSARIAL_GATE.
+// Imutável por complexidade: complexity é ignorado quando REVIEW_ONLY_MODE está nos blocos.
+const REVIEW_ONLY = ['ADVERSARIAL_GATE', 'FINAL_ADVERSARIAL_GATE'];
+const EXPECTED_GATES = { SIMPLES, MEDIA, COMPLEXA, REVIEW_ONLY };
 
 function gateForBlock(name) {
   return Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, name) ? BLOCK_TO_GATE[name] : null;
