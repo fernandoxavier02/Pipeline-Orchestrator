@@ -567,6 +567,56 @@ test('T-32 Variante heavy contém exatamente 1 design-interrogator', () => {
   }
 });
 
+// T-35: finishing-branch presente e é o terminal em TODOS os 14 moldes canônicos
+// Prova Finding 3: cargo finishing-branch (N19 FECHAR) estava ausente — substituído
+// erroneamente por final-validator. O terminal de cada molde deve usar finishing-branch.
+test('T-35 finishing-branch presente como terminal em todos os 14 moldes canônicos', () => {
+  for (const { key, nodes } of canonicalTemplates()) {
+    const terminal = nodes.find((n) => n.next === null);
+    assert.ok(terminal, `[${key}] deve ter um nó terminal`);
+    assert.strictEqual(
+      terminal.role, 'finishing-branch',
+      `[${key}] nó terminal ("${terminal.step}") deve ter role finishing-branch, encontrou "${terminal.role}"`,
+    );
+  }
+});
+
+// T-36: PA_DE_CAL emitido ANTES de SLICE_CLOSEOUT em todos os moldes canônicos
+// Prova Finding 4: a ordem estava INVERTIDA (spec-closer/SLICE_CLOSEOUT → fechar/PA_DE_CAL).
+// Canônico (_tronco.md N18/N19): final-validator(PA_DE_CAL) precede finishing-branch(SLICE_CLOSEOUT).
+// Exceção documentada: review-only (4 nós exatos por invariante T-13) comprime N18+N19 em 1 nó;
+// finishing-branch emite ambos os blocos — PA_DE_CAL ainda é listado ANTES de SLICE_CLOSEOUT no array blocks[].
+test('T-36 PA_DE_CAL emitido antes de SLICE_CLOSEOUT em todos os moldes canônicos', () => {
+  for (const { key, nodes } of canonicalTemplates()) {
+    const paDeCalNode = nodes.find((n) => n.blocks.includes('PA_DE_CAL'));
+    const sliceCloseoutNode = nodes.find((n) => n.blocks.includes('SLICE_CLOSEOUT'));
+    assert.ok(paDeCalNode,
+      `[${key}] deve ter nó que emite PA_DE_CAL`);
+    assert.ok(sliceCloseoutNode,
+      `[${key}] deve ter nó que emite SLICE_CLOSEOUT`);
+    // PA_DE_CAL deve vir antes de SLICE_CLOSEOUT na ordem do array (tronco)
+    const paIdx = nodes.indexOf(paDeCalNode);
+    const scIdx = nodes.indexOf(sliceCloseoutNode);
+    assert.ok(paIdx <= scIdx,
+      `[${key}] PA_DE_CAL (índice ${paIdx}/"${paDeCalNode.step}") deve preceder ou co-ocorrer com SLICE_CLOSEOUT (índice ${scIdx}/"${sliceCloseoutNode.step}")`);
+    // finishing-branch emite SLICE_CLOSEOUT (terminal)
+    assert.strictEqual(sliceCloseoutNode.role, 'finishing-branch',
+      `[${key}] nó que emite SLICE_CLOSEOUT deve ter role finishing-branch`);
+    // Se forem nós distintos: PA_DE_CAL deve ser emitido por nó que NÃO é finishing-branch
+    if (paDeCalNode !== sliceCloseoutNode) {
+      assert.notStrictEqual(paDeCalNode.role, 'finishing-branch',
+        `[${key}] nó que emite PA_DE_CAL NÃO deve ser finishing-branch (ordem canônica N18 antes N19)`);
+    }
+    // Se forem o mesmo nó (modo ultra-compacto como review-only): PA_DE_CAL listado antes de SLICE_CLOSEOUT em blocks[]
+    if (paDeCalNode === sliceCloseoutNode) {
+      const paBlockIdx = paDeCalNode.blocks.indexOf('PA_DE_CAL');
+      const scBlockIdx = paDeCalNode.blocks.indexOf('SLICE_CLOSEOUT');
+      assert.ok(paBlockIdx < scBlockIdx,
+        `[${key}] modo compacto: PA_DE_CAL deve vir antes de SLICE_CLOSEOUT no array blocks[] do nó "${paDeCalNode.step}"`);
+    }
+  }
+});
+
 // T-34: Fan-in completeness — junção lista TODOS os irmãos do grupo paralelo em blockedBy
 // Prova que a regressão de Finding 2 (race onde junção desbloqueava com 1 de 3 irmãos)
 // não pode ser reintroduzida sem quebrar este teste.

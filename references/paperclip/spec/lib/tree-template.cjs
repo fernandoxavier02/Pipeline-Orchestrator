@@ -53,11 +53,23 @@ function nodePlanArquiteto(blockedBy, nextStep) {
   };
 }
 
+// nodeAprovar — aprovação de plano (trava estrutural, sem bloco de saída medido — Decisão D-F1)
+// Usado em feature/bugfix/user-story para gate de aprovação do plano (não é PA_DE_CAL).
 function nodeAprovar(step, blockedBy, nextStep) {
   return {
     step, role: 'final-validator',
     // blocks vazio: aprovação é trava estrutural (Decisão D-F1)
     blocks: [], blockedBy, next: nextStep,
+  };
+}
+
+// nodeAprovarFinal — aprovação final com PA_DE_CAL (audit/ux: cargo "final-validator" canonical)
+// Diferente de nodeAprovar (plan gate): este emite PA_DE_CAL e SLICE_CLOSEOUT não se aplica aqui.
+// Canônico: PAPERCLIP-AUDIT-WORKFLOW.md §2 cargo 7 + PAPERCLIP-UX-WORKFLOW.md §2 cargo final.
+function nodeAprovarFinal(step, blockedBy, nextStep) {
+  return {
+    step, role: 'final-validator',
+    blocks: [B_PA_DE_CAL], blockedBy, next: nextStep,
   };
 }
 
@@ -230,10 +242,12 @@ function buildFeatureLight() {
     nodeSentinel('sentinel-3', 'executor-fix', 'sanity'),
     nodeSanityChecker('sanity', 'sentinel-3', 'adv-security'),
     ...nodeTrio('sanity', 'final-adversarial'),
-    nodeFinalAdversarial('final-adversarial', ['adv-security', 'adv-architecture', 'adv-quality'], 'spec-closer'),
-    // cargo 18 (PAPERCLIP-FEATURE-WORKFLOW.md §3.15): spec-closer entrega reports, fechar emite PA_DE_CAL
-    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'final-adversarial', next: 'fechar' },
-    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
+    nodeFinalAdversarial('final-adversarial', ['adv-security', 'adv-architecture', 'adv-quality'], 'fechar'),
+    // cargo 17 (PAPERCLIP-FEATURE-WORKFLOW.md §3): final-validator emite PA_DE_CAL ANTES do closeout
+    // cargo 18 (PAPERCLIP-FEATURE-WORKFLOW.md §3.15): finishing-branch fecha com SLICE_CLOSEOUT
+    // Ordem canônica: final-validator(PA_DE_CAL) → finishing-branch(SLICE_CLOSEOUT) per _tronco.md N18/N19
+    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'final-adversarial', next: 'spec-closer' },
+    { step: 'spec-closer', role: 'finishing-branch', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'fechar', next: null },
   ];
 }
 
@@ -274,10 +288,12 @@ function buildFeatureHeavy() {
     nodeSanityChecker('sanity', 'feature-integration-validator', 'adv-security'),
     // N17: trio adversarial paralelo
     ...nodeTrio('sanity', 'final-adversarial'),
-    nodeFinalAdversarial('final-adversarial', ['adv-security', 'adv-architecture', 'adv-quality'], 'spec-closer'),
-    // cargo 18 (PAPERCLIP-FEATURE-WORKFLOW.md §3.15): spec-closer entrega reports, fechar emite PA_DE_CAL
-    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'final-adversarial', next: 'fechar' },
-    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
+    nodeFinalAdversarial('final-adversarial', ['adv-security', 'adv-architecture', 'adv-quality'], 'fechar'),
+    // cargo 17 (PAPERCLIP-FEATURE-WORKFLOW.md §3): final-validator emite PA_DE_CAL ANTES do closeout
+    // cargo 18 (PAPERCLIP-FEATURE-WORKFLOW.md §3.15): finishing-branch fecha com SLICE_CLOSEOUT
+    // Ordem canônica: final-validator(PA_DE_CAL) → finishing-branch(SLICE_CLOSEOUT) per _tronco.md N18/N19
+    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'final-adversarial', next: 'spec-closer' },
+    { step: 'spec-closer', role: 'finishing-branch', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'fechar', next: null },
   ];
 }
 
@@ -303,10 +319,12 @@ function buildBugfixLight() {
     nodeSentinel('sentinel-4', 'review-orchestrator', 'sanity'),
     nodeSanityChecker('sanity', 'sentinel-4', 'adv-security'),
     ...nodeTrio('sanity', 'final-adversarial'),
-    nodeFinalAdversarial('final-adversarial', ['adv-security', 'adv-architecture', 'adv-quality'], 'spec-closer'),
-    // cargo 11 (PAPERCLIP-BUGFIX-WORKFLOW.md §3.11): spec-closer entrega reports, fechar emite PA_DE_CAL
-    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'final-adversarial', next: 'fechar' },
-    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
+    nodeFinalAdversarial('final-adversarial', ['adv-security', 'adv-architecture', 'adv-quality'], 'fechar'),
+    // cargo 10 (PAPERCLIP-BUGFIX-WORKFLOW.md §2): final-validator emite PA_DE_CAL ANTES do closeout
+    // cargo 11 (PAPERCLIP-BUGFIX-WORKFLOW.md §2): finishing-branch fecha com SLICE_CLOSEOUT
+    // Ordem canônica: final-validator(PA_DE_CAL) → finishing-branch(SLICE_CLOSEOUT) per _tronco.md N18/N19
+    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'final-adversarial', next: 'spec-closer' },
+    { step: 'spec-closer', role: 'finishing-branch', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'fechar', next: null },
   ];
 }
 
@@ -350,10 +368,12 @@ function buildBugfixHeavy() {
     nodeSanityChecker('sanity', 'sentinel-5', 'adv-security'),
     // N17: trio adversarial final
     ...nodeTrio('sanity', 'final-adversarial'),
-    nodeFinalAdversarial('final-adversarial', ['adv-security', 'adv-architecture', 'adv-quality'], 'spec-closer'),
-    // cargo 11 (PAPERCLIP-BUGFIX-WORKFLOW.md §3.11): spec-closer entrega reports, fechar emite PA_DE_CAL
-    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'final-adversarial', next: 'fechar' },
-    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
+    nodeFinalAdversarial('final-adversarial', ['adv-security', 'adv-architecture', 'adv-quality'], 'fechar'),
+    // cargo 10 (PAPERCLIP-BUGFIX-WORKFLOW.md §2): final-validator emite PA_DE_CAL ANTES do closeout
+    // cargo 11 (PAPERCLIP-BUGFIX-WORKFLOW.md §2): finishing-branch fecha com SLICE_CLOSEOUT
+    // Ordem canônica: final-validator(PA_DE_CAL) → finishing-branch(SLICE_CLOSEOUT) per _tronco.md N18/N19
+    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'final-adversarial', next: 'spec-closer' },
+    { step: 'spec-closer', role: 'finishing-branch', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'fechar', next: null },
   ];
 }
 
@@ -380,10 +400,10 @@ function buildUserStoryLight() {
     nodeSentinel('sentinel-4', 'executor-fix', 'sanity'),
     nodeSanityChecker('sanity', 'sentinel-4', 'adv-security'),
     ...nodeTrio('sanity', 'final-adversarial'),
-    nodeFinalAdversarial('final-adversarial', ['adv-security', 'adv-architecture', 'adv-quality'], 'spec-closer'),
-    // spec-closer antes do terminal final
-    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'final-adversarial', next: 'fechar' },
-    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
+    nodeFinalAdversarial('final-adversarial', ['adv-security', 'adv-architecture', 'adv-quality'], 'fechar'),
+    // Ordem canônica: final-validator(PA_DE_CAL) → finishing-branch(SLICE_CLOSEOUT) per _tronco.md N18/N19
+    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'final-adversarial', next: 'spec-closer' },
+    { step: 'spec-closer', role: 'finishing-branch', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'fechar', next: null },
   ];
 }
 
@@ -422,9 +442,10 @@ function buildUserStoryHeavy() {
     nodeSentinel('sentinel-4', 'feature-integration-validator', 'sanity'),
     nodeSanityChecker('sanity', 'sentinel-4', 'adv-security'),
     ...nodeTrio('sanity', 'final-adversarial'),
-    nodeFinalAdversarial('final-adversarial', ['adv-security', 'adv-architecture', 'adv-quality'], 'spec-closer'),
-    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'final-adversarial', next: 'fechar' },
-    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
+    nodeFinalAdversarial('final-adversarial', ['adv-security', 'adv-architecture', 'adv-quality'], 'fechar'),
+    // Ordem canônica: final-validator(PA_DE_CAL) → finishing-branch(SLICE_CLOSEOUT) per _tronco.md N18/N19
+    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'final-adversarial', next: 'spec-closer' },
+    { step: 'spec-closer', role: 'finishing-branch', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'fechar', next: null },
   ];
 }
 
@@ -447,12 +468,13 @@ function buildAuditLight() {
     nodeSentinel('sentinel-3', 'audit-compliance', 'audit-risk'),
     { step: 'audit-risk', role: 'audit-risk-matrix-generator', blocks: [], blockedBy: 'sentinel-3', next: 'sentinel-4' },
     nodeSentinel('sentinel-4', 'audit-risk', 'aprovar'),
-    // PA_DE_CAL adaptado para audit (PAPERCLIP-AUDIT-WORKFLOW.md §2 item 7)
-    nodeAprovar('aprovar', 'sentinel-4', 'sentinel-5'),
+    // cargo 7 (PAPERCLIP-AUDIT-WORKFLOW.md §2): final-validator emite PA_DE_CAL (ordem canônica)
+    nodeAprovarFinal('aprovar', 'sentinel-4', 'sentinel-5'),
     nodeSentinel('sentinel-5', 'aprovar', 'spec-closer'),
-    // spec-closer entrega 2 relatórios (technical + executive)
-    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'sentinel-5', next: 'fechar' },
-    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
+    // cargo 8 (PAPERCLIP-AUDIT-WORKFLOW.md §2): spec-closer entrega 2 relatórios (technical + executive)
+    // finishing-branch executa o closeout final com SLICE_CLOSEOUT (_tronco.md N19)
+    { step: 'spec-closer', role: 'spec-closer', blocks: [], blockedBy: 'sentinel-5', next: 'fechar' },
+    { step: 'fechar', role: 'finishing-branch', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'spec-closer', next: null },
   ];
 }
 
@@ -474,12 +496,13 @@ function buildAuditHeavy() {
     nodeSentinel('sentinel-4', 'audit-compliance', 'audit-risk'),
     { step: 'audit-risk', role: 'audit-risk-matrix-generator', blocks: [], blockedBy: 'sentinel-4', next: 'sentinel-5' },
     nodeSentinel('sentinel-5', 'audit-risk', 'aprovar'),
-    // PA_DE_CAL adaptado para audit (PAPERCLIP-AUDIT-WORKFLOW.md §2 item 7)
-    nodeAprovar('aprovar', 'sentinel-5', 'sentinel-6'),
+    // cargo 7 (PAPERCLIP-AUDIT-WORKFLOW.md §2): final-validator emite PA_DE_CAL (ordem canônica)
+    nodeAprovarFinal('aprovar', 'sentinel-5', 'sentinel-6'),
     nodeSentinel('sentinel-6', 'aprovar', 'spec-closer'),
-    // spec-closer entrega 2 relatórios (technical + executive)
-    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'sentinel-6', next: 'fechar' },
-    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
+    // cargo 8 (PAPERCLIP-AUDIT-WORKFLOW.md §2): spec-closer entrega 2 relatórios (technical + executive)
+    // finishing-branch executa o closeout final com SLICE_CLOSEOUT (_tronco.md N19)
+    { step: 'spec-closer', role: 'spec-closer', blocks: [], blockedBy: 'sentinel-6', next: 'fechar' },
+    { step: 'fechar', role: 'finishing-branch', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'spec-closer', next: null },
   ];
 }
 
@@ -498,12 +521,13 @@ function buildUxLight() {
     nodeSentinel('sentinel-2', 'ux-simulator', 'ux-qa-validator'),
     { step: 'ux-qa-validator', role: 'ux-qa-validator', blocks: [], blockedBy: 'sentinel-2', next: 'sentinel-3' },
     nodeSentinel('sentinel-3', 'ux-qa-validator', 'aprovar'),
-    // PA_DE_CAL adaptado para UX (PAPERCLIP-UX-WORKFLOW.md §2 item 5)
-    nodeAprovar('aprovar', 'sentinel-3', 'sentinel-4'),
+    // PA_DE_CAL canônico: final-validator emite PA_DE_CAL ANTES do closeout (PAPERCLIP-UX-WORKFLOW.md §2)
+    nodeAprovarFinal('aprovar', 'sentinel-3', 'sentinel-4'),
     nodeSentinel('sentinel-4', 'aprovar', 'spec-closer'),
     // spec-closer entrega 2 relatórios UX (technical + executive)
-    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'sentinel-4', next: 'fechar' },
-    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
+    // finishing-branch executa o closeout final com SLICE_CLOSEOUT (_tronco.md N19)
+    { step: 'spec-closer', role: 'spec-closer', blocks: [], blockedBy: 'sentinel-4', next: 'fechar' },
+    { step: 'fechar', role: 'finishing-branch', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'spec-closer', next: null },
   ];
 }
 
@@ -534,12 +558,13 @@ function buildUxHeavy() {
     // junção: fan-in real — ux-qa-validator só abre quando AMBOS os irmãos concluem
     { step: 'ux-qa-validator', role: 'ux-qa-validator', blocks: [], blockedBy: ['ux-simulator', 'ux-accessibility-auditor'], next: 'sentinel-2' },
     nodeSentinel('sentinel-2', 'ux-qa-validator', 'aprovar'),
-    // PA_DE_CAL adaptado para UX (PAPERCLIP-UX-WORKFLOW.md §2 item 5)
-    nodeAprovar('aprovar', 'sentinel-2', 'sentinel-3'),
+    // PA_DE_CAL canônico: final-validator emite PA_DE_CAL ANTES do closeout (PAPERCLIP-UX-WORKFLOW.md §2)
+    nodeAprovarFinal('aprovar', 'sentinel-2', 'sentinel-3'),
     nodeSentinel('sentinel-3', 'aprovar', 'spec-closer'),
     // spec-closer entrega 2 relatórios UX (technical + executive)
-    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'sentinel-3', next: 'fechar' },
-    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
+    // finishing-branch executa o closeout final com SLICE_CLOSEOUT (_tronco.md N19)
+    { step: 'spec-closer', role: 'spec-closer', blocks: [], blockedBy: 'sentinel-3', next: 'fechar' },
+    { step: 'fechar', role: 'finishing-branch', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'spec-closer', next: null },
   ];
 }
 
@@ -559,9 +584,11 @@ function buildSpecLight() {
     nodeSentinel('sentinel-pre-5', 'spec-format-gate', 'spec-post-impl-validator'),
     { step: 'spec-post-impl-validator', role: 'spec-post-impl-validator', blocks: [], blockedBy: 'sentinel-pre-5', next: 'sentinel-pre-9' },
     // pré-step-9 sentinel (antes do fechamento)
-    nodeSentinel('sentinel-pre-9', 'spec-post-impl-validator', 'spec-closer'),
-    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'sentinel-pre-9', next: 'fechar' },
-    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
+    nodeSentinel('sentinel-pre-9', 'spec-post-impl-validator', 'fechar'),
+    // cargo 8 (PAPERCLIP-SPEC-WORKFLOW.md §2): spec-closer é a PA_DE_CAL + reports + spec.json closed
+    // Ordem canônica: spec-closer/final-validator(PA_DE_CAL) → finishing-branch(SLICE_CLOSEOUT)
+    { step: 'fechar', role: 'spec-closer', blocks: [B_PA_DE_CAL], blockedBy: 'sentinel-pre-9', next: 'spec-closer' },
+    { step: 'spec-closer', role: 'finishing-branch', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'fechar', next: null },
   ];
 }
 
@@ -585,11 +612,13 @@ function buildSpecHeavy() {
     nodeSentinel('sentinel-pre-5', 'sentinel-4', 'spec-post-impl-validator'),
     { step: 'spec-post-impl-validator', role: 'spec-post-impl-validator', blocks: [], blockedBy: 'sentinel-pre-5', next: 'sentinel-pre-9' },
     // pré-step-9 sentinel (antes do fechamento)
-    nodeSentinel('sentinel-pre-9', 'spec-post-impl-validator', 'spec-closer'),
-    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'sentinel-pre-9', next: 'sentinel-final' },
-    // sentinel final antes do validador (ponto de verificação de integridade da spec)
-    nodeSentinel('sentinel-final', 'spec-closer', 'fechar'),
-    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'sentinel-final', next: null },
+    nodeSentinel('sentinel-pre-9', 'spec-post-impl-validator', 'fechar'),
+    // cargo 8 (PAPERCLIP-SPEC-WORKFLOW.md §2): spec-closer é a PA_DE_CAL + reports + spec.json closed
+    // Ordem canônica: spec-closer/final-validator(PA_DE_CAL) → finishing-branch(SLICE_CLOSEOUT)
+    { step: 'fechar', role: 'spec-closer', blocks: [B_PA_DE_CAL], blockedBy: 'sentinel-pre-9', next: 'sentinel-final' },
+    // sentinel final antes do closeout (ponto de verificação de integridade da spec)
+    nodeSentinel('sentinel-final', 'fechar', 'spec-closer'),
+    { step: 'spec-closer', role: 'finishing-branch', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'sentinel-final', next: null },
   ];
 }
 
@@ -629,10 +658,11 @@ const HOTFIX = [
   },
   // HF-N9 (junção): fan-in real — abre quando TODOS os 3 irmãos do trio concluem
   { step: 'HF-N9-juncao', role: 'final-adversarial-orchestrator', blocks: [B_ADV_FINAL], blockedBy: ['HF-N6-adv-sec', 'HF-N7-adv-arch', 'HF-N8-adv-qual'], next: 'HF-N10-sanity' },
-  // HF-N10
-  { step: 'HF-N10-sanity', role: 'sanity-checker', blocks: [], blockedBy: 'HF-N9-juncao', next: 'HF-N11-fechar' },
-  // HF-N11
-  { step: 'HF-N11-fechar', role: 'final-validator', blocks: [B_SLICE_CLOSEOUT, B_PA_DE_CAL], blockedBy: 'HF-N10-sanity', next: null },
+  // HF-N10: sanity-checker emite PA_DE_CAL (final-validator neste contexto compacto — hotfix de 12 nós exatos)
+  // Ordem canônica preservada em fluxo comprimido: PA_DE_CAL precede SLICE_CLOSEOUT (_tronco.md N18/N19)
+  { step: 'HF-N10-sanity', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'HF-N9-juncao', next: 'HF-N11-fechar' },
+  // HF-N11: finishing-branch fecha com SLICE_CLOSEOUT (N19 canônico)
+  { step: 'HF-N11-fechar', role: 'finishing-branch', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'HF-N10-sanity', next: null },
 ];
 
 // ─── REVIEW-ONLY (4 nós exatos) ─────────────────────────────────────────────
@@ -646,8 +676,10 @@ const REVIEW_ONLY = [
   { step: 'RO-N1-adv-coord', role: 'adversarial-review-coordinator', blocks: [B_ADV_CONSOLIDATED], blockedBy: 'RO-N0-detectar-diff', next: 'RO-N2-final-adv' },
   // RO-N2: final adversarial orchestrator
   { step: 'RO-N2-final-adv', role: 'final-adversarial-orchestrator', blocks: [B_ADV_FINAL], blockedBy: 'RO-N1-adv-coord', next: 'RO-N3-fechar' },
-  // RO-N3
-  { step: 'RO-N3-fechar', role: 'final-validator', blocks: [B_SLICE_CLOSEOUT, B_PA_DE_CAL], blockedBy: 'RO-N2-final-adv', next: null },
+  // RO-N3: modo ultra-compacto (4 nós exatos) — finishing-branch emite PA_DE_CAL + SLICE_CLOSEOUT juntos
+  // Não é possível separar em dois nós sem quebrar o invariante T-13 (review-only=4 nós exatos).
+  // Canônico _tronco.md N18/N19 está comprimido em RO-N3 por design do modo review-only.
+  { step: 'RO-N3-fechar', role: 'finishing-branch', blocks: [B_PA_DE_CAL, B_SLICE_CLOSEOUT], blockedBy: 'RO-N2-final-adv', next: null },
 ];
 
 // ─── MONTAGEM DOS TEMPLATES ──────────────────────────────────────────────────
