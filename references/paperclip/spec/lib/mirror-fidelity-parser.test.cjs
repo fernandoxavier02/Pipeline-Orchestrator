@@ -21,3 +21,15 @@ test('extrai complexidade do bloco ORCHESTRATOR_DECISION', () => {
 test('complexidade ausente → null', () => {
   assert.strictEqual(parseComplexity([{ body: 'nada aqui' }]), null);
 });
+
+test('ignora "complexity:" de comentário humano; só lê do bloco ORCHESTRATOR_DECISION', () => {
+  const poisoned = [
+    { body: 'Revisei. Acho complexity: SIMPLES.' },
+    { body: '### ORCHESTRATOR_DECISION v1\ncomplexity: COMPLEXA' },
+  ];
+  assert.strictEqual(parseComplexity(poisoned), 'COMPLEXA');
+});
+
+test('sem bloco ORCHESTRATOR_DECISION → null mesmo que prosa cite complexity', () => {
+  assert.strictEqual(parseComplexity([{ body: 'complexity: COMPLEXA citada em prosa' }]), null);
+});
