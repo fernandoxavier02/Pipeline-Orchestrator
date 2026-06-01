@@ -205,6 +205,7 @@ test('T-04 Completude — 14 chaves folha presentes', () => {
 });
 
 // T-05: estrutura mínima de nó
+// blockedBy aceita: null (raiz), string (tronco linear), ou string[] (fan-in de paralelos)
 test('T-05 Estrutura mínima de nó — campos obrigatórios em todos os moldes', () => {
   for (const { key, nodes } of canonicalTemplates()) {
     for (const node of nodes) {
@@ -214,8 +215,12 @@ test('T-05 Estrutura mínima de nó — campos obrigatórios em todos os moldes'
         `[${key}/${node.step}] nó deve ter role string não-vazia`);
       assert.ok(Array.isArray(node.blocks),
         `[${key}/${node.step}] blocks deve ser array`);
-      assert.ok(node.blockedBy === null || typeof node.blockedBy === 'string',
-        `[${key}/${node.step}] blockedBy deve ser string ou null`);
+      // blockedBy: null = raiz; string = predecessor único; string[] = fan-in (junção paralela)
+      const isValidBlockedBy = node.blockedBy === null
+        || typeof node.blockedBy === 'string'
+        || (Array.isArray(node.blockedBy) && node.blockedBy.every((s) => typeof s === 'string'));
+      assert.ok(isValidBlockedBy,
+        `[${key}/${node.step}] blockedBy deve ser null, string ou string[]`);
       assert.ok(node.next === null || typeof node.next === 'string',
         `[${key}/${node.step}] next deve ser string ou null`);
     }
@@ -240,14 +245,16 @@ test('T-07 Terminal único — exatamente um nó com next === null em cada molde
   }
 });
 
-// T-08: ponteiros blockedBy válidos
+// T-08: ponteiros blockedBy válidos (aceita string scalar ou string[] para fan-in)
 test('T-08 Ponteiros blockedBy válidos em todos os moldes', () => {
   for (const { key, nodes } of canonicalTemplates()) {
     const stepSet = new Set(nodes.map((n) => n.step));
     for (const node of nodes) {
-      if (node.blockedBy !== null) {
-        assert.ok(stepSet.has(node.blockedBy),
-          `[${key}/${node.step}] blockedBy="${node.blockedBy}" não existe no molde`);
+      if (node.blockedBy === null) continue; // raiz — ok
+      const refs = Array.isArray(node.blockedBy) ? node.blockedBy : [node.blockedBy];
+      for (const ref of refs) {
+        assert.ok(stepSet.has(ref),
+          `[${key}/${node.step}] blockedBy="${ref}" não existe no molde`);
       }
     }
   }

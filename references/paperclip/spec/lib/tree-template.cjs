@@ -105,14 +105,21 @@ function nodeSanityChecker(step, blockedBy, nextStep) {
   };
 }
 
+// nodeFinalAdversarial — a junção recebe blockedBy como ARRAY de todos os irmãos
+// do trio (fan-in real: todos devem concluir antes da junção desbloquear).
+// Uso: nodeFinalAdversarial(step, [sib1, sib2, sib3], nextStep)
 function nodeFinalAdversarial(step, blockedBy, nextStep) {
+  // blockedBy deve ser array (fan-in de todos os irmãos paralelos)
+  const blockedByArr = Array.isArray(blockedBy) ? blockedBy : [blockedBy];
   return {
     step, role: 'final-adversarial-orchestrator',
-    blocks: [B_ADV_FINAL], blockedBy, next: nextStep,
+    blocks: [B_ADV_FINAL], blockedBy: blockedByArr, next: nextStep,
   };
 }
 
 // Trio adversarial paralelo (N17) — 3 irmãos nomeados + junção
+// A junção (junctionStep) deve usar blockedBy=[adv-security, adv-architecture, adv-quality]
+// para expressar fan-in real (todos 3 devem concluir antes de desbloquear).
 function nodeTrio(blockedBy, junctionStep, prefix) {
   const p = prefix || '';
   return [
@@ -223,7 +230,7 @@ function buildFeatureLight() {
     nodeSentinel('sentinel-3', 'executor-fix', 'sanity'),
     nodeSanityChecker('sanity', 'sentinel-3', 'adv-security'),
     ...nodeTrio('sanity', 'final-adversarial'),
-    nodeFinalAdversarial('final-adversarial', 'adv-quality', 'spec-closer'),
+    nodeFinalAdversarial('final-adversarial', ['adv-security', 'adv-architecture', 'adv-quality'], 'spec-closer'),
     // cargo 18 (PAPERCLIP-FEATURE-WORKFLOW.md §3.15): spec-closer entrega reports, fechar emite PA_DE_CAL
     { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'final-adversarial', next: 'fechar' },
     { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
@@ -259,14 +266,15 @@ function buildFeatureHeavy() {
       blocks: [B_QUAL_FINDINGS], blockedBy: 'implementar', next: 'checkpoint',
       parallel: ['review-spec'],
     },
-    { step: 'checkpoint', role: 'checkpoint-validator', blocks: [], blockedBy: 'review-quality', next: 'review-orchestrator' },
+    // junção N12: fan-in real — checkpoint só abre quando AMBOS os irmãos concluem
+    { step: 'checkpoint', role: 'checkpoint-validator', blocks: [], blockedBy: ['review-spec', 'review-quality'], next: 'review-orchestrator' },
     nodeReviewOrchestrator('review-orchestrator', 'checkpoint', 'executor-fix'),
     nodeExecutorFix('executor-fix', 'review-orchestrator', 'feature-integration-validator'),
     { step: 'feature-integration-validator', role: 'feature-integration-validator', blocks: [], blockedBy: 'executor-fix', next: 'sanity' },
     nodeSanityChecker('sanity', 'feature-integration-validator', 'adv-security'),
     // N17: trio adversarial paralelo
     ...nodeTrio('sanity', 'final-adversarial'),
-    nodeFinalAdversarial('final-adversarial', 'adv-quality', 'spec-closer'),
+    nodeFinalAdversarial('final-adversarial', ['adv-security', 'adv-architecture', 'adv-quality'], 'spec-closer'),
     // cargo 18 (PAPERCLIP-FEATURE-WORKFLOW.md §3.15): spec-closer entrega reports, fechar emite PA_DE_CAL
     { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'final-adversarial', next: 'fechar' },
     { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
@@ -295,7 +303,7 @@ function buildBugfixLight() {
     nodeSentinel('sentinel-4', 'review-orchestrator', 'sanity'),
     nodeSanityChecker('sanity', 'sentinel-4', 'adv-security'),
     ...nodeTrio('sanity', 'final-adversarial'),
-    nodeFinalAdversarial('final-adversarial', 'adv-quality', 'spec-closer'),
+    nodeFinalAdversarial('final-adversarial', ['adv-security', 'adv-architecture', 'adv-quality'], 'spec-closer'),
     // cargo 11 (PAPERCLIP-BUGFIX-WORKFLOW.md §3.11): spec-closer entrega reports, fechar emite PA_DE_CAL
     { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'final-adversarial', next: 'fechar' },
     { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
@@ -336,12 +344,13 @@ function buildBugfixHeavy() {
       blocks: [B_QUAL_FINDINGS], blockedBy: 'review-orchestrator', next: 'checkpoint',
       parallel: ['adv-batch-1'],
     },
-    { step: 'checkpoint', role: 'checkpoint-validator', blocks: [], blockedBy: 'adv-batch-2', next: 'sentinel-5' },
+    // junção N12: fan-in real — checkpoint só abre quando AMBOS os lotes concluem
+    { step: 'checkpoint', role: 'checkpoint-validator', blocks: [], blockedBy: ['adv-batch-1', 'adv-batch-2'], next: 'sentinel-5' },
     nodeSentinel('sentinel-5', 'checkpoint', 'sanity'),
     nodeSanityChecker('sanity', 'sentinel-5', 'adv-security'),
     // N17: trio adversarial final
     ...nodeTrio('sanity', 'final-adversarial'),
-    nodeFinalAdversarial('final-adversarial', 'adv-quality', 'spec-closer'),
+    nodeFinalAdversarial('final-adversarial', ['adv-security', 'adv-architecture', 'adv-quality'], 'spec-closer'),
     // cargo 11 (PAPERCLIP-BUGFIX-WORKFLOW.md §3.11): spec-closer entrega reports, fechar emite PA_DE_CAL
     { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'final-adversarial', next: 'fechar' },
     { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
@@ -371,7 +380,7 @@ function buildUserStoryLight() {
     nodeSentinel('sentinel-4', 'executor-fix', 'sanity'),
     nodeSanityChecker('sanity', 'sentinel-4', 'adv-security'),
     ...nodeTrio('sanity', 'final-adversarial'),
-    nodeFinalAdversarial('final-adversarial', 'adv-quality', 'spec-closer'),
+    nodeFinalAdversarial('final-adversarial', ['adv-security', 'adv-architecture', 'adv-quality'], 'spec-closer'),
     // spec-closer antes do terminal final
     { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'final-adversarial', next: 'fechar' },
     { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
@@ -405,14 +414,15 @@ function buildUserStoryHeavy() {
       blocks: [B_QUAL_FINDINGS], blockedBy: 'implementar', next: 'checkpoint',
       parallel: ['review-spec'],
     },
-    { step: 'checkpoint', role: 'checkpoint-validator', blocks: [], blockedBy: 'review-quality', next: 'review-orchestrator' },
+    // junção N12: fan-in real — checkpoint só abre quando AMBOS os irmãos concluem
+    { step: 'checkpoint', role: 'checkpoint-validator', blocks: [], blockedBy: ['review-spec', 'review-quality'], next: 'review-orchestrator' },
     nodeReviewOrchestrator('review-orchestrator', 'checkpoint', 'executor-fix'),
     nodeExecutorFix('executor-fix', 'review-orchestrator', 'feature-integration-validator'),
     { step: 'feature-integration-validator', role: 'feature-integration-validator', blocks: [], blockedBy: 'executor-fix', next: 'sentinel-4' },
     nodeSentinel('sentinel-4', 'feature-integration-validator', 'sanity'),
     nodeSanityChecker('sanity', 'sentinel-4', 'adv-security'),
     ...nodeTrio('sanity', 'final-adversarial'),
-    nodeFinalAdversarial('final-adversarial', 'adv-quality', 'spec-closer'),
+    nodeFinalAdversarial('final-adversarial', ['adv-security', 'adv-architecture', 'adv-quality'], 'spec-closer'),
     { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'final-adversarial', next: 'fechar' },
     { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
   ];
@@ -521,8 +531,8 @@ function buildUxHeavy() {
       blocks: [], blockedBy: 'sentinel-1', next: 'ux-qa-validator',
       parallel: ['ux-simulator'],
     },
-    // junção
-    { step: 'ux-qa-validator', role: 'ux-qa-validator', blocks: [], blockedBy: 'ux-accessibility-auditor', next: 'sentinel-2' },
+    // junção: fan-in real — ux-qa-validator só abre quando AMBOS os irmãos concluem
+    { step: 'ux-qa-validator', role: 'ux-qa-validator', blocks: [], blockedBy: ['ux-simulator', 'ux-accessibility-auditor'], next: 'sentinel-2' },
     nodeSentinel('sentinel-2', 'ux-qa-validator', 'aprovar'),
     // PA_DE_CAL adaptado para UX (PAPERCLIP-UX-WORKFLOW.md §2 item 5)
     nodeAprovar('aprovar', 'sentinel-2', 'sentinel-3'),
@@ -617,8 +627,8 @@ const HOTFIX = [
     blocks: [B_QUAL_FINDINGS], blockedBy: 'HF-N5-review', next: 'HF-N9-juncao',
     parallel: ['HF-N6-adv-sec', 'HF-N7-adv-arch'],
   },
-  // HF-N9 (junção)
-  { step: 'HF-N9-juncao', role: 'final-adversarial-orchestrator', blocks: [B_ADV_FINAL], blockedBy: 'HF-N8-adv-qual', next: 'HF-N10-sanity' },
+  // HF-N9 (junção): fan-in real — abre quando TODOS os 3 irmãos do trio concluem
+  { step: 'HF-N9-juncao', role: 'final-adversarial-orchestrator', blocks: [B_ADV_FINAL], blockedBy: ['HF-N6-adv-sec', 'HF-N7-adv-arch', 'HF-N8-adv-qual'], next: 'HF-N10-sanity' },
   // HF-N10
   { step: 'HF-N10-sanity', role: 'sanity-checker', blocks: [], blockedBy: 'HF-N9-juncao', next: 'HF-N11-fechar' },
   // HF-N11
