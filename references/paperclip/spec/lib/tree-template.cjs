@@ -23,9 +23,9 @@
 //   Aprovação é trava estrutural + audit; não emite portão (Decisão D-F1).
 //   PROPOSAL_CONFIRMED gap G1 do _tronco.md → blocks: [].
 //   D4: nós de fix-loop são UM nó único; comentário instrui iteração interna.
-// D7: nodeSanityChecker declara SANITY_CHECK (entrada sancionada pelo usuário para gap G2).
-//     ATENÇÃO: o agente real emite "SANITY_CHECK:" como YAML, não como cabeçalho "### SANITY_CHECK v1".
-//     O parser só reconhece cabeçalhos; o mapeamento é inerte em dados reais (gap G2 continua aberto).
+// D7-fix: nodeSanityChecker declara blocks: [] (Gap G2 aberto — _fidelidade.md §5, _tronco.md §5).
+//     O agente real emite "SANITY_CHECK:" como YAML, não como cabeçalho "### SANITY_CHECK v1".
+//     O parser só reconhece cabeçalhos; declarar o bloco seria enganoso. Gap G2 permanece ABERTO.
 
 // ─── BLOCOS CANÔNICOS REUTILIZADOS ──────────────────────────────────────────
 const B_ORCHESTRATOR = 'ORCHESTRATOR_DECISION';
@@ -114,12 +114,15 @@ function nodeReviewOrchestrator(step, blockedBy, nextStep) {
 function nodeSanityChecker(step, blockedBy, nextStep) {
   return {
     step, role: 'sanity-checker',
-    // D7: SANITY_CHECK é o bloco declarado pelo nó de sanidade (entrada sancionada pelo usuário,
-    // gap G2/_tronco.md:331-333). ATENÇÃO: o agente real (sanity-checker.md:78) emite o bloco
-    // como YAML ("SANITY_CHECK:"), NÃO como cabeçalho "### SANITY_CHECK v1". O parser de
-    // fidelidade só reconhece cabeçalhos — portanto este bloco é inerte em dados reais de
-    // execução. Gap G2 permanece aberto na prática (decisão de parser pendente).
-    blocks: ['SANITY_CHECK'], blockedBy, next: nextStep,
+    // D7-fix (achado adversarial G3-Régua): SANITY_CHECK removido de blocks[].
+    // Razão: _fidelidade.md §5 (gerada 2026-06-01) lista SANITY_CHECK como "sem mapeamento
+    // atual (ver Gap G2)". O agente real (sanity-checker.md:78) emite o bloco como YAML
+    // ("SANITY_CHECK:"), NÃO como cabeçalho "### SANITY_CHECK v1". O parser de fidelidade
+    // só reconhece cabeçalhos — declarar o bloco aqui seria enganoso (o score nunca o
+    // contabilizaria). Gap G2 permanece ABERTO (_tronco.md §5, _modos.md §1.5 G-HF2).
+    // Quando/se o Gap G2 for resolvido (parser estendido OU agente adota formato de cabeçalho),
+    // restaurar: blocks: ['SANITY_CHECK'] e adicionar entrada ao dicionário.
+    blocks: [], blockedBy, next: nextStep,
   };
 }
 

@@ -87,15 +87,18 @@ test('T-G3-12 — complexity=null com blocos review-only reais: indeterminate=tr
   assert.strictEqual(r.score, null);
 });
 
-test('T-G3-13 — D7: SANITY_CHECK cobre CHECKPOINT_FAIL em execução SIMPLES (score 1.0)', () => {
-  // SANITY_CHECK (D7) é o bloco real emitido pelo nó de sanidade — alternativa a REGRESSION_RESULT.
+test('T-G3-13 — D7-fix: SANITY_CHECK não mapeia (Gap G2 aberto); REGRESSION_RESULT ainda cobre CHECKPOINT_FAIL em SIMPLES (score 1.0)', () => {
+  // Achado adversarial D7 (G3-Régua): SANITY_CHECK foi removido de BLOCK_TO_GATE para alinhar
+  // com _fidelidade.md §5 ("sem mapeamento atual — Gap G2 aberto") e §2 ("21 mapeamentos").
+  // REGRESSION_RESULT (e REGRESSION_CLOSEOUT) continuam sendo o bloco-fonte canônico para
+  // CHECKPOINT_FAIL. O teto SIMPLES = 1.0 é atingível via REGRESSION_RESULT, não SANITY_CHECK.
   // Blocos: CLARIFICATION_DONE→INFO_GATE_BLOCKED, TDD_GREEN→TDD_APPROVAL,
-  //         SANITY_CHECK→CHECKPOINT_FAIL, ORCHESTRATOR_DECISION→COMPLEXITY_GATE, SLICE_CLOSEOUT→CLOSEOUT_CONFIRM.
+  //         REGRESSION_RESULT→CHECKPOINT_FAIL, ORCHESTRATOR_DECISION→COMPLEXITY_GATE, SLICE_CLOSEOUT→CLOSEOUT_CONFIRM.
   const r = scoreExecution({
-    blocks: ['CLARIFICATION_DONE', 'TDD_GREEN', 'SANITY_CHECK', 'ORCHESTRATOR_DECISION', 'SLICE_CLOSEOUT'],
+    blocks: ['CLARIFICATION_DONE', 'TDD_GREEN', 'REGRESSION_RESULT', 'ORCHESTRATOR_DECISION', 'SLICE_CLOSEOUT'],
     complexity: 'SIMPLES',
   });
   assert.strictEqual(r.score, 1.0, `score deve ser 1.0; ausentes: ${JSON.stringify(r.missing)}`);
   assert.deepStrictEqual(r.missing, []);
-  assert.ok(r.emitted.includes('CHECKPOINT_FAIL'), 'CHECKPOINT_FAIL deve estar em emitted via SANITY_CHECK');
+  assert.ok(r.emitted.includes('CHECKPOINT_FAIL'), 'CHECKPOINT_FAIL deve estar em emitted via REGRESSION_RESULT');
 });

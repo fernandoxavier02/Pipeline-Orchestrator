@@ -652,14 +652,16 @@ test('T-34 Fan-in completeness — toda junção lista TODOS os irmãos paralelo
 test('T-33 Módulo não modifica BLOCK_TO_GATE — nenhum bloco inventado inserido como efeito colateral', () => {
   // O dicionário foi importado antes dos templates; se um bloco inventado tivesse sido
   // inserido, ele estaria aqui. Verificamos que as chaves são exatamente o conjunto canônico.
-  // G3-D7: SANITY_CHECK (entrada sancionada pelo usuário, gap G2 — mapeamento inerte em dados reais).
-  // G3-D8-fix: REVIEW_ONLY_SCORE REMOVIDO (bloco inventado; nenhum agente real o emite).
+  // Achado adversarial D7 (G3-Régua): SANITY_CHECK foi REMOVIDO de BLOCK_TO_GATE.
+  // _fidelidade.md §5 (gerada 2026-06-01, linha 118) declara "sem mapeamento atual (ver Gap G2)".
+  // _fidelidade.md §2 (linha 65) calcula tetos assumindo "21 mapeamentos" com SANITY_CHECK fora.
+  // Gap G2 permanece ABERTO (_tronco.md §5, _modos.md §1.5 G-HF2 — decisão pendente do usuário).
+  // G3-D8-fix: REVIEW_ONLY_SCORE também não está (bloco inventado; nenhum agente real o emite).
   const knownGateBlocks = [
     'CLARIFICATION_DONE', 'ORCHESTRATOR_DECISION', 'TRIAGE_RESULT',
     'TDD_GREEN', 'TDD_RED', 'REGRESSION_RESULT', 'REGRESSION_CLOSEOUT',
-    'SANITY_CHECK', // G3-D7: entrada sancionada pelo usuário → CHECKPOINT_FAIL
-    // REVIEW_ONLY_SCORE foi removido (G3-D8-fix): bloco inventado, nenhum agente real o emite.
-    // Execuções review-only ficam com complexity=null (indeterminate=true) por design.
+    // SANITY_CHECK removido (D7-fix): Gap G2 aberto, mapeamento divergia da SSOT _fidelidade.md.
+    // REVIEW_ONLY_SCORE também não está (D8-fix): bloco inventado, nenhum agente real o emite.
     'ADVERSARIAL_CONSOLIDATED', 'ADVERSARIAL_CONSOLIDATED_CORRECTION',
     'SECURITY_FINDINGS', 'QUALITY_FINDINGS', 'ARCHITECTURE_FINDINGS', 'SECURITY_RERUN_FINDINGS',
     'EXECUTOR_FIX_DONE', 'FIX_COMPLETE', 'FIX_APPLIED',
@@ -670,7 +672,7 @@ test('T-33 Módulo não modifica BLOCK_TO_GATE — nenhum bloco inventado inseri
     assert.ok(Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, k),
       `chave esperada "${k}" deve existir em BLOCK_TO_GATE`);
   }
-  // Número total bate com o conjunto canônico (22 após G3-D7 + remoção de D8)
+  // Número total bate com o conjunto canônico (21 após remoção de SANITY_CHECK + REVIEW_ONLY_SCORE)
   assert.strictEqual(Object.keys(BLOCK_TO_GATE).length, knownGateBlocks.length,
     'BLOCK_TO_GATE deve ter exatamente as chaves canônicas');
 });

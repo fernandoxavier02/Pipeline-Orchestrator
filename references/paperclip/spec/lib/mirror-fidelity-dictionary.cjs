@@ -44,15 +44,17 @@ const BLOCK_TO_GATE = {
   // → CHECKPOINT_FAIL (resultado de teste/regressão = portão de build/test)
   REGRESSION_RESULT: 'CHECKPOINT_FAIL',
   REGRESSION_CLOSEOUT: 'CHECKPOINT_FAIL',
-  // D7: entrada sancionada pelo usuário para o bloco SANITY_CHECK (gap G2/_tronco.md:331-333
-  // e G-HF2/_modos.md:174-176). ATENÇÃO DE IMPLEMENTAÇÃO: o agente real emite SANITY_CHECK
-  // como bloco YAML ("SANITY_CHECK:" — agents/core/sanity-checker.md:78), NÃO como cabeçalho
-  // "### SANITY_CHECK v1". O parser só reconhece cabeçalhos "### NOME vN"; portanto este
-  // mapeamento é inerte em dados reais de execução — o gap G2 permanece aberto na prática.
-  // A entrada fica no dicionário porque foi sancionada pelo usuário; o mapeador real
-  // requereria que o agente adotasse o formato de cabeçalho, ou que o parser fosse estendido
-  // para reconhecer blocos YAML (decisão de produto pendente).
-  SANITY_CHECK: 'CHECKPOINT_FAIL',
+  // D7 (Gap G2 — ABERTO): SANITY_CHECK NÃO entra no dicionário.
+  // Razão: _fidelidade.md §5 (linha 118, gerada 2026-06-01) lista explicitamente SANITY_CHECK
+  // como "sem mapeamento atual (ver Gap G2)". O teto calculado em _fidelidade.md §2 (linha 65)
+  // assume "dicionário atual (21 mapeamentos)" com SANITY_CHECK FORA. A discrepância detectada
+  // no achado adversarial D7 (G3-Régua) era exatamente essa: o código tinha 22 entradas
+  // enquanto a SSOT declarava 21. Corrigido alinhando código à SSOT.
+  //
+  // Motivo técnico adicional: o agente real (sanity-checker.md:78) emite "SANITY_CHECK:" como
+  // bloco YAML, NÃO como cabeçalho "### SANITY_CHECK v1". O parser (mirror-fidelity-parser.cjs)
+  // só reconhece cabeçalhos — o mapeamento seria inerte em dados reais mesmo se existisse.
+  // Gap G2 permanece ABERTO por decisão do usuário (_tronco.md §5, _modos.md §1.5 G-HF2).
   // → ADVERSARIAL_GATE
   ADVERSARIAL_CONSOLIDATED: 'ADVERSARIAL_GATE',
   ADVERSARIAL_CONSOLIDATED_CORRECTION: 'ADVERSARIAL_GATE',

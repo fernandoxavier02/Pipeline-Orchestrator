@@ -72,15 +72,19 @@ test('A1 — CLARIFICATION_DONE mapeia para INFO_GATE_BLOCKED (fecha lacuna do p
 
 // ─── G3-Régua: D7 (SANITY_CHECK) + D8-fix (REVIEW_ONLY = N/A por design) ─────
 
-test('T-G3-01 — SANITY_CHECK mapeia para CHECKPOINT_FAIL (D7 — entrada sancionada pelo usuário)', () => {
-  // Entrada sancionada pelo usuário para gap G2/_tronco.md:331-333 e G-HF2/_modos.md:174-176.
-  // ATENÇÃO: o agente real emite "SANITY_CHECK:" como YAML, não como "### SANITY_CHECK v1".
-  // O parser só reconhece cabeçalhos — mapeamento inerte em dados reais. Gap G2 permanece aberto.
-  assert.strictEqual(gateForBlock('SANITY_CHECK'), 'CHECKPOINT_FAIL');
+test('T-G3-01 — SANITY_CHECK NÃO está em BLOCK_TO_GATE (Gap G2 aberto — alinhado com SSOT _fidelidade.md §5)', () => {
+  // Achado adversarial D7 (G3-Régua): o código tinha SANITY_CHECK mapeado (22 entradas),
+  // mas _fidelidade.md §5 linha 118 declara explicitamente "sem mapeamento atual (ver Gap G2)"
+  // e §2 linha 65 calcula tetos assumindo "21 mapeamentos" com SANITY_CHECK FORA.
+  // Motivo técnico: agente real emite "SANITY_CHECK:" como YAML, não "### SANITY_CHECK v1".
+  // O parser só reconhece cabeçalhos — o mapeamento seria inerte de qualquer forma.
+  // Gap G2 permanece ABERTO por decisão do usuário (_tronco.md §5, _modos.md §1.5 G-HF2).
+  assert.strictEqual(gateForBlock('SANITY_CHECK'), null);
 });
 
-test('T-G3-02 — SANITY_CHECK é chave própria de BLOCK_TO_GATE (D7)', () => {
-  assert.ok(Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, 'SANITY_CHECK'));
+test('T-G3-02 — SANITY_CHECK não é chave de BLOCK_TO_GATE (divergência com SSOT corrigida — D7)', () => {
+  // Complemento do T-G3-01: verifica ausência na estrutura interna, não apenas no lookup.
+  assert.ok(!Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, 'SANITY_CHECK'));
 });
 
 test('T-G3-03 — REVIEW_ONLY_SCORE NÃO está em BLOCK_TO_GATE (bloco inventado removido — G-RO2)', () => {
