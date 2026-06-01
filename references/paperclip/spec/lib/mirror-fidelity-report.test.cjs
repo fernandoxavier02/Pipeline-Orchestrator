@@ -14,3 +14,13 @@ test('agrega nota média (ignorando indeterminados) e ranqueia portões mais aus
   assert.match(md, /INFO_GATE_BLOCKED.*2/);        // portão mais ausente
   assert.match(md, /indeterminad/i);               // PIP-3 reportado, não contado
 });
+
+test('CORREÇÃO C: nenhuma execução pontuada → Nota média N/A, nunca 0.00', () => {
+  const rows = [
+    { identifier: 'PIP-1', complexity: null, score: null, missing: [], indeterminate: true },
+    { identifier: 'PIP-2', complexity: null, score: null, missing: [], indeterminate: true },
+  ];
+  const md = buildReport(rows);
+  assert.match(md, /Nota média: N\/A/);
+  assert.doesNotMatch(md, /Nota média: 0\.00/);
+});
