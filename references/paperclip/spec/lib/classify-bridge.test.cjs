@@ -147,9 +147,32 @@ test('T18 — heurística: "simulate user journey on checkout" → UX Simulation
   assert.strictEqual(classify('simulate user journey on checkout', {}).type, 'UX Simulation');
 });
 
-// ─── T19: Heurística de tipo — Spec ──────────────────────────
+// ─── T19: (mantido para compatibilidade; ver T42/T43 para regressão spec-prose)
+// Neste ponto do ciclo, T19 ainda mantém o comportamento pré-fix-3.
+// T19 será atualizado no commit da correção do achado 3 (spec-from-prose).
 test('T19 — heurística: "valida spec do módulo" → Spec (sem sinal de maior prioridade)', () => {
   assert.strictEqual(classify('valida spec do módulo', {}).type, 'Spec');
+});
+
+// ─── T33-T37: Inflected Bug Fix keywords — plurals/gerunds ───
+test('T33 — inflected: "the login page errors out" → Bug Fix', () => {
+  assert.strictEqual(classify('the login page errors out', {}).type, 'Bug Fix');
+});
+
+test('T34 — inflected: "reported bugs in the dashboard" → Bug Fix', () => {
+  assert.strictEqual(classify('reported bugs in the dashboard', {}).type, 'Bug Fix');
+});
+
+test('T35 — inflected: "app keeps crashing on startup" → Bug Fix', () => {
+  assert.strictEqual(classify('app keeps crashing on startup', {}).type, 'Bug Fix');
+});
+
+test('T36 — inflected: "these crashes happen daily" → Bug Fix', () => {
+  assert.strictEqual(classify('these crashes happen daily', {}).type, 'Bug Fix');
+});
+
+test('T37 — inflected: "fixes needed in the module" → Bug Fix', () => {
+  assert.strictEqual(classify('fixes needed in the module', {}).type, 'Bug Fix');
 });
 
 // ─── T20: Tiebreaker — Error vence Spec ──────────────────────

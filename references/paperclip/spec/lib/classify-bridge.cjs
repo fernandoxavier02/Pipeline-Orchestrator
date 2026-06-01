@@ -67,7 +67,17 @@ const TYPE_KEYWORDS = [
   // Maior prioridade primeiro (Bug Fix = tiebreaker 5)
   {
     type: 'Bug Fix',
-    keywords: ['fix', 'bug', 'erro', 'error', 'broken', 'crash', 'not working'],
+    // Inclui formas flexionadas comuns (plural, gerúndio, passado) para cobrir
+    // descrições reais de bugs: "errors out", "reported bugs", "crashing", etc.
+    // O \b dos dois lados ainda aplica — cada forma é uma palavra completa.
+    keywords: [
+      'fix', 'fixes', 'fixed', 'fixing',
+      'bug', 'bugs', 'buggy',
+      'erro', 'error', 'errors',
+      'broken',
+      'crash', 'crashes', 'crashing', 'crashed',
+      'not working',
+    ],
   },
   {
     type: 'Feature',
