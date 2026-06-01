@@ -201,7 +201,7 @@ function nodeSpecFanIn(complexity, step, stepToIssueIdMap, variant) {
 // Invariantes:
 //   INV-D6-1: as N fatias são irmãs — nenhuma trava outra (blockedByIssueIds = [prevIssueId]).
 //   INV-D6-2: todas as N fatias bloqueiam a junção downstream (fan-in real).
-//   INV-D6-3: n >= 1; n === 0 ou NaN lança erro descritivo.
+//   INV-D6-3: n >= 1 e inteiro; n === 0, NaN ou fração lança erro descritivo.
 //   INV-D6-4: todas as fatias compartilham o mesmo prevIssueId.
 //   INV-D6-5: a junção downstream existe no molde — expandSlices não inventa junções.
 //   INV-D6-6: modos especiais (hotfix, review-only) não são fatiáveis.
@@ -225,8 +225,10 @@ function nodeSpecFanIn(complexity, step, stepToIssueIdMap, variant) {
 const SPECIAL_MODES = new Set(['hotfix', 'review-only']);
 
 function expandSlices(complexity, n, prevIssueId, variant) {
-  // Validação: n deve ser número válido >= 1 (NaN passaria n < 1 sem este guarda)
-  if (typeof n !== 'number' || Number.isNaN(n) || n < 1) {
+  // Validação: n deve ser número inteiro válido >= 1 (INV-D6-3).
+  // Number.isInteger também rejeita frações (2.9, 3.5 etc.) que Array.from truncaria
+  // silenciosamente, gerando menos fatias do que o pretendido (achado high #2).
+  if (typeof n !== 'number' || Number.isNaN(n) || !Number.isInteger(n) || n < 1) {
     throw new Error(
       `tree-factory/expandSlices: n inválido "${n}" — deve ser inteiro >= 1 (complexidade: ${complexity})`,
     );

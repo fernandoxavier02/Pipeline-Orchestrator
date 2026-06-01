@@ -719,6 +719,37 @@ test('T-D6-24 — expandSlices em feature.heavy com n=3 retorna 3 fatias e junç
     'junção com n=3 ainda deve ser checkpoint-validator');
 });
 
+// ─── Achado high #2 — expandSlices rejeita n fracionário (INV-D6-3 incompleto) ──
+// Antes: Number.isNaN + n<1 deixava frações passarem (2.9→2 fatias, silencioso).
+// Após: Number.isInteger adicionado, frações lançam erro descritivo.
+
+// T-D6-25: expandSlices rejeita n fracionário 2.9
+test('T-D6-25 — expandSlices rejeita n fracionário 2.9 (INV-D6-3 — truncamento silencioso)', () => {
+  assert.throws(
+    () => expandSlices('feature', 2.9, 'ISSUE-PLAN', 'light'),
+    /n.*inv[aá]lido|n deve ser/i,
+    'n=2.9 deve lançar: não é inteiro (INV-D6-3)',
+  );
+});
+
+// T-D6-26: expandSlices rejeita n fracionário 3.5
+test('T-D6-26 — expandSlices rejeita n fracionário 3.5 (INV-D6-3)', () => {
+  assert.throws(
+    () => expandSlices('feature', 3.5, 'ISSUE-PLAN', 'light'),
+    /n.*inv[aá]lido|n deve ser/i,
+    'n=3.5 deve lançar: não é inteiro (INV-D6-3)',
+  );
+});
+
+// T-D6-27: expandSlices rejeita n fracionário 1.0001
+test('T-D6-27 — expandSlices rejeita n fracionário 1.0001 (INV-D6-3)', () => {
+  assert.throws(
+    () => expandSlices('feature', 1.0001, 'ISSUE-PLAN', 'light'),
+    /n.*inv[aá]lido|n deve ser/i,
+    'n=1.0001 deve lançar: não é inteiro (INV-D6-3)',
+  );
+});
+
 // T-REGR-01: suite pré-existente de nextStep, nodeSpec, allParallelSteps permanece 100% verde
 // (verificado via execução completa — este teste serve como marcador semântico)
 test('T-REGR-01 — nextStep continua funcionando em feature.light após D4 e D6', () => {
