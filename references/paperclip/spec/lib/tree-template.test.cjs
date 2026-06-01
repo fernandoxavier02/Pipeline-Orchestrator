@@ -651,10 +651,12 @@ test('T-34 Fan-in completeness — toda junção lista TODOS os irmãos paralelo
 // T-33: BLOCK_TO_GATE não cresce após require de tree-template.cjs
 test('T-33 Módulo não modifica BLOCK_TO_GATE — nenhum bloco inventado inserido como efeito colateral', () => {
   // O dicionário foi importado antes dos templates; se um bloco inventado tivesse sido
-  // inserido, ele estaria aqui. Verificamos que as chaves são exatamente o conjunto original.
+  // inserido, ele estaria aqui. Verificamos que as chaves são exatamente o conjunto canônico.
+  // G3-D7: SANITY_RESULT foi adicionado intencionalmente (bloco de sanidade do tronco/HOTFIX).
   const knownGateBlocks = [
     'CLARIFICATION_DONE', 'ORCHESTRATOR_DECISION', 'TRIAGE_RESULT',
     'TDD_GREEN', 'TDD_RED', 'REGRESSION_RESULT', 'REGRESSION_CLOSEOUT',
+    'SANITY_RESULT', // G3-D7: bloco de sanidade → CHECKPOINT_FAIL
     'ADVERSARIAL_CONSOLIDATED', 'ADVERSARIAL_CONSOLIDATED_CORRECTION',
     'SECURITY_FINDINGS', 'QUALITY_FINDINGS', 'ARCHITECTURE_FINDINGS', 'SECURITY_RERUN_FINDINGS',
     'EXECUTOR_FIX_DONE', 'FIX_COMPLETE', 'FIX_APPLIED',
@@ -665,7 +667,7 @@ test('T-33 Módulo não modifica BLOCK_TO_GATE — nenhum bloco inventado inseri
     assert.ok(Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, k),
       `chave esperada "${k}" deve existir em BLOCK_TO_GATE`);
   }
-  // Número total não mudou (zero blocos novos adicionados)
+  // Número total bate com o conjunto canônico (22 após G3-D7)
   assert.strictEqual(Object.keys(BLOCK_TO_GATE).length, knownGateBlocks.length,
-    'BLOCK_TO_GATE deve ter exatamente as chaves originais');
+    'BLOCK_TO_GATE deve ter exatamente as chaves canônicas');
 });
