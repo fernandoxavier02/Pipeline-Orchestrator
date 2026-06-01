@@ -195,3 +195,218 @@ test('T-IO-27b: grow-tree CLI — dry-run: campos step e title presentes, issueI
   const hasIssueId = 'issueId' in parsed && parsed.issueId !== null && parsed.issueId !== undefined;
   assert.ok(!hasIssueId, 'issueId não deve estar presente ou deve ser null no dry-run');
 });
+
+// ─── G4 Adversarial fixes: sem double-advance, variant, paralelo ─────────────
+
+// Roster completo para hotfix (todos os cargos)
+const HOTFIX_FULL_ROSTER = [
+  { id: 'uuid-to', name: 'task-orchestrator' },
+  { id: 'uuid-ig', name: 'information-gate' },
+  { id: 'uuid-sentinel', name: 'sentinel' },
+  { id: 'uuid-ef', name: 'executor-fix' },
+  { id: 'uuid-brt', name: 'bugfix-regression-tester' },
+  { id: 'uuid-ro', name: 'review-orchestrator' },
+  { id: 'uuid-sec', name: 'adversarial-security-scanner' },
+  { id: 'uuid-arch', name: 'adversarial-architecture-critic' },
+  { id: 'uuid-qual', name: 'adversarial-quality-reviewer' },
+  { id: 'uuid-fao', name: 'final-adversarial-orchestrator' },
+  { id: 'uuid-fv', name: 'final-validator' },
+  { id: 'uuid-fb', name: 'finishing-branch' },
+];
+
+test('T-CLI-50: grow-tree CLI — SIMPLES ponta a ponta: percorrer todos os 5 nós sem saltar nenhum (sem double-advance)', async () => {
+  // Prova que o contrato de continuação está correto: a cadeia deve percorrer
+  // classificar → clarificar → implementar → revisar → fechar (5 nós)
+  // sem saltar nenhum.
+  const roster = [
+    { id: 'uuid-pc', name: 'pipeline-controller' },
+    { id: 'uuid-ig', name: 'information-gate' },
+    { id: 'uuid-fi', name: 'feature-implementer' },
+    { id: 'uuid-arc', name: 'adversarial-review-coordinator' },
+    { id: 'uuid-fv', name: 'final-validator' },
+  ];
+
+  let idCounter = 0;
+  const transport = {
+    calls: [],
+    async request({ method, path, body }) {
+      this.calls.push({ method, path, body });
+      if (method === 'GET') return { status: 200, data: roster };
+      idCounter += 1;
+      return { status: 201, data: { id: `STEP-${idCounter}` } };
+    },
+  };
+
+  const expectedSteps = ['classificar', 'clarificar', 'implementar', 'revisar', 'fechar'];
+  const createdSteps = [];
+  let currentStepArg = null;  // null = começa da raiz
+  let prevIssueIdArg = null;
+
+  for (let i = 0; i < 6; i++) {
+    const args = ['PIP-CO', 'SIMPLES'];
+    if (currentStepArg) args.push(currentStepArg);
+    if (prevIssueIdArg) args.push(prevIssueIdArg);
+
+    const output = await runCli({ args, transport, confirm: true });
+    assert.strictEqual(output.exitCode, 0, `Step ${i}: exitCode deve ser 0. stderr: ${output.stderr}`);
+
+    const parsed = parseJson(output.stdout);
+
+    // Fim de cadeia: nextStep é null e não há issueId
+    if (parsed.nextStep === null && !parsed.issueId) break;
+    if (!parsed.issueId) break;  // fim sem mais nós
+
+    const stepCreated = Array.isArray(parsed.step) ? parsed.step[0] : parsed.step;
+    createdSteps.push(stepCreated);
+    prevIssueIdArg = parsed.issueId;
+    // Contrato sem double-advance: o próximo currentStep é o step CRIADO nesta chamada
+    currentStepArg = parsed.nextStep;
+
+    if (!parsed.nextStep) break;
+  }
+
+  assert.deepStrictEqual(
+    createdSteps,
+    expectedSteps,
+    `Cadeia SIMPLES deve percorrer ${expectedSteps.join('→')} mas produziu ${createdSteps.join('→')}`,
+  );
+});
+
+test('T-CLI-51: grow-tree CLI — hotfix: complexidade aceita e primeiro nó criado corretamente', async () => {
+  const transport = makeFakeTransport({ rosterAgents: HOTFIX_FULL_ROSTER });
+  const output = await runCli({
+    args: ['PIP-CO', 'hotfix'],
+    transport,
+    confirm: true,
+  });
+
+  assert.strictEqual(output.exitCode, 0, `exitCode deve ser 0. stderr: ${output.stderr}`);
+  const parsed = parseJson(output.stdout);
+  const step = Array.isArray(parsed.step) ? parsed.step[0] : parsed.step;
+  assert.match(step, /HF-N0-classificar/, 'primeiro step de hotfix deve ser HF-N0-classificar');
+  assert.ok(parsed.issueId, 'deve retornar issueId');
+});
+
+test('T-CLI-52: grow-tree CLI — hotfix grupo paralelo: avançar até HF-N5-review e verificar que cria 3 issues no passo seguinte', async () => {
+  let idCounter = 0;
+  const transport = {
+    calls: [],
+    async request({ method, path, body }) {
+      this.calls.push({ method, path, body });
+      if (method === 'GET') return { status: 200, data: HOTFIX_FULL_ROSTER };
+      idCounter += 1;
+      return { status: 201, data: { id: `HF-${String(idCounter).padStart(3, '0')}` } };
+    },
+  };
+
+  // Percorrer até HF-N5-review
+  let currentStepArg = null;
+  let prevIssueIdArg = null;
+  let lastOutput = null;
+
+  for (let i = 0; i < 10; i++) {
+    const args = ['PIP-CO', 'hotfix'];
+    if (currentStepArg) args.push(currentStepArg);
+    if (prevIssueIdArg) args.push(prevIssueIdArg);
+
+    const output = await runCli({ args, transport, confirm: true });
+    assert.strictEqual(output.exitCode, 0, `Step ${i}: exitCode deve ser 0. stderr: ${output.stderr}`);
+    const parsed = parseJson(output.stdout);
+
+    const stepCreated = Array.isArray(parsed.step) ? parsed.step[0] : parsed.step;
+    prevIssueIdArg = Array.isArray(parsed.issueIds) ? parsed.issueIds[0] : parsed.issueId;
+    currentStepArg = parsed.nextStep;
+    lastOutput = parsed;
+
+    // Parar quando chegarmos ao grupo paralelo (step criado = HF-N5-review)
+    if (stepCreated === 'HF-N5-review') {
+      // Fazer mais uma chamada: deve criar os 3 irmãos adversariais
+      const transport_calls_before = transport.calls.filter((c) => c.method === 'POST').length;
+      const args2 = ['PIP-CO', 'hotfix', currentStepArg, prevIssueIdArg];
+      const output2 = await runCli({ args: args2, transport, confirm: true });
+      assert.strictEqual(output2.exitCode, 0, `Grupo paralelo: exitCode deve ser 0. stderr: ${output2.stderr}`);
+      const parsed2 = parseJson(output2.stdout);
+      const transport_calls_after = transport.calls.filter((c) => c.method === 'POST').length;
+      const newPosts = transport_calls_after - transport_calls_before;
+
+      assert.strictEqual(
+        newPosts,
+        3,
+        `Grupo adversarial deve criar 3 issues, criou ${newPosts}. step: ${JSON.stringify(parsed2.step)}`,
+      );
+      break;
+    }
+
+    if (!parsed.nextStep) break;
+  }
+});
+
+test('T-CLI-53: grow-tree CLI — feature.light aceita e cria primeiro nó corretamente', async () => {
+  const featureLightRoster = [
+    { id: 'uuid-to', name: 'task-orchestrator' },
+    { id: 'uuid-ig', name: 'information-gate' },
+    { id: 'uuid-s', name: 'sentinel' },
+    { id: 'uuid-qgr', name: 'quality-gate-router' },
+    { id: 'uuid-pt', name: 'pre-tester' },
+    { id: 'uuid-pa', name: 'plan-architect' },
+    { id: 'uuid-fv', name: 'final-validator' },
+    { id: 'uuid-fi', name: 'feature-implementer' },
+    { id: 'uuid-cv', name: 'checkpoint-validator' },
+    { id: 'uuid-ro', name: 'review-orchestrator' },
+    { id: 'uuid-ef', name: 'executor-fix' },
+    { id: 'uuid-sc', name: 'sanity-checker' },
+    { id: 'uuid-sec', name: 'adversarial-security-scanner' },
+    { id: 'uuid-arch', name: 'adversarial-architecture-critic' },
+    { id: 'uuid-qual', name: 'adversarial-quality-reviewer' },
+    { id: 'uuid-fao', name: 'final-adversarial-orchestrator' },
+    { id: 'uuid-fb', name: 'finishing-branch' },
+  ];
+
+  const transport = makeFakeTransport({ rosterAgents: featureLightRoster });
+  const output = await runCli({
+    args: ['PIP-CO', 'feature.light'],
+    transport,
+    confirm: true,
+  });
+
+  assert.strictEqual(output.exitCode, 0, `exitCode deve ser 0. stderr: ${output.stderr}`);
+  const parsed = parseJson(output.stdout);
+  const step = Array.isArray(parsed.step) ? parsed.step[0] : parsed.step;
+  assert.strictEqual(step, 'classificar', 'primeiro step de feature.light deve ser classificar');
+  assert.ok(parsed.issueId, 'deve retornar issueId');
+});
+
+test('T-CLI-54: grow-tree CLI — feature.light inválido como complexity sem variante retorna exitCode 1', async () => {
+  // 'feature' sem variante deve falhar (não é legacy flat)
+  const transport = makeFakeTransport();
+  const output = await runCli({
+    args: ['PIP-CO', 'feature'],
+    transport,
+    confirm: false,
+  });
+  // 'feature' sem variant não tem template flat — deve retornar erro
+  assert.strictEqual(output.exitCode, 1, 'feature sem variant deve falhar');
+  assert.ok(output.stderr.length > 0, 'stderr deve conter mensagem de erro');
+});
+
+test('T-CLI-55: grow-tree CLI — nextStep no output é o step CRIADO (não o seguinte), prevenindo double-advance', async () => {
+  // Verifica que o campo nextStep na saída JSON é igual ao step criado
+  // (não ao nó que vem depois dele). Isso é o contrato que previne double-advance.
+  const transport = makeFakeTransport({ postId: 'FAKE-001' });
+  const output = await runCli({
+    args: ['PIP-CO', 'SIMPLES'],
+    transport,
+    confirm: true,
+  });
+
+  assert.strictEqual(output.exitCode, 0);
+  const parsed = parseJson(output.stdout);
+  // O step criado deve ser 'classificar' (primeiro de SIMPLES)
+  assert.strictEqual(parsed.step, 'classificar', 'step criado deve ser classificar');
+  // O nextStep deve ser o step CRIADO (classificar), não o seguinte (clarificar)
+  assert.strictEqual(
+    parsed.nextStep,
+    'classificar',
+    `nextStep deve ser o step criado (classificar) para prevenir double-advance, mas recebeu "${parsed.nextStep}"`,
+  );
+});

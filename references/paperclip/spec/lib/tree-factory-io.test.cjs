@@ -356,3 +356,183 @@ test('T-IO-32: integração pura sem rede — http.request nunca é chamado quan
   assert.strictEqual(transport.calls.length, 1);
   assert.strictEqual(transport.calls[0].method, 'POST');
 });
+
+// ─── GRUPO 7: Paralelismo e Fan-in (correções G4 adversarial) ────────────────
+
+// Roster completo para hotfix (todos os cargos do template)
+const HOTFIX_ROSTER = {
+  'task-orchestrator': 'uuid-to',
+  'information-gate': 'uuid-ig',
+  'sentinel': 'uuid-sentinel',
+  'executor-fix': 'uuid-ef',
+  'bugfix-regression-tester': 'uuid-brt',
+  'review-orchestrator': 'uuid-ro',
+  'adversarial-security-scanner': 'uuid-sec',
+  'adversarial-architecture-critic': 'uuid-arch',
+  'adversarial-quality-reviewer': 'uuid-qual',
+  'final-adversarial-orchestrator': 'uuid-fao',
+  'final-validator': 'uuid-fv',
+  'finishing-branch': 'uuid-fb',
+};
+
+test('T-IO-40: growSpine — grupo paralelo hotfix (HF-N6/7/8) cria 3 POSTs, não 1', async () => {
+  // Provando que allParallelSteps é usado: currentStep=HF-N5-review deve criar
+  // os 3 irmãos adversariais (HF-N6-adv-sec, HF-N7-adv-arch, HF-N8-adv-qual)
+  const transport = makeFakeTransport();
+  const result = await growSpine(
+    transport,
+    'PIP-CO',
+    'hotfix',
+    'HF-N5-review',   // step já feito
+    'PREV-HF-N5',
+    HOTFIX_ROSTER,
+  );
+
+  const postCalls = transport.calls.filter((c) => c.method === 'POST');
+  // Deve ter criado EXATAMENTE 3 issues (não 1)
+  assert.strictEqual(
+    postCalls.length,
+    3,
+    `Esperado 3 POSTs (trio adversarial) mas encontrou ${postCalls.length}. ` +
+    `Títulos: ${postCalls.map((c) => c.body.title).join(', ')}`,
+  );
+  // Verificar que os 3 irmãos foram criados
+  const titles = postCalls.map((c) => c.body.title);
+  assert.ok(titles.some((t) => /adv-sec/.test(t)), 'adv-sec deve estar nos títulos');
+  assert.ok(titles.some((t) => /adv-arch/.test(t)), 'adv-arch deve estar nos títulos');
+  assert.ok(titles.some((t) => /adv-qual/.test(t)), 'adv-qual deve estar nos títulos');
+  // issueIds deve ter 3 elementos
+  assert.strictEqual(result.issueIds.length, 3);
+  assert.strictEqual(result.steps.length, 3);
+});
+
+test('T-IO-41: growSpine — grupo paralelo hotfix: cada irmão bloqueado por prevIssueId (HF-N5)', async () => {
+  const transport = makeFakeTransport();
+  await growSpine(
+    transport,
+    'PIP-CO',
+    'hotfix',
+    'HF-N5-review',
+    'PREV-HF-N5',
+    HOTFIX_ROSTER,
+  );
+
+  const postCalls = transport.calls.filter((c) => c.method === 'POST');
+  assert.strictEqual(postCalls.length, 3);
+  // Cada irmão deve ser bloqueado por PREV-HF-N5 (não uns pelos outros)
+  for (const call of postCalls) {
+    assert.deepStrictEqual(
+      call.body.blockedByIssueIds,
+      ['PREV-HF-N5'],
+      `Irmão ${call.body.title} deve ser bloqueado por PREV-HF-N5`,
+    );
+  }
+});
+
+test('T-IO-42: growSpine — nó de junção hotfix (HF-N9) usa nodeSpecFanIn com todos os irmãos', async () => {
+  // Simular que os 3 irmãos foram criados nas chamadas anteriores
+  const siblingIds = {
+    'HF-N6-adv-sec': 'ID-N6',
+    'HF-N7-adv-arch': 'ID-N7',
+    'HF-N8-adv-qual': 'ID-N8',
+  };
+  const transport = makeFakeTransport();
+  const result = await growSpine(
+    transport,
+    'PIP-CO',
+    'hotfix',
+    'HF-N6-adv-sec',  // step após o grupo paralelo (qualquer dos irmãos serve como âncora)
+    null,             // prevIssueId ignorado para junção
+    HOTFIX_ROSTER,
+    undefined,        // variant
+    siblingIds,       // stepToIssueIdMap para fan-in
+  );
+
+  const postCalls = transport.calls.filter((c) => c.method === 'POST');
+  assert.strictEqual(postCalls.length, 1, 'Deve criar exatamente 1 issue (a junção)');
+  const junctionCall = postCalls[0];
+  // Título deve conter HF-N9-juncao
+  assert.match(junctionCall.body.title, /HF-N9-juncao/);
+  // blockedByIssueIds deve ter os 3 IDs reais (fan-in real)
+  const blocked = junctionCall.body.blockedByIssueIds;
+  assert.strictEqual(blocked.length, 3, `Fan-in deve ter 3 bloqueadores, encontrou: ${JSON.stringify(blocked)}`);
+  assert.ok(blocked.includes('ID-N6'), 'ID-N6 deve estar em blockedByIssueIds');
+  assert.ok(blocked.includes('ID-N7'), 'ID-N7 deve estar em blockedByIssueIds');
+  assert.ok(blocked.includes('ID-N8'), 'ID-N8 deve estar em blockedByIssueIds');
+});
+
+test('T-IO-43: growSpine — SIMPLES ponta a ponta: percorrer todos os 5 nós sem saltar nenhum', async () => {
+  // Prova que não há double-advance: a cadeia deve produzir exatamente
+  // classificar → clarificar → implementar → revisar → fechar (5 nós)
+  // sem saltar nenhum.
+  const transport = makeFakeTransport();
+  let counter = 0;
+  const originalRequest = transport.request;
+  transport.request = async function(opts) {
+    if (opts.method === 'POST') {
+      counter += 1;
+      return { status: 201, data: { id: `STEP-${counter}` } };
+    }
+    return originalRequest.call(this, opts);
+  };
+
+  const expectedSteps = ['classificar', 'clarificar', 'implementar', 'revisar', 'fechar'];
+  const createdSteps = [];
+  let currentStep = null;
+  let prevIssueId = null;
+
+  for (let i = 0; i < 6; i++) {
+    const result = await growSpine(transport, 'PIP-CO', 'SIMPLES', currentStep, prevIssueId, SAMPLE_ROSTER);
+    createdSteps.push(...result.steps);
+    prevIssueId = result.issueId;
+    // Avançar currentStep para o step recém-criado (sem double-advance)
+    currentStep = result.steps[result.steps.length - 1];
+    if (!result.nextStepNode) break; // fim da cadeia
+  }
+
+  assert.deepStrictEqual(
+    createdSteps,
+    expectedSteps,
+    `Cadeia SIMPLES deve percorrer ${expectedSteps.join('→')} mas produziu ${createdSteps.join('→')}`,
+  );
+});
+
+test('T-IO-44: growSpine — template hierárquico feature.light: primeiro nó criado com variant', async () => {
+  // Roster para feature.light
+  const featureLightRoster = {
+    'task-orchestrator': 'uuid-to',
+    'information-gate': 'uuid-ig',
+    'sentinel': 'uuid-s',
+    'quality-gate-router': 'uuid-qgr',
+    'pre-tester': 'uuid-pt',
+    'plan-architect': 'uuid-pa',
+    'final-validator': 'uuid-fv',
+    'feature-implementer': 'uuid-fi',
+    'checkpoint-validator': 'uuid-cv',
+    'review-orchestrator': 'uuid-ro',
+    'executor-fix': 'uuid-ef',
+    'sanity-checker': 'uuid-sc',
+    'adversarial-security-scanner': 'uuid-sec',
+    'adversarial-architecture-critic': 'uuid-arch',
+    'adversarial-quality-reviewer': 'uuid-qual',
+    'final-adversarial-orchestrator': 'uuid-fao',
+    'finishing-branch': 'uuid-fb',
+  };
+
+  const transport = makeFakeTransport();
+  const result = await growSpine(
+    transport,
+    'PIP-CO',
+    'feature',
+    null,         // currentStep null = raiz
+    null,
+    featureLightRoster,
+    'light',      // variant
+  );
+
+  const postCalls = transport.calls.filter((c) => c.method === 'POST');
+  assert.strictEqual(postCalls.length, 1, 'Deve criar 1 issue (raiz feature.light)');
+  assert.match(postCalls[0].body.title, /feature\.light/, 'título deve conter feature.light');
+  assert.match(postCalls[0].body.title, /classificar/, 'título deve conter classificar');
+  assert.ok(result.issueId, 'deve retornar issueId');
+});
