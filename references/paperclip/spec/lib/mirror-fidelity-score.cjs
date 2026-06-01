@@ -8,27 +8,12 @@ const { gateForBlock, expectedGates } = require('./mirror-fidelity-dictionary.cj
 // que é DIFERENTE de score 0 = "avaliado e zerou". Tratar null como 0 distorce a
 // média agregada para baixo.
 //
-// D8: Se REVIEW_ONLY_MODE estiver nos blocos, usa EXPECTED_GATES.REVIEW_ONLY em vez de
-// inferir a complexidade. Isso evita execução órfã no modo review-only e sobrepõe qualquer
-// complexity declarada (inclusive null). O campo `mode: 'REVIEW_ONLY'` é conveniente para
-// depuração mas não é contrato crítico.
+// D8: complexity='REVIEW_ONLY' é detectada por parseComplexity quando o comentário
+// de abertura é REVIEW_ONLY_SCORE (bloco real emitido por RO-N0 no pipeline). A partir
+// dessa complexidade, expectedGates('REVIEW_ONLY') devolve [ADVERSARIAL_GATE,
+// FINAL_ADVERSARIAL_GATE] e o cálculo segue o caminho normal sem nenhum ramo especial.
 function scoreExecution({ blocks, complexity }) {
   const blockList = blocks || [];
-
-  // D8: detecção de modo REVIEW_ONLY — sobrepõe complexity
-  if (blockList.includes('REVIEW_ONLY_MODE')) {
-    const expected = expectedGates('REVIEW_ONLY');
-    const emitted = new Set();
-    for (const b of blockList) {
-      const g = gateForBlock(b);
-      if (g) emitted.add(g);
-    }
-    const expectedSet = new Set(expected);
-    const hit = [...emitted].filter((g) => expectedSet.has(g));
-    const missing = expected.filter((g) => !emitted.has(g));
-    const score = expected.length === 0 ? 0 : Math.round((hit.length / expected.length) * 100) / 100;
-    return { score, indeterminate: false, mode: 'REVIEW_ONLY', emitted: [...emitted], hit, missing, expected };
-  }
 
   const expected = expectedGates(complexity);
   if (!complexity || expected.length === 0) {

@@ -26,11 +26,15 @@ function parseBlocks(comments) {
 
 // Complexidade lida APENAS de dentro do bloco ORCHESTRATOR_DECISION (R-CRIT-1): um
 // comentário humano citando "complexity: SIMPLES" não pode envenenar o resultado.
-// Se não houver comentário aberto por ORCHESTRATOR_DECISION, retorna null.
+// Exceção D8: se algum comentário abre com REVIEW_ONLY_SCORE, retorna 'REVIEW_ONLY'
+// sem exigir ORCHESTRATOR_DECISION (execuções review-only não têm task-orchestrator).
 function parseComplexity(comments) {
   for (const c of comments || []) {
     const body = (c && c.body) || '';
-    if (openingBlock(body) !== 'ORCHESTRATOR_DECISION') continue;
+    const opening = openingBlock(body);
+    // D8: REVIEW_ONLY_SCORE sinaliza modo review-only — sem complexity textual no bloco
+    if (opening === 'REVIEW_ONLY_SCORE') return 'REVIEW_ONLY';
+    if (opening !== 'ORCHESTRATOR_DECISION') continue;
     const m = COMPLEXITY.exec(body);
     if (m) return m[1].toUpperCase();
   }

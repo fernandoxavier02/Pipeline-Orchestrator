@@ -44,9 +44,15 @@ const BLOCK_TO_GATE = {
   // → CHECKPOINT_FAIL (resultado de teste/regressão = portão de build/test)
   REGRESSION_RESULT: 'CHECKPOINT_FAIL',
   REGRESSION_CLOSEOUT: 'CHECKPOINT_FAIL',
-  // D7: bloco emitido pelo nó de sanidade (tronco + HOTFIX) ao concluir → fecha gap G2/G-HF2.
+  // D7: bloco emitido pelo nó de sanidade (agentes sanity-checker, tronco) ao concluir.
+  // Nome real verificado em agents/core/sanity-checker.md:78 + agents/core/final-validator.md:56.
   // Reusa CHECKPOINT_FAIL existente; nenhum portão novo criado.
-  SANITY_RESULT: 'CHECKPOINT_FAIL',
+  SANITY_CHECK: 'CHECKPOINT_FAIL',
+  // D8: bloco declarado pelo pipeline-controller (RO-N0) no início de cada execução
+  // review-only. Atua como substituto de ORCHESTRATOR_DECISION para a detecção de modo
+  // review-only em mirror-fidelity-parser.cjs::parseComplexity.
+  // Mapeia para COMPLEXITY_GATE para que P6 (todo bloco emitido por nó → portão) passe.
+  REVIEW_ONLY_SCORE: 'COMPLEXITY_GATE',
   // → ADVERSARIAL_GATE
   ADVERSARIAL_CONSOLIDATED: 'ADVERSARIAL_GATE',
   ADVERSARIAL_CONSOLIDATED_CORRECTION: 'ADVERSARIAL_GATE',
@@ -75,9 +81,11 @@ const COMPLEXA = MEDIA.concat([
   'FIX_LOOP_EXHAUSTED', 'ADVERSARIAL_GATE_MANDATORY', 'SSOT_CONFLICT',
 ]);
 // D8: portões que o modo review-only realmente exercita (_modos.md §2.4–2.5).
-// RO-N2 → trio paralelo emite SECURITY_FINDINGS/ARCHITECTURE_FINDINGS/QUALITY_FINDINGS → ADVERSARIAL_GATE.
-// RO-N3 → ADVERSARIAL_FINAL_VERDICT → FINAL_ADVERSARIAL_GATE.
-// Imutável por complexidade: complexity é ignorado quando REVIEW_ONLY_MODE está nos blocos.
+// RO-N1 (adversarial-review-coordinator) emite ADVERSARIAL_CONSOLIDATED → ADVERSARIAL_GATE.
+// RO-N2 (final-adversarial-orchestrator) emite ADVERSARIAL_FINAL_VERDICT → FINAL_ADVERSARIAL_GATE.
+// RO-N0 emite REVIEW_ONLY_SCORE (mapeado para COMPLEXITY_GATE) — sinaliza o modo ao parser.
+// parseComplexity detecta REVIEW_ONLY_SCORE e retorna 'REVIEW_ONLY', permitindo que
+// scoreTrees resolva a raiz sem ORCHESTRATOR_DECISION.
 const REVIEW_ONLY = ['ADVERSARIAL_GATE', 'FINAL_ADVERSARIAL_GATE'];
 const EXPECTED_GATES = { SIMPLES, MEDIA, COMPLEXA, REVIEW_ONLY };
 
