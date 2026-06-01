@@ -203,7 +203,8 @@ const COMPLEXA_ORIGINAL = [
 // classificar → clarificar → sentinel-1 → quality-gate-router → pre-tester
 // → planejar → aprovar-plan → sentinel-2 → implementar → checkpoint
 // → review-orchestrator → executor-fix → sentinel-3 → sanity
-// → adv-security ‖ adv-architecture ‖ adv-quality (N17) → final-adversarial → fechar
+// → adv-security ‖ adv-architecture ‖ adv-quality (N17) → final-adversarial
+// → spec-closer (cargo 18: close out + reports) → fechar (PA_DE_CAL)
 // (design-interrogator ausente em light por definição)
 function buildFeatureLight() {
   return [
@@ -222,8 +223,10 @@ function buildFeatureLight() {
     nodeSentinel('sentinel-3', 'executor-fix', 'sanity'),
     nodeSanityChecker('sanity', 'sentinel-3', 'adv-security'),
     ...nodeTrio('sanity', 'final-adversarial'),
-    nodeFinalAdversarial('final-adversarial', 'adv-quality', 'fechar'),
-    { step: 'fechar', role: 'final-validator', blocks: [B_SLICE_CLOSEOUT, B_PA_DE_CAL], blockedBy: 'final-adversarial', next: null },
+    nodeFinalAdversarial('final-adversarial', 'adv-quality', 'spec-closer'),
+    // cargo 18 (PAPERCLIP-FEATURE-WORKFLOW.md §3.15): spec-closer entrega reports, fechar emite PA_DE_CAL
+    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'final-adversarial', next: 'fechar' },
+    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
   ];
 }
 
@@ -231,6 +234,7 @@ function buildFeatureLight() {
 // Como light + design-interrogator (N4) + feature-vertical-slice-planner
 // + N12 paralelo (architecture-reviewer ‖ diff-discipline-reviewer → checkpoint)
 // + feature-integration-validator
+// + spec-closer (cargo 18) + fechar
 function buildFeatureHeavy() {
   return [
     { step: 'classificar', role: 'task-orchestrator', blocks: [B_ORCHESTRATOR], blockedBy: null, next: 'clarificar' },
@@ -262,8 +266,10 @@ function buildFeatureHeavy() {
     nodeSanityChecker('sanity', 'feature-integration-validator', 'adv-security'),
     // N17: trio adversarial paralelo
     ...nodeTrio('sanity', 'final-adversarial'),
-    nodeFinalAdversarial('final-adversarial', 'adv-quality', 'fechar'),
-    { step: 'fechar', role: 'final-validator', blocks: [B_SLICE_CLOSEOUT, B_PA_DE_CAL], blockedBy: 'final-adversarial', next: null },
+    nodeFinalAdversarial('final-adversarial', 'adv-quality', 'spec-closer'),
+    // cargo 18 (PAPERCLIP-FEATURE-WORKFLOW.md §3.15): spec-closer entrega reports, fechar emite PA_DE_CAL
+    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'final-adversarial', next: 'fechar' },
+    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
   ];
 }
 
@@ -271,7 +277,8 @@ function buildFeatureHeavy() {
 // Fluxo canônico (PAPERCLIP-BUGFIX-WORKFLOW.md §2, sem plan-architect):
 // classificar → clarificar → sentinel-1 → diagnostic → sentinel-2 → executor-fix
 // → regression-tester → sentinel-3 → review-orchestrator → sentinel-4 → sanity
-// → adv-security ‖ adv-architecture ‖ adv-quality → final-adversarial → fechar
+// → adv-security ‖ adv-architecture ‖ adv-quality → final-adversarial
+// → spec-closer (cargo 11: close out + reports) → fechar (cargo 10: PA_DE_CAL)
 // Sem design-interrogator, sem root-cause-analyzer, sem plan-architect (light)
 function buildBugfixLight() {
   return [
@@ -288,8 +295,10 @@ function buildBugfixLight() {
     nodeSentinel('sentinel-4', 'review-orchestrator', 'sanity'),
     nodeSanityChecker('sanity', 'sentinel-4', 'adv-security'),
     ...nodeTrio('sanity', 'final-adversarial'),
-    nodeFinalAdversarial('final-adversarial', 'adv-quality', 'fechar'),
-    { step: 'fechar', role: 'final-validator', blocks: [B_SLICE_CLOSEOUT, B_PA_DE_CAL], blockedBy: 'final-adversarial', next: null },
+    nodeFinalAdversarial('final-adversarial', 'adv-quality', 'spec-closer'),
+    // cargo 11 (PAPERCLIP-BUGFIX-WORKFLOW.md §3.11): spec-closer entrega reports, fechar emite PA_DE_CAL
+    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'final-adversarial', next: 'fechar' },
+    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
   ];
 }
 
@@ -299,7 +308,8 @@ function buildBugfixLight() {
 // sem quality-gate-router, sem pre-tester — TDD do bug fix é o test_to_confirm
 // da fase diagnostic, não um ciclo quality-gate-router separado)
 // + regression-tester + review-orchestrator + N12 paralelo + checkpoint
-// + sanity + sentinels intercalados + N17 trio adversarial + final-adversarial + fechar
+// + sanity + sentinels intercalados + N17 trio adversarial + final-adversarial
+// + spec-closer (cargo 11) + fechar
 function buildBugfixHeavy() {
   return [
     { step: 'classificar', role: 'task-orchestrator', blocks: [B_ORCHESTRATOR], blockedBy: null, next: 'clarificar' },
@@ -331,8 +341,10 @@ function buildBugfixHeavy() {
     nodeSanityChecker('sanity', 'sentinel-5', 'adv-security'),
     // N17: trio adversarial final
     ...nodeTrio('sanity', 'final-adversarial'),
-    nodeFinalAdversarial('final-adversarial', 'adv-quality', 'fechar'),
-    { step: 'fechar', role: 'final-validator', blocks: [B_SLICE_CLOSEOUT, B_PA_DE_CAL], blockedBy: 'final-adversarial', next: null },
+    nodeFinalAdversarial('final-adversarial', 'adv-quality', 'spec-closer'),
+    // cargo 11 (PAPERCLIP-BUGFIX-WORKFLOW.md §3.11): spec-closer entrega reports, fechar emite PA_DE_CAL
+    { step: 'spec-closer', role: 'spec-closer', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'final-adversarial', next: 'fechar' },
+    { step: 'fechar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'spec-closer', next: null },
   ];
 }
 
