@@ -193,10 +193,13 @@ function nodeSpecFanIn(complexity, step, stepToIssueIdMap, variant) {
 }
 
 // ─── D6: expandSlices — fatias dinâmicas de implementação ────────────────────
-// expandSlices(complexity, n, prevIssueId [, variant]) → { slices: SliceSpec[], junction: JunctionSpec }
+// expandSlices(complexity, n, prevIssueId [, variant])
+//   → { slices: SliceSpec[], intermediaries: IntermediarySpec[], junction: JunctionSpec }
 //
 // Dado n fatias vindas do plano, devolve n nodeSpecs irmãos de implementação
-// (sem trava entre si, todos bloqueados por prevIssueId) e uma junção downstream.
+// (sem trava entre si, todos bloqueados por prevIssueId), os nós intermediários
+// obrigatórios (par N12 review-spec ‖ review-quality em variantes heavy que os exigem,
+// vazio em variantes light/lineares) e uma junção downstream.
 //
 // Invariantes:
 //   INV-D6-1: as N fatias são irmãs — nenhuma trava outra (blockedByIssueIds = [prevIssueId]).
@@ -207,6 +210,10 @@ function nodeSpecFanIn(complexity, step, stepToIssueIdMap, variant) {
 //   INV-D6-6: modos especiais (hotfix, review-only) não são fatiáveis.
 //   INV-D6-7: somente role 'feature-implementer' é fatiável — 'executor-fix' é fix-loop
 //             que NÃO deve ser expandido em fatias paralelas (contradiz D4).
+//   INV-D6-8: quando o molde exige revisores intermediários (N12) entre implementação e
+//             junção (ex: feature.heavy, user-story.heavy), expandSlices produz esses nós
+//             em `intermediaries` — a junção é bloqueada pelos intermediários, não pelas
+//             fatias diretamente. `intermediaries` é [] quando o caminho é linear.
 //
 // Estratégia de auto-descoberta do nó de implementação e da junção:
 //   1. Localizar o nó com role 'feature-implementer' (nó de implementação fatiável).
@@ -214,11 +221,13 @@ function nodeSpecFanIn(complexity, step, stepToIssueIdMap, variant) {
 //   2. Localizar a junção downstream:
 //      a. Se implNode.next aponta para um nó paralelo (tem campo 'parallel'), a junção
 //         real é o nó cujo blockedBy[] inclui implNode.next (fan-in dos paralelos).
+//         Nesse caso, o grupo paralelo (nextNode + seus irmãos) são os intermediários N12.
 //      b. Senão, procura nó com blockedBy array que inclua o step de implementação.
 //      c. Senão, usa implNode.next diretamente (tronco linear — ex: bugfix.light).
 //
-// IDs das fatias na junção são placeholders sintéticos ('SLICE-1', 'SLICE-2', ...) porque
-// expandSlices é pura (sem rede). O I/O real (tree-factory-io.cjs, Grupo B) substitui
+// IDs das fatias são placeholders sintéticos ('SLICE-1', 'SLICE-2', ...) porque
+// expandSlices é pura (sem rede). Intermediários também recebem placeholders sintéticos
+// ('REVIEW-1', 'REVIEW-2', ...). O I/O real (tree-factory-io.cjs, Grupo B) substitui
 // pelos IDs reais do Paperclip após criar as issues.
 
 // Modos especiais que NÃO devem ser fatiados (INV-D6-6):
@@ -273,21 +282,34 @@ function expandSlices(complexity, n, prevIssueId, variant) {
   //   Razão: em templates heavy, implementar → review-spec ‖ review-quality → checkpoint.
   //   O checkpoint tem blockedBy=['review-spec','review-quality']. review-spec não é a junção;
   //   é metade do par paralelo. A junção é checkpoint.
+  //   Os nós paralelos (review-spec ‖ review-quality) são intermediários obrigatórios (N12)
+  //   — devem ser produzidos em `intermediaries` (INV-D6-8).
   //
   // Prioridade B: Nó com blockedBy array que inclua diretamente o step de implementação.
   //   (Fan-in declarado que aponta para o step do implNode — caso futuro ou legado.)
   //
   // Prioridade C: Nó apontado por implNode.next diretamente (tronco linear sem paralelos).
-  //   Ex: bugfix.light → executor-fix.next = 'regression-tester' (linear, sem paralelos).
+  //   Ex: feature.light → implementar.next = 'checkpoint' (linear, sem intermediários).
   let junctionNode = null;
+  // intermediaryNodes: grupo paralelo entre implementação e junção (vazio no caminho linear)
+  let intermediaryNodes = [];
 
   const nextNode = implNode.next ? nodes.find((node) => node.step === implNode.next) : null;
 
   if (nextNode && Array.isArray(nextNode.parallel) && nextNode.parallel.length > 0) {
-    // Prioridade A: implNode.next é paralelo → junção é o nó cujo blockedBy[] inclui implNode.next
+    // Prioridade A: implNode.next é paralelo → junção é o nó cujo blockedBy[] inclui implNode.next.
+    // O grupo paralelo (nextNode + seus irmãos declarados em nextNode.parallel) são os intermediários N12.
     junctionNode = nodes.find(
       (node) => Array.isArray(node.blockedBy) && node.blockedBy.includes(implNode.next),
     );
+    if (junctionNode) {
+      // Coletar todos os nós do grupo paralelo (intermediários obrigatórios — INV-D6-8)
+      const siblingSteps = nextNode.parallel || [];
+      const siblingNodes = siblingSteps
+        .map((s) => nodes.find((nd) => nd.step === s))
+        .filter(Boolean);
+      intermediaryNodes = [nextNode, ...siblingNodes];
+    }
   }
 
   if (!junctionNode) {
@@ -312,7 +334,7 @@ function expandSlices(complexity, n, prevIssueId, variant) {
   // Gerar IDs placeholder para as N fatias
   const placeholderIds = Array.from({ length: n }, (_, i) => `SLICE-${i + 1}`);
 
-  // Criar os N nodeSpecs irmãos de implementação
+  // Criar os N nodeSpecs irmãos de implementação (cada um bloqueado por prevIssueId)
   const slices = placeholderIds.map((placeholderId, i) => ({
     title: `[${label}] ${implNode.step} #${i + 1}`,
     assigneeAgentId: implNode.role,
@@ -320,15 +342,38 @@ function expandSlices(complexity, n, prevIssueId, variant) {
     body: buildBody(implNode),
   }));
 
-  // Criar o nodeSpec da junção com fan-in de todas as N fatias
+  // Tratar intermediários (INV-D6-8):
+  // Quando existe grupo paralelo entre implementação e junção (Prioridade A), cada intermediário
+  // é bloqueado por TODAS as N fatias (fan-in real das fatias). A junção é então bloqueada
+  // pelos intermediários (usando placeholders REVIEW-1, REVIEW-2, ...).
+  let intermediaries = [];
+  let junctionBlockers = placeholderIds; // padrão: junção bloqueada pelas fatias (Prioridades B/C)
+
+  if (intermediaryNodes.length > 0) {
+    // Gerar placeholders para os intermediários
+    const reviewPlaceholders = intermediaryNodes.map((_, i) => `REVIEW-${i + 1}`);
+
+    // Cada intermediário é bloqueado por todas as N fatias (fan-in das fatias → intermediário)
+    intermediaries = intermediaryNodes.map((intNode, i) => ({
+      title: `[${label}] ${intNode.step}`,
+      assigneeAgentId: intNode.role,
+      blockedByIssueIds: placeholderIds, // todas as N fatias devem concluir antes do intermediário
+      body: buildBody(intNode),
+    }));
+
+    // A junção agora é bloqueada pelos intermediários, não pelas fatias diretamente
+    junctionBlockers = reviewPlaceholders;
+  }
+
+  // Criar o nodeSpec da junção com fan-in correto
   const junction = {
     title: `[${label}] ${junctionNode.step}`,
     assigneeAgentId: junctionNode.role,
-    blockedByIssueIds: placeholderIds,
+    blockedByIssueIds: junctionBlockers,
     body: buildBody(junctionNode),
   };
 
-  return { slices, junction };
+  return { slices, intermediaries, junction };
 }
 
 module.exports = { nextStep, nodeSpec, nodeSpecFanIn, allParallelSteps, templateFor, expandSlices, LOOP_INTERNAL_INSTRUCTION };

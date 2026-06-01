@@ -708,22 +708,37 @@ test('T-D6-23 — expandSlices em feature.heavy: review-quality não aparece com
     'body da junção de feature.heavy NÃO deve ter PARALLEL_SIBLINGS (checkpoint não é paralelo)');
 });
 
-// T-D6-24: expandSlices em feature.heavy n=3 — 3 fatias + junção com 3 bloqueadores
-// (verifica o caso heavy com n>2 que o T-D6-13 original não cobria por só testar n=2)
-test('T-D6-24 — expandSlices em feature.heavy com n=3 retorna 3 fatias e junção com 3 bloqueadores', () => {
+// T-D6-24: expandSlices em feature.heavy n=3 — 3 fatias + 2 intermediários + junção com 2 bloqueadores
+// CORRIGIDO (achado high #1/#3 — review pair era descartado; junção era bloqueada diretamente pelas fatias).
+// Comportamento correto: junction bloqueada pelos 2 intermediários (review-spec ‖ review-quality),
+// não pelas 3 fatias diretamente. O número de bloqueadores da junção é sempre 2 (o par N12),
+// independente de quantas fatias existam.
+test('T-D6-24 — expandSlices em feature.heavy com n=3: 3 fatias, 2 intermediários (N12), junção com 2 bloqueadores', () => {
   const result = expandSlices('feature', 3, 'ISSUE-PLAN', 'heavy');
   assert.strictEqual(result.slices.length, 3, 'deve retornar 3 fatias');
-  assert.strictEqual(result.junction.blockedByIssueIds.length, 3,
-    'junção de feature.heavy com n=3 deve ter 3 bloqueadores');
+  // intermediaries deve conter o par N12 (review-spec + review-quality)
+  assert.ok(Array.isArray(result.intermediaries), 'intermediaries deve ser array');
+  assert.strictEqual(result.intermediaries.length, 2, 'feature.heavy deve ter 2 intermediários (N12 review pair)');
+  const intRoles = result.intermediaries.map((m) => m.assigneeAgentId);
+  assert.ok(intRoles.includes('architecture-reviewer'), 'intermediários devem incluir architecture-reviewer');
+  assert.ok(intRoles.includes('diff-discipline-reviewer'), 'intermediários devem incluir diff-discipline-reviewer');
+  // A junção é bloqueada pelos 2 intermediários (REVIEW-1, REVIEW-2), não pelas 3 fatias
+  assert.strictEqual(result.junction.blockedByIssueIds.length, 2,
+    'junção de feature.heavy deve ter 2 bloqueadores (os 2 intermediários N12), não 3 (as fatias)');
   assert.strictEqual(result.junction.assigneeAgentId, 'checkpoint-validator',
     'junção com n=3 ainda deve ser checkpoint-validator');
+  // Cada intermediário deve ser bloqueado por todas as 3 fatias (fan-in das fatias → intermediário)
+  for (const interm of result.intermediaries) {
+    assert.strictEqual(interm.blockedByIssueIds.length, 3,
+      `intermediário "${interm.title}" deve ter 3 bloqueadores (as 3 fatias)`);
+  }
 });
 
-// ─── Achado high #2 — expandSlices rejeita n fracionário (INV-D6-3 incompleto) ──
-// Antes: Number.isNaN + n<1 deixava frações passarem (2.9→2 fatias, silencioso).
-// Após: Number.isInteger adicionado, frações lançam erro descritivo.
+// ─── Achados adversariais G2-Fábrica — correções high ────────────────────────
+// Testes que provam as correções dos três achados high da revisão G2-Fábrica.
 
-// T-D6-25: expandSlices rejeita n fracionário 2.9
+// T-D6-25: expandSlices rejeita n fracionário (achado high #2 — INV-D6-3 incompleto)
+// Antes: 2.9 → Array.from truncava para 2 fatias sem erro. Agora: lança.
 test('T-D6-25 — expandSlices rejeita n fracionário 2.9 (INV-D6-3 — truncamento silencioso)', () => {
   assert.throws(
     () => expandSlices('feature', 2.9, 'ISSUE-PLAN', 'light'),
@@ -732,7 +747,6 @@ test('T-D6-25 — expandSlices rejeita n fracionário 2.9 (INV-D6-3 — truncame
   );
 });
 
-// T-D6-26: expandSlices rejeita n fracionário 3.5
 test('T-D6-26 — expandSlices rejeita n fracionário 3.5 (INV-D6-3)', () => {
   assert.throws(
     () => expandSlices('feature', 3.5, 'ISSUE-PLAN', 'light'),
@@ -741,13 +755,60 @@ test('T-D6-26 — expandSlices rejeita n fracionário 3.5 (INV-D6-3)', () => {
   );
 });
 
-// T-D6-27: expandSlices rejeita n fracionário 1.0001
 test('T-D6-27 — expandSlices rejeita n fracionário 1.0001 (INV-D6-3)', () => {
   assert.throws(
     () => expandSlices('feature', 1.0001, 'ISSUE-PLAN', 'light'),
     /n.*inv[aá]lido|n deve ser/i,
     'n=1.0001 deve lançar: não é inteiro (INV-D6-3)',
   );
+});
+
+// T-D6-28: expandSlices em feature.light retorna intermediaries=[] (sem par N12 em light)
+// Confirma que a adição de intermediaries não quebra o caminho linear (light).
+test('T-D6-28 — expandSlices em feature.light retorna intermediaries vazio (caminho linear sem N12)', () => {
+  const result = expandSlices('feature', 2, 'ISSUE-PLAN', 'light');
+  assert.ok(Array.isArray(result.intermediaries), 'intermediaries deve ser array');
+  assert.strictEqual(result.intermediaries.length, 0,
+    'feature.light não tem intermediários N12 — caminho linear implementar→checkpoint');
+  // Junção ainda bloqueada pelas fatias diretamente (sem intermediários)
+  assert.strictEqual(result.junction.blockedByIssueIds.length, 2,
+    'junção de feature.light com n=2 deve ter 2 bloqueadores (as 2 fatias)');
+});
+
+// T-D6-29: expandSlices em user-story.heavy retorna intermediaries com par N12 correto
+// (achado high #1/#3 se aplicava igualmente ao user-story.heavy)
+test('T-D6-29 — expandSlices em user-story.heavy com n=2: intermediaries tem o par N12 review-spec/review-quality', () => {
+  const result = expandSlices('user-story', 2, 'ISSUE-PLAN', 'heavy');
+  assert.ok(Array.isArray(result.intermediaries), 'intermediaries deve ser array');
+  assert.strictEqual(result.intermediaries.length, 2, 'user-story.heavy deve ter 2 intermediários (N12)');
+  const intRoles = result.intermediaries.map((m) => m.assigneeAgentId);
+  assert.ok(intRoles.includes('architecture-reviewer'), 'deve incluir architecture-reviewer');
+  assert.ok(intRoles.includes('diff-discipline-reviewer'), 'deve incluir diff-discipline-reviewer');
+  // Cada intermediário bloqueado pelas 2 fatias
+  for (const interm of result.intermediaries) {
+    assert.strictEqual(interm.blockedByIssueIds.length, 2,
+      `intermediário "${interm.title}" deve ter 2 bloqueadores (as 2 fatias)`);
+  }
+  // Junção bloqueada pelos 2 intermediários, não pelas fatias
+  assert.strictEqual(result.junction.blockedByIssueIds.length, 2,
+    'junção de user-story.heavy deve ter 2 bloqueadores (os 2 intermediários)');
+});
+
+// T-D6-30: body dos intermediários em feature.heavy não diz NEXT_STEP: checkpoint — diz checkpoint
+// e os corpos das fatias dizem NEXT_STEP: review-spec (coerência interna da árvore)
+test('T-D6-30 — coerência interna da árvore expandida em feature.heavy: bodies apontam nós que existem', () => {
+  const result = expandSlices('feature', 2, 'ISSUE-PLAN', 'heavy');
+  // Fatias devem apontar para review-spec (o primeiro intermediário do par N12)
+  for (const slice of result.slices) {
+    assert.match(slice.body, /NEXT_STEP:\s*review-spec/,
+      `body da fatia "${slice.title}" deve apontar para review-spec`);
+  }
+  // Intermediários devem existir (foram produzidos — o nó apontado pelas fatias existe na saída)
+  const intTitles = result.intermediaries.map((m) => m.title);
+  assert.ok(intTitles.some((t) => t.includes('review-spec')),
+    'intermediaries deve incluir review-spec (nó apontado pelo NEXT_STEP das fatias)');
+  assert.ok(intTitles.some((t) => t.includes('review-quality')),
+    'intermediaries deve incluir review-quality (irmão paralelo do par N12)');
 });
 
 // T-REGR-01: suite pré-existente de nextStep, nodeSpec, allParallelSteps permanece 100% verde
