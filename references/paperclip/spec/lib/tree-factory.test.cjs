@@ -580,14 +580,16 @@ test('T-D6-14 — expandSlices com n=2, user-story.light retorna 2 fatias + jun�
     'junção deve ter 2 bloqueadores');
 });
 
-// T-D6-15: expandSlices com n=1, bugfix.light retorna 1 fatia com assigneeAgentId=executor-fix e junção com 1 bloqueador
-test('T-D6-15 — expandSlices com n=1, bugfix.light retorna 1 fatia executor-fix + junção com 1 bloqueador', () => {
-  const result = expandSlices('bugfix', 1, 'ISSUE-PLAN', 'light');
-  assert.strictEqual(result.slices.length, 1, 'deve retornar 1 fatia');
-  assert.strictEqual(result.slices[0].assigneeAgentId, 'executor-fix',
-    'fatia de bugfix.light deve ser assinalada a executor-fix');
-  assert.strictEqual(result.junction.blockedByIssueIds.length, 1,
-    'junção deve ter 1 bloqueador');
+// T-D6-15: expandSlices em bugfix.light deve lançar — executor-fix não é fatiável (D4/INV-D6-7)
+// CORRIGIDO: comportamento anterior (aceitar executor-fix como nó fatiável) contradiz D4.
+// D4 manda que executor-fix iterate internamente em UM único cartão — criar N cartões irmãos
+// viola a instrução 'NAO crie cartoes novos por tentativa' que o próprio body carregaria.
+test('T-D6-15 — expandSlices em bugfix.light lança erro (executor-fix não é fatiável, contradiz D4)', () => {
+  assert.throws(
+    () => expandSlices('bugfix', 1, 'ISSUE-PLAN', 'light'),
+    /executor-fix.*n.*o.*fati|nó de implementação fatiável não encontrado/i,
+    'bugfix.light deve lançar: executor-fix não é role fatiável (D4/INV-D6-7)',
+  );
 });
 
 // T-D6-16: assigneeAgentId da junção produzida por expandSlices bate com o role do nó de junção no molde
@@ -623,6 +625,98 @@ test('T-D6-18 — junção de expandSlices é consistente com nodeSpecFanIn (mes
   // assigneeAgentId deve ser o mesmo
   assert.strictEqual(result.junction.assigneeAgentId, directFanIn.assigneeAgentId,
     'junção de expandSlices e nodeSpecFanIn devem ter o mesmo assigneeAgentId');
+});
+
+// ─── G2-FÁBRICA D6: novos testes de regressão — achados adversariais G2-Fábrica ──
+// Esses testes cobrem os caminhos que a suite original NÃO cobria e que deixavam
+// os bugs críticos/high invisíveis (achados severity:critical/#2 da revisão G2-Fábrica).
+
+// T-D6-16b: junção de feature.heavy deve ser checkpoint-validator, NÃO architecture-reviewer
+// (achado crítico #1/#3/#6 — auto-descoberta escolhia review-spec erroneamente)
+test('T-D6-16b — junção de feature.heavy é checkpoint-validator (não architecture-reviewer)', () => {
+  const result = expandSlices('feature', 2, 'ISSUE-PLAN', 'heavy');
+  assert.strictEqual(result.junction.assigneeAgentId, 'checkpoint-validator',
+    'junção de feature.heavy deve ser checkpoint-validator, não architecture-reviewer (review-spec)');
+  assert.strictEqual(result.slices.length, 2, 'deve retornar 2 fatias');
+  assert.strictEqual(result.junction.blockedByIssueIds.length, 2, 'junção deve ter 2 bloqueadores');
+  // O irmão paralelo review-quality NÃO deve aparecer no title da junção
+  assert.ok(!result.junction.title.includes('review-spec'),
+    'title da junção NÃO deve ser review-spec (seria um par paralelo, não a junção real)');
+  assert.ok(result.junction.title.includes('checkpoint'),
+    'title da junção deve incluir checkpoint');
+});
+
+// T-D6-16c: junção de user-story.heavy também deve ser checkpoint-validator
+// (achado crítico #1/#3 — mesmo defeito de auto-descoberta em user-story.heavy)
+test('T-D6-16c — junção de user-story.heavy é checkpoint-validator (não architecture-reviewer)', () => {
+  const result = expandSlices('user-story', 2, 'ISSUE-PLAN', 'heavy');
+  assert.strictEqual(result.junction.assigneeAgentId, 'checkpoint-validator',
+    'junção de user-story.heavy deve ser checkpoint-validator');
+  assert.ok(result.junction.title.includes('checkpoint'),
+    'title da junção de user-story.heavy deve incluir checkpoint');
+});
+
+// T-D6-19: expandSlices com n=NaN lança erro (INV-D6-3 — NaN passava pela validação anterior)
+// (achado high #5 — NaN é typeof 'number' e NaN < 1 é false, então passava silenciosamente)
+test('T-D6-19 — expandSlices com n=NaN lança erro descritivo (INV-D6-3)', () => {
+  assert.throws(
+    () => expandSlices('feature', NaN, 'ISSUE-PLAN', 'light'),
+    /n.*inv[aá]lido|n deve ser/i,
+    'NaN deve lançar erro: não é inteiro >= 1',
+  );
+});
+
+// T-D6-20: expandSlices com hotfix lança erro (INV-D6-6 — modo especial não fatiável)
+// (achado high #4 — hotfix tem estrutura fixa de 12 nós exatos)
+test('T-D6-20 — expandSlices em hotfix lança erro (modo especial não fatiável)', () => {
+  assert.throws(
+    () => expandSlices('hotfix', 2, 'ISSUE-PLAN'),
+    /modo especial.*n.*o.*fati|hotfix.*n.*o.*fati|hotfix.*fati/i,
+    'hotfix deve lançar: modo especial com estrutura fixa não admite fatias dinâmicas',
+  );
+});
+
+// T-D6-21: expandSlices em review-only lança erro (INV-D6-6 — modo especial não fatiável)
+test('T-D6-21 — expandSlices em review-only lança erro (modo especial não fatiável)', () => {
+  assert.throws(
+    () => expandSlices('review-only', 1, 'ISSUE-PLAN'),
+    /modo especial.*n.*o.*fati|review-only.*fati/i,
+    'review-only deve lançar: modo especial com estrutura fixa não admite fatias dinâmicas',
+  );
+});
+
+// T-D6-22: expandSlices em bugfix.heavy lança erro (executor-fix não é fatiável)
+// (achado high #4 — fix-loop contradiz D4 quando expandido em N fatias)
+test('T-D6-22 — expandSlices em bugfix.heavy lança erro (executor-fix não é fatiável, contradiz D4)', () => {
+  assert.throws(
+    () => expandSlices('bugfix', 2, 'ISSUE-PLAN', 'heavy'),
+    /executor-fix.*n.*o.*fati|nó de implementação fatiável não encontrado/i,
+    'bugfix.heavy deve lançar: executor-fix não é role fatiável',
+  );
+});
+
+// T-D6-23: expandSlices em feature.heavy — irmão paralelo review-quality NÃO está entre os bloqueadores da junção
+// (achado crítico #1/#3 — review-quality ficava órfão quando review-spec era escolhido como junção)
+test('T-D6-23 — expandSlices em feature.heavy: review-quality não aparece como irmão paralelo bloqueador da junção', () => {
+  const result = expandSlices('feature', 3, 'ISSUE-PLAN', 'heavy');
+  // A junção (checkpoint) não deve ter review-quality em seu title
+  assert.ok(!result.junction.title.includes('review-quality'),
+    'title da junção NÃO deve ser review-quality');
+  // A junção é checkpoint-validator — PARALLEL_SIBLINGS não deve aparecer no body da junção
+  // (checkpoint tem blocks:[] e não emite bloco de fidelidade)
+  assert.ok(!result.junction.body.includes('PARALLEL_SIBLINGS'),
+    'body da junção de feature.heavy NÃO deve ter PARALLEL_SIBLINGS (checkpoint não é paralelo)');
+});
+
+// T-D6-24: expandSlices em feature.heavy n=3 — 3 fatias + junção com 3 bloqueadores
+// (verifica o caso heavy com n>2 que o T-D6-13 original não cobria por só testar n=2)
+test('T-D6-24 — expandSlices em feature.heavy com n=3 retorna 3 fatias e junção com 3 bloqueadores', () => {
+  const result = expandSlices('feature', 3, 'ISSUE-PLAN', 'heavy');
+  assert.strictEqual(result.slices.length, 3, 'deve retornar 3 fatias');
+  assert.strictEqual(result.junction.blockedByIssueIds.length, 3,
+    'junção de feature.heavy com n=3 deve ter 3 bloqueadores');
+  assert.strictEqual(result.junction.assigneeAgentId, 'checkpoint-validator',
+    'junção com n=3 ainda deve ser checkpoint-validator');
 });
 
 // T-REGR-01: suite pré-existente de nextStep, nodeSpec, allParallelSteps permanece 100% verde
