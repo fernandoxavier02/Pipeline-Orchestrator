@@ -10,6 +10,12 @@ test('mapeia bloco observado para portão canônico', () => {
   assert.strictEqual(gateForBlock('BLOCO_DESCONHECIDO'), null);
 });
 
+test('DISPATCH_REQUEST não mapeia para portão (informacional, mapeamento morto removido)', () => {
+  // "DISPATCH" não está em nenhum conjunto esperado; mapeá-lo era enganoso (R-HIGH-3).
+  assert.strictEqual(gateForBlock('DISPATCH_REQUEST'), null);
+  assert.ok(!Object.prototype.hasOwnProperty.call(BLOCK_TO_GATE, 'DISPATCH_REQUEST'));
+});
+
 test('conjunto de portões esperados por complexidade', () => {
   assert.strictEqual(expectedGates('SIMPLES').length, 5);
   assert.strictEqual(expectedGates('COMPLEXA').length, 16);

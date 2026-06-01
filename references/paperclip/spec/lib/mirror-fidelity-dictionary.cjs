@@ -3,6 +3,18 @@
 // reais (A5 §4) + conjuntos de portões esperados da spec (A4-validation §2, gates.md).
 
 // Blocos que os cargos JÁ emitem → portão canônico equivalente.
+//
+// POR DESIGN, vários portões esperados NÃO têm bloco-fonte aqui (INFO_GATE_BLOCKED,
+// CHECKPOINT_FAIL, PLAN_REJECTED, MICRO_GATE_GAP e os de aprovação): os agentes ainda
+// não emitem esses blocos. Essa ausência é exatamente o gap de fidelidade que o medidor
+// revela — o teto da nota com o dicionário atual é < 1.0 de propósito, refletindo a
+// realidade observada, não uma meta atingível hoje.
+//
+// SLICE_CLOSEOUT e HANDOFF_STATUS mapeiam AMBOS para CLOSEOUT_CONFIRM por design: ambos
+// sinalizam fechamento. O medidor afere PRESENÇA do portão, não a qualidade do conteúdo.
+//
+// DISPATCH_REQUEST foi removido: é informacional (handoff), não um portão medido — não
+// está em nenhum conjunto esperado, então mapeá-lo seria um mapeamento morto e enganoso.
 const BLOCK_TO_GATE = {
   ORCHESTRATOR_DECISION: 'COMPLEXITY_GATE',
   TDD_GREEN: 'TDD_APPROVAL',
@@ -10,7 +22,6 @@ const BLOCK_TO_GATE = {
   PA_DE_CAL: 'FINAL_ADVERSARIAL_GATE',
   SLICE_CLOSEOUT: 'CLOSEOUT_CONFIRM',
   HANDOFF_STATUS: 'CLOSEOUT_CONFIRM',
-  DISPATCH_REQUEST: 'DISPATCH',
 };
 
 // Conjuntos mandatórios por complexidade (A4-validation §2 + canônico).
