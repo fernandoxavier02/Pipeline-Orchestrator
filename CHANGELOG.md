@@ -5,6 +5,21 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.9.0] - 2026-06-01
+
+### Added — Paperclip flow-mirror (árvore de tarefas + 8 comandos slash por fluxo)
+- `references/paperclip/spec/lib/tree-template.cjs` — moldes declarativos dos 14 fluxos (bugfix/feature/user-story/audit/ux/spec light+heavy + hotfix + review-only).
+- `references/paperclip/spec/lib/tree-factory.cjs` — `nextStep`/`nodeSpec`/`nodeSpecFanIn`/`expandSlices` (loop de conserto com contador interno + fatias dinâmicas).
+- `references/paperclip/spec/lib/tree-factory-io.cjs` + `grow-tree.cjs` — braço I/O com transport injetável + guard dry-run/`--confirm` (não cria na VPS sem confirmação).
+- `references/paperclip/spec/lib/classify-bridge.cjs` — classificação local tipo+complexidade para o despacho.
+- Régua `mirror-fidelity-dictionary.cjs`: `CLARIFICATION_DONE → INFO_GATE_BLOCKED` (teto SIMPLES 0.80 → 1.0) + modo `REVIEW_ONLY`.
+- 8 comandos slash `commands/paperclip-{bugfix,feature,user-story,audit,ux,spec,hotfix,review}.md` + `paperclip-overview.md` — classificam local, montam a árvore em dry-run e só criam após confirmação explícita.
+- Flag `--on=paperclip` documentada em `commands/pipeline.md`.
+
+### Notes
+- Construído com DDD+ATDD+BDD+TDD + revisão adversarial em loop por etapa (72 achados corrigidos). Suíte mirror-fidelity 63 → 309 GREEN.
+- Aditivo: ZERO mudanças que quebrem fluxos existentes do Claude Code; `paperclip-*` é canal paralelo de despacho. Iron Law respeitada.
+
 ## [7.8.0] - 2026-05-26 — Paperclip Company Provisioner (MINOR)
 
 ### Added
