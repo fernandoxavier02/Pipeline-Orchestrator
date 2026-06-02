@@ -19,7 +19,7 @@
 //   C1: sem --confirm → dry-run (imprime o que criaria, sem POST)
 //   C2: com --confirm → fluxo real (GET roster + POST issue)
 //   C3: saída padrão em JSON { step, issueId, title, nextStep }
-//        Para nós paralelos: { steps[], issueIds[], title, nextStep }
+//        Para nós paralelos: { steps[], issueIds[], title, nextStep, stepMap }
 //   C4: quando nextStep é null → imprime { ..., nextStep: null } e exit code 0
 //   C5: erros → exit code 1 e mensagem descritiva em stderr
 //
@@ -29,11 +29,20 @@
 //   para o nó seguinte a partir dele. Isso garante que a cadeia percorre TODOS
 //   os nós sem saltar nenhum.
 //
+// Contrato de fan-in (junção de paralelos):
+//   Quando a chamada cria nós paralelos (steps[] com >1 entry), o JSON de saída
+//   inclui "stepMap": { [step]: issueId } para todos os irmãos criados.
+//   Na chamada seguinte (que criará a junção), passe esse objeto como o 5º arg
+//   posicional (serializado como JSON) ou via --step-map='{"HF-N6":...}'.
+//   args: [companyId, complexity, currentStep, prevIssueId, stepMapJson?]
+//   runCli deserializa stepMapJson e passa como stepToIssueIdMap a growSpine.
+//   Isso permite ao CLI stateless resolver o fan-in sem memória persistente.
+//
 // Transport real (HttpTransport) só é instanciado quando o módulo é executado
 // diretamente como CLI (require.main === module). Em testes, transport é injetado
 // via runCli({ transport }) — Invariante T1 preservada.
 
-const { nextStep, nodeSpec } = require('./tree-factory.cjs');
+const { nextStep, nodeSpec, allParallelSteps } = require('./tree-factory.cjs');
 const { assertSafeId, resolveRole, growSpine } = require('./tree-factory-io.cjs');
 
 // ─── HTTP TRANSPORT (produção) ────────────────────────────────────────────────
@@ -163,8 +172,10 @@ function validateComplexity(complexity, variant) {
  * @returns {Promise<{ stdout: string, stderr: string, exitCode: number }>}
  */
 async function runCli({ args, transport, confirm }) {
-  // args = [companyId, complexity[.variant], currentStep?, prevIssueId?]
-  const [companyId, complexityArg, currentStep, prevIssueId] = args || [];
+  // args = [companyId, complexity[.variant], currentStep?, prevIssueId?, stepMapJson?]
+  // stepMapJson: JSON string de { [step]: issueId } — necessário quando o nó a criar
+  // é uma junção (fan-in) cujos irmãos foram criados numa chamada anterior.
+  const [companyId, complexityArg, currentStep, prevIssueId, stepMapJson] = args || [];
 
   let stderr = '';
   let stdout = '';
@@ -211,17 +222,29 @@ async function runCli({ args, transport, confirm }) {
       return { stdout, stderr, exitCode: 0 };
     }
 
-    // Montar o nodeSpec para dry-run preview (nó que será criado)
-    const spec = nodeSpec(complexity, nodeToCreate.step, resolvedPrevIssueId, variant || undefined);
-
     if (!confirm) {
-      // C1: Dry-run — sem POST
-      // nextStep no output é o step criado nesta chamada (para continuação correta)
-      const result = {
-        step: nodeToCreate.step,
-        title: spec.title,
-        nextStep: nodeToCreate.step,  // operador usa este valor como currentStep na próxima chamada
-      };
+      // C1: Dry-run — sem POST. Expande paralelos para mostrar TODOS os nós que seriam criados.
+      // Invariante PAR: usar allParallelSteps para que o preview seja fiel ao --confirm.
+      const parallelNodes = allParallelSteps(complexity, nodeToCreate.step, variant || undefined);
+      const drySpec = nodeSpec(complexity, nodeToCreate.step, resolvedPrevIssueId, variant || undefined);
+
+      let result;
+      if (parallelNodes.length > 1) {
+        // Grupo paralelo: mostrar todos os steps que seriam criados
+        const steps = parallelNodes.map((n) => n.step);
+        result = {
+          steps,
+          step: steps,
+          title: drySpec.title,
+          nextStep: nodeToCreate.step,  // operador usa este valor como currentStep na próxima chamada
+        };
+      } else {
+        result = {
+          step: nodeToCreate.step,
+          title: drySpec.title,
+          nextStep: nodeToCreate.step,  // operador usa este valor como currentStep na próxima chamada
+        };
+      }
       stdout = JSON.stringify(result);
       return { stdout, stderr, exitCode: 0 };
     }
@@ -230,12 +253,28 @@ async function runCli({ args, transport, confirm }) {
     // Validar safe id do companyId
     assertSafeId(companyId);
 
+    // Desserializar stepMapJson (5º arg posicional) se fornecido — necessário para junções fan-in.
+    // O operador recebe stepMap no JSON de saída de uma chamada anterior de grupo paralelo
+    // e o repassa como JSON string nesta chamada.
+    let stepToIssueIdMap;
+    if (stepMapJson && stepMapJson !== '' && stepMapJson !== 'null') {
+      try {
+        stepToIssueIdMap = JSON.parse(stepMapJson);
+      } catch (_) {
+        throw new Error(
+          `grow-tree: stepMapJson inválido — deve ser um objeto JSON (ex: '{"HF-N6":"id1","HF-N7":"id2"}'). ` +
+          `Recebido: "${stepMapJson}"`,
+        );
+      }
+    }
+
     // Buscar roster
     const agents = await fetchRoster(transport, companyId);
     const agentsById = indexRoster(agents);
 
     // Criar a(s) issue(s) via growSpine
-    // growSpine trata paralelo e fan-in internamente
+    // growSpine trata paralelo e fan-in internamente.
+    // stepToIssueIdMap é obrigatório quando o nó a criar é uma junção (blockedBy array).
     const { issueId, issueIds, steps, nextStepNode } = await growSpine(
       transport,
       companyId,
@@ -244,13 +283,21 @@ async function runCli({ args, transport, confirm }) {
       resolvedPrevIssueId,
       agentsById,
       variant || undefined,
+      stepToIssueIdMap,      // mapa step→issueId para fan-in de junções (pode ser undefined)
     );
+
+    // Montar o nodeSpec para o título (nó que foi criado — usado somente para title)
+    const spec = nodeSpec(complexity, nodeToCreate.step, resolvedPrevIssueId, variant || undefined);
 
     // C3: saída JSON
     // Para nós paralelos (múltiplos criados), incluímos issueIds[] e steps[].
     // O campo "nextStep" é o step recém-criado (nodeToCreate.step) — sem double-advance.
     // Na próxima chamada, o operador passa nodeToCreate.step como currentStep,
     // e growSpine avança para o nó seguinte.
+    //
+    // FAN-IN: quando steps.length > 1 (grupo paralelo criado), incluímos "stepMap"
+    // no JSON de saída. O operador deve serializar esse objeto como JSON e passá-lo
+    // como 5º argumento posicional na chamada seguinte (que criará a junção).
     const result = {
       step: steps.length === 1 ? steps[0] : steps,
       issueId,
@@ -261,6 +308,16 @@ async function runCli({ args, transport, confirm }) {
       // growSpine chamará nextStep(complexity, nodeToCreate.step) para avançar.
       nextStep: nodeToCreate.step,
     };
+
+    // Incluir stepMap quando paralelos foram criados — necessário para a junção seguinte.
+    if (steps.length > 1) {
+      const stepMap = {};
+      for (let i = 0; i < steps.length; i++) {
+        stepMap[steps[i]] = issueIds[i];
+      }
+      result.stepMap = stepMap;
+    }
+
     stdout = JSON.stringify(result);
     return { stdout, stderr, exitCode: 0 };
 
