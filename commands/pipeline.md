@@ -279,6 +279,7 @@ Analyze `<arguments>` to determine mode:
 | `/pipeline --plan [task]` | FULL + plan mode | Force plan-architect for any complexity |
 | `/pipeline --no-plan [task]` | FULL + skip plan mode (MEDIA only) | Bypass plan-architect on MEDIA tasks; logs justification in TRACE.md. **Ignored** on COMPLEXA — plan runs anyway with the override attempt logged for audit. (Wave 8-spec / v4.17.0+) |
 | `/pipeline review-only` | **REVIEW-ONLY** | Runs final adversarial review on current uncommitted changes |
+| `/pipeline --on=paperclip [task]` | **PAPERCLIP** | Early return: classify locally via classify-bridge.cjs, mount root card spec via tree-factory.cjs, emit PAPERCLIP_DISPATCH payload — no local phases executed; Paperclip agents on VPS execute the tree |
 
 ### REVIEW-ONLY Mode
 
@@ -289,6 +290,55 @@ When `review-only` is specified:
 3. **Spawn** `final-adversarial-orchestrator` directly
 4. **Output:** FINAL_ADVERSARIAL_REPORT
 5. **No fixes** — report only (user decides what to do)
+
+### PAPERCLIP Mode (`--on=paperclip`)
+
+When `--on=paperclip` is present in `<arguments>`, the controller performs an **early return** before any local phase (Phases 0–3). Detection happens here in STEP 1, before any Agent spawn — mirroring the HOTFIX and REVIEW-ONLY pattern.
+
+**Validation (STEP 1):**
+1. If `[task]` (the task description) is empty or absent → emit a descriptive error to the user. Do NOT call classify-bridge or create a root card.
+2. Parse complexity override: `--simples` → `{complexity:'SIMPLES'}`, `--media` → `{complexity:'MEDIA'}`, `--complexa` → `{complexity:'COMPLEXA'}`. Pass as second argument to classify-bridge.
+3. Flags `--grill`, `--no-plan`, `--plan`, `--variant=*` have no effect in PAPERCLIP mode — they are listed in the payload `notes` as **ignored in paperclip mode** (no error, no execution).
+
+**Branch flow (STEP 1 — early return):**
+
+```
+[task] present?
+  NO  → error to user, no card created
+  YES → classify-bridge.cjs::classify(task, {complexity?}) → ClassifyResult
+           ERROR (invalid override) → present to user via AskUserQuestion, no card created
+           OK → tree-factory.cjs::nodeSpec(complexity, 'classificar', null) → rootIssueSpec
+                  → emit PAPERCLIP_DISPATCH block
+                  → EARLY RETURN (no Phases 0-3, no sentinel-state.json, no gate-decisions.jsonl)
+```
+
+**Emit this block and stop:**
+
+```
+=== PAPERCLIP_DISPATCH v1 ===
+mode: PAPERCLIP
+type: <ClassifyResult.type>
+complexity: <ClassifyResult.complexity>
+source: <ClassifyResult.source>
+rootIssueSpec:
+  title: <rootIssueSpec.title>
+  assigneeAgentId: <rootIssueSpec.assigneeAgentId>
+  blockedByIssueIds: []
+  body: |
+    <rootIssueSpec.body>
+notes: <ClassifyResult.notes + any ignored flags>
+===
+```
+
+**Invariants:**
+- `assigneeAgentId` in the root card is always `pipeline-controller` (the `classificar` step role in both SIMPLES and COMPLEXA templates — see `references/paperclip/spec/lib/tree-factory.cjs`).
+- No local agents are spawned (no PIPELINE_DOC_PATH, no sentinel-state.json, no gate-decisions.jsonl).
+- `tree-factory-io.cjs` (actual Paperclip API calls) is NOT invoked here — it belongs to Group B (operation layer, a future step).
+- `mode` field in the payload is `PAPERCLIP` — distinct from FULL / HOTFIX / REVIEW-ONLY / DIAGNOSTIC / CONTINUE.
+
+**Modules used (by name, no inline logic):**
+- `references/paperclip/spec/lib/classify-bridge.cjs` — local type+complexity heuristic (pure, no I/O)
+- `references/paperclip/spec/lib/tree-factory.cjs` — root card spec builder (pure, no I/O)
 
 ### HOTFIX Mode (Emergency Bypass)
 
