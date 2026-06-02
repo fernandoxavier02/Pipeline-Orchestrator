@@ -61,14 +61,17 @@ test('T-G6-03 — commands/pipeline.md referencia classify-bridge e tree-factory
 // Dado classify('fix login bug') → {type:'Bug Fix', complexity:'SIMPLES'},
 // nodeSpec('SIMPLES','classificar',null) deve retornar payload com os 4 campos canônicos.
 // Verifica AC-G6-3 e AC-G6-11.
-test('T-G6-04 — integração: classify + nodeSpec produz payload com assigneeAgentId=pipeline-controller', () => {
+// CORREÇÃO G6: assigneeAgentId do cartão-raiz é task-orchestrator (emite ORCHESTRATOR_DECISION).
+// pipeline-controller é o dispatcher (DISPATCH_REQUEST), não o classificador.
+// Referência: paperclip-catalog.md linha 30 + todos os moldes canônicos modernos.
+test('T-G6-04 — integração: classify + nodeSpec produz payload com assigneeAgentId=task-orchestrator', () => {
   const result = classify('fix login bug');
   assert.ok(VALID_TYPES.includes(result.type), `type deve ser válido, recebeu: ${result.type}`);
   assert.ok(VALID_COMPLEXITIES.includes(result.complexity), `complexity deve ser válida, recebeu: ${result.complexity}`);
 
   const spec = nodeSpec(result.complexity, 'classificar', null);
-  assert.strictEqual(spec.assigneeAgentId, 'pipeline-controller',
-    'assigneeAgentId do cartão-raiz SIMPLES/COMPLEXA/MEDIA deve ser pipeline-controller');
+  assert.strictEqual(spec.assigneeAgentId, 'task-orchestrator',
+    'assigneeAgentId do cartão-raiz (SIMPLES/MEDIA/COMPLEXA) deve ser task-orchestrator (emite ORCHESTRATOR_DECISION)');
   assert.deepStrictEqual(spec.blockedByIssueIds, [],
     'cartão-raiz não deve ter bloqueadores (blockedByIssueIds=[])');
   assert.ok(spec.body.includes('ORCHESTRATOR_DECISION'),
@@ -190,8 +193,9 @@ test('T-G6-13 — integração ponta-a-ponta: branch PAPERCLIP produz PaperclipR
   const rootIssueSpec = nodeSpec(classifyResult.complexity, 'classificar', null);
 
   // Passo 3: validar os 4 campos do PaperclipRootPayload
-  assert.strictEqual(rootIssueSpec.assigneeAgentId, 'pipeline-controller',
-    'assigneeAgentId do cartão-raiz deve ser pipeline-controller (AC-G6-11)');
+  // CORREÇÃO G6: task-orchestrator é o classificador canônico (emite ORCHESTRATOR_DECISION).
+  assert.strictEqual(rootIssueSpec.assigneeAgentId, 'task-orchestrator',
+    'assigneeAgentId do cartão-raiz deve ser task-orchestrator (AC-G6-11 corrigido)');
   assert.deepStrictEqual(rootIssueSpec.blockedByIssueIds, [],
     'blockedByIssueIds do cartão-raiz deve ser [] (sem bloqueadores na raiz)');
   assert.ok(typeof rootIssueSpec.title === 'string' && rootIssueSpec.title.length > 0,
@@ -221,4 +225,65 @@ test('T-G6-14 — documental: linha --on=paperclip aparece na tabela de modos do
   const step1Section = md.slice(step1Start, step2Start);
   assert.match(step1Section, /--on=paperclip/,
     'a flag --on=paperclip deve aparecer na seção STEP 1 (antes de STEP 2), para ser detectada na fase correta');
+});
+
+// ─── T-G6-15: Regressão MEDIA — nodeSpec('MEDIA', 'classificar', null) não lança ──
+// Achado crítico G6: tree-template.cjs não definia TEMPLATES.MEDIA, causando crash em
+// nodeSpec('MEDIA','classificar',null) → 'tree-factory: complexidade "MEDIA" desconhecida'.
+// MEDIA é alcançável via flag --media OU via heurística (auth/security/schema → MEDIA_SIGNALS).
+// Este teste prova que a falha foi corrigida e o payload tem os 4 campos canônicos.
+test('T-G6-15 — regressão MEDIA: nodeSpec("MEDIA","classificar",null) não lança e retorna payload válido', () => {
+  let spec;
+  assert.doesNotThrow(() => {
+    spec = nodeSpec('MEDIA', 'classificar', null);
+  }, 'nodeSpec MEDIA classificar não deve lançar (achado crítico G6 — TEMPLATES.MEDIA ausente)');
+
+  // 4 campos canônicos do PaperclipRootPayload
+  assert.strictEqual(spec.title, '[MEDIA] classificar', 'title deve ser [MEDIA] classificar');
+  assert.strictEqual(spec.assigneeAgentId, 'task-orchestrator',
+    'assigneeAgentId MEDIA deve ser task-orchestrator (cargo canônico do classificar)');
+  assert.deepStrictEqual(spec.blockedByIssueIds, [], 'cartão-raiz MEDIA não deve ter bloqueadores');
+  assert.ok(spec.body.includes('ORCHESTRATOR_DECISION'),
+    'body MEDIA classificar deve conter ORCHESTRATOR_DECISION');
+});
+
+// ─── T-G6-16: Caminho heurístico MEDIA — tarefa com sinal de autenticação ────────
+// classify-bridge MEDIA_SIGNALS inclui 'auth', 'authentication', 'security', 'schema'.
+// Uma tarefa que menciona 'auth' deve produzir complexity='MEDIA', e esse resultado
+// alimentado em nodeSpec deve retornar payload válido (fluxo ponta-a-ponta via heurística).
+// Antes da correção: classify('add authentication') → MEDIA → nodeSpec crash.
+test('T-G6-16 — caminho heurístico MEDIA: tarefa de autenticação atravessa classify→nodeSpec sem crash', () => {
+  // Esta string classifica como MEDIA via MEDIA_SIGNALS ('auth') em classify-bridge.cjs
+  const classifyResult = classify('add authentication to the login page');
+  assert.strictEqual(classifyResult.complexity, 'MEDIA',
+    'tarefa com "authentication" deve classificar como MEDIA (MEDIA_SIGNALS)');
+
+  // Passo 2: nodeSpec com MEDIA — antes lançava, agora deve retornar payload
+  let rootIssueSpec;
+  assert.doesNotThrow(() => {
+    rootIssueSpec = nodeSpec(classifyResult.complexity, 'classificar', null);
+  }, 'nodeSpec(MEDIA, classificar) não deve lançar após correção de TEMPLATES.MEDIA');
+
+  assert.strictEqual(rootIssueSpec.assigneeAgentId, 'task-orchestrator',
+    'assigneeAgentId MEDIA deve ser task-orchestrator');
+  assert.deepStrictEqual(rootIssueSpec.blockedByIssueIds, []);
+  assert.ok(rootIssueSpec.body.includes('ORCHESTRATOR_DECISION'));
+});
+
+// ─── T-G6-17: Caminho override MEDIA — flag --media passa por nodeSpec sem crash ──
+// commands/pipeline.md documenta: '--media → {complexity:"MEDIA"}, pass to classify-bridge'.
+// O override produz ClassifyResult.complexity='MEDIA', depois nodeSpec('MEDIA','classificar',null).
+// Antes da correção: nodeSpec com MEDIA lançava mesmo quando override era explícito.
+test('T-G6-17 — override --media: classify com {complexity:"MEDIA"} → nodeSpec sem crash', () => {
+  const classifyResult = classify('qualquer tarefa', { complexity: 'MEDIA' });
+  assert.strictEqual(classifyResult.complexity, 'MEDIA', 'override MEDIA deve ser respeitado');
+
+  let rootIssueSpec;
+  assert.doesNotThrow(() => {
+    rootIssueSpec = nodeSpec(classifyResult.complexity, 'classificar', null);
+  }, 'nodeSpec após override --media não deve lançar (achado G6 — crash com override explícito)');
+
+  assert.strictEqual(rootIssueSpec.title, '[MEDIA] classificar');
+  assert.strictEqual(rootIssueSpec.assigneeAgentId, 'task-orchestrator');
+  assert.deepStrictEqual(rootIssueSpec.blockedByIssueIds, []);
 });
