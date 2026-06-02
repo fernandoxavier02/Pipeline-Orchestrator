@@ -169,9 +169,13 @@ function nodeTrio(blockedBy, junctionStep, prefix) {
 // Esses arrays preservam EXATAMENTE os moldes originais de SIMPLES e COMPLEXA
 // (5 e 7 nós respectivamente) que existiam antes da migração G1-Moldes.
 // Os testes existentes verificam esses arrays por nome de step e por conteúdo exato.
+// CORREÇÃO G6 (adversarial review): o cargo canônico de 'classificar' é task-orchestrator
+// em TODOS os moldes (ver tree-template.cjs buildFeatureLight, buildFeaturHeavy, etc.).
+// pipeline-controller é o N1 dispatcher, não o classificador — ele emite DISPATCH_REQUEST,
+// não ORCHESTRATOR_DECISION. Referência: paperclip-catalog.md linha 30 + task-orchestrator.md §Output.
 const SIMPLES_ORIGINAL = [
   {
-    step: 'classificar', role: 'pipeline-controller',
+    step: 'classificar', role: 'task-orchestrator',
     blocks: [B_ORCHESTRATOR], blockedBy: null, next: 'clarificar',
   },
   {
@@ -192,9 +196,41 @@ const SIMPLES_ORIGINAL = [
   },
 ];
 
+// MEDIA_ORIGINAL: molde de complexidade intermediária.
+// 6 nós — como SIMPLES mas com etapa 'planejar' entre clarificar e implementar,
+// espelhando a regra do pipeline (MEDIA auto-triggers plan-architect).
+// task-orchestrator classifica; plan-architect planeja; sem etapa 'aprovar' (só COMPLEXA exige aprovação).
+const MEDIA_ORIGINAL = [
+  {
+    step: 'classificar', role: 'task-orchestrator',
+    blocks: [B_ORCHESTRATOR], blockedBy: null, next: 'clarificar',
+  },
+  {
+    step: 'clarificar', role: 'information-gate',
+    blocks: [B_CLARIFICATION], blockedBy: 'classificar', next: 'planejar',
+  },
+  {
+    // blocks vazio de propósito — PLAN_REJECTED sem bloco-fonte no dicionário (Grupo D)
+    step: 'planejar', role: 'plan-architect',
+    blocks: [], blockedBy: 'clarificar', next: 'implementar',
+  },
+  {
+    step: 'implementar', role: 'feature-implementer',
+    blocks: [B_TDD_GREEN, B_REGRESSION], blockedBy: 'planejar', next: 'revisar',
+  },
+  {
+    step: 'revisar', role: 'adversarial-review-coordinator',
+    blocks: [B_ADV_CONSOLIDATED], blockedBy: 'implementar', next: 'fechar',
+  },
+  {
+    step: 'fechar', role: 'final-validator',
+    blocks: [B_SLICE_CLOSEOUT, B_PA_DE_CAL], blockedBy: 'revisar', next: null,
+  },
+];
+
 const COMPLEXA_ORIGINAL = [
   {
-    step: 'classificar', role: 'pipeline-controller',
+    step: 'classificar', role: 'task-orchestrator',
     blocks: [B_ORCHESTRATOR], blockedBy: null, next: 'clarificar',
   },
   {
@@ -733,7 +769,11 @@ const TEMPLATES = {
 // Os arrays originais são preservados para que os testes existentes passem sem modificação.
 // Esses arrays representam o tipo Feature nas variantes light e heavy do pipeline original,
 // mapeando conceptualmente para feature.light e feature.heavy na nova estrutura.
+// MEDIA: adicionado em G6 adversarial review — complexidade intermediária (com planejar,
+// sem aprovar). classify-bridge.cjs emite MEDIA como complexidade válida (VALID_COMPLEXITIES),
+// mas tree-factory.cjs só resolvia SIMPLES e COMPLEXA — crash documentado no achado crítico G6.
 TEMPLATES.SIMPLES = SIMPLES_ORIGINAL;
+TEMPLATES.MEDIA = MEDIA_ORIGINAL;
 TEMPLATES.COMPLEXA = COMPLEXA_ORIGINAL;
 
 // ─── ALIAS getTemplate ───────────────────────────────────────────────────────
