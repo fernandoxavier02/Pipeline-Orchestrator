@@ -5,6 +5,21 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.9.1] - 2026-06-02 — Telemetry run-log aggregator bugfix (PATCH)
+
+### Fixed
+- `buildRunLogEntry` (`.claude/hooks/stop-hook.cjs` + `.codex/hooks/stop-hook.cjs` mirror) had 4 confirmed defects in the run-log summary it writes on every session end:
+  - **D2 — classification from the wrong field.** Read from `sentinel.classification_post_orchestrator` / `.classification` instead of the source of truth `sentinel.orchestrator_decision`, so `type`/`complexity`/`variant` came out `null` almost every run. Now reads `orchestrator_decision` (`.type` / `.task_type` / `.complexity` / `.pipeline_variant`) with the legacy fields preserved as fallback.
+  - **D4 — duration since midnight.** A date-only `created_at` (`2026-06-01`, no time) made `Date.parse` resolve to midnight UTC, inflating `duration_seconds` to hours. A date-only timestamp now yields `duration_seconds: null` (unavailable) instead of a misleading number.
+  - **D1 — fields hardcoded null.** `total_gates_expected` and `fidelity_score` were literal `null`. `total_gates_expected` is now derived from `MANDATORY_GATES_BY_COMPLEXITY` (lazy-required from `lib/fidelity-reporter.cjs` via channel-agnostic resolution, soft-fail to `null`; MEDIA = 11, +SPEC when `type === 'Spec'`); `fidelity_score` is read from the persisted `fidelity-report.json` in the run folder (`null` when absent).
+  - **D3 — premature UNKNOWN.** `final_decision` fell to the literal `'UNKNOWN'` even when derivable. It now cascades `session.status` → `sentinel.final_decision` → the last `CLOSEOUT_CONFIRM` in `gate-decisions.jsonl` (mapped via DECISION_MAP) before `'UNKNOWN'`.
+
+### Notes
+- TDD: new `tests/regression/v7.9.0/F13-runlog-entry-defects.test.cjs` (15 scenarios) proven RED (7 fail / 8 pass) → GREEN (15/15). Full suite 61/61 GREEN, `build ok` exit 0.
+- `.codex/hooks/stop-hook.cjs` mirror is byte-identical (sha256 `24f7275b…0f3acc` on both files).
+- **Scope (Option A):** locked to the 2 hooks + 1 new test. `lib/run-log.cjs::normalizeEntry` intentionally NOT changed — it still coerces `null → 0` for `total_gates_expected`/`duration_seconds` in the written file (an honest neutral default; `buildRunLogEntry` returns the correct `null`, asserted by F13). Iron Law preserved: ZERO changes to `agents/`/`skills/`/`references/`/`commands/`/`lib/`. 22-row Mandatory Gates table and gate Registry untouched.
+- Built dogfood through the plugin's own pipeline (Bug Fix / MEDIA / bugfix-light): orchestrator → sentinel ORCHESTRATOR_VALIDATION → plan-architect → TDD RED → executor → zero-context 3-lens review (PASS) → Pa de Cal GO (confidence 0.85). Canonical version-sync regression (F7) rolled forward to `7.9.1`.
+
 ## [7.9.0] - 2026-06-01
 
 ### Added — Paperclip flow-mirror (árvore de tarefas + 8 comandos slash por fluxo)

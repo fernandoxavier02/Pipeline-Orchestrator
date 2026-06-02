@@ -188,6 +188,18 @@ function countGateTriggers(runFolder) {
 }
 
 /**
+ * Read the last `n` non-empty lines of a file. Soft-fail: returns [] on any
+ * error (missing file, read failure). Mirrors the countGateTriggers template.
+ */
+function readTailLines(filePath, n) {
+  try {
+    if (!fs.existsSync(filePath)) return [];
+    const raw = fs.readFileSync(filePath, 'utf8');
+    return raw.split(/\r?\n/).filter(l => l.trim()).slice(-n);
+  } catch (_e) { return []; }
+}
+
+/**
  * Build the 12-field RunLog payload from state files. Any missing field
  * falls back to null; appendRunLog handles null-fill safely.
  */
@@ -195,14 +207,47 @@ function buildRunLogEntry(runFolder, repoRoot) {
   const sentinel = readJsonSafe(path.join(runFolder, 'sentinel-state.json')) || {};
   const session = readJsonSafe(path.join(runFolder, 'session.json')) || {};
 
-  const classification = sentinel.classification_post_orchestrator
+  // D2 — classification SSOT: read orchestrator_decision first, then the legacy
+  // classification_post_orchestrator / classification shapes, then session.
+  const od = sentinel.orchestrator_decision || {};
+  const cl = sentinel.classification_post_orchestrator
     || sentinel.classification
     || {};
 
+  const type = od.type || od.task_type || cl.type || session.type || null;
+  const complexity = od.complexity || cl.complexity || session.complexity || null;
+  const variant = od.pipeline_variant || od.variant || cl.pipeline_variant
+    || cl.variant || session.variant || null;
+
+  // D1 — gates expected: lazy-load MANDATORY_GATES_BY_COMPLEXITY from
+  // lib/fidelity-reporter.cjs resolved relative to the plugin root (NOT the
+  // payload cwd), matching the run-log require pattern below. Soft-fail to null.
+  const fidelityReporterPath = path.join(PLUGIN_ROOT_STOP, 'lib', 'fidelity-reporter.cjs');
+  let MANDATORY_GATES_BY_COMPLEXITY = null;
+  if (fs.existsSync(fidelityReporterPath)) {
+    // eslint-disable-next-line global-require
+    try { ({ MANDATORY_GATES_BY_COMPLEXITY } = require(fidelityReporterPath)); } catch (_e) { /* soft-fail */ }
+  }
+  const mandatoryBase = (MANDATORY_GATES_BY_COMPLEXITY && MANDATORY_GATES_BY_COMPLEXITY[complexity]) || null;
+  const specExtra = (type === 'Spec' && MANDATORY_GATES_BY_COMPLEXITY && MANDATORY_GATES_BY_COMPLEXITY.SPEC)
+    ? MANDATORY_GATES_BY_COMPLEXITY.SPEC.length : 0;
+  const gatesExpected = mandatoryBase ? (mandatoryBase.length + specExtra) : null;
+
+  // D1 — fidelity score: read from persisted fidelity-report.json. null when
+  // absent or non-numeric.
+  const fidelityJson = readJsonSafe(path.join(runFolder, 'fidelity-report.json'));
+  const fidelityScore = (fidelityJson && typeof fidelityJson.fidelity_score === 'number')
+    ? fidelityJson.fidelity_score : null;
+
+  // D4 — duration: a date-only "YYYY-MM-DD" started_at has no time component, so
+  // Date.parse would assume UTC-midnight and inflate the duration. Guard -> null.
   const startedAt = session.started_at || sentinel.created_at || null;
   const endedAt = new Date().toISOString();
+  const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
   let durationSec = null;
-  if (startedAt) {
+  if (startedAt && DATE_ONLY_RE.test(startedAt.trim())) {
+    durationSec = null; // cannot compute — no time component
+  } else if (startedAt) {
     const t1 = Date.parse(startedAt);
     const t2 = Date.parse(endedAt);
     if (Number.isFinite(t1) && Number.isFinite(t2) && t2 > t1) {
@@ -217,14 +262,31 @@ function buildRunLogEntry(runFolder, repoRoot) {
     run_id: path.basename(runFolder),
     timestamp_start: startedAt,
     timestamp_end: endedAt,
-    type: classification.type || session.type || null,
-    complexity: classification.complexity || session.complexity || null,
-    variant: classification.pipeline_variant || session.variant || null,
+    type,
+    complexity,
+    variant,
     total_gates_triggered: totalTriggered,
-    total_gates_expected: null,
-    fidelity_score: null,
+    total_gates_expected: gatesExpected,
+    fidelity_score: fidelityScore,
     duration_seconds: durationSec,
-    final_decision: session.status || sentinel.final_decision || 'UNKNOWN',
+    // D3 — final_decision cascade: session.status -> sentinel.final_decision ->
+    // tail-scan gate-decisions.jsonl for CLOSEOUT_CONFIRM / PA_DE_CAL -> UNKNOWN.
+    final_decision: (() => {
+      if (session.status) return session.status;
+      if (sentinel.final_decision) return sentinel.final_decision;
+      const gdPath = path.join(runFolder, 'gate-decisions.jsonl');
+      const tail = readTailLines(gdPath, 50).reverse();
+      const DECISION_MAP = { CONFIRMED: 'GO', APPROVED: 'GO', BLOCKED: 'NO-GO', REJECTED: 'NO-GO' };
+      for (const line of tail) {
+        try {
+          const ev = JSON.parse(line);
+          if (ev && (ev.gate === 'CLOSEOUT_CONFIRM' || ev.gate === 'PA_DE_CAL')) {
+            return DECISION_MAP[ev.decision] || ev.decision || 'UNKNOWN';
+          }
+        } catch (_e) { /* skip malformed line */ }
+      }
+      return 'UNKNOWN';
+    })(),
     pipeline_doc_path: relPipelineDocPath,
   };
 }
