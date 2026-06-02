@@ -20,10 +20,14 @@ const { runCli } = require('./grow-tree.cjs');
 
 function makeFakeTransport({ rosterAgents, postId = 'FAKE-001', alwaysStatus } = {}) {
   const calls = [];
-  // Roster padrão: agentes SIMPLES
+  // Roster padrão: agentes SIMPLES/MEDIA/COMPLEXA.
+  // CORREÇÃO G6: task-orchestrator é o cargo canônico de 'classificar' (emite ORCHESTRATOR_DECISION).
+  // pipeline-controller permanece no roster pois é cargo válido e usado em outros testes (T-IO-29).
   const defaultRoster = [
+    { id: 'uuid-to', name: 'task-orchestrator' },
     { id: 'uuid-pc', name: 'pipeline-controller' },
     { id: 'uuid-ig', name: 'information-gate' },
+    { id: 'uuid-pa', name: 'plan-architect' },
     { id: 'uuid-fi', name: 'feature-implementer' },
     { id: 'uuid-arc', name: 'adversarial-review-coordinator' },
     { id: 'uuid-fv', name: 'final-validator' },
@@ -218,8 +222,9 @@ test('T-CLI-50: grow-tree CLI — SIMPLES ponta a ponta: percorrer todos os 5 n�
   // Prova que o contrato de continuação está correto: a cadeia deve percorrer
   // classificar → clarificar → implementar → revisar → fechar (5 nós)
   // sem saltar nenhum.
+  // CORREÇÃO G6: cargo canônico de 'classificar' é task-orchestrator, não pipeline-controller.
   const roster = [
-    { id: 'uuid-pc', name: 'pipeline-controller' },
+    { id: 'uuid-to', name: 'task-orchestrator' },
     { id: 'uuid-ig', name: 'information-gate' },
     { id: 'uuid-fi', name: 'feature-implementer' },
     { id: 'uuid-arc', name: 'adversarial-review-coordinator' },

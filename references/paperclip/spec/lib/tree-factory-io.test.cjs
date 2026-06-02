@@ -50,12 +50,17 @@ function makeFakeTransport(overrides = {}) {
 // Espelha formato real: array de agentes com campo 'name'.
 // resolveRole recebe o mapa já construído (name → agentId).
 
+// CORREÇÃO G6: o cargo canônico de 'classificar' é task-orchestrator (não pipeline-controller).
+// O roster de teste inclui task-orchestrator para que growSpine(SIMPLES, null) resolva corretamente.
+// pipeline-controller permanece no roster pois é cargo válido para outros testes (T-IO-09).
 const SAMPLE_ROSTER = {
   'information-gate': 'uuid-ig-real',
+  'task-orchestrator': 'uuid-to-real',
   'pipeline-controller': 'uuid-pc-real',
   'feature-implementer': 'uuid-fi-real',
   'adversarial-review-coordinator': 'uuid-arc-real',
   'final-validator': 'uuid-fv-real',
+  'plan-architect': 'uuid-pa-real',
 };
 
 // ─── GRUPO 1: assertSafeId ────────────────────────────────────────────────────
@@ -358,11 +363,12 @@ test('T-IO-22: growSpine — segundo nó SIMPLES ("clarificar" após "classifica
   assert.match(postCalls[0].body.title, /clarificar/);
 });
 
-test('T-IO-23: growSpine — assigneeAgentId no POST é o uuid do roster (não o nome nominal "pipeline-controller")', async () => {
+// CORREÇÃO G6: cargo canônico de classificar é task-orchestrator → uuid 'uuid-to-real' no SAMPLE_ROSTER.
+test('T-IO-23: growSpine — assigneeAgentId no POST é o uuid do roster (não o nome nominal "task-orchestrator")', async () => {
   const transport = makeFakeTransport();
   await growSpine(transport, 'PIP-CO', 'SIMPLES', null, null, SAMPLE_ROSTER);
   const postCall = transport.calls.find((c) => c.method === 'POST');
-  assert.strictEqual(postCall.body.assigneeAgentId, 'uuid-pc-real');
+  assert.strictEqual(postCall.body.assigneeAgentId, 'uuid-to-real');
 });
 
 test('T-IO-24: growSpine — retorna o issueId devolvido pelo transport', async () => {

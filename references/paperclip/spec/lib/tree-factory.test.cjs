@@ -19,7 +19,8 @@ test('P5 — SIMPLES: cadeia nextStep da raiz ao fim', () => {
 test('nextStep retorna o objeto-nó inteiro do template (não só o step)', () => {
   const raiz = nextStep('SIMPLES', null);
   assert.strictEqual(raiz, TEMPLATES.SIMPLES[0]); // mesma referência do molde
-  assert.strictEqual(raiz.role, 'pipeline-controller');
+  // CORREÇÃO G6: cargo canônico do classificar é task-orchestrator (emite ORCHESTRATOR_DECISION).
+  assert.strictEqual(raiz.role, 'task-orchestrator');
 });
 
 test('nextStep — COMPLEXA atravessa planejar e aprovar', () => {
@@ -39,9 +40,11 @@ test('nextStep — step inexistente no template lança erro (molde inconsistente
 // GEN3 — nodeSpec(complexity, step, prevIssueId): payload puro da issue.
 // { title, assigneeAgentId, blockedByIssueIds, body }.
 
+// CORREÇÃO G6: cargo canônico de 'classificar' é task-orchestrator em todos os moldes.
+// pipeline-controller é o dispatcher (DISPATCH_REQUEST), não o classificador (ORCHESTRATOR_DECISION).
 test('P1 — assigneeAgentId é o cargo mapeado para cada step (SIMPLES)', () => {
   const expected = {
-    classificar: 'pipeline-controller',
+    classificar: 'task-orchestrator',
     clarificar: 'information-gate',
     implementar: 'feature-implementer',
     revisar: 'adversarial-review-coordinator',
