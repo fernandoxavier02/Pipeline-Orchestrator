@@ -162,13 +162,13 @@ When a parent dispatches a subagent that uses this protocol, it MUST:
 3. Aggregate all responses/results into `GATE_RESPONSES` / `DISPATCH_RESULTS` / `PLAN_MODE_RESULTS` payloads.
 4. If the subagent's tool result ended with `STATUS: AWAITING_GATE_RESPONSES` (or AWAITING_DISPATCH_RESULTS, AWAITING_PLAN_MODE_RESULTS), re-dispatch the SAME subagent with the original prompt + the response payloads prepended.
 5. If the subagent emitted blocks but did NOT end with AWAITING_*, the parent MUST still process the blocks but MAY skip the re-dispatch (the subagent decided it could continue past the blocks; the responses are still recorded for audit).
-6. Persist every gate response and dispatch result to a SEPARATE log file `{PIPELINE_DOC_PATH}/protocol-events.jsonl` (NOT to `gate-decisions.jsonl`) with the `gate_id` / `dispatch_id` for cross-reference. See "Audit-trail entries" below for the exact schema and the rationale (avoiding collision with the strict 22-gate registry validation in `final-validator`).
+6. Persist every gate response and dispatch result to a SEPARATE log file `{PIPELINE_DOC_PATH}/protocol-events.jsonl` (NOT to `gate-decisions.jsonl`) with the `gate_id` / `dispatch_id` for cross-reference. See "Audit-trail entries" below for the exact schema and the rationale (avoiding collision with the strict 35-gate registry validation in `final-validator`).
 
 The parent MUST NOT silently default. If a `GATE_REQUEST` is malformed (missing required fields, no options), the parent emits an error to the user and does NOT re-dispatch the subagent until the malformed block is corrected.
 
 ## Audit-trail entries
 
-**Schema collision with gate-decisions.jsonl:** the strict validator in `agents/core/final-validator.md` requires `decided_by` to be in the enum `{user, system, auto}` and `gate` to be a name from the 22-gate registry (see `references/gates.md`). Protocol bookkeeping introduces neither value, so it MUST live in a separate log file to avoid being flagged as anomalous tampering.
+**Schema collision with gate-decisions.jsonl:** the strict validator in `agents/core/final-validator.md` requires `decided_by` to be in the enum `{user, system, auto}` and `gate` to be a name from the 35-gate registry (see `references/gates.md`). Protocol bookkeeping introduces neither value, so it MUST live in a separate log file to avoid being flagged as anomalous tampering.
 
 **Separate file:** every block processing produces a `{PIPELINE_DOC_PATH}/protocol-events.jsonl` entry (NOT `gate-decisions.jsonl`). Schema:
 
@@ -180,7 +180,7 @@ The parent MUST NOT silently default. If a `GATE_REQUEST` is malformed (missing 
 
 Note the field is `event:`, NOT `gate:` — this signals to any reader that the file is not the gate decision log. final-validator does NOT parse `protocol-events.jsonl`.
 
-**Cross-reference back to gate-decisions.jsonl:** when the GATE_REQUEST corresponds to a NAMED gate in the 22-gate registry (e.g., the Phase 1 proposal corresponds to no specific gate; the Phase 2 adversarial corresponds to ADVERSARIAL_GATE; the closeout to CLOSEOUT_CONFIRM), the parent SHOULD ALSO write the canonical `gate-decisions.jsonl` entry per the existing audit-trail rules, with `decided_by: user` and `detail` mentioning the protocol event id for traceability:
+**Cross-reference back to gate-decisions.jsonl:** when the GATE_REQUEST corresponds to a NAMED gate in the 35-gate registry (e.g., the Phase 1 proposal corresponds to no specific gate; the Phase 2 adversarial corresponds to ADVERSARIAL_GATE; the closeout to CLOSEOUT_CONFIRM), the parent SHOULD ALSO write the canonical `gate-decisions.jsonl` entry per the existing audit-trail rules, with `decided_by: user` and `detail` mentioning the protocol event id for traceability:
 
 ```json
 {"gate":"ADVERSARIAL_GATE","hardness":"SOFT","phase":"2","decision":"APPROVED","decided_by":"user","timestamp":"<iso>","detail":"via protocol-events GATE_REQUEST gate_id=adv-batch-1","confidence_impact":0.0}
@@ -188,11 +188,11 @@ Note the field is `event:`, NOT `gate:` — this signals to any reader that the 
 
 This dual-write keeps gate-decisions.jsonl complete (final-validator sees the user decision) AND keeps protocol bookkeeping isolated (no schema collision).
 
-These entries do NOT introduce new gates in the 22-gate registry. The Inline Invariants in `commands/pipeline.md` are unchanged by this protocol. The 22-gate registry is unchanged.
+These entries do NOT introduce new gates in the 35-gate registry. The Inline Invariants in `commands/pipeline.md` are unchanged by this protocol. The 35-gate registry is unchanged.
 
 ## gate_id → canonical gate mapping (A.8 fix)
 
-When a GATE_REQUEST corresponds to a gate in the 22-gate registry, the parent dual-writes both `protocol-events.jsonl` AND `gate-decisions.jsonl`. Use this canonical mapping table:
+When a GATE_REQUEST corresponds to a gate in the 35-gate registry, the parent dual-writes both `protocol-events.jsonl` AND `gate-decisions.jsonl`. Use this canonical mapping table:
 
 | gate_id pattern | Canonical gate (registry) | Hardness |
 |---|---|---|

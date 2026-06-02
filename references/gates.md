@@ -1,6 +1,6 @@
 # Gate System Reference
 
-> **SSOT** for gate definitions — hardness taxonomy and the 22-gate registry. `commands/pipeline.md` Grep-redirects here when it needs the full table with trigger conditions and recovery actions. Operational audit mechanics (Phase Transition Summary block template, Gate Decision Log JSONL format + parse/sanitization rules) live in `references/audit-trail.md` — they evolve independently from gate definitions. If you change gate hardness levels or registry rows, update this file; downstream tooling parses it.
+> **SSOT** for gate definitions — hardness taxonomy and the 35-gate registry. `commands/pipeline.md` Grep-redirects here when it needs the full table with trigger conditions and recovery actions. Operational audit mechanics (Phase Transition Summary block template, Gate Decision Log JSONL format + parse/sanitization rules) live in `references/audit-trail.md` — they evolve independently from gate definitions. If you change gate hardness levels or registry rows, update this file; downstream tooling parses it.
 
 ---
 
@@ -116,9 +116,9 @@ Each gate has a formal **hardness** level that determines enforcement behavior:
 | ADVERSARIAL_LOOP_CHECKPOINT |  |  |  | ✓ |
 
 **Counts:**
-- SIMPLES: 5 (the structural minimum: every code-changing run needs intake validation + TDD approval + checkpoint signal + complexity confirmation + closeout)
-- MEDIA: 10 (SIMPLES set + planning gate + per-task micro-gate + adversarial pair + stop rule)
-- COMPLEXA: 16 (MEDIA set + final adversarial pair + fix-loop circuit breaker + mandatory adversarial domain trigger + SSOT/STALE invariants)
+- SIMPLES: 6 (the structural minimum: every code-changing run needs state-file init + intake validation + TDD approval + checkpoint signal + complexity confirmation + closeout)
+- MEDIA: 11 (SIMPLES set + planning gate + per-task micro-gate + adversarial pair + stop rule)
+- COMPLEXA: 17 (MEDIA set + final adversarial pair + fix-loop circuit breaker + mandatory adversarial domain trigger + SSOT/STALE invariants)
 - Spec (+): +6 when `type=Spec`, regardless of complexity (the Wave 5 spec-pipeline gates from the registry above)
 
 **Cumulative rule:** higher complexity SUPERSETS lower complexity. Anything mandatory for SIMPLES is mandatory for MEDIA and COMPLEXA. Anything mandatory for MEDIA is mandatory for COMPLEXA. Spec (+) gates are additive on top of whatever complexity bucket applies.

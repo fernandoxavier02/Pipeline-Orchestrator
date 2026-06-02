@@ -106,16 +106,56 @@ This convention is empirically validated by 4.1.3 in production. See `designs/sl
 
 ## Skills inventory (companion to agents)
 
-Plugin v4.3.1 has **2 skills**; v4.4.0 will add 2 more (Slice 1.5):
+The plugin ships **23 skills** under `skills/` (counted via `ls skills/**/SKILL.md` on the canonical repo, 2026-06-02). They fall into four groups. Beyond these, the Paperclip integration carries **11 custom skills** of its own under `references/paperclip/skills/` — those are *not* plugin skills the harness loads; they are bundled for provisioning a Paperclip company and are listed separately at the end.
 
-| Skill | Status | Path | Purpose |
-|---|---|---|---|
-| `pipeline` | Shipped v4.3.1 | `skills/pipeline/SKILL.md` | Full pipeline classifier; entry for /pipeline-orchestrator:pipeline |
-| `bugfix` | Shipped v4.3.0+v4.3.1 | `skills/bugfix/SKILL.md` | Thin entry pre-fixes task_type=Bug Fix |
-| `bugfix-light` | 🟢 Shipped v4.4.0 | `skills/bugfix-light/` | 8 prescriptive steps from Pulsar workflow (consolidated §21) |
-| `bugfix-heavy` | 🟢 Shipped v4.4.0 | `skills/bugfix-heavy/` | 11 prescriptive steps from Pulsar workflow (consolidated §21) |
-| `feature-light` | 🟢 Shipped v4.6.1 | `skills/feature-light/` | 13 step files mirroring Pulsar `Implement_new_feature/Ligth/` 1:1 (consolidated §23) |
-| `feature-heavy` | 🟢 Shipped v4.6.1 | `skills/feature-heavy/` | 13 step files mirroring Pulsar `Implement_new_feature/Heavy/` 1:1 (consolidated §23) |
+### Group 1 — Thin entry-points (pre-fix `task_type`)
+
+| Skill | Path | Purpose |
+|---|---|---|
+| `pipeline` | `skills/pipeline/` | Full pipeline classifier; entry for `/pipeline-orchestrator:pipeline` |
+| `bugfix` | `skills/bugfix/` | Thin entry that pre-fixes `task_type=Bug Fix` |
+| `feature` | `skills/feature/` | Thin entry that pre-fixes `task_type=Feature` |
+| `audit` | `skills/audit/` | Thin entry that pre-fixes `task_type=Audit` (read-only) |
+| `spec` | `skills/spec/` | Thin entry that pre-fixes `type=Spec` |
+
+### Group 2 — Light / heavy variant skills (selected by complexity)
+
+| Skill | Path | Purpose |
+|---|---|---|
+| `bugfix-light` | `skills/bugfix-light/` | Prescriptive bug-fix steps for SIMPLES/MEDIA (Pulsar workflow, consolidated §21) |
+| `bugfix-heavy` | `skills/bugfix-heavy/` | Prescriptive bug-fix steps for COMPLEXA, adds design interrogation + root-cause (§21) |
+| `feature-light` | `skills/feature-light/` | Feature steps mirroring Pulsar `Implement_new_feature/Ligth/` 1:1 (§23) |
+| `feature-heavy` | `skills/feature-heavy/` | Feature steps mirroring Pulsar `Implement_new_feature/Heavy/` 1:1, adds vertical-slice planning (§23) |
+| `audit-light` | `skills/audit-light/` | Read-only audit chain for lighter scope (intake → compliance → risk → report) |
+| `audit-heavy` | `skills/audit-heavy/` | Read-only audit chain with dedicated domain analyzer for COMPLEXA |
+| `spec-light` | `skills/spec-light/` | Spec lifecycle for lighter specs (brainstorm → format gate → post-impl validation → closure) |
+| `spec-heavy` | `skills/spec-heavy/` | Spec lifecycle adding design interrogation + multi-axis content review |
+
+### Group 3 — Kiro spec-lifecycle skills (composable steps used by the spec flows)
+
+| Skill | Path | Purpose |
+|---|---|---|
+| `spec-init` | `skills/spec-init/` | Initialize a new spec scaffold |
+| `spec-requirements` | `skills/spec-requirements/` | Generate EARS-format requirements |
+| `spec-design` | `skills/spec-design/` | Translate requirements into a technical design |
+| `spec-tasks` | `skills/spec-tasks/` | Derive an actionable task list from requirements + design |
+| `validate-gap` | `skills/validate-gap/` | Analyze the gap between requirements and existing code |
+| `validate-design` | `skills/validate-design/` | Interactive technical-design quality review |
+| `verify-completion` | `skills/verify-completion/` | Verify an implementation against its approved spec |
+| `spec-audit-only` | `skills/spec-audit-only/` | Read-only spec audit variant |
+
+### Group 4 — Utility skills
+
+| Skill | Path | Purpose |
+|---|---|---|
+| `review` | `skills/review/` | Standalone adversarial review-only flow over an existing diff |
+| `measure-paperclip-fidelity` | `skills/measure-paperclip-fidelity/` | Score how faithfully a Paperclip run reproduced the pipeline contract |
+
+> Note: brainstorm is **not** a `skills/` folder — it is a command (`/pipeline-orchestrator:brainstorm`) driven by the `brainstorm-controller` agent and its `step-*` agents. The `setup-paperclip` and `paperclip-*` capabilities are likewise **commands** under `commands/`, not loaded skills.
+
+### Paperclip custom skills (bundled, not harness-loaded)
+
+`references/paperclip/skills/` carries **11 skills** in Paperclip's native YAML-frontmatter format, used by the company provisioner (v7.8.0) to equip a Paperclip company: a canonical `engineering-principles` skill (SOLID/KISS/DRY/YAGNI/SSOT/Clean Architecture) plus ten `pipeline-orchestrator-*` wrappers — `contracts`, `iron-laws`, `classification`, `tdd`, `spec-protocol`, `adversarial`, `bugfix-method`, `vsa`, `ux-method`, and `audit-method`.
 
 ## Versão deste arquivo
 
@@ -124,3 +164,4 @@ Plugin v4.3.1 has **2 skills**; v4.4.0 will add 2 more (Slice 1.5):
 | v1.0 | 2026-04-30 | Inicial — pós-sync 4.1.3 (Slice 0.5 A2). 38 agents catalogados. |
 | v1.1 | 2026-05-01 | Skills inventory section adicionada (2 shipped + 2 planned for Slice 1.5/v4.4.0). |
 | v1.2 | 2026-05-01 | Slice 1.5 skills shipped (`bugfix-light` + `bugfix-heavy` 🟢 Shipped v4.4.0). |
+| v1.3 | 2026-06-02 | Skills inventory rewritten (parou em v4.6.1): agora reflete os 23 skills reais sob `skills/` em 4 grupos (entry-points, light/heavy, Kiro spec-lifecycle, utility) + nota sobre os 11 custom skills do Paperclip em `references/paperclip/skills/`. Roster de 20 agentes intocado. Sincroniza com a vitrine v7.9.1. |

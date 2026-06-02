@@ -1,6 +1,6 @@
 # Paperclip Catalog — Pipeline-Orchestrator Agents
 
-**Generated:** 2026-05-22
+**Generated:** 2026-05-22 (revisado em 2026-06-02 — contagem de 47 cargos reconferida; lista inalterada)
 **Source:** `D:\Pipeline Orchestrator Claude\Pipeline-Orchestrator\agents\**\*.md`
 **Total agents:** 47
 

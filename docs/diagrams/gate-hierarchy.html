@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>22-Gate Hierarchy · Pipeline Orchestrator v6.0.0</title>
+  <title>35-Gate Hierarchy · Pipeline Orchestrator v7.9.2</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -13,7 +13,7 @@
   <nav class="nav">
     <div class="nav-brand">
       <div class="nav-brand-mark">P</div>
-      Pipeline Orchestrator <span class="text-tertiary" style="font-weight:400; font-size:13px;">v6.0.0</span>
+      Pipeline Orchestrator <span class="text-tertiary" style="font-weight:400; font-size:13px;">v7.9.2</span>
     </div>
     <div class="nav-links">
       <a href="index.html">Index</a>
@@ -27,35 +27,42 @@
   <div class="page">
     <div class="hero">
       <div class="hero-badge">Gate Registry</div>
-      <h1>22 gates. 4 hardness classes.</h1>
+      <h1>35 gates. 5 hardness classes.</h1>
       <p>Every phase transition crosses at least one gate. Gates are not ceremonial checkboxes — each has a defined hardness that determines whether it blocks, asks, or merely advises.</p>
     </div>
 
     <h2 class="section-heading">Hardness taxonomy</h2>
-    <div class="grid grid-cols-4 gap-6">
+    <div class="grid grid-cols-5 gap-6">
       <div class="card" style="border-top: 3px solid var(--mandatory);">
         <span class="badge badge-mandatory">MANDATORY · 3</span>
         <div class="card-title" style="margin-top: var(--space-3);">Never bypass</div>
         <p class="text-secondary">Cannot be skipped even with <code>--hotfix</code>. Failure halts the pipeline and reports to the user. Examples: SSOT_CONFLICT, ADVERSARIAL_GATE_MANDATORY for auth/crypto.</p>
       </div>
       <div class="card" style="border-top: 3px solid var(--hard);">
-        <span class="badge badge-hard">HARD · 11</span>
+        <span class="badge badge-hard">HARD · 15</span>
         <div class="card-title" style="margin-top: var(--space-3);">Blocks until resolved</div>
         <p class="text-secondary">Pipeline stops at the gate. User must answer or the issue must be fixed before continuing. No quiet skips — every block is logged.</p>
       </div>
       <div class="card" style="border-top: 3px solid var(--circuit-breaker);">
-        <span class="badge badge-circuit">CIRCUIT_BREAKER · 3</span>
+        <span class="badge badge-circuit">CIRCUIT_BREAKER · 4</span>
         <div class="card-title" style="margin-top: var(--space-3);">N strikes &amp; halt</div>
         <p class="text-secondary">After N consecutive failures or attempts (typically 2-3), pipeline halts and requires manual intervention. Prevents infinite loops.</p>
       </div>
       <div class="card" style="border-top: 3px solid var(--soft);">
-        <span class="badge badge-soft">SOFT · 5</span>
+        <span class="badge badge-soft">SOFT · 10</span>
         <div class="card-title" style="margin-top: var(--space-3);">Asks &amp; logs</div>
         <p class="text-secondary">Recommended but skippable. Every skip is logged with a confidence penalty. Operators can override; the audit trail records each decision.</p>
       </div>
+      <div class="card" style="border-top: 3px solid var(--soft);">
+        <span class="badge badge-soft">AUDIT · 3</span>
+        <div class="card-title" style="margin-top: var(--space-3);">Telemetry only</div>
+        <p class="text-secondary">Informational (v6.2+) — never blocks, never asks, never penalises confidence. Gives observability events a first-class gate row. Examples: CLARIFICATION_GAPS_DETECTED, ALTERNATIVES_PROPOSED.</p>
+      </div>
     </div>
 
-    <h2 class="section-heading">The 22 gates</h2>
+    <h2 class="section-heading">The core gates</h2>
+
+    <p class="text-secondary" style="margin-bottom: var(--space-4);">The map below shows the original core set across the four blocking hardness classes. The full registry has grown to <strong>35 gates</strong> (3 MANDATORY · 15 HARD · 4 CIRCUIT_BREAKER · 10 SOFT · 3 AUDIT) as spec-pipeline, routing, and clarification gates were added — see <a href="../../references/gates.md" class="text-cyan">references/gates.md</a> for the complete table.</p>
 
     <div class="diagram-container">
       <svg viewBox="0 0 1200 920" xmlns="http://www.w3.org/2000/svg">
@@ -197,7 +204,7 @@
   </div>
 
   <footer>
-    <p>Pipeline Orchestrator v6.0.0 · <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator">GitHub</a> · MIT License</p>
+    <p>Pipeline Orchestrator v7.9.2 · <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator">GitHub</a> · PolyForm Shield 1.0.0</p>
   </footer>
 </body>
 </html>

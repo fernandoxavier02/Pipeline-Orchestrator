@@ -5,6 +5,28 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.9.2] - 2026-06-02 — Documentation refresh (PATCH, docs-only)
+
+Pure documentation pass. Brings the user-facing and reference docs up to the
+features actually shipped through v7.9.1. ZERO changes to runtime code; Iron Law
+preserved (Mandatory Gates table and gate Registry untouched).
+
+### Changed
+
+- **README + diagrams version refresh.** README and `docs/diagrams/` updated from the stale v7.4.0 / v6.0.0 numbers to v7.9.2, including the license correction (MIT → PolyForm Shield 1.0.0) in the diagrams.
+- **Paperclip layer documented end-to-end.** Integration layer (v7.6.0) + company provisioner (v7.8.0) + flow-mirror (v7.9.0) now fully documented, covering the issue-tree mirror, the 8 `paperclip-*` slash commands, the `--on=paperclip` flag, and a new `references/paperclip/PAPERCLIP-FLOW-MIRROR.md`.
+- **Audit-trail run-log section updated to the v7.9.1 model** — `buildRunLogEntry` now derives `total_gates_expected` / `fidelity_score` / `final_decision` (replacing the prior hardcoded-`null` description).
+- **Gate decision vocabulary aligned** to the 8 canonical values (BLOCKED, DISPATCHED, SKIPPED, APPROVED, CONFIRMED, REJECTED, TRIGGERED, NOT_TRIGGERED).
+
+### Fixed
+
+- **Count drift in docs corrected:** gate registry header `22 → 35`, Mandatory Gates table `22 → 23`, test suite count `61`.
+
+### Notes
+
+- Docs-only: ZERO changes to `agents/`, `skills/`, `references/` logic, `commands/`, `hooks/`, `lib/`, or `tests/` (other than the F7 version pin and the F8 prose-count assertion bumped 22→23 to match the corrected `implementation-discipline.md`). Iron Law preserved.
+- Canonical version-sync regression (F7) rolled forward to `7.9.2` (PREV `7.9.1`).
+
 ## [7.9.1] - 2026-06-02 — Telemetry run-log aggregator bugfix (PATCH)
 
 ### Fixed

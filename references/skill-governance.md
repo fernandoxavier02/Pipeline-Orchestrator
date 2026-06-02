@@ -4,7 +4,7 @@
 
 This document is kept **separate from `CLAUDE.md`** so that general engineering rules and skill-specific lifecycle rules live in distinct documents. `CLAUDE.md` carries a short pointer to this file from its top-level table of contents; the operational detail lives here.
 
-This is a governance document — it does **not** add a new gate to the 22-row Mandatory Gates table in `references/gates.md`. Enforcement is structural: contributors and review agents read these rules and emit verdicts via existing checkpoints (`SCOPE_LOCK_CHECK`, `DIFF_DISCIPLINE`, `ARCHITECTURE_REVIEW`, `CHANGE_CONTRACT`).
+This is a governance document — it does **not** add a new gate to the 23-row Mandatory Gates table in `references/gates.md`. Enforcement is structural: contributors and review agents read these rules and emit verdicts via existing checkpoints (`SCOPE_LOCK_CHECK`, `DIFF_DISCIPLINE`, `ARCHITECTURE_REVIEW`, `CHANGE_CONTRACT`).
 
 ---
 

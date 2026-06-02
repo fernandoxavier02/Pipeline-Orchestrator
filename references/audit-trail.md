@@ -40,7 +40,7 @@ Every gate decision MUST be appended to `{PIPELINE_DOC_PATH}/gate-decisions.json
 **Format (one JSON object per line):**
 
 ```jsonl
-{"gate":"INFO_GATE_BLOCKED","hardness":"HARD","phase":0,"decision":"RESOLVED","decided_by":"user","timestamp":"2026-03-29T14:30:00","detail":"2 gaps answered","confidence_impact":0.0}
+{"gate":"INFO_GATE_BLOCKED","hardness":"HARD","phase":0,"decision":"CONFIRMED","decided_by":"user","timestamp":"2026-03-29T14:30:00","detail":"2 gaps answered","confidence_impact":0.0}
 {"gate":"TDD_APPROVAL","hardness":"HARD","phase":2,"decision":"APPROVED","decided_by":"user","timestamp":"2026-03-29T14:45:00","detail":"3 scenarios approved","confidence_impact":0.0}
 {"gate":"ADVERSARIAL_GATE","hardness":"SOFT","phase":2,"decision":"SKIPPED","decided_by":"user","timestamp":"2026-03-29T15:00:00","detail":"user chose to skip batch 1 review","confidence_impact":-0.10}
 ```
@@ -49,7 +49,7 @@ Every gate decision MUST be appended to `{PIPELINE_DOC_PATH}/gate-decisions.json
 - `gate`: Gate name from the Gate Registry (see `references/gates.md`)
 - `hardness`: MANDATORY | HARD | CIRCUIT_BREAKER | SOFT
 - `phase`: Phase number where gate was triggered (0, 1, 1.5, 2, 3)
-- `decision`: RESOLVED | APPROVED | BLOCKED | SKIPPED | STOPPED | FAILED
+- `decision`: BLOCKED | DISPATCHED | SKIPPED | APPROVED | CONFIRMED | REJECTED | TRIGGERED | NOT_TRIGGERED (the canonical 8-value vocabulary enforced at write time by `lib/gate-decision-writer.cjs`; anything outside throws a `TypeError`)
 - `decided_by`: `user` (explicit user response via AskUserQuestion) | `system` (pipeline controller enforced — e.g., MANDATORY gates, CIRCUIT_BREAKER triggers) | `auto` (automatic resolution without user interaction — e.g., info-gate self-answered from code)
 - `timestamp`: ISO 8601
 - `detail`: Human-readable summary
@@ -76,14 +76,14 @@ Every gate decision MUST be appended to `{PIPELINE_DOC_PATH}/gate-decisions.json
 | Vocabulary | Producer | Values | Where it appears |
 |------------|----------|--------|------------------|
 | **Pipeline Verdict** | `final-validator` ONLY | `GO` \| `CONDITIONAL` \| `NO-GO` | Pipeline output FINAL DECISION line; pipeline summary block |
-| **Gate Decision** | Each gate (16+ gates) | `PASS` \| `FAIL` \| `SKIPPED` \| `RESOLVED` \| `APPROVED` \| `BLOCKED` \| `STOPPED` \| `RESET` | `gate-decisions.jsonl` (one per gate trigger); audit trail entries |
+| **Gate Decision** | Each gate (16+ gates) | `BLOCKED` \| `DISPATCHED` \| `SKIPPED` \| `APPROVED` \| `CONFIRMED` \| `REJECTED` \| `TRIGGERED` \| `NOT_TRIGGERED` | `gate-decisions.jsonl` (one per gate trigger); audit trail entries |
 
 ### Cross-reference table
 
 | Producer | Vocabulary | Notes |
 |----------|------------|-------|
 | `task-orchestrator` | n/a (emits ORCHESTRATOR_DECISION YAML, no verdict) | — |
-| `information-gate` | Gate Decision (RESOLVED \| BLOCKED) | Logs to gate-decisions.jsonl |
+| `information-gate` | Gate Decision (CONFIRMED \| BLOCKED) | Logs to gate-decisions.jsonl |
 | `quality-gate-router` | Gate Decision (APPROVED) | TDD_APPROVAL gate |
 | `executor-controller` | Gate Decision (PASS \| FAIL per checkpoint) | CHECKPOINT_FAIL gate |
 | `adversarial-review-coordinator` | Gate Decision (PASS \| BLOCKED) | ADVERSARIAL_BLOCK / ADVERSARIAL_GATE |
@@ -105,14 +105,16 @@ Every gate decision MUST be appended to `{PIPELINE_DOC_PATH}/gate-decisions.json
 
 **Location:** `<repoRoot>/.pipeline/run-log.jsonl`
 
-**Write policy:** ONLY `lib/run-log.cjs` (helper module) appends to this file. The pipeline controller and final-validator are the only call sites authorized to invoke `appendRunLog(...)`. Subagents NEVER write here directly — same single-writer invariant as `gate-decisions.jsonl`. The helper reuses `sanitizeDetail` from `lib/jsonl-sanitizer.cjs` to keep round-trip parsing safe (newlines/tabs stripped, length capped, JSON-serialized strictly).
+**Write policy:** ONLY `lib/run-log.cjs` (helper module) appends to this file via `appendRunLog(...)`. Since v7.1.0 the authorized call site is the `.claude/hooks/stop-hook.cjs` Stop hook, which fires on every session end (including crashes) — this closed the earlier "one line per ~20 runs" aggregate bug. Subagents NEVER write here directly — same single-writer invariant as `gate-decisions.jsonl`. The helper reuses `sanitizeDetail` from `lib/jsonl-sanitizer.cjs` to keep round-trip parsing safe (newlines/tabs stripped, length capped, JSON-serialized strictly).
+
+**Payload builder (v7.9.1):** the per-line payload is assembled by `stop-hook.cjs::buildRunLogEntry(runFolder, repoRoot)` (mirrored byte-identically in the Codex hook). It reads the run's `sentinel-state.json`, `session.json`, `fidelity-report.json`, and `gate-decisions.jsonl` and derives each field as described in the field table below. Missing inputs fall back to `null` (or `UNKNOWN` for `final_decision`) rather than to hardcoded placeholders.
 
 **Read API:** `lib/run-log.cjs` also exposes `readRunLog(repoRoot)` which returns an array of parsed entries (empty array when the file does not exist). Malformed lines are skipped silently — the helper never throws on bad input.
 
 **Format (one JSON object per line, 12 required fields):**
 
 ```jsonl
-{"run_id":"run-2026-05-15-fidelity","timestamp_start":"2026-05-15T13:00:00Z","timestamp_end":"2026-05-15T13:42:00Z","type":"Feature","complexity":"COMPLEXA","variant":"feature-heavy","total_gates_triggered":18,"total_gates_expected":22,"fidelity_score":0.8182,"duration_seconds":2520,"final_decision":"GO","pipeline_doc_path":".pipeline/docs/Pre-Heavy-action/2026-05-15-fidelity-report-and-log/"}
+{"run_id":"run-2026-05-15-fidelity","timestamp_start":"2026-05-15T13:00:00Z","timestamp_end":"2026-05-15T13:42:00Z","type":"Feature","complexity":"COMPLEXA","variant":"feature-heavy","total_gates_triggered":14,"total_gates_expected":17,"fidelity_score":0.824,"duration_seconds":2520,"final_decision":"GO","pipeline_doc_path":".pipeline/docs/Pre-Heavy-action/2026-05-15-fidelity-report-and-log/"}
 ```
 
 **Required fields (in canonical order):**
@@ -122,14 +124,14 @@ Every gate decision MUST be appended to `{PIPELINE_DOC_PATH}/gate-decisions.json
 | `run_id` | string | Unique identifier for the run (typically the pipeline-doc folder slug) |
 | `timestamp_start` | ISO 8601 string | When the controller marked Phase 0 as started |
 | `timestamp_end` | ISO 8601 string | When the controller (or final-validator) emitted PIPELINE COMPLETE |
-| `type` | string | Classification: `Bug Fix` \| `Feature` \| `Spec` \| `Audit` \| `UX Simulation` \| `Adversarial Review` |
-| `complexity` | string | `SIMPLES` \| `MEDIA` \| `COMPLEXA` |
-| `variant` | string | Variant used (e.g., `feature-heavy`, `feature-light`, `bugfix`, `spec-heavy`) |
-| `total_gates_triggered` | number | Count of mandatory gates that actually fired during the run |
-| `total_gates_expected` | number | Count of mandatory gates expected (from the gates-by-complexity table for the chosen complexity, plus Spec (+) when applicable) |
-| `fidelity_score` | number \| null | `total_gates_triggered / total_gates_expected` in [0,1], or `null` when no gate data was found |
-| `duration_seconds` | number | `(timestamp_end - timestamp_start)` in seconds, floored |
-| `final_decision` | string | `GO` \| `CONDITIONAL` \| `NO-GO` (verdict from `final-validator`) — sanitized via `sanitizeDetail` so injected newlines/quotes cannot break JSONL parsing |
+| `type` | string \| null | Classification: `Bug Fix` \| `Feature` \| `Spec` \| `Audit` \| `UX Simulation` \| `Adversarial Review`. `buildRunLogEntry` reads it from `sentinel.orchestrator_decision` first (`.type` then `.task_type`), then the legacy `classification_post_orchestrator` / `classification` shapes, then `session.type`; `null` when none present. |
+| `complexity` | string \| null | `SIMPLES` \| `MEDIA` \| `COMPLEXA`. Same SSOT order as `type`: `sentinel.orchestrator_decision.complexity` → legacy classification → `session.complexity` → `null`. |
+| `variant` | string \| null | Variant used (e.g., `feature-heavy`, `feature-light`, `bugfix`, `spec-heavy`); read from `orchestrator_decision` → legacy classification → session, else `null`. |
+| `total_gates_triggered` | number | Count of lines in the run's `gate-decisions.jsonl` (every gate trigger logged during the run). |
+| `total_gates_expected` | number \| null | Derived by `buildRunLogEntry` from `MANDATORY_GATES_BY_COMPLEXITY` (lazy-loaded from `lib/fidelity-reporter.cjs`): the mandatory-set length for the run's `complexity` (COMPLEXA = 17, MEDIA = 11, SIMPLES = 6), plus the Spec (+) set length when `type === 'Spec'`. `null` when complexity is unknown or the constant cannot be loaded. |
+| `fidelity_score` | number \| null | Read straight from the run's persisted `fidelity-report.json` (`fidelity_score` field); `null` when that file is absent or the value is non-numeric. NOT recomputed by the hook. |
+| `duration_seconds` | number \| null | `floor((timestamp_end - timestamp_start) / 1000)`. A **date-only** `started_at` (matching `YYYY-MM-DD`) has no time component, so the builder returns `null` rather than inflating the duration to UTC-midnight-relative hours. |
+| `final_decision` | string | Resolved by a cascade in `buildRunLogEntry`: `session.status` → `sentinel.final_decision` → tail-scan of `gate-decisions.jsonl` for the last `CLOSEOUT_CONFIRM` / `PA_DE_CAL` entry (mapping `CONFIRMED`/`APPROVED` → `GO`, `BLOCKED`/`REJECTED` → `NO-GO`) → `UNKNOWN` only when none of those resolve. Sanitized via `sanitizeDetail`. |
 | `pipeline_doc_path` | string | Repo-relative path to the run's pipeline-doc folder, so the per-run `gate-decisions.jsonl` and `fidelity-report.*` can be located later |
 
 **Rules:**

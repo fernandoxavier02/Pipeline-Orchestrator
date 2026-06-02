@@ -97,10 +97,10 @@ test('has Bootstrap section mentioning self-applying behavior', () => {
     'expected mention of self-applying behavior');
 });
 
-test('mentions interaction with 22-Gate Mandatory Table', () => {
+test('mentions interaction with 23-Gate Mandatory Table', () => {
   const content = readTarget();
-  assert.ok(/22[\s\-]?Gate.*(Mandatory|Table)|Mandatory.*22[\s\-]?Gate/i.test(content),
-    'expected reference to 22-Gate Mandatory Table interaction');
+  assert.ok(/23[\s\-]?Gate.*(Mandatory|Table)|Mandatory.*23[\s\-]?Gate/i.test(content),
+    'expected reference to 23-Gate Mandatory Table interaction');
 });
 
 test('mentions ADVERSARIAL_BLOCK interaction with max=3 vs max=5', () => {

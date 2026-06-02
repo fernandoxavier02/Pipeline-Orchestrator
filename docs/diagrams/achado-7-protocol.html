@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Achado #7 Protocol · Pipeline Orchestrator v6.0.0</title>
+  <title>Achado #7 Protocol · Pipeline Orchestrator v7.9.2</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -13,7 +13,7 @@
   <nav class="nav">
     <div class="nav-brand">
       <div class="nav-brand-mark">P</div>
-      Pipeline Orchestrator <span class="text-tertiary" style="font-weight:400; font-size:13px;">v6.0.0</span>
+      Pipeline Orchestrator <span class="text-tertiary" style="font-weight:400; font-size:13px;">v7.9.2</span>
     </div>
     <div class="nav-links">
       <a href="index.html">Index</a>
@@ -172,7 +172,7 @@
           <rect x="60" y="580" width="500" height="100" rx="10" fill="rgba(34, 197, 94, 0.1)" stroke="#22C55E" stroke-width="1.5"/>
           <text x="80" y="602" fill="#4ADE80" font-family="Inter" font-size="11" font-weight="700">⑧ DUAL AUDIT WRITE (mandatory)</text>
           <text x="80" y="625" fill="white" font-family="JetBrains Mono" font-size="11">protocol-events.jsonl ← every block + every response</text>
-          <text x="80" y="645" fill="white" font-family="JetBrains Mono" font-size="11">gate-decisions.jsonl ← only registry-22 gates (cross-ref by event_id)</text>
+          <text x="80" y="645" fill="white" font-family="JetBrains Mono" font-size="11">gate-decisions.jsonl ← only registry gates (cross-ref by event_id)</text>
           <text x="80" y="665" fill="#22C55E" font-family="JetBrains Mono" font-size="10" font-weight="600">v6.0.0+: safeAppendJsonl() sanitizes detail field</text>
         </g>
       </svg>
@@ -246,8 +246,8 @@ STATUS: AWAITING_PLAN_MODE_RESULTS</code></pre>
         <p class="text-secondary" style="margin-top:var(--space-3);">The 4-phase flow this protocol supports.</p>
       </a>
       <a href="gate-hierarchy.html" class="card" style="text-decoration:none;color:inherit;">
-        <div class="card-title text-amber">22-Gate Hierarchy →</div>
-        <p class="text-secondary" style="margin-top:var(--space-3);">GATE_REQUESTs that map to canonical 22-gate registry get dual-written.</p>
+        <div class="card-title text-amber">35-Gate Hierarchy →</div>
+        <p class="text-secondary" style="margin-top:var(--space-3);">GATE_REQUESTs that map to the canonical gate registry get dual-written.</p>
       </a>
       <a href="audit-history.html" class="card" style="text-decoration:none;color:inherit;">
         <div class="card-title text-green">Audit History →</div>
@@ -257,7 +257,7 @@ STATUS: AWAITING_PLAN_MODE_RESULTS</code></pre>
   </div>
 
   <footer>
-    <p>Pipeline Orchestrator v6.0.0 · <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator">GitHub</a> · MIT License</p>
+    <p>Pipeline Orchestrator v7.9.2 · <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator">GitHub</a> · PolyForm Shield 1.0.0</p>
   </footer>
 </body>
 </html>

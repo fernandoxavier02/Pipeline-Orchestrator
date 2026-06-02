@@ -104,6 +104,8 @@ The hardness level of each gate is FIXED and does not vary by complexity. What v
 |------|----------|---------|-------|----------|
 | SSOT_CONFLICT | MANDATORY | Always | Always | Always |
 | ADVERSARIAL_GATE_MANDATORY | MANDATORY | If domain touched | If domain touched | If domain touched |
+| STATE_FILE_INIT_FAIL | CIRCUIT_BREAKER | Always | Always | Always |
+| PROTOCOL_HANDSHAKE_TIMEOUT | HARD | If handshake awaited | If handshake awaited | If handshake awaited |
 | INFO_GATE_BLOCKED | HARD | Always | Always | Always |
 | TDD_APPROVAL | HARD | Always | Always | Always |
 | PLAN_REJECTED | HARD | N/A (no plan) | If --plan | Always |

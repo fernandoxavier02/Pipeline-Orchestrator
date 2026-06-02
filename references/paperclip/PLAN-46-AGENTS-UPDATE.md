@@ -4,6 +4,8 @@
 **Owner:** Board (humano) → delegado a pipeline-controller via issue PIP-4
 **Objetivo:** atualizar `desiredSkills` + `instructionsFilePath` dos 46 cargos da empresa Paperclip "Pipeline Orchestrator", **validado por revisao adversarial em loop**, sem corromper config existente.
 
+> **Nota de contagem (2026-06-02):** este plano foi escrito quando o roster tinha 46 cargos — a contagem historica abaixo e preservada de proposito. O roster atual e de **47 cargos** (o provisionador `references/paperclip/scripts/provision-pipeline-company.cjs` e o catalogo `paperclip-catalog.md` ja refletem 47). Os numeros "46" e "43 restantes" nas secoes seguintes sao o estado da epoca do planejamento.
+
 ---
 
 ## 1. Pre-condicoes (estado canonico esperado antes de iniciar)

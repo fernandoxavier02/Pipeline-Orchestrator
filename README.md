@@ -5,7 +5,7 @@
 </div>
 
 <div align="center">
-  <img src="assets/diagrams/hero-banner.svg" alt="Pipeline Orchestrator v7.4.0" width="100%"/>
+  <img src="assets/diagrams/hero-banner.svg" alt="Pipeline Orchestrator v7.9.2" width="100%"/>
 </div>
 
 <h1 align="center">Pipeline Orchestrator</h1>
@@ -13,12 +13,12 @@
 <p align="center"><strong>The governance layer between your spec and your production code — now with first-class observability.</strong></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-7.4.0-7C3AED?style=for-the-badge&logo=git&logoColor=white" alt="Version" />
+  <img src="https://img.shields.io/badge/version-7.9.2-7C3AED?style=for-the-badge&logo=git&logoColor=white" alt="Version" />
   <img src="https://img.shields.io/badge/agents-20-0EA5E9?style=for-the-badge" alt="Agents" />
   <img src="https://img.shields.io/badge/gates-35_(23_mandatory)-22C55E?style=for-the-badge" alt="Gates" />
   <img src="https://img.shields.io/badge/observability-Langfuse_Cloud-FF6B6B?style=for-the-badge&logo=opentelemetry&logoColor=white" alt="Observability" />
   <img src="https://img.shields.io/badge/audit_coverage-95%25-F59E0B?style=for-the-badge" alt="Audit Coverage" />
-  <img src="https://img.shields.io/badge/test_suites-45%2F45-EF4444?style=for-the-badge" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-61%2F61-EF4444?style=for-the-badge" alt="Tests" />
   <img src="https://img.shields.io/badge/platform-Claude_Code_%2B_Cursor-000?style=for-the-badge" alt="Platform" />
   <img src="https://img.shields.io/badge/license-PolyForm_Shield_1.0.0-EC4899?style=for-the-badge" alt="License" />
 </p>
@@ -26,9 +26,10 @@
 <p align="center">
   <a href="#the-problem">The Problem</a> &bull;
   <a href="#how-we-fix-it">How We Fix It</a> &bull;
-  <a href="#whats-new-in-v740">v7.4.0 ✨</a> &bull;
+  <a href="#paperclip-integration">Paperclip ✨</a> &bull;
+  <a href="#whats-new-in-v79">v7.9</a> &bull;
+  <a href="#whats-new-in-v740">v7.4.0</a> &bull;
   <a href="#whats-new-in-v720">v7.2.0</a> &bull;
-  <a href="#whats-new-in-v710">v7.1.0</a> &bull;
   <a href="#workflow-contracts--atdd--bdd--ddd-v610">ATDD · BDD · DDD</a> &bull;
   <a href="#install">Install</a> &bull;
   <a href="#pipeline-types">Pipelines</a> &bull;
@@ -90,7 +91,7 @@ Every batch is reviewed by three parallel agents that never saw what the impleme
 
 The three are spawned in a *single* parent message with three Agent tool calls — guaranteed parallel, guaranteed independent. No sequential contamination, no shared context. Each loads only the checklists it needs. **This is what kills confirmation bias.**
 
-### 4. Gate Hierarchy — 22 mandatory checkpoints with formal hardness types
+### 4. Gate Hierarchy — 23 mandatory checkpoints with formal hardness types
 
 Gates are not ceremonial checkboxes. Each has a defined hardness that determines exactly how it behaves:
 
@@ -102,13 +103,13 @@ Gates are not ceremonial checkboxes. Each has a defined hardness that determines
 | **SOFT** | Recommended but skippable with explicit acknowledgment. Every skip is logged with a confidence penalty. |
 | **AUDIT** (v6.2+) | Informational telemetry. Never blocks, never asks. Used for observability events that need first-class audit-trail entries. |
 
-The full 32-row registry (22 mandatory + 10 contextual/soft) lives in [`references/gates.md`](references/gates.md). The 22-row Mandatory Gates by Complexity table is invariant — pinned by regression test `F1_gates_mandatory_section.cjs`, which fails the build if anyone changes the count.
+The full 35-row registry (23 mandatory + 12 contextual/soft) lives in [`references/gates.md`](references/gates.md). The 23-row Mandatory Gates by Complexity table is invariant — pinned by regression test `F1_gates_mandatory_section.cjs`, which fails the build if anyone changes the count.
 
 ### 5. Glass-Box Audit Trail — Every decision is recorded *and now streamable*
 
 Every pipeline run emits `TRACE.md` + `gate-decisions.jsonl` under `.pipeline-orchestrator/runs/<run-id>/`. Classification, design decisions, plan approval, every gate trigger, every fix loop, every adversarial finding. **Attachable to your PR. Validatable with a standalone Node script. HMAC-signed sentinel state to prevent tampering.** Auditable, reproducible, accountable.
 
-**New in v7.4.0:** every subagent dispatch also streams to <a href="https://langfuse.com">Langfuse Cloud</a> as a structured span (opt-in via two env vars). On-disk JSONL for compliance, Langfuse dashboard for trends — same source of truth, two surfaces. **See <a href="#whats-new-in-v740">v7.4.0 ✨</a> below.**
+**New in v7.4.0:** every subagent dispatch also streams to <a href="https://langfuse.com">Langfuse Cloud</a> as a structured span (opt-in via two env vars). On-disk JSONL for compliance, Langfuse dashboard for trends — same source of truth, two surfaces. **See <a href="#whats-new-in-v79">what's new</a> below.**
 
 ```
 GO:          confidence >= 0.80
@@ -117,6 +118,34 @@ NO-GO:       confidence <  0.60
 ```
 
 No gut feelings. No *"it looks fine to me."* A number, with the gate decisions that produced it.
+
+---
+
+## Paperclip integration
+
+The same governance layer now runs on top of [Paperclip](https://paperclip.ing) — an open-source platform where autonomous agents pick up issues and execute them without a human babysitting each step. Three additive deliveries make this work, and none of them touches the standalone Claude Code path. Everything lives under `references/paperclip/`, fully documented in [`docs/PAPERCLIP-INTEGRATION.md`](docs/PAPERCLIP-INTEGRATION.md).
+
+### Integration layer (v7.6.0) — run the plugin *inside* Paperclip
+
+The `claude_local` adapter lets a Paperclip agent run the exact same workflow contracts the plugin enforces in Claude Code, with effective parity. The layer ships an inviolable axioms doc, six prompt-native workflow specs (Bug Fix / Feature / Audit / UX / Spec / Adversarial), an operational knowledge base, a catalog mapping every plugin agent to a Paperclip role, and **11 custom skills** in Paperclip's native format (a canonical `engineering-principles` skill plus ten `pipeline-orchestrator-*` wrappers). End-to-end pilot verdict: `PASS_WITH_NOTES`.
+
+### Company provisioner (v7.8.0) — stand up the whole roster in one shot
+
+`references/paperclip/scripts/provision-pipeline-company.cjs` stands up a Paperclip company with the full 47-cargo pipeline-orchestrator roster and attaches the right custom skills per role. It is ID-agnostic — it finds (or creates) the company by name, captures agent IDs at runtime to wire the org chart, and computes every path relative to itself, so it runs against any Paperclip instance with no hardcoded UUIDs. Agents are created with heartbeat OFF — inert until an issue is assigned, so provisioning never kicks off autonomous work by accident. Wired into the [`/pipeline-orchestrator:setup-paperclip`](commands/setup-paperclip.md) command.
+
+### Flow-mirror (v7.9.0) — dispatch a whole pipeline as an issue tree
+
+The flow-mirror reproduces all **14 pipeline flows** as a dependency-linked **tree of Paperclip issues**: each node blocks the next via `blockedByIssueIds`, so once the root is created the remote agents grow the tree in cascade with no manual handoff between steps. It ships **8 slash commands** — `/pipeline-orchestrator:paperclip-bugfix`, `-feature`, `-user-story`, `-audit`, `-ux`, `-spec`, `-hotfix`, and `-review` — each of which classifies the task locally, builds the tree in **dry-run** first, shows it to you, and only creates anything in Paperclip **after explicit confirmation**. The same dispatch is also reachable from the main pipeline via the `--on=paperclip` flag. The dry-run-then-confirm guard means no card is ever created on the server without you saying yes.
+
+---
+
+## What's New in v7.9
+
+**Paperclip, end to end.** The headline of the 7.9 line is the [Paperclip integration](#paperclip-integration) above. The flow-mirror (v7.9.0) turns any of the 14 pipeline flows into a dependency-linked tree of Paperclip issues via **8 new slash commands**, each gated by a dry-run-then-confirm guard so nothing is created on the server without your yes. It builds on the company provisioner (v7.8.0) and the integration layer (v7.6.0).
+
+**Telemetry that tells the truth (v7.9.1).** The per-session run-log aggregator had four defects that made summaries come out null or wrong — classification read from the wrong field, date-only timestamps inflating duration to hours, hardcoded gate/fidelity counts, and `final_decision` collapsing to `UNKNOWN`. All four fixed: `buildRunLogEntry` now derives the gate count from the mandatory-gates table and the fidelity score from the run's own report. New regression test, full suite green.
+
+**Documentation refresh (v7.9.2).** This release brings every user-facing and reference doc up to date — README and diagrams (including a license fix), the full Paperclip layer documented in prose, the audit-trail run-log section rewritten to the v7.9.1 model, gate decision vocabulary aligned to the 8 canonical values, and count drift corrected (`35-gate registry`, `23-row mandatory table`, `61 tests`).
 
 ---
 
@@ -460,7 +489,7 @@ Full agent registry: [`references/team-registry.md`](references/team-registry.md
 ## Gate System
 
 <div align="center">
-  <img src="assets/diagrams/gate-system-animated.svg" alt="22-gate hardness taxonomy" width="100%"/>
+  <img src="assets/diagrams/gate-system-animated.svg" alt="35-gate hardness taxonomy" width="100%"/>
 </div>
 
 Every phase transition crosses at least one gate. Each gate has a defined hardness that determines whether it blocks, asks, or merely advises.
@@ -489,7 +518,7 @@ Full registry in [`references/gates.md`](references/gates.md). Audit-trail invar
 | **Security libs** (v6.0.0+) | `sentinel-state-signer`, `jsonl-sanitizer`, `pipeline-local-parser`, `codex-operational-runtime` (`lib/`) |
 | **Observability libs** (v7.4.0) | `langfuse-client.cjs`, `langfuse-carrier.cjs`, `langfuse-sanitizer.cjs` (`lib/`) — credential-gated SDK wrapper, atomic span-carrier, prompt sanitizer |
 | **References (SSOT)** | `gates.md`, `gate-request-protocol.md`, `audit-trail.md`, `confidence.md`, `complexity-matrix.md`, `implementation-discipline.md` (v6.3.0), `skill-governance.md` (v7.4.0), `stale-thresholds.md`, `glossary.md` (`references/`) |
-| **Tests** | 45 test suites: 39 regression tests in `tests/regression/v6.0.0`, 19 in `v6.1.0`/`v6.2.0`, 8 in `v6.3.0` (F8-F15), 7 in `v7.1.0` (F1-F7 telemetry hygiene), Phase 0 hardening contract tests in `v7.2.0`, F1/F7 lockstep + Cursor-parity invariants in `v7.4.0`, 8 hook test suites in `.claude/hooks/__tests__/` |
+| **Tests** | 61 test suites spanning `tests/regression/v6.0.0` through `v7.9.0` (telemetry hygiene, Phase 0 hardening, concurrent-safe tracing, Paperclip flow-mirror) plus the F13 run-log defect suite (v7.9.1) and the hook test suites in `.claude/hooks/__tests__/` |
 | **Audit Reports** | `docs/audits/2026-05-15-ifrs16-deep-audit/` (10 files), `docs/audits/2026-05-18-clarification-overhaul-dogfood/` |
 
 ### Bonus: standalone HTML diagrams
@@ -557,15 +586,17 @@ v6.2.0 added a dogfood audit at [`docs/audits/2026-05-18-clarification-overhaul-
 
 ## Tests
 
-45 test suites total — all PASS:
+61 test suites total — all PASS:
 
 ```
 tests/regression/v6.0.0/         13 suites · Achado #7 protocol + libs + stale thresholds
 tests/regression/v6.1.0/          5 suites · ATDD + BDD + DDD + cross-cutting docs + F1 gates
 tests/regression/v6.2.0/          5 suites · Clarification overhaul + alternatives
 tests/regression/v6.3.0/          8 suites · F8-F15 implementation discipline layer
-tests/regression/v7.1.0/          7 suites · F1-F7 telemetry hygiene + F1 Cursor-parity + F7 v7.4.0 lockstep
+tests/regression/v7.1.0/          7 suites · F1-F7 telemetry hygiene + F1 Cursor-parity + F7 lockstep
 tests/regression/v7.2.0/          3 suites · Phase 0 hardening contract tests
+tests/regression/v7.5.0/          5 suites · F1-F5 concurrent-safe tracing (run-directory race, carriers, scope)
+tests/regression/v7.9.0/          F13 run-log entry defects (15 scenarios) + Paperclip flow-mirror
 .claude/hooks/__tests__/         12 suites · sentinel + dispatch-guard + scope-lock + cleanup-orphan + langfuse + ...
 ```
 
@@ -575,7 +606,7 @@ Run the full suite:
 npm test
 ```
 
-Result: **45 passed / 0 failed / 45 total**. Zero regressions across versions.
+Result: **61 passed / 0 failed / 61 total**. Zero regressions across versions.
 
 ---
 
@@ -591,6 +622,13 @@ v7.1.0 (2026-05-19) — MINOR — Telemetry hygiene: canonical writer SSOT + Sto
 v7.1.1 (2026-05-21) — PATCH — Pipeline-overview HTML diagram enrichment (docs only)
 v7.2.0 (2026-05-21) — MINOR — Phase 0 hardening: 3 new gates (STATE_FILE_INIT_FAIL, PROTOCOL_HANDSHAKE_TIMEOUT, STRICT_SPEC_REJECTION) + cleanup-orphan hook
 v7.4.0 (2026-05-21) — MINOR — Langfuse Cloud observability + skills-patterns adoption + Cursor IDE parity
+v7.5.0 (2026-05-22) — MINOR — Concurrent-safe tracing: exclusive run-directory allocation + runId-keyed carriers + scope policy
+v7.6.0 (2026-05-22) — MINOR — Paperclip integration layer (claude_local adapter) + User Score Collection
+v7.6.1 (2026-05-24) — PATCH — Release hygiene closure (doc drift, zero runtime changes)
+v7.7.0 (2026-05-25) — MINOR — OpenCode adaptation marketplace release
+v7.8.0 (2026-05-26) — MINOR — Paperclip company provisioner (47-cargo roster, ID-agnostic)
+v7.9.0 (2026-06-01) — MINOR — Paperclip flow-mirror: 14 flows as an issue tree + 8 paperclip-* slash commands + --on=paperclip
+v7.9.1 (2026-06-02) — PATCH — Telemetry run-log aggregator bugfix (buildRunLogEntry: 4 defects)
 ```
 
 Full lineage in [`CLAUDE.md`](CLAUDE.md). Tagged releases on GitHub. Marketplace updates within minutes of tag.
@@ -618,7 +656,7 @@ Contributions welcome. This is an active project with a strong audit culture.
 
 1. Read the [audit reports](docs/audits/2026-05-15-ifrs16-deep-audit/INDEX.md) to understand the architectural decisions.
 2. Pick an issue from the backlog or open a new one.
-3. Every code change must pass the regression suite (`npm test` → 38/38 PASS).
+3. Every code change must pass the regression suite (`npm test` → 61/61 PASS).
 4. New subagents must declare the **ACHADO #7 RUNTIME PROTOCOL** section.
 5. New gates must be added to `references/gates.md` registry AND `commands/pipeline.md` Inline Invariants AND covered by a runtime test.
 6. New plans (v6.3.0+) must declare `CHANGE_CONTRACT` with `bootstrap.active: false` — the bootstrap flag is locked by `F15_bootstrap_lock_invariant.cjs`.
@@ -680,7 +718,7 @@ To report a suspected attribution or trademark violation, open an [issue](https:
 ---
 
 <div align="center">
-  <p><strong>Pipeline Orchestrator v7.4.0</strong> · 2026-05-21</p>
+  <p><strong>Pipeline Orchestrator v7.9.2</strong> · 2026-06-02</p>
   <p>Built by <a href="https://github.com/fernandoxavier02">FX Studio AI</a> · <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator">Source on GitHub</a> · <a href="https://github.com/sponsors/fernandoxavier02">Sponsor</a></p>
   <p>Observability powered by <a href="https://langfuse.com"><img src="https://langfuse.com/langfuse_logo.svg" alt="Langfuse" height="16" style="vertical-align: middle;"/></a> · Available on <strong>Claude Code</strong> + <strong>Cursor</strong></p>
   <p><em>"AI follows a contract, not its mood — and now you can watch it do so in real time."</em></p>
