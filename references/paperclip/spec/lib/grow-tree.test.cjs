@@ -410,3 +410,135 @@ test('T-CLI-55: grow-tree CLI — nextStep no output é o step CRIADO (não o se
     `nextStep deve ser o step criado (classificar) para prevenir double-advance, mas recebeu "${parsed.nextStep}"`,
   );
 });
+
+// ─── T-CLI-56: hotfix ponta a ponta — junção fan-in via stepMap do CLI ────────
+
+test('T-CLI-56: grow-tree CLI — hotfix ponta a ponta: percorre todos os nós incluindo junção HF-N9 via stepMap (fan-in real)', async () => {
+  // Este teste prova que o caminho real do CLI consegue criar a junção HF-N9-juncao
+  // usando o stepMap retornado pela chamada do grupo paralelo (HF-N6/7/8).
+  // Antes da correção, runCli nunca passava stepToIssueIdMap a growSpine,
+  // causando "Fan-in incompleto bloqueado" em TODOS os templates com paralelo.
+  let idCounter = 0;
+  const transport = {
+    calls: [],
+    async request({ method, path, body }) {
+      this.calls.push({ method, path, body });
+      if (method === 'GET') return { status: 200, data: HOTFIX_FULL_ROSTER };
+      idCounter += 1;
+      return { status: 201, data: { id: `HF-${String(idCounter).padStart(3, '0')}` } };
+    },
+  };
+
+  const allCreatedSteps = [];
+  let currentStepArg = null;
+  let prevIssueIdArg = null;
+  let stepMapArg = null;  // JSON string do stepMap — necessário quando junção segue paralelos
+
+  // hotfix tem 12 nós: percorrer todos sem deixar nenhum para trás
+  for (let i = 0; i < 15; i++) {
+    const args = ['PIP-CO', 'hotfix'];
+    if (currentStepArg) args.push(currentStepArg);
+    if (prevIssueIdArg) args.push(prevIssueIdArg);
+    // 5º argumento: stepMap JSON para fan-in de junção (só quando vem de grupo paralelo)
+    if (stepMapArg) args.push(stepMapArg);
+
+    const output = await runCli({ args, transport, confirm: true });
+    assert.strictEqual(
+      output.exitCode,
+      0,
+      `Step ${i} (currentStep=${currentStepArg}): exitCode deve ser 0. stderr: ${output.stderr}`,
+    );
+
+    const parsed = parseJson(output.stdout);
+
+    // Fim de cadeia: nextStep null sem issueId
+    if (parsed.nextStep === null && !parsed.issueId) break;
+
+    // Coletar steps criados
+    const steps = Array.isArray(parsed.step) ? parsed.step : [parsed.step];
+    allCreatedSteps.push(...steps);
+
+    // Extrair issueId para o próximo prevIssueId (usar primeiro do grupo paralelo)
+    prevIssueIdArg = Array.isArray(parsed.issueIds) && parsed.issueIds.length > 0
+      ? parsed.issueIds[0]
+      : parsed.issueId;
+
+    // Propagar stepMap para a próxima chamada SE a chamada atual criou paralelos
+    stepMapArg = parsed.stepMap ? JSON.stringify(parsed.stepMap) : null;
+
+    // Contrato sem double-advance: próximo currentStep = step criado nesta chamada
+    currentStepArg = parsed.nextStep;
+
+    if (!parsed.nextStep) break;
+  }
+
+  // Verificar que a junção HF-N9-juncao foi criada (prova que fan-in funcionou)
+  assert.ok(
+    allCreatedSteps.includes('HF-N9-juncao'),
+    `Junção HF-N9-juncao deve ter sido criada. Steps criados: ${allCreatedSteps.join('→')}`,
+  );
+
+  // Verificar que o fluxo completo foi percorrido (12 nós: HF-N0 a HF-N11)
+  assert.strictEqual(
+    allCreatedSteps.length,
+    12,
+    `hotfix deve criar 12 nós, criou ${allCreatedSteps.length}: ${allCreatedSteps.join('→')}`,
+  );
+
+  // Verificar que o trio adversarial foi criado (3 irmãos)
+  assert.ok(allCreatedSteps.includes('HF-N6-adv-sec'), 'HF-N6-adv-sec deve ter sido criado');
+  assert.ok(allCreatedSteps.includes('HF-N7-adv-arch'), 'HF-N7-adv-arch deve ter sido criado');
+  assert.ok(allCreatedSteps.includes('HF-N8-adv-qual'), 'HF-N8-adv-qual deve ter sido criado');
+});
+
+// ─── T-CLI-57: dry-run mostra todos os nós paralelos ─────────────────────────
+
+test('T-CLI-57: grow-tree CLI — dry-run: grupo paralelo mostra steps[] com 3 irmãos (não apenas 1)', async () => {
+  // Antes da correção, dry-run usava nodeSpec single-node e mostrava 1 nó
+  // mesmo quando --confirm criaria 3. Este teste prova a fidelidade do preview.
+  const transport = makeFakeTransport({ rosterAgents: HOTFIX_FULL_ROSTER });
+  // Avançar até HF-N5-review para que o próximo nó seja o grupo paralelo
+  const output = await runCli({
+    args: ['PIP-CO', 'hotfix', 'HF-N5-review', 'PREV-HF-N5'],
+    transport,
+    confirm: false,  // dry-run
+  });
+
+  assert.strictEqual(output.exitCode, 0, `exitCode deve ser 0. stderr: ${output.stderr}`);
+  const parsed = parseJson(output.stdout);
+
+  // O preview deve mostrar o array de steps paralelos (não um único step)
+  const steps = parsed.steps || (Array.isArray(parsed.step) ? parsed.step : null);
+  assert.ok(
+    Array.isArray(steps),
+    `dry-run para grupo paralelo deve retornar steps[] como array, recebeu: ${JSON.stringify(parsed.step)}`,
+  );
+  assert.strictEqual(
+    steps.length,
+    3,
+    `dry-run deve antecipar 3 issues (trio adversarial), anunciou ${steps.length}: ${JSON.stringify(steps)}`,
+  );
+  assert.ok(steps.includes('HF-N6-adv-sec'), 'dry-run deve incluir HF-N6-adv-sec');
+  assert.ok(steps.includes('HF-N7-adv-arch'), 'dry-run deve incluir HF-N7-adv-arch');
+  assert.ok(steps.includes('HF-N8-adv-qual'), 'dry-run deve incluir HF-N8-adv-qual');
+  // Nenhum POST deve ter ocorrido (invariante C1)
+  const postCalls = transport.calls.filter((c) => c.method === 'POST');
+  assert.strictEqual(postCalls.length, 0, 'dry-run não deve fazer nenhum POST');
+});
+
+// ─── T-CLI-58: stepMapJson inválido → exitCode 1 ─────────────────────────────
+
+test('T-CLI-58: grow-tree CLI — stepMapJson inválido (não-JSON) retorna exitCode 1 com mensagem descritiva', async () => {
+  const transport = makeFakeTransport({ rosterAgents: HOTFIX_FULL_ROSTER });
+  const output = await runCli({
+    args: ['PIP-CO', 'hotfix', 'HF-N6-adv-sec', 'PREV', 'NAO-E-JSON-VALIDO'],
+    transport,
+    confirm: true,
+  });
+  assert.strictEqual(output.exitCode, 1, 'exitCode deve ser 1 para stepMapJson inválido');
+  assert.ok(output.stderr.length > 0, 'stderr deve conter mensagem de erro');
+  assert.ok(
+    output.stderr.includes('stepMapJson'),
+    `stderr deve mencionar "stepMapJson". Recebido: "${output.stderr}"`,
+  );
+});
