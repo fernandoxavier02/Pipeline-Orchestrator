@@ -331,7 +331,7 @@ notes: <ClassifyResult.notes + any ignored flags>
 ```
 
 **Invariants:**
-- `assigneeAgentId` in the root card is always `pipeline-controller` (the `classificar` step role in both SIMPLES and COMPLEXA templates — see `references/paperclip/spec/lib/tree-factory.cjs`).
+- `assigneeAgentId` in the root card is always `task-orchestrator` (the canonical `classificar` step role in all templates — SIMPLES, MEDIA, and COMPLEXA — see `references/paperclip/spec/lib/tree-template.cjs`). `pipeline-controller` is the N1 dispatcher (emits `DISPATCH_REQUEST`), not the classifier (which emits `ORCHESTRATOR_DECISION`). See `references/paperclip/paperclip-catalog.md` line 30.
 - No local agents are spawned (no PIPELINE_DOC_PATH, no sentinel-state.json, no gate-decisions.jsonl).
 - `tree-factory-io.cjs` (actual Paperclip API calls) is NOT invoked here — it belongs to Group B (operation layer, a future step).
 - `mode` field in the payload is `PAPERCLIP` — distinct from FULL / HOTFIX / REVIEW-ONLY / DIAGNOSTIC / CONTINUE.
