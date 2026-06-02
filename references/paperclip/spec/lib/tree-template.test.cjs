@@ -22,8 +22,11 @@ test('SIMPLES tem 5 nós na ordem certa', () => {
 test('SIMPLES — cada nó declara role + blocks + next; receita exata do design', () => {
   const byStep = Object.fromEntries(TEMPLATES.SIMPLES.map((n) => [n.step, n]));
 
+  // CORREÇÃO G6: cargo canônico de classificar é task-orchestrator (emite ORCHESTRATOR_DECISION).
+  // pipeline-controller é o dispatcher (emite DISPATCH_REQUEST), não o classificador.
+  // Referência: paperclip-catalog.md linha 30, buildFeatureLight/buildFeatureHeavy role='task-orchestrator'.
   assert.deepStrictEqual(byStep.classificar, {
-    step: 'classificar', role: 'pipeline-controller',
+    step: 'classificar', role: 'task-orchestrator',
     blocks: ['ORCHESTRATOR_DECISION'], blockedBy: null, next: 'clarificar',
   });
   assert.deepStrictEqual(byStep.clarificar, {
@@ -178,6 +181,28 @@ test('T-03 Backward-compat COMPLEXA — acessível como array com 7 nós origina
   const steps = TEMPLATES.COMPLEXA.map((n) => n.step);
   for (const s of ['classificar', 'clarificar', 'planejar', 'aprovar', 'implementar', 'revisar', 'fechar']) {
     assert.ok(steps.includes(s), `COMPLEXA deve conter step "${s}"`);
+  }
+});
+
+// T-03b: MEDIA — alias adicionado em G6 adversarial review (complexidade intermediária).
+// MEDIA tem 6 nós: classificar → clarificar → planejar → implementar → revisar → fechar.
+// Sem etapa 'aprovar' (só COMPLEXA exige aprovação); com 'planejar' pois MEDIA auto-triggera plan-architect.
+// Verifica: (a) é array acessível, (b) tem os 6 steps canônicos, (c) classificar usa task-orchestrator.
+test('T-03b MEDIA — alias acessível com 6 nós e classificar atribuído a task-orchestrator', () => {
+  assert.ok(Array.isArray(TEMPLATES.MEDIA), 'MEDIA deve ser array');
+  assert.strictEqual(TEMPLATES.MEDIA.length, 6, 'MEDIA deve ter 6 nós');
+  const steps = TEMPLATES.MEDIA.map((n) => n.step);
+  for (const s of ['classificar', 'clarificar', 'planejar', 'implementar', 'revisar', 'fechar']) {
+    assert.ok(steps.includes(s), `MEDIA deve conter step "${s}"`);
+  }
+  assert.ok(!steps.includes('aprovar'), 'MEDIA não deve conter step "aprovar" (só COMPLEXA exige aprovação)');
+  const classificar = TEMPLATES.MEDIA.find((n) => n.step === 'classificar');
+  assert.strictEqual(classificar.role, 'task-orchestrator',
+    'classificar em MEDIA deve ser task-orchestrator (emite ORCHESTRATOR_DECISION)');
+  // campos obrigatórios em todos os nós
+  for (const node of TEMPLATES.MEDIA) {
+    assert.ok('step' in node && 'role' in node && 'blocks' in node && 'blockedBy' in node && 'next' in node,
+      `nó ${node.step} de MEDIA deve ter os 5 campos`);
   }
 });
 
