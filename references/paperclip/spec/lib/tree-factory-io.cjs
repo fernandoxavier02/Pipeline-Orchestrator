@@ -121,6 +121,20 @@ async function createIssue(transport, companyId, payload) {
     );
   }
 
+  // Invariante verification-before-claim (invariante 11 do projeto):
+  // Nunca declarar sucesso sem confirmar que o id foi retornado.
+  // Se a API responde 201 mas o corpo não tem "id" (corpo vazio, drift de contrato
+  // onde o id vem sob outra chave como "issueId"), lançar explicitamente.
+  // Isso previne que undefined/null seja enfileirado em createdIssueIds e propagado
+  // como blocker corrompido para chamadas subsequentes.
+  if (!data || data.id === undefined || data.id === null) {
+    throw new Error(
+      `tree-factory-io/createIssue: API retornou 201 mas o campo "id" está ausente no corpo. ` +
+      `Path: ${path}. Resposta: ${JSON.stringify(data)}. ` +
+      `Possível drift de contrato — verifique se a API mudou o nome do campo.`,
+    );
+  }
+
   return data.id;
 }
 

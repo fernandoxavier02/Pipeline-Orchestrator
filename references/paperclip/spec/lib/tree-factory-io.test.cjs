@@ -284,6 +284,55 @@ test('T-IO-20: createIssue — assertSafeId é chamado para agentId antes do POS
   assert.strictEqual(transport.calls.filter((c) => c.method === 'POST').length, 0);
 });
 
+// ─── GRUPO 4b: createIssue — 201 sem id (invariante verification-before-claim) ─
+
+test('T-IO-21a: createIssue — status 201 com body vazio ({}) lança Error (verificação de id ausente)', async () => {
+  // Reproduz o cenário descrito no achado adversarial: o Paperclip responde
+  // POST com 201 mas o corpo não tem o campo "id" (corpo vazio ou drift de
+  // contrato). Antes da correção, createIssue retornava undefined silenciosamente.
+  // Após a correção, deve lançar um Error descritivo.
+  const transport = makeFakeTransport({ alwaysStatus: 201, alwaysData: {} });
+  const payload = {
+    title: '[SIMPLES] classificar',
+    description: 'corpo',
+    assigneeAgentId: 'uuid-pc-real',
+    blockedByIssueIds: [],
+  };
+  await assert.rejects(
+    () => createIssue(transport, 'PIP-CO', payload),
+    (err) => err instanceof Error && err.message.length > 0,
+    'createIssue deve rejeitar quando status=201 mas data.id está ausente',
+  );
+});
+
+test('T-IO-21b: createIssue — status 201 com body { issueId: "X" } (drift de contrato) lança Error descritivo', async () => {
+  // Drift de contrato: a API real muda o nome do campo de "id" para "issueId".
+  // O contrato spec exige o campo "id" — outro nome é tratado como ausente.
+  const transport = makeFakeTransport({ alwaysStatus: 201, alwaysData: { issueId: 'DRIFT-ID' } });
+  const payload = {
+    title: '[SIMPLES] classificar',
+    description: 'corpo',
+    assigneeAgentId: 'uuid-pc-real',
+    blockedByIssueIds: [],
+  };
+  await assert.rejects(
+    () => createIssue(transport, 'PIP-CO', payload),
+    (err) => err instanceof Error && err.message.length > 0,
+    'createIssue deve rejeitar quando data.id está ausente (mesmo que data.issueId exista)',
+  );
+});
+
+test('T-IO-21c: growSpine — transport retorna 201 sem id propaga Error (não enfileira undefined em createdIssueIds)', async () => {
+  // Prova que o guard em createIssue previne que growSpine enfileire undefined/null
+  // em createdIssueIds — efeito em cadeia documentado no achado.
+  const transport = makeFakeTransport({ alwaysStatus: 201, alwaysData: {} });
+  await assert.rejects(
+    () => growSpine(transport, 'PIP-CO', 'SIMPLES', null, null, SAMPLE_ROSTER),
+    (err) => err instanceof Error,
+    'growSpine deve rejeitar quando createIssue não consegue confirmar o id',
+  );
+});
+
 // ─── GRUPO 5: growSpine ───────────────────────────────────────────────────────
 // growSpine(transport, companyId, complexity, type, agentsById)
 // Percorre o template criando a espinha progressivamente via createIssue.
