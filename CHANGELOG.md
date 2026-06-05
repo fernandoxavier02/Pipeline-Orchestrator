@@ -5,6 +5,65 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.9.3] - 2026-06-05 — Telemetry recording fixes + Langfuse project isolation (PATCH)
+
+Three telemetry recording bugs fixed via a dogfooded pipeline run (Bug Fix / MEDIA /
+bugfix-light, 3 batches, TDD RED→GREEN, per-batch reviews, Pa de Cal GO), plus the
+in-flight Langfuse project-isolation work (F14) shipped in the same window.
+
+### Fixed
+- **Run-log duplication** (`.claude/hooks/stop-hook.cjs` + codex mirror): new exported
+  pure guard `shouldAppendRunLogEntry(candidate, existingEntries, sentinel)` consulted in
+  `handleStop` before `appendRunLog`. Compares only the 8 material fields (`type`,
+  `complexity`, `variant`, `total_gates_triggered`, `total_gates_expected`,
+  `fidelity_score`, `final_decision`, `pipeline_doc_path`) against the most-recent
+  same-run entry; timestamps/duration excluded by design. Materially identical → skip
+  with stderr breadcrumb; first entry or material change → append; any guard error →
+  fall through to append (soft-fail). Kills the one-entry-per-session-teardown pile-up
+  (a single May 31 run had accumulated 30 near-identical lines). Tests: F15 (7
+  scenarios) in `tests/regression/v7.9.3/`.
+- **fidelity_score always null** (`.claude/hooks/stop-hook.cjs` + mirror): new exported
+  `ensureFidelityReport(runFolder, repoRoot, sentinel)` runs in `handleStop` BEFORE
+  `buildRunLogEntry` — generates `fidelity-report.json` idempotently (skip if report
+  exists; skip silently if `gate-decisions.jsonl` absent; lazy-require of
+  `lib/fidelity-reporter.cjs` via plugin root; total soft-fail). New shared helper
+  `readClassification(sentinel)` extracted from the D2 cascade (byte-equivalent
+  precedence `orchestrator_decision.* > classification_* > session.*`). Run-log entries
+  now carry a numeric `fidelity_score`. Tests: F16 (6 scenarios).
+- **Langfuse traces with empty metadata / "unknown" spans / fragmented runs**
+  (`.claude/hooks/langfuse-hook.cjs` + mirror, `lib/langfuse-carrier.cjs`): (1) new
+  `readSentinelData()` discovery with `PIPELINE_DOC_PATH` > `PIPELINE_RUN_ID` match >
+  cwd-mtime precedence (SEC-2 containment preserved; `readSentinelPhase` is now a thin
+  wrapper); (2) new `buildTraceMetadata(sentinel)` enriches trace AND span metadata with
+  `run_id`/`type`/`complexity`/`phase`/`pipeline_doc_path`/`plugin_version` — explicit
+  field copy routed through the sanitizer; (3) new `resolveSpanName(payload)` replaces
+  the `'unknown'` span-name fallback with readable names (subagent_type > truncated
+  description > tool name) + a `SPAN_NAME_FALLBACK` audit breadcrumb; (4) carrier
+  `_resolveKey` gains a stable doc-path-derived key tier (`doc-<sha256-12>`) between
+  sessionId and ppid, with `CARRIER_DOCPATH_FALLBACK` audit — agents of the same run
+  now share one trace even when `PIPELINE_RUN_ID`/`CLAUDE_SESSION_ID` are absent (kills
+  cross-session trace fragmentation). `_resolveKey` is now exported for test coverage.
+  Tests: F17 (8 scenarios incl. no-secret-leak and mirror parity).
+
+### Added
+- **Langfuse project isolation (F14, in-flight work landed this release)**:
+  `lib/langfuse-client.cjs` resolves credentials from the plugin's own `.env` before
+  the process environment, pinning plugin traces to the `pipeline-orchestrator`
+  Langfuse project even when the host session carries other-project keys; emits
+  `LANGFUSE_PROJECT_ISOLATION_VIOLATION` audit when a foreign key is detected.
+  Tests: F14 (4 scenarios) in `tests/regression/v7.9.3/`.
+
+### Invariants
+- Codex mirrors byte-identical (sha256-verified pairs: stop-hook, langfuse-hook).
+- Iron Law preserved: `references/gates.md` untouched (23-row Mandatory table + 35-row
+  Registry intact, F1 green); no new dependencies; no test weakening; hooks keep the
+  exit-0 soft-fail contract.
+- Suite: all run targets green (F13 15/15, F15 7/7, F16 6/6, F17 8/8, F12 7/7, F5
+  10/10, carriers 9/9 + 6/6). Remaining suite reds are the pre-existing in-flight
+  baseline (F8-S6, F9 ×4, F10-S8, F2-vendoring, F2-score-writer-S3a), proven unrelated
+  via git-stash A/B arbitration recorded in the run's audit trail.
+- Audit trail: `.pipeline/docs/Pre-Medium-action/2026-06-05-fix-telemetry-3bugs/`.
+
 ## [7.9.2] - 2026-06-02 — Documentation refresh (PATCH, docs-only)
 
 Pure documentation pass. Brings the user-facing and reference docs up to the
