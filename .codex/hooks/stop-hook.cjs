@@ -200,6 +200,75 @@ function readTailLines(filePath, n) {
 }
 
 /**
+ * Read classification (type/complexity/variant) from a sentinel object.
+ *
+ * SSOT for the sentinel-derived part of the D2 classification cascade:
+ *   orchestrator_decision.* > classification_post_orchestrator/classification.*
+ * The session.* fallback is applied by the CALLER on top of this result, so
+ * the full precedence stays od.* > cl.* > session.* exactly as before.
+ *
+ * Pure: no fs, no I/O. Returns nulls when nothing is found.
+ */
+function readClassification(sentinel) {
+  const s = sentinel || {};
+  const od = s.orchestrator_decision || {};
+  const cl = s.classification_post_orchestrator || s.classification || {};
+  const type = od.type || od.task_type || cl.type || null;
+  const complexity = od.complexity || cl.complexity || null;
+  const variant = od.pipeline_variant || od.variant || cl.pipeline_variant || cl.variant || null;
+  return { type, complexity, variant };
+}
+
+/**
+ * v7.9.3 BUG 2 — generate the per-run fidelity-report.json idempotently at
+ * session teardown, BEFORE buildRunLogEntry reads it, so the run-log entry
+ * carries a numeric fidelity_score instead of the historical null. The report
+ * was previously only generated from Step 3d of the pipeline-controller — a
+ * path that almost never completes.
+ *
+ * Contract (mirrors tests/regression/v7.9.3/F16):
+ *   - idempotent: if fidelity-report.json already exists, do nothing.
+ *   - gated: if gate-decisions.jsonl is absent, skip silently, create nothing.
+ *   - soft-fail: ANY error is caught + warned, never thrown — teardown reaches
+ *     exit 0. generateFidelityReport itself returns { ok:false, error } on bad
+ *     input (e.g. invalid complexity) rather than throwing; we just warn.
+ *
+ * The reporter is lazy-required via the hook's own PLUGIN_ROOT_STOP (NOT the
+ * payload cwd), matching the run-log + MANDATORY_GATES require pattern.
+ */
+function ensureFidelityReport(runFolder, repoRoot, sentinel) {
+  try {
+    const reportPath = path.join(runFolder, 'fidelity-report.json');
+    if (fs.existsSync(reportPath)) return; // idempotent — never overwrite
+
+    const gdPath = path.join(runFolder, 'gate-decisions.jsonl');
+    if (!fs.existsSync(gdPath)) return; // no gate data — skip, create nothing
+
+    const { type, complexity } = readClassification(sentinel);
+
+    const fidelityReporterPath = path.join(PLUGIN_ROOT_STOP, 'lib', 'fidelity-reporter.cjs');
+    if (!fs.existsSync(fidelityReporterPath)) return;
+    let generateFidelityReport;
+    // eslint-disable-next-line global-require
+    try { ({ generateFidelityReport } = require(fidelityReporterPath)); } catch (_e) { return; }
+    if (typeof generateFidelityReport !== 'function') return;
+
+    const res = generateFidelityReport({
+      pipelineDocPath: runFolder,
+      complexity,
+      type,
+      repoRoot,
+      runId: path.basename(runFolder),
+    });
+    if (res && res.ok !== true) {
+      warn(`ensureFidelityReport: generator returned not-ok: ${res && res.error ? res.error : 'unknown'}`);
+    }
+  } catch (e) {
+    warn(`ensureFidelityReport failed (soft): ${e && e.message ? e.message : 'unknown'}`);
+  }
+}
+
+/**
  * Build the 12-field RunLog payload from state files. Any missing field
  * falls back to null; appendRunLog handles null-fill safely.
  */
@@ -208,16 +277,13 @@ function buildRunLogEntry(runFolder, repoRoot) {
   const session = readJsonSafe(path.join(runFolder, 'session.json')) || {};
 
   // D2 — classification SSOT: read orchestrator_decision first, then the legacy
-  // classification_post_orchestrator / classification shapes, then session.
-  const od = sentinel.orchestrator_decision || {};
-  const cl = sentinel.classification_post_orchestrator
-    || sentinel.classification
-    || {};
-
-  const type = od.type || od.task_type || cl.type || session.type || null;
-  const complexity = od.complexity || cl.complexity || session.complexity || null;
-  const variant = od.pipeline_variant || od.variant || cl.pipeline_variant
-    || cl.variant || session.variant || null;
+  // classification_post_orchestrator / classification shapes (via the shared
+  // readClassification helper), then session as the final fallback. Precedence
+  // stays byte-equivalent to the prior inline chain: od.* > cl.* > session.*.
+  const cls = readClassification(sentinel);
+  const type = cls.type || session.type || null;
+  const complexity = cls.complexity || session.complexity || null;
+  const variant = cls.variant || session.variant || null;
 
   // D1 — gates expected: lazy-load MANDATORY_GATES_BY_COMPLEXITY from
   // lib/fidelity-reporter.cjs resolved relative to the plugin root (NOT the
@@ -291,6 +357,77 @@ function buildRunLogEntry(runFolder, repoRoot) {
   };
 }
 
+// v7.9.3 BUG 1 — run-log de-duplication.
+// On 2026-06-01 a single run accumulated 31 run-log entries with only ~5
+// distinct material signatures: the Stop hook re-appended an identical line on
+// every session teardown. This pure guard compares only the MATERIAL fields of
+// the candidate against the most-recent prior entry for the same run_id and
+// reports whether the candidate is worth appending. Excluded from the
+// comparison are the fields that ALWAYS change between teardowns
+// (timestamp_start, timestamp_end, duration_seconds).
+//
+// SSOT for the material-field list. run_id identifies the run (not compared).
+// Subset of lib/run-log.cjs REQUIRED_FIELDS. Intentionally omits timestamp_start,
+// timestamp_end, duration_seconds (they differ between teardowns by construction).
+// If REQUIRED_FIELDS gains a new material field, add it here too.
+const RUNLOG_MATERIAL_FIELDS = [
+  'type',
+  'complexity',
+  'variant',
+  'total_gates_triggered',
+  'total_gates_expected',
+  'fidelity_score',
+  'final_decision',
+  'pipeline_doc_path',
+];
+
+// Null/undefined-aware equality: null, undefined and null-vs-undefined all count
+// as equal to each other (covers legacy entries with absent fields, since `== null`
+// matches both null and undefined); strict === otherwise.
+function _materialEq(a, b) {
+  return a === b || (a == null && b == null);
+}
+
+/**
+ * Decide whether `candidate` should be appended to the run-log.
+ *
+ * @param {object} candidate       a run-log entry (12-field buildRunLogEntry shape)
+ * @param {Array<object>} existingEntries  previously-written entries, in file order
+ * @param {object} [sentinel]      optional sentinel state. Accepted per the F15 API
+ *                                 contract but NOT consulted (see note at end of body).
+ * @returns {boolean} true => append; false => skip (materially-identical duplicate)
+ *
+ * Pure: no fs, no I/O. Scans existingEntries from the end to find the LAST
+ * entry whose run_id === candidate.run_id.
+ */
+function shouldAppendRunLogEntry(candidate, existingEntries, sentinel) {
+  // Rule 1: first-ever entry for this run is always appended. This covers an
+  // empty / non-array log AND a log that holds only OTHER runs.
+  if (!Array.isArray(existingEntries) || existingEntries.length === 0) return true;
+
+  let prior = null;
+  for (let i = existingEntries.length - 1; i >= 0; i--) {
+    const e = existingEntries[i];
+    if (e && candidate && e.run_id === candidate.run_id) { prior = e; break; }
+  }
+  if (!prior) return true; // no prior entry for this run_id
+
+  // Rule 2: compare only the material fields against the most-recent prior entry.
+  let identical = true;
+  for (const f of RUNLOG_MATERIAL_FIELDS) {
+    if (!_materialEq(candidate[f], prior[f])) { identical = false; break; }
+  }
+  // Any material field differs => material change => append.
+  if (!identical) return true;
+
+  // Materially identical => skip.
+  // `sentinel` is accepted per the API contract (CHANGE_CONTRACT + F15-S6) but is
+  // intentionally not consulted: when the candidate is materially identical the skip
+  // is already unconditional, so a sentinel-gated branch could never change the
+  // outcome (it would be dead code). Reserved for a future fast-path.
+  return false;
+}
+
 // v7.1.0 hardening (post-final-adversarial): single-call guard prevents the
 // stdin-timeout race from invoking handleStop twice (SEC-3 / CLAR-4 race fix).
 // v7.3.0 fix-loop 1 (SEC-4): companion _flushed guard for the langfuse-flush
@@ -324,6 +461,14 @@ function handleStop(payload) {
       return;
     }
 
+    // Read the sentinel ONCE up front: it feeds both the fidelity-report
+    // generation below and the dedup guard further down.
+    const sentinel = readJsonSafe(path.join(runFolder, 'sentinel-state.json')) || {};
+
+    // v7.9.3 BUG 2: generate the fidelity-report idempotently BEFORE building
+    // the entry, so buildRunLogEntry can read a real numeric fidelity_score.
+    ensureFidelityReport(runFolder, cwd, sentinel);
+
     const entry = buildRunLogEntry(runFolder, cwd);
 
     // RISK-1 / SEC-1 hardening: resolve lib/run-log.cjs relative to __dirname
@@ -338,7 +483,21 @@ function handleStop(payload) {
       return;
     }
     // eslint-disable-next-line global-require
-    const { appendRunLog } = require(runLogModule);
+    const { appendRunLog, readRunLog } = require(runLogModule);
+
+    // v7.9.3 BUG 1 — pre-append dedup guard. Wrapped in its own try/catch: ANY
+    // error inside the guard falls through to the current behavior (append) so
+    // a guard bug can never silently swallow a legitimate run-log line.
+    try {
+      const existing = readRunLog(cwd); // soft-fails to [] internally
+      if (shouldAppendRunLogEntry(entry, existing, sentinel) === false) {
+        warn(`run-log dedup: skipping materially-identical entry for ${entry.run_id}`);
+        return; // do NOT call appendRunLog
+      }
+    } catch (e) {
+      warn(`run-log dedup guard error (falling through to append): ${e.message}`);
+    }
+
     const result = appendRunLog(cwd, entry);
     if (!result || result.ok !== true) {
       warn(`appendRunLog failed: ${result && result.error ? result.error : 'unknown'}`);
@@ -455,4 +614,4 @@ if (require.main === module) {
   }, 5000).unref();
 }
 
-module.exports = { handleStop, buildRunLogEntry, findActiveRunFolder, langfuseFlushAndCleanup };
+module.exports = { handleStop, buildRunLogEntry, ensureFidelityReport, readClassification, shouldAppendRunLogEntry, findActiveRunFolder, langfuseFlushAndCleanup };

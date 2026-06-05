@@ -236,18 +236,167 @@ function findMostRecentStateFile(docsRoot) {
   return best;
 }
 
-function readSentinelPhase() {
-  // Best-effort: locate the most recent sentinel-state.json under .pipeline/docs
-  // to enrich span metadata. Non-blocking — empty string on any failure.
-  try {
-    const docsRoot = path.join(process.cwd(), '.pipeline', 'docs');
-    const best = findMostRecentStateFile(docsRoot);
-    if (best) {
-      const j = JSON.parse(fs.readFileSync(best, 'utf8'));
-      return (j && (j.current_phase || j.phase)) || '';
+/**
+ * findStateFileByRunId — locate the sentinel-state.json whose parsed run_id
+ * equals `runId` under <docsRoot>/<bucket>/<run>/. Returns absolute path or
+ * null. Reuses the same path.resolve() containment guard (SEC-2) as
+ * findMostRecentStateFile so a hostile bucket/run name cannot escape docsRoot.
+ *
+ * Added for BUG 3 (v7.9.3): when PIPELINE_DOC_PATH is absent but the controller
+ * exported PIPELINE_RUN_ID, the hook still needs the run's sentinel to enrich
+ * trace/span metadata. PIPELINE_RUN_ID is not always propagated into hook
+ * processes, so this scan is a best-effort match, not a guarantee.
+ */
+function findStateFileByRunId(docsRoot, runId) {
+  if (!runId) return null;
+  const docsRootResolved = path.resolve(docsRoot);
+  if (!fs.existsSync(docsRootResolved)) return null;
+  const docsRootGuard = docsRootResolved + path.sep;
+  let buckets;
+  try { buckets = fs.readdirSync(docsRootResolved, { withFileTypes: true }); }
+  catch (_e) { return null; }
+  for (const b of buckets) {
+    if (!b.isDirectory()) continue;
+    const bucketPath = path.resolve(path.join(docsRootResolved, b.name));
+    if (!bucketPath.startsWith(docsRootGuard)) continue;
+    let runs;
+    try { runs = fs.readdirSync(bucketPath, { withFileTypes: true }); }
+    catch (_e) { continue; }
+    for (const r of runs) {
+      if (!r.isDirectory()) continue;
+      const runPath = path.resolve(path.join(bucketPath, r.name));
+      if (!runPath.startsWith(docsRootGuard)) continue;
+      const sf = path.join(runPath, 'sentinel-state.json');
+      try {
+        const j = JSON.parse(fs.readFileSync(sf, 'utf8'));
+        if (j && j.run_id === runId) return sf;
+      } catch (_e) { /* skip unreadable / non-matching */ }
     }
+  }
+  return null;
+}
+
+/**
+ * readSentinelData — discover the active run's sentinel-state.json and surface
+ * the fields the trace/span metadata needs (BUG 3, v7.9.3). Discovery follows
+ * a fixed precedence so every separately-spawned hook process of one run lands
+ * on the SAME sentinel:
+ *   (1) PIPELINE_DOC_PATH — the env var points DIRECTLY at the run folder; its
+ *       sentinel-state.json wins over everything (highest precedence).
+ *   (2) PIPELINE_RUN_ID — scan <cwd>/.pipeline/docs for the run folder whose
+ *       sentinel run_id matches the env var.
+ *   (3) mtime fallback — the most-recently-touched sentinel under
+ *       <cwd>/.pipeline/docs (legacy behavior, preserves the old phase read).
+ * Best-effort + non-blocking: every parse is soft-failed; on total miss the
+ * returned shape is all-empty/null so callers degrade gracefully.
+ */
+function readSentinelData() {
+  const empty = { phase: '', run_id: null, type: null, complexity: null, pipeline_doc_path: '' };
+  let best = null;
+  let usedDir = '';
+  try {
+    // (1) PIPELINE_DOC_PATH points directly at the run folder.
+    const docPath = process.env.PIPELINE_DOC_PATH || '';
+    if (docPath) {
+      const candidate = path.join(docPath, 'sentinel-state.json');
+      if (fs.existsSync(candidate)) { best = candidate; usedDir = docPath; }
+    }
+    // (2) PIPELINE_RUN_ID folder match under <cwd>/.pipeline/docs.
+    if (!best) {
+      const docsRoot = path.join(process.cwd(), '.pipeline', 'docs');
+      const byId = findStateFileByRunId(docsRoot, process.env.PIPELINE_RUN_ID || null);
+      if (byId) { best = byId; usedDir = path.dirname(byId); }
+    }
+    // (3) mtime fallback under <cwd>/.pipeline/docs.
+    if (!best) {
+      const docsRoot = path.join(process.cwd(), '.pipeline', 'docs');
+      const recent = findMostRecentStateFile(docsRoot);
+      if (recent) { best = recent; usedDir = path.dirname(recent); }
+    }
+    if (!best) return empty;
+    const j = JSON.parse(fs.readFileSync(best, 'utf8'));
+    const od = (j && j.orchestrator_decision) || {};
+    return {
+      phase: (j && (j.current_phase || j.phase)) || '',
+      run_id: (j && j.run_id) != null ? j.run_id : null,
+      type: od.type != null ? od.type : null,
+      complexity: od.complexity != null ? od.complexity : null,
+      pipeline_doc_path: usedDir || '',
+    };
   } catch (_e) { /* swallow */ }
-  return '';
+  return empty;
+}
+
+function readSentinelPhase() {
+  // Thin wrapper preserved for the handlePre call site and F12/F5 contracts:
+  // the phase-only string is exactly what readSentinelData surfaces.
+  return readSentinelData().phase || '';
+}
+
+/**
+ * buildTraceMetadata — build the enriched, SANITIZED metadata object the cloud
+ * attaches to the trace + span (BUG 3, v7.9.3). Accepts EITHER a raw sentinel
+ * object (orchestrator_decision nested) OR the flattened object returned by
+ * readSentinelData(); both shapes are read defensively. Only explicit fields
+ * are copied — free-form fields like `note` (which may carry a leaked secret)
+ * are NEVER forwarded. Every string value is routed through the Langfuse
+ * sanitizer (lazy-required INSIDE the function to keep the disabled fast-path
+ * and the no-new-top-level-require invariant, F8/F9, intact). Benign ids like
+ * 'r-f17' survive the sanitizer literally.
+ */
+function buildTraceMetadata(sentinelData) {
+  const sd = sentinelData || {};
+  const od = sd.orchestrator_decision || {};
+  const runId = sd.run_id != null ? sd.run_id : null;
+  const type = od.type != null ? od.type : (sd.type != null ? sd.type : null);
+  const complexity = od.complexity != null
+    ? od.complexity
+    : (sd.complexity != null ? sd.complexity : null);
+  const phase = sd.current_phase != null
+    ? sd.current_phase
+    : (sd.phase != null ? sd.phase : null);
+  const docPath = sd.pipeline_doc_path != null ? sd.pipeline_doc_path : null;
+
+  const { sanitizeAny } = require(path.join(PLUGIN_ROOT, 'lib', 'langfuse-sanitizer.cjs'));
+  const clean = (v) => (typeof v === 'string' ? sanitizeAny(v, PLUGIN_ROOT) : v);
+
+  const meta = {
+    run_id: clean(runId),
+    type: clean(type),
+    complexity: clean(complexity),
+    phase: clean(phase),
+    pipeline_doc_path: clean(docPath),
+    plugin_version: readPluginVersion(),
+  };
+  return meta;
+}
+
+/**
+ * resolveSpanName — derive a human-readable span name for a tool event
+ * (BUG 3, v7.9.3). Order: an explicit subagent_type wins; otherwise a truncated
+ * tool description, then the tool_name, then a generic 'tool'. It NEVER returns
+ * 'unknown'. When it has to fall back past subagent_type it emits a one-shot
+ * SPAN_NAME_FALLBACK AUDIT breadcrumb on stderr so operators can spot unmapped
+ * tools. The breadcrumb is deduped via the existing emitTracingAudit set; the
+ * test captures the first call.
+ */
+function resolveSpanName(payload) {
+  const input = (payload && payload.tool_input) || {};
+  const subagent = input.subagent_type;
+  if (typeof subagent === 'string' && subagent.length > 0) return subagent;
+
+  const toolName = (payload && payload.tool_name) || null;
+  const desc = input.description;
+  let name;
+  if (typeof desc === 'string' && desc.trim().length > 0) {
+    name = desc.trim().slice(0, 64);
+  } else if (typeof toolName === 'string' && toolName.length > 0) {
+    name = toolName;
+  } else {
+    name = 'tool';
+  }
+  emitTracingAudit('SPAN_NAME_FALLBACK', { tool_name: toolName, resolved: name });
+  return name;
 }
 
 function sampleRoll(rate) {
@@ -264,7 +413,9 @@ function handlePre(payload, client, sanitize) {
   // the Claude Code hook chain on network I/O.
   const ppid = resolvePpid();
   const runId = process.env.PIPELINE_RUN_ID || null;
-  const agentName = (payload && payload.tool_input && payload.tool_input.subagent_type) || 'unknown';
+  // BUG 3 (v7.9.3): never label the span 'unknown'. resolveSpanName returns the
+  // subagent_type when present, else a readable fallback (+ AUDIT breadcrumb).
+  const agentName = resolveSpanName(payload);
   const promptText = (payload && payload.tool_input && payload.tool_input.prompt) || '';
 
   // Sampling roll: if it fails, write NO tmp file and emit NO SDK call.
@@ -295,10 +446,14 @@ function handlePre(payload, client, sanitize) {
     // Soft-fail: continue with SDK call anyway.
   }
 
-  // QUAL-2 (Batch 3): call readSentinelPhase() ONCE — was triple-called
-  // across the three metadata objects below, slowing the hot path and
-  // risking phase-skew if the file changes mid-handler.
-  const currentPhase = readSentinelPhase();
+  // QUAL-2 (Batch 3) + BUG 3 (v7.9.3): read the sentinel ONCE per handler and
+  // build the enriched, sanitized trace metadata a single time. The previous
+  // code only surfaced `phase`; the cloud trace/span arrived with empty
+  // metadata. buildTraceMetadata now adds run_id / type / complexity (every
+  // string routed through the sanitizer) so the cloud groups + labels the run.
+  const sentinelData = readSentinelData();
+  const currentPhase = sentinelData.phase || '';
+  const enrichedMeta = buildTraceMetadata(sentinelData);
   const sanitizedDocPath = sanitize(process.env.PIPELINE_DOC_PATH || '', PLUGIN_ROOT);
 
   // v7.9.0 (Finding 2): the trace carries the RUN-level name (set once at
@@ -316,7 +471,11 @@ function handlePre(payload, client, sanitize) {
       const traceObj = client.trace({
         id: trace.traceId,
         name: traceName,
+        // BUG 3 (v7.9.3): merge the enriched run_id/type/complexity metadata,
+        // then keep the already-sanitized doc path + the trace's own version so
+        // those explicit values win on key overlap.
         metadata: {
+          ...enrichedMeta,
           phase: currentPhase,
           pipeline_doc_path: sanitizedDocPath,
           plugin_version: trace.pluginVersion,
@@ -331,6 +490,7 @@ function handlePre(payload, client, sanitize) {
           startTime: startedAt,
           input: spanInput,
           metadata: {
+            ...enrichedMeta,
             phase: currentPhase,
             agent_name: agentName,
             pipeline_doc_path: sanitizedDocPath,
@@ -346,6 +506,7 @@ function handlePre(payload, client, sanitize) {
         startTime: startedAt,
         input: spanInput,
         metadata: {
+          ...enrichedMeta,
           phase: currentPhase,
           agent_name: agentName,
           pipeline_doc_path: sanitizedDocPath,
@@ -586,4 +747,12 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { handlePre, handlePost, main, shouldTrace };
+module.exports = {
+  handlePre,
+  handlePost,
+  main,
+  shouldTrace,
+  readSentinelData,
+  resolveSpanName,
+  buildTraceMetadata,
+};
