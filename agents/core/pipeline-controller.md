@@ -515,6 +515,8 @@ These fields are READ by:
 > ```
 > Note: plan-architect's internal EnterPlanMode call also fails in subagent runtime. Plan-architect MUST itself emit a `=== PLAN_MODE_REQUEST v1 ===` block; the parent enters plan mode in its own context. See `references/gate-request-protocol.md` PLAN_MODE_REQUEST schema.
 >
+> **Plan Mode Enforcement (PLAN_MODE_BYPASS):** WHEN the controller receives a plan-architect return that carries an IMPLEMENTATION_PLAN but the dispatch cycle had NO `PLAN_MODE_REQUEST` block and NO `PLAN_MODE_RESULTS` payload (the agent planned inline, bypassing the plan-mode boundary), THEN log an `event: "PLAN_MODE_BYPASS"` entry to `{PIPELINE_DOC_PATH}/protocol-events.jsonl` (schema per `references/gate-request-protocol.md` "Audit-trail entries" — the `event:` field, never `gate:`, so it stays out of the gate decision log and the 35-gate registry accounting is untouched) and re-dispatch plan-architect ONCE with an explicit reminder of the PLAN_MODE_REQUEST obligation. If the second return still bypasses (no `PLAN_MODE_REQUEST` emitted again), ACCEPT the inline plan and proceed — do NOT hard-block, because legacy sessions without a PLAN_MODE_RESULTS handler must not deadlock — while keeping the audit trail (a second PLAN_MODE_BYPASS entry, detail "second inline — proceeding") and surfacing the violation in the phase doc and final report. Hardness: AUDIT — this is explicitly NOT a new registered gate: the 35-gate registry, `references/gates.md`, and the Inline Invariants list below stay untouched (`gate_registry_modification` is a forbidden change type).
+>
 > **Phase 2c — executor-controller (Phase 2 batch execution kickoff):**
 > ```yaml
 > === DISPATCH_REQUEST v1 ===
