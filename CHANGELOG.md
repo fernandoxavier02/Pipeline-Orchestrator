@@ -5,6 +5,70 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.9.4] - 2026-06-06 — Plan Mode contract fix (PATCH)
+
+Fixes the Plan Mode that never fired: 21+ real runs (2026-05-04 → 2026-06-05) produced
+ZERO `PLAN_MODE_REQUEST` blocks because `agents/quality/plan-architect.md` contradicted
+itself — the canonical "ACHADO #7 RUNTIME PROTOCOL" top section mandated emit-and-wait,
+while the PROCESS body (Steps 0/3/4 + Tools footer) instructed calling
+`EnterPlanMode`/`ExitPlanMode`/`AskUserQuestion` directly — tools the harness strips from
+every subagent. Agents silently fell back to inline planning (failure mode B5-001), and
+no enforcement layer noticed. Shipped via a full dogfooded pipeline run
+(Bug Fix / MEDIA / bugfix-light, 3 batches, TDD 14 scenarios RED→GREEN, per-batch
+adversarial reviews, final adversarial team of 3 zero-context reviewers, 1 authorized
+rework pass, Pa de Cal GO @ confidence 0.94). The run itself reproduced the bug live
+(22nd consecutive bypass, preserved as evidence in its protocol-events.jsonl).
+
+### Fixed
+- **plan-architect.md body/top contradiction** (`agents/quality/plan-architect.md`):
+  Step 0 now emits `=== PLAN_MODE_REQUEST v1 ===` + `STATUS: AWAITING_PLAN_MODE_RESULTS`
+  and STOPS (defers to the Achado #7 top section as canonical); Step 3 emits a
+  `GATE_REQUEST v1` block instead of calling AskUserQuestion; Step 4 defers plan-mode
+  exit to the parent session; the INTEGRATION footer "Tools required" lists only
+  Read/Grep/Glob + the protocol blocks. 4 stale header claims (frontmatter description,
+  intro, OBSERVABILITY banner, RULES #1 framing) aligned to the delegated model — with
+  the Rule-1 label prefix "Read-only in Plan Mode" preserved verbatim to honor the
+  pinned D7-S7 contract from v6.1.0 (regression caught mid-run by direct controller
+  verification and reconciled: label prefix restored + parenthetical clarifier).
+- **Enforcement blind spot** (`agents/core/pipeline-controller.md`): new
+  `PLAN_MODE_BYPASS` enforcement paragraph after the Phase 1.5 dispatch note — when a
+  plan-architect return contains an IMPLEMENTATION_PLAN but the dispatch cycle had no
+  `PLAN_MODE_REQUEST`/`PLAN_MODE_RESULTS`, the controller logs an AUDIT event to
+  `protocol-events.jsonl` (NOT gate-decisions.jsonl) and re-dispatches ONCE with the
+  protocol obligation restated; a second bypass is accepted (no hard block — legacy
+  sessions without a parent handler must not deadlock) with the violation surfaced in
+  the phase doc and final report. Explicitly NOT a new registered gate: the 35-gate
+  Registry and the Inline Invariants list are untouched.
+
+### Added
+- `tests/regression/v7.9.4/F18-plan-mode-contract.test.cjs` — 8 scenarios pinning the
+  plan-architect contract (stripped-tool instructions absent from the PROCESS body;
+  PLAN_MODE_REQUEST/GATE_REQUEST present; Achado #7 + USER INTERACTION PROTOCOL
+  sections preserved; explanatory-vs-instructive EnterPlanMode mentions distinguished).
+  Section extractor is code-fence-aware (a fenced `## IMPLEMENTATION PLAN` heading no
+  longer truncates the scanned body — hole found by the final adversarial review and
+  proven closed by mutation test).
+- `tests/regression/v7.9.4/F19-controller-inline-plan-check.test.cjs` — 6 scenarios
+  pinning the controller enforcement (PLAN_MODE_BYPASS present, wired to
+  protocol-events.jsonl, AUDIT hardness, re-dispatch rule, Inline Invariants list and
+  Phase 1.5 note intact).
+
+### Notes
+- Suite: 62/67 — identical failure set to the pre-run baseline (5 known
+  Langfuse/env-dependent failures; none read the modified files; proven via git-stash
+  A/B arbitration). Build green.
+- Behavioral proof (the plan-mode UI actually appearing) is inherently a next-run
+  verification; this release carries the static contract proof (F18+F19) plus the live
+  dogfood evidence of the old behavior.
+- Follow-ups registered in the run's final-validator doc: dedupe the inlined
+  GATE_REQUEST example vs `references/gate-request-protocol.md` (SSOT), harden F19
+  S2/S3 proximity assertions, key bypass detection off `pending_blocks` instead of
+  prose; pre-existing drifts surfaced: `references/sentinel-integration.md` L54
+  expected_next semantics vs hook runtime, controller "22-gate" stale mention,
+  PLAN_MODE_RESULT singular/plural in the protocol reference.
+- Iron Law preserved: `references/gates.md`, hooks, `lib/` untouched. Mirrors not
+  involved (no hook changes).
+
 ## [7.9.3] - 2026-06-05 — Telemetry recording fixes + Langfuse project isolation (PATCH)
 
 Three telemetry recording bugs fixed via a dogfooded pipeline run (Bug Fix / MEDIA /
