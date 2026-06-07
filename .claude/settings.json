@@ -1,6 +1,34 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "_note": "v7.1.0 — registers the Stop event hook so run-log.jsonl receives a summary line on every session end (including crashes). See .claude/hooks/stop-hook.cjs for SOFT-fail contract; the hook never exits non-zero. The handler reads sentinel-state.json + session.json from the most recently updated pipeline run folder and appends the 12 REQUIRED_FIELDS via lib/run-log.cjs::appendRunLog.",
+  "subagent_permissions": {
+    "orchestrators": {
+      "description": "Subagents spawned by pipeline orchestrators (final-adversarial-orchestrator, executor-controller, review-orchestrator, etc.) can spawn their own parallel agents",
+      "tools": [
+        "Agent",
+        "Read",
+        "Edit",
+        "Write",
+        "Glob",
+        "Grep",
+        "Bash",
+        "PowerShell"
+      ],
+      "max_depth": 2,
+      "max_parallel_agents": 8,
+      "apply_to": [
+        "final-adversarial-orchestrator",
+        "executor-controller",
+        "review-orchestrator",
+        "spec-post-impl-validator",
+        "spec-content-reviewer",
+        "spec-format-gate",
+        "bugfix-diagnostic-agent",
+        "bugfix-root-cause-analyzer",
+        "*-orchestrator"
+      ]
+    }
+  },
   "hooks": {
     "Stop": [
       {
