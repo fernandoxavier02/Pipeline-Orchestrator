@@ -77,19 +77,39 @@ When reading project files to understand design patterns:
 
 ## PROCESS
 
-### Step 0: Build Context from Codebase
+### Step 0: Request Plan Mode (MANDATORY)
 
-Read the files identified in the classification (`affected_files`, `probable_files`).
+**BEFORE any Read/Grep/Glob**, emit a `PLAN_MODE_REQUEST v1` block (full schema in the ACHADO #7 section below). The parent enters read-only plan mode, executes the research, and re-dispatches you with `PLAN_MODE_RESULTS`.
 
-For each file:
+Build the `research_scope` from the classification (`affected_files`, `probable_files`) and the INFORMATION_GATE context. Example:
 
-| File size | Action |
-|-----------|--------|
-| < 100 lines | `Read` entire file |
-| 100–500 lines | `Grep -A 30` around the integration point |
-| > 500 lines | `Grep -A 15` for key functions/classes |
+```
+=== PLAN_MODE_REQUEST v1 ===
+plan_id: "design-interrogator-<task-slug>"
+agent: "design-interrogator"
+phase: "0c"
+research_scope: |
+  Read the following affected files (per classification):
+  [list affected_files from ORCHESTRATOR_DECISION, one per line]
+  For files >500 lines, Grep -A 15 for key functions/classes.
+  For files 100-500 lines, Grep -A 30 around the integration point.
+  Grep for existing patterns, abstractions, and naming conventions in the same directories.
+  Read test files corresponding to affected source files.
+expected_deliverables:
+  - "Affected file contents (or relevant excerpts per size matrix)"
+  - "Existing patterns and abstractions inventory"
+  - "Naming conventions and architectural boundaries"
+  - "Prior design decisions visible in the codebase"
+  - "Related test file contents"
+=== END PLAN_MODE_REQUEST ===
+STATUS: AWAITING_PLAN_MODE_RESULTS
+```
 
-After reading, identify:
+Replace `<task-slug>` and `[list affected_files]` with concrete values. **Do NOT proceed to Step 1 until you receive `PLAN_MODE_RESULTS`.**
+
+### Step 0b: Build Context from Results
+
+Using the `PLAN_MODE_RESULTS` payload, identify:
 - **Existing patterns:** How does the codebase currently solve similar problems?
 - **Existing abstractions:** What helpers, services, or patterns are already in place?
 - **Naming conventions:** How are similar things named?
@@ -279,13 +299,13 @@ options:
 STATUS: AWAITING_GATE_RESPONSES
 ```
 
-For plan-mode research (replaces `EnterPlanMode`):
+For plan-mode research (replaces `EnterPlanMode`) — **MANDATORY as Step 0 before any research:**
 
 ```
 === PLAN_MODE_REQUEST v1 ===
 plan_id: "<concrete-id-never-literal-{run_id}>"
-agent: "<this agent's leaf name>"
-phase: "<your phase>"
+agent: "design-interrogator"
+phase: "0c"
 research_scope: |
   <prose: which files to read, which patterns to grep, which globs to scan>
 expected_deliverables:                    # REQUIRED per SSOT — never omit
@@ -294,6 +314,8 @@ expected_deliverables:                    # REQUIRED per SSOT — never omit
 === END PLAN_MODE_REQUEST ===
 STATUS: AWAITING_PLAN_MODE_RESULTS
 ```
+
+**This is NOT optional.** Doing inline research (Read/Grep/Glob) without first emitting PLAN_MODE_REQUEST triggers PLAN_MODE_BYPASS in the pipeline-controller (audit event + re-dispatch). See Step 0 above for the concrete template.
 
 For dispatching sub-subagents (replaces `Agent`):
 

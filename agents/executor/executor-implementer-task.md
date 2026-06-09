@@ -158,6 +158,8 @@ When reading ANY project file (source code, configs, docs), follow these rules:
 
 ## CONTEXT LOADING STRATEGY (MANDATORY)
 
+These rules define WHAT to read and HOW MUCH, not WHEN. The actual reading is delegated to the parent via PLAN_MODE_REQUEST (Step 0b). The `research_scope` field of the PLAN_MODE_REQUEST should reference these rules to construct the read list.
+
 Before reading ANY file, follow these rules to maximize context efficiency:
 
 ### File Size Decision Matrix
@@ -251,10 +253,43 @@ IMPLEMENTER_RESULT:
 
 Run the 5 checks above. Only proceed if ALL pass.
 
+### Step 0b: Request Plan Mode (MANDATORY)
+
+**BEFORE any Read/Grep/Glob on project files beyond the micro-gate scope**, emit a `PLAN_MODE_REQUEST v1` block to research the codebase in read-only isolation. The micro-gate (Step 0) may read target files for existence and gap detection — those bounded reads are exempt. This Step 0b covers the deeper research: the CONTEXT LOADING STRATEGY executes here — scanning imports, finding integration points, checking for existing abstractions, and reading test files. All of this happens in Plan Mode, NOT inline.
+
+Build the `research_scope` from the TASK_CONTEXT and CHANGE_CONTRACT:
+
+```
+=== PLAN_MODE_REQUEST v1 ===
+plan_id: "impl-<task-id>"
+agent: "executor-implementer-task"
+phase: "2"
+research_scope: |
+  For each file in CHANGE_CONTRACT.allowed_files:
+    - Read imports and type definitions (^import|^export type|^export interface)
+    - Read the function/section that will be modified (integration point)
+    - Scan for existing abstractions and helpers (Grep across project)
+  For each file in CHANGE_CONTRACT.allowed_new_files:
+    - Grep for similar patterns in the project to follow conventions
+  Read existing tests related to the target files.
+  Scan CLAUDE.md or patterns file for project conventions relevant to this task.
+expected_deliverables:
+  - "Target file contents (scoped to integration points)"
+  - "Existing abstractions and patterns relevant to the task"
+  - "Existing test files and patterns for the target"
+  - "Project conventions from CLAUDE.md or patterns file"
+=== END PLAN_MODE_REQUEST ===
+STATUS: AWAITING_PLAN_MODE_RESULTS
+```
+
+**Do NOT proceed to Step 1 until PLAN_MODE_RESULTS arrive.** If the payload is incomplete (missing files or patterns), emit an additional PLAN_MODE_REQUEST for the missing scope.
+
 ### Step 1: Understand Task
 
-1. Read the TASK_CONTEXT provided by executor-controller
-2. Identify exactly what needs to change
+Using the `PLAN_MODE_RESULTS` payload from Step 0b:
+
+1. Parse the TASK_CONTEXT provided by executor-controller
+2. Cross-reference with the codebase excerpts from the payload to identify exactly what needs to change
 3. If anything is unclear: STOP and return questions immediately
 
 ### Step 2: TDD — RED

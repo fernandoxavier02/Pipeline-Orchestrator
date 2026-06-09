@@ -82,9 +82,40 @@ Before reading ANY file, follow these rules to maximize context efficiency:
 
 ## PROCESS
 
+### Step 0: Request Plan Mode (MANDATORY)
+
+**BEFORE any Read/Grep/Glob**, emit a `PLAN_MODE_REQUEST v1` block (full schema in the ACHADO #7 section below). The parent enters read-only plan mode, executes the research, and re-dispatches you with `PLAN_MODE_RESULTS`.
+
+Build the `research_scope` from the TASK_CONTEXT you received (bug description, affected files, entry points). Example:
+
+```
+=== PLAN_MODE_REQUEST v1 ===
+plan_id: "bugfix-diagnostic-<task-slug>"
+agent: "bugfix-diagnostic-agent"
+phase: "2c"
+research_scope: |
+  Glob project root to map directory structure and identify architecture layers.
+  Read README + primary config files (package.json / pyproject.toml / go.mod) for stack.
+  Grep for [keywords from bug description] across source directories.
+  Read entry points and trace execution path related to the reported symptom.
+  Glob test directories to locate relevant test files.
+expected_deliverables:
+  - "Project structure map with architecture layers"
+  - "Technology stack identification with evidence"
+  - "Execution flow trace from trigger to symptom"
+  - "Relevant source file contents for hypothesis generation"
+  - "Test file locations for verification planning"
+=== END PLAN_MODE_REQUEST ===
+STATUS: AWAITING_PLAN_MODE_RESULTS
+```
+
+Replace `<task-slug>` and `[keywords from bug description]` with concrete values from TASK_CONTEXT. **Do NOT proceed to Step 1 until you receive `PLAN_MODE_RESULTS`.**
+
+If initial results reveal new areas to investigate (e.g., a discovered import chain), emit an additional `PLAN_MODE_REQUEST` for the follow-up scope.
+
 ### Step 1: Project Reconnaissance
 
-Map the terrain before investigating the bug:
+Using the `PLAN_MODE_RESULTS` payload, map the terrain:
 
 1. Identify architecture in high level -- modules, layers, boundaries.
 2. List entry points, dependencies, and execution paths relevant to the bug.
@@ -199,13 +230,13 @@ options:
 STATUS: AWAITING_GATE_RESPONSES
 ```
 
-For plan-mode research (replaces `EnterPlanMode`):
+For plan-mode research (replaces `EnterPlanMode`) — **MANDATORY as Step 0 before any research:**
 
 ```
 === PLAN_MODE_REQUEST v1 ===
 plan_id: "<concrete-id-never-literal-{run_id}>"
-agent: "<this agent's leaf name>"
-phase: "<your phase>"
+agent: "bugfix-diagnostic-agent"
+phase: "2c"
 research_scope: |
   <prose: which files to read, which patterns to grep, which globs to scan>
 expected_deliverables:                    # REQUIRED per SSOT — never omit
@@ -214,6 +245,8 @@ expected_deliverables:                    # REQUIRED per SSOT — never omit
 === END PLAN_MODE_REQUEST ===
 STATUS: AWAITING_PLAN_MODE_RESULTS
 ```
+
+**This is NOT optional.** Doing inline research (Read/Grep/Glob) without first emitting PLAN_MODE_REQUEST triggers PLAN_MODE_BYPASS in the pipeline-controller (audit event + re-dispatch). See Step 0 above for the concrete template.
 
 For dispatching sub-subagents (replaces `Agent`):
 

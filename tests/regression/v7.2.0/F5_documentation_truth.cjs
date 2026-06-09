@@ -114,10 +114,9 @@ try {
 {
   const lines = body.split('\n').length;
   // Baseline at v7.1.0 / pre-followup: 301 lines (verified via wc -l on 2026-05-21).
-  // Tolerance widened to ±25 per adversarial review ADV-F5-004 — strict ±5 created
-  // false-positive risk for legitimate future growth (new rule, new bullet, paragraph
-  // splits). Anti-bulk-rewrite signal is still useful as a loose sanity check.
-  const within = lines >= 280 && lines <= 330;
+  // Rebased to 349 lines at v7.10.0 (Step 2b Batch Metadata + Parallel Eligibility added).
+  // Tolerance ±25 per adversarial review ADV-F5-004 — anti-bulk-rewrite signal.
+  const within = lines >= 325 && lines <= 375;
   record(
     `F5-S5: file line count loose sanity (got ${lines}, expected 280-330)`,
     within,

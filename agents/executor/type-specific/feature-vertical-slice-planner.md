@@ -76,7 +76,42 @@ This agent receives:
 
 ## PROCESS
 
+### Step 0: Request Plan Mode (MANDATORY)
+
+**BEFORE any Read/Grep/Glob**, emit a `PLAN_MODE_REQUEST v1` block (full schema in the ACHADO #7 section below). The parent enters read-only plan mode, executes the research, and re-dispatches you with `PLAN_MODE_RESULTS`.
+
+Build the `research_scope` from TASK_CONTEXT and IMPLEMENTATION_PLAN (affected files, acceptance criteria, integration points). Example:
+
+```
+=== PLAN_MODE_REQUEST v1 ===
+plan_id: "feature-vsa-<task-slug>"
+agent: "feature-vertical-slice-planner"
+phase: "2c"
+research_scope: |
+  Read affected files listed in IMPLEMENTATION_PLAN scope.
+  For files >500 lines, Grep -A 15 for key classes/functions/exports.
+  For files 100-500 lines, Grep -A 30 around the integration point.
+  Glob project root to map directory structure and identify architecture layers.
+  Read existing test files for affected modules.
+  Grep for naming conventions, patterns, and abstractions in the same directories.
+  Read data model / schema files related to the feature domain.
+  Identify existing vertical slice patterns in the codebase.
+expected_deliverables:
+  - "Affected file contents (or relevant excerpts per size matrix)"
+  - "Project structure map with architecture layers"
+  - "Existing patterns and abstractions for reuse"
+  - "Data model and state management approach"
+  - "Test file locations and conventions"
+  - "Integration points and boundary identification"
+=== END PLAN_MODE_REQUEST ===
+STATUS: AWAITING_PLAN_MODE_RESULTS
+```
+
+Replace `<task-slug>` with a concrete identifier from TASK_CONTEXT. **Do NOT proceed to Step 1 until you receive `PLAN_MODE_RESULTS`.**
+
 ### Step 1: Intent and Scope Analysis
+
+Using the `PLAN_MODE_RESULTS` payload alongside TASK_CONTEXT and IMPLEMENTATION_PLAN:
 
 Analyze the feature intent, value, and boundaries:
 
@@ -230,3 +265,75 @@ This artifact is the input for `feature-implementer` and must be preserved for t
 - **Anti-invention:** Do NOT invent missing requirements. If critical information is absent, return NEEDS_INFO.
 - **No scope creep:** Do NOT add features or improvements not in the original scope.
 - **Proportional:** Recommendations must be proportional to risk — no overengineering.
+
+---
+
+## ACHADO #7 RUNTIME PROTOCOL (MANDATORY — v5.3.0+)
+
+The Claude Code harness STRIPS `AskUserQuestion`, `Agent`, `EnterPlanMode`, and `ExitPlanMode` from subagent runtime tool manifests (empirically confirmed 2026-05-07; failure cases B1-004, B5-001, panel F3-3 audit 2026-05-15). When this agent is dispatched as a subagent, those tools are NOT available — the spec sections above that mandate `AskUserQuestion`/`EnterPlanMode` apply to the PARENT (pipeline-controller), not to you the subagent.
+
+**Resolution — emit structured blocks instead of calling tools directly:**
+
+For plan-mode research (replaces `EnterPlanMode`) — **MANDATORY as Step 0 before any research:**
+
+```
+=== PLAN_MODE_REQUEST v1 ===
+plan_id: "<concrete-id-never-literal-{run_id}>"
+agent: "feature-vertical-slice-planner"
+phase: "2c"
+research_scope: |
+  <prose: which files to read, which patterns to grep, which globs to scan>
+expected_deliverables:                    # REQUIRED per SSOT — never omit
+  - "<deliverable 1>"
+  - "<deliverable 2>"
+=== END PLAN_MODE_REQUEST ===
+STATUS: AWAITING_PLAN_MODE_RESULTS
+```
+
+**This is NOT optional.** Doing inline research (Read/Grep/Glob) without first emitting PLAN_MODE_REQUEST triggers PLAN_MODE_BYPASS in the pipeline-controller (audit event + re-dispatch). See Step 0 above for the concrete template.
+
+For user decisions (replaces `AskUserQuestion`):
+
+```
+=== GATE_REQUEST v1 ===
+gate_id: "<unique-id-this-emission>"     # e.g., "feature-vsa-Q1" — concrete, never literal {n}
+agent: "feature-vertical-slice-planner"
+phase: "2c"
+question: "<concrete question, anchored in code/file evidence>"
+header: "<short chip label, max 12 chars>"
+multi_select: false                       # snake_case per SSOT references/gate-request-protocol.md
+options:
+  - label: "<recommended option>"
+    description: "<why — cite evidence>"
+    recommended: true                     # separate field, NOT a suffix in label
+  - label: "<alternative>"
+    description: "<trade-off>"
+    recommended: false
+=== END GATE_REQUEST ===
+STATUS: AWAITING_GATE_RESPONSES
+```
+
+For dispatching sub-subagents (replaces `Agent`):
+
+```
+=== DISPATCH_REQUEST v1 ===
+dispatch_id: "<concrete-id>"
+target_kind: agent                         # or "skill"
+target_name: "pipeline-orchestrator:<folder>:<leaf>"
+prompt: |
+  <verbatim prompt to pass to the target>
+=== END DISPATCH_REQUEST ===
+STATUS: AWAITING_DISPATCH_RESULTS
+```
+
+**Critical rules** (drift = silent parent fallback to inline = the very bug this section fixes):
+
+- Use `multi_select` (snake_case), NOT `multiSelect` (camelCase)
+- Use `recommended: true|false` field per option, NOT a `(Recomendado)` suffix in the label
+- Always include `expected_deliverables` in PLAN_MODE_REQUEST
+- Replace ALL `{placeholders}` with concrete values — never emit literal `{n}`, `{run_id}`, `{paths from ...}`
+- NEVER fall back to prose questions ("Should we do A or B?") — parent cannot parse prose
+- NEVER call `AskUserQuestion`, `Agent`, `EnterPlanMode` directly — they are stripped
+- Wait for the corresponding response payload (`GATE_RESPONSES` / `PLAN_MODE_RESULTS` / `DISPATCH_RESULTS`) before continuing; do NOT proceed inline
+
+**Full protocol schema and audit trail format:** `references/gate-request-protocol.md`.

@@ -127,6 +127,45 @@ Grep: `Grep -A 2 "Batch size" references/complexity-matrix.md`
 
 For each batch:
 
+#### 1-PARALLEL: Parallel Dispatch for Eligible Batches (v7.10.0+)
+
+When `batch_metadata` is present in the IMPLEMENTATION_PLAN and the current batch has `parallel_eligible: true`:
+
+1. Run micro-gate (Step 1a) for ALL tasks in the batch first (serial — fast, read-only).
+2. If all micro-gates pass, emit N separate `DISPATCH_REQUEST` blocks (one per task) in a **single tool result**, ending with `STATUS: AWAITING_DISPATCH_RESULTS` listing all dispatch_ids.
+3. When all implementer results arrive, run the per-task review chain (spec-reviewer → quality-reviewer) **sequentially per task** — the review chain for each task is independent but each task's spec→quality gate remains serial (correctness dependency).
+4. Proceed to checkpoint-validator as normal.
+
+**Parallel dispatch template:**
+
+```
+=== DISPATCH_REQUEST v1 ===
+dispatch_id: batch-<N>-task-<M1>-implementer
+target_kind: agent
+target_name: pipeline-orchestrator:executor:executor-implementer-task
+prompt: |
+  TASK_ID: <M1>
+  ...
+=== END DISPATCH_REQUEST ===
+
+=== DISPATCH_REQUEST v1 ===
+dispatch_id: batch-<N>-task-<M2>-implementer
+target_kind: agent
+target_name: pipeline-orchestrator:executor:executor-implementer-task
+prompt: |
+  TASK_ID: <M2>
+  ...
+=== END DISPATCH_REQUEST ===
+STATUS: AWAITING_DISPATCH_RESULTS [batch-<N>-task-<M1>-implementer, batch-<N>-task-<M2>-implementer]
+```
+
+**Rules:**
+- Only when `parallel_eligible: true` in batch_metadata. If batch_metadata is absent or `parallel_eligible: false`, fall through to serial dispatch (Step 1a → 1b).
+- The spec→quality review chain within each task remains SERIAL (quality only after spec PASS).
+- If any implementer fails, the others' results are still valid — checkpoint-validator handles per-task attribution.
+- COMPLEXA batches (1 task) and SIMPLES batches (all at once, single serial chain) skip this step.
+- **Plan Mode interaction:** executor-implementer-task and feature-implementer are PLAN_MODE_MANDATORY agents. They will emit PLAN_MODE_REQUEST as their first action. The pipeline-controller (parent) handles Plan Mode research and re-dispatch. When using parallel dispatch, the parent serializes Plan Mode entries across concurrent implementers. This is transparent to executor-controller — you dispatch, the parent handles the Plan Mode round-trip, and you receive the final IMPLEMENTER_RESULT / IMPLEMENTATION_RESULT.
+
 #### 1a. Per-Task: Micro-Gate
 
 BEFORE dispatching the implementer, run the micro-gate check:

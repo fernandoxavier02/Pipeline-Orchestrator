@@ -41,6 +41,7 @@ For MEDIA and COMPLEXA tasks the brainstorm + spec lifecycle is **mandatory** an
 |--------|---------|-------|----------|
 | **Pipeline** | DIRETO (no pipeline) | Light variant | Heavy variant |
 | **Batch size** | All at once | 2-3 tasks | 1 task |
+| **Parallel tasks** | N/A | Parallel if file-scope disjoint (v7.10.0+) | N/A (1 task) |
 | **TDD tests** | 1 main + 1 edge | 1 main + 1 regression + 1 edge | 1+ main + 2+ regression + 2+ edge |
 | **Plan Mode** | Skip | Optional (--plan) | Automatic |
 | **Architecture review** | Skip | Per-batch | Per-batch (deep) |

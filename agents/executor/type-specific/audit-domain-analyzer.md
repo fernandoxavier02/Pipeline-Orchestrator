@@ -66,7 +66,42 @@ When reading ANY project file (source code, configs, docs), follow these rules:
 
 ## PROCESS
 
+### Step 0: Request Plan Mode (MANDATORY)
+
+**BEFORE any Read/Grep/Glob**, emit a `PLAN_MODE_REQUEST v1` block (full schema in the ACHADO #7 section below). The parent enters read-only plan mode, executes the research, and re-dispatches you with `PLAN_MODE_RESULTS`.
+
+Build the `research_scope` from the AuditIntake report (repo_map, hotspots, entry_points). Example:
+
+```
+=== PLAN_MODE_REQUEST v1 ===
+plan_id: "audit-domain-<audit-slug>"
+agent: "audit-domain-analyzer"
+phase: "2c"
+research_scope: |
+  Read source files in each architectural layer identified by AuditIntake repo_map.
+  For files >500 lines, Grep -A 15 for class/function definitions and exports.
+  For files 100-500 lines, Grep -A 30 around imports and key integration points.
+  Read domain model files (models, types, interfaces, schemas).
+  Grep for business rules (validation, access control, calculations) across source directories.
+  Read API definitions (OpenAPI specs, GraphQL schemas, route files).
+  Grep for hardcoded values and duplicated constants across the codebase.
+  Read hotspot files identified by AuditIntake.
+expected_deliverables:
+  - "Architectural layer contents with module boundaries"
+  - "Domain entity definitions and relationships"
+  - "SSOT locations for key business concepts"
+  - "API contract definitions and implementations"
+  - "Business rule locations and duplication inventory"
+  - "Hotspot file contents for coupling analysis"
+=== END PLAN_MODE_REQUEST ===
+STATUS: AWAITING_PLAN_MODE_RESULTS
+```
+
+Replace `<audit-slug>` with a concrete identifier from the AuditIntake. **Do NOT proceed to Step 1 until you receive `PLAN_MODE_RESULTS`.**
+
 ### Step 1: Architecture Analysis (Layers, Modules, Dependencies)
+
+Using the `PLAN_MODE_RESULTS` payload alongside the AuditIntake report:
 
 1. Using the repo_map from AuditIntake, identify architectural layers:
    - UI / Presentation
@@ -220,3 +255,75 @@ DOMAIN_ANALYZER_RESULT:
   summary: "[key architecture findings]"
   blocked_reason: "[if BLOCKED, why]"
 ```
+
+---
+
+## ACHADO #7 RUNTIME PROTOCOL (MANDATORY — v5.3.0+)
+
+The Claude Code harness STRIPS `AskUserQuestion`, `Agent`, `EnterPlanMode`, and `ExitPlanMode` from subagent runtime tool manifests (empirically confirmed 2026-05-07; failure cases B1-004, B5-001, panel F3-3 audit 2026-05-15). When this agent is dispatched as a subagent, those tools are NOT available.
+
+**Resolution — emit structured blocks instead of calling tools directly:**
+
+For plan-mode research (replaces `EnterPlanMode`) — **MANDATORY as Step 0 before any research:**
+
+```
+=== PLAN_MODE_REQUEST v1 ===
+plan_id: "<concrete-id-never-literal-{run_id}>"
+agent: "audit-domain-analyzer"
+phase: "2c"
+research_scope: |
+  <prose: which files to read, which patterns to grep, which globs to scan>
+expected_deliverables:                    # REQUIRED per SSOT — never omit
+  - "<deliverable 1>"
+  - "<deliverable 2>"
+=== END PLAN_MODE_REQUEST ===
+STATUS: AWAITING_PLAN_MODE_RESULTS
+```
+
+**This is NOT optional.** Doing inline research (Read/Grep/Glob) without first emitting PLAN_MODE_REQUEST triggers PLAN_MODE_BYPASS in the pipeline-controller (audit event + re-dispatch). See Step 0 above for the concrete template.
+
+For user decisions (replaces `AskUserQuestion`):
+
+```
+=== GATE_REQUEST v1 ===
+gate_id: "<unique-id-this-emission>"
+agent: "audit-domain-analyzer"
+phase: "2c"
+question: "<concrete question>"
+header: "<max 12 chars>"
+multi_select: false
+options:
+  - label: "<recommended option>"
+    description: "<why>"
+    recommended: true
+  - label: "<alternative>"
+    description: "<trade-off>"
+    recommended: false
+=== END GATE_REQUEST ===
+STATUS: AWAITING_GATE_RESPONSES
+```
+
+For dispatching sub-subagents (replaces `Agent`):
+
+```
+=== DISPATCH_REQUEST v1 ===
+dispatch_id: "<concrete-id>"
+target_kind: agent                         # or "skill"
+target_name: "pipeline-orchestrator:<folder>:<leaf>"
+prompt: |
+  <verbatim prompt to pass to the target>
+=== END DISPATCH_REQUEST ===
+STATUS: AWAITING_DISPATCH_RESULTS
+```
+
+**Critical rules** (drift = silent parent fallback to inline = the very bug this section fixes):
+
+- Use `multi_select` (snake_case), NOT `multiSelect` (camelCase)
+- Use `recommended: true|false` field per option, NOT a `(Recomendado)` suffix in the label
+- Always include `expected_deliverables` in PLAN_MODE_REQUEST
+- Replace ALL `{placeholders}` with concrete values — never emit literal `{n}`, `{run_id}`, `{paths from ...}`
+- NEVER fall back to prose questions ("Should we do A or B?") — parent cannot parse prose
+- NEVER call `AskUserQuestion`, `Agent`, `EnterPlanMode` directly — they are stripped
+- Wait for the corresponding response payload (`GATE_RESPONSES` / `PLAN_MODE_RESULTS` / `DISPATCH_RESULTS`) before continuing; do NOT proceed inline
+
+**Full protocol schema and audit trail format:** `references/gate-request-protocol.md`.

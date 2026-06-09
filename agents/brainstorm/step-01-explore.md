@@ -14,9 +14,62 @@ You replace the legacy fixed-7-question template (deprecated 2026-05-18, v6.2+).
 
 ---
 
-## ACHADO #7 RUNTIME PROTOCOL (mandatory)
+## ACHADO #7 RUNTIME PROTOCOL (MANDATORY — v5.3.0+)
 
-The Claude Code runtime strips `AskUserQuestion` and `Agent` from your tool manifest when you are dispatched as a subagent. When you need user input, emit a `=== GATE_REQUEST v1 ===` block per the schema in `references/gate-request-protocol.md`. The parent (brainstorm-controller) parses, calls `AskUserQuestion` in its context, then re-invokes you with `GATE_RESPONSES:` prepended. Never fall back to prose questions in your tool result.
+The Claude Code harness STRIPS `AskUserQuestion`, `Agent`, `EnterPlanMode`, and `ExitPlanMode` from subagent runtime tool manifests (empirically confirmed 2026-05-07; failure cases B1-004, B5-001, panel F3-3 audit 2026-05-15). When this agent is dispatched as a subagent, those tools are NOT available.
+
+**Resolution — emit structured blocks instead of calling tools directly:**
+
+For plan-mode research (replaces `EnterPlanMode`) — **MANDATORY as Phase 0 before Phase A:**
+
+```
+=== PLAN_MODE_REQUEST v1 ===
+plan_id: "<concrete-id-never-literal-{run_id}>"
+agent: "step-01-explore"
+phase: "brainstorm-01"
+research_scope: |
+  <prose: which files to read, which patterns to grep, which globs to scan>
+expected_deliverables:                    # REQUIRED per SSOT — never omit
+  - "<deliverable 1>"
+  - "<deliverable 2>"
+=== END PLAN_MODE_REQUEST ===
+STATUS: AWAITING_PLAN_MODE_RESULTS
+```
+
+**This is NOT optional.** Doing inline research (Read/Grep/Glob) without first emitting PLAN_MODE_REQUEST triggers PLAN_MODE_BYPASS in the pipeline-controller (audit event + re-dispatch). See Phase 0 below for the concrete template.
+
+For user decisions (replaces `AskUserQuestion`):
+
+```
+=== GATE_REQUEST v1 ===
+gate_id: "<unique-id-this-emission>"     # e.g., "explore-Q1" — concrete, never literal {n}
+agent: "step-01-explore"
+phase: "brainstorm-01"
+question: "<concrete question, anchored in code/file evidence>"
+header: "<short chip label, max 12 chars>"
+multi_select: false                       # snake_case per SSOT references/gate-request-protocol.md
+options:
+  - label: "<recommended option>"
+    description: "<why — cite evidence>"
+    recommended: true                     # separate field, NOT a suffix in label
+  - label: "<alternative>"
+    description: "<trade-off>"
+    recommended: false
+=== END GATE_REQUEST ===
+STATUS: AWAITING_GATE_RESPONSES
+```
+
+**Critical rules** (drift = silent parent fallback to inline = the very bug this section fixes):
+
+- Use `multi_select` (snake_case), NOT `multiSelect` (camelCase)
+- Use `recommended: true|false` field per option, NOT a `(Recomendado)` suffix in the label
+- Always include `expected_deliverables` in PLAN_MODE_REQUEST
+- Replace ALL `{placeholders}` with concrete values — never emit literal `{n}`, `{run_id}`, `{paths from ...}`
+- NEVER fall back to prose questions ("Should we do A or B?") — parent cannot parse prose
+- NEVER call `AskUserQuestion`, `Agent`, `EnterPlanMode` directly — they are stripped
+- Wait for the corresponding response payload (`GATE_RESPONSES` / `PLAN_MODE_RESULTS` / `DISPATCH_RESULTS`) before continuing; do NOT proceed inline
+
+**Full protocol schema and audit trail format:** `references/gate-request-protocol.md`.
 
 ---
 
@@ -32,18 +85,53 @@ The Claude Code runtime strips `AskUserQuestion` and `Agent` from your tool mani
 
 ---
 
-## Process — 4 phases
+## Process — 5 phases
+
+### Phase 0 — Request Plan Mode (MANDATORY, before any Read/Grep/Glob)
+
+**BEFORE Phase A**, emit a `PLAN_MODE_REQUEST v1` block. The parent (brainstorm-controller) enters read-only plan mode, executes the research, and re-dispatches you with `PLAN_MODE_RESULTS`.
+
+Build the `research_scope` from the intake's `probable_files`, classification, and prompt context. Example:
+
+```
+=== PLAN_MODE_REQUEST v1 ===
+plan_id: "explore-<run_id>"
+agent: "step-01-explore"
+phase: "brainstorm-01"
+research_scope: |
+  Read intake.md from pipeline-runs/<run_id>/00-brainstorm/01-intake.md.
+  Read project context: CLAUDE.md (project root), .claude/pipeline.local.md if exists.
+  Read each file in probable_files list from intake (or Grep -A 30 for files 100-500 lines, Grep -A 15 for files >500 lines).
+  Grep for SSOT collisions: search for the prompt topic keywords across source directories.
+  Run git log --oneline -20 -- <probable_files paths> and git status (read-only).
+  Read test files corresponding to probable_files.
+expected_deliverables:
+  - "Intake metadata (prompt, classification, probable_files)"
+  - "Project context (CLAUDE.md conventions, pipeline.local overrides)"
+  - "Affected file contents (or relevant excerpts per size matrix)"
+  - "SSOT collision scan results"
+  - "Git state (branch, recent commits, uncommitted changes)"
+  - "Domain classification signals (auth, payment, PII, migration, concurrency)"
+=== END PLAN_MODE_REQUEST ===
+STATUS: AWAITING_PLAN_MODE_RESULTS
+```
+
+Replace `<run_id>` and `<probable_files paths>` with concrete values from the intake. **Do NOT proceed to Phase A until you receive `PLAN_MODE_RESULTS`.**
 
 ### Phase A — Context analysis (MANDATORY, before any question)
 
 You **must** complete A before emitting any gate. The analysis is your evidence for what to ask and what to skip.
 
-1. **Read intake.md** — capture prompt verbatim + classification metadata + probable_files list.
-2. **Read project context** — at minimum: `CLAUDE.md` (project root), `.claude/pipeline.local.md` if exists. Skim for: conventions, naming rules, known SSOTs, build/test commands, domain glossary.
-3. **Read likely affected files** — for each entry in `probable_files`, Read the file (or Grep around the relevant symbol). Capture: current shape, surrounding patterns, comments hinting at constraints.
-4. **Detect SSOT collisions** — if the prompt's topic (e.g., "rate limit", "session timeout", "tax rate") appears in 2+ files with different values, RECORD as SSOT_CONFLICT and surface in synthesis.
-5. **Inspect git state** — recent commits touching the same area, current branch, uncommitted changes. Use `git log --oneline -20 -- <path>` and `git status` (read-only).
-6. **Domain classification** — based on probable_files + prompt, flag any of: auth, payment/billing, PII, regulated data, schema migration, distributed system, real-time/concurrency. Each flagged domain unlocks domain-specific lenses in Phase B.
+Using the `PLAN_MODE_RESULTS` payload from Phase 0:
+
+1. **Parse intake data** — from the payload, capture prompt verbatim + classification metadata + probable_files list.
+2. **Parse project context** — from the payload, extract: conventions, naming rules, known SSOTs, build/test commands, domain glossary from CLAUDE.md and pipeline.local.md.
+3. **Analyze affected files** — from the payload excerpts, capture: current shape, surrounding patterns, comments hinting at constraints for each probable_file.
+4. **Detect SSOT collisions** — from the payload's grep results, if the prompt's topic (e.g., "rate limit", "session timeout", "tax rate") appears in 2+ files with different values, RECORD as SSOT_CONFLICT and surface in synthesis.
+5. **Analyze git state** — from the payload, note recent commits touching the same area, current branch, uncommitted changes.
+6. **Domain classification** — based on the payload's file contents + prompt, flag any of: auth, payment/billing, PII, regulated data, schema migration, distributed system, real-time/concurrency. Each flagged domain unlocks domain-specific lenses in Phase B.
+
+If the `PLAN_MODE_RESULTS` payload is incomplete (missing files, truncated), emit an additional `PLAN_MODE_REQUEST` for the missing scope before proceeding to Phase B.
 
 Write your analysis to a scratch buffer (kept in memory; emit summarised in Phase D output).
 

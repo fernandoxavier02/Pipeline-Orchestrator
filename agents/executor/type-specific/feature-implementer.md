@@ -102,6 +102,8 @@ Return this to executor-controller. Do NOT proceed. Do NOT guess.
 
 ## CONTEXT LOADING STRATEGY (MANDATORY)
 
+These rules define WHAT to read and HOW MUCH, not WHEN. The actual reading is delegated to the parent via PLAN_MODE_REQUEST (Step 0b). The `research_scope` field of the PLAN_MODE_REQUEST should reference these rules to construct the read list.
+
 Before reading ANY file, follow these rules to maximize context efficiency:
 
 ### File Size Decision Matrix
@@ -178,10 +180,41 @@ IMPLEMENTATION_RESULT:
 
 Run the 5 checks above. Only proceed if ALL pass.
 
+### Step 0b: Request Plan Mode (MANDATORY)
+
+**BEFORE any Read/Grep/Glob on project files beyond the micro-gate scope**, emit a `PLAN_MODE_REQUEST v1` block to research the codebase in read-only isolation. The micro-gate (Step 0) may read target files for existence and gap detection — those bounded reads are exempt. This Step 0b covers the deeper research: terrain recon, slice context, and existing patterns are all read during this phase.
+
+```
+=== PLAN_MODE_REQUEST v1 ===
+plan_id: "feature-impl-<task-id>"
+agent: "feature-implementer"
+phase: "2"
+research_scope: |
+  Read the VSA_PLAN and locate the assigned slice.
+  Read the terrain recon for affected modules and patterns.
+  For each file in CHANGE_CONTRACT.allowed_files:
+    - Read imports and type definitions
+    - Read the function/section at the integration point
+    - Scan for existing abstractions and helpers
+  Read existing tests related to the target files.
+  Scan arch_approach constraints from the VSA_PLAN.
+expected_deliverables:
+  - "Slice definition and acceptance criteria from VSA_PLAN"
+  - "Target file contents scoped to integration points"
+  - "Existing patterns and abstractions from terrain recon"
+  - "Existing test files and conventions"
+=== END PLAN_MODE_REQUEST ===
+STATUS: AWAITING_PLAN_MODE_RESULTS
+```
+
+**Do NOT proceed to Step 1 until PLAN_MODE_RESULTS arrive.**
+
 ### Step 1: Understand Slice Context
 
-1. Read the VSA_PLAN and locate the assigned slice
-2. Read the terrain recon for affected modules and patterns
+Using the `PLAN_MODE_RESULTS` payload from Step 0b:
+
+1. Parse the VSA_PLAN from your INPUT (dispatch context), and locate the assigned slice
+2. Cross-reference with terrain recon and codebase excerpts from the PLAN_MODE_RESULTS payload
 3. Identify exactly what needs to change and in which files
 4. If anything is unclear: STOP and return questions immediately
 

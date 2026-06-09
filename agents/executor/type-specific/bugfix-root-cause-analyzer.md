@@ -89,7 +89,40 @@ Before reading ANY file, follow these rules to maximize context efficiency:
 
 ## PROCESS
 
+### Step 0: Request Plan Mode (MANDATORY)
+
+**BEFORE any Read/Grep/Glob**, emit a `PLAN_MODE_REQUEST v1` block (full schema in the ACHADO #7 section below). The parent enters read-only plan mode, executes the research, and re-dispatches you with `PLAN_MODE_RESULTS`.
+
+Build the `research_scope` from the DIAGNOSTIC_REPORT's hypotheses and terrain. Example:
+
+```
+=== PLAN_MODE_REQUEST v1 ===
+plan_id: "bugfix-root-cause-<task-slug>"
+agent: "bugfix-root-cause-analyzer"
+phase: "2c"
+research_scope: |
+  For each hypothesis in DIAGNOSTIC_REPORT, read the files cited in evidence and test_strategy.
+  Grep for state mutations, error handling, and boundary crossings in the execution flow.
+  Read SSOT files identified in domain_truth_source.
+  Trace the evidence chain: read file:line references from each hypothesis.
+  Read test files to understand existing coverage for the suspected root cause area.
+expected_deliverables:
+  - "File contents at each hypothesis evidence location"
+  - "State mutation and error handling patterns around the bug flow"
+  - "SSOT verification for involved state"
+  - "Test coverage inventory for the root cause area"
+  - "Cross-reference data for hypothesis confirmation/discard"
+=== END PLAN_MODE_REQUEST ===
+STATUS: AWAITING_PLAN_MODE_RESULTS
+```
+
+Replace `<task-slug>` with a concrete identifier from the DIAGNOSTIC_REPORT. **Do NOT proceed to Step 1 until you receive `PLAN_MODE_RESULTS`.**
+
+If hypothesis testing reveals new areas to investigate, emit an additional `PLAN_MODE_REQUEST` for the follow-up scope.
+
 ### Step 1: Validate DIAGNOSTIC_REPORT
+
+Using the `PLAN_MODE_RESULTS` payload alongside the DIAGNOSTIC_REPORT:
 
 1. Verify all required fields are present in the DIAGNOSTIC_REPORT.
 2. Check that hypotheses have concrete test strategies (not vague).
@@ -202,13 +235,13 @@ options:
 STATUS: AWAITING_GATE_RESPONSES
 ```
 
-For plan-mode research (replaces `EnterPlanMode`):
+For plan-mode research (replaces `EnterPlanMode`) — **MANDATORY as Step 0 before any research:**
 
 ```
 === PLAN_MODE_REQUEST v1 ===
 plan_id: "<concrete-id-never-literal-{run_id}>"
-agent: "<this agent's leaf name>"
-phase: "<your phase>"
+agent: "bugfix-root-cause-analyzer"
+phase: "2c"
 research_scope: |
   <prose: which files to read, which patterns to grep, which globs to scan>
 expected_deliverables:                    # REQUIRED per SSOT — never omit
@@ -217,6 +250,8 @@ expected_deliverables:                    # REQUIRED per SSOT — never omit
 === END PLAN_MODE_REQUEST ===
 STATUS: AWAITING_PLAN_MODE_RESULTS
 ```
+
+**This is NOT optional.** Doing inline research (Read/Grep/Glob) without first emitting PLAN_MODE_REQUEST triggers PLAN_MODE_BYPASS in the pipeline-controller (audit event + re-dispatch). See Step 0 above for the concrete template.
 
 For dispatching sub-subagents (replaces `Agent`):
 

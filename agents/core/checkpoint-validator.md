@@ -152,6 +152,15 @@ STOP RULE TRIGGERED. Report consecutive failures, batch numbers, reasons, and es
 CHECKPOINT_RESULT:
   batch: [N]
   status: "[PASS | FAIL]"
+  parallel_execution: false                # true when batch ran with parallel dispatch (v7.10.0+)
+  # When parallel_execution: true, add per_task_status (omit entirely when false):
+  # per_task_status:
+  #   - task_id: "N.1"
+  #     status: "[PASS | FAIL]"
+  #     first_failure: null                # or "test_name:line" if FAIL
+  #   - task_id: "N.2"
+  #     status: "[PASS | FAIL]"
+  #     first_failure: null
   build:
     status: "[PASS | FAIL]"
     command: "[exact command]"

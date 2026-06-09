@@ -67,7 +67,40 @@ When reading ANY project file (source code, configs, docs), follow these rules:
 
 ## PROCESS
 
+### Step 0: Request Plan Mode (MANDATORY)
+
+**BEFORE any Read/Grep/Glob**, emit a `PLAN_MODE_REQUEST v1` block (full schema in the ACHADO #7 section below). The parent enters read-only plan mode, executes the research, and re-dispatches you with `PLAN_MODE_RESULTS`.
+
+Build the `research_scope` from the `audit_request` and `scope_definition` you received. Example:
+
+```
+=== PLAN_MODE_REQUEST v1 ===
+plan_id: "audit-intake-<audit-slug>"
+agent: "audit-intake"
+phase: "2c"
+research_scope: |
+  Read README, package.json, requirements.txt, pyproject.toml, Cargo.toml, go.mod or equivalent.
+  Read configuration files: docker-compose, CI/CD configs, tsconfig, webpack, vite.
+  Glob project root to map full directory structure with roles.
+  Grep for main/index entry points, route definitions, CLI entry points.
+  Identify files >500 lines and files with high import counts.
+  Glob test directories and identify test framework configuration.
+  Read auth, payments, and PII-handling files if within scope.
+expected_deliverables:
+  - "Technology stack with dependency manifest evidence"
+  - "Full directory tree with role classification"
+  - "Entry point enumeration (application + data flow)"
+  - "Hotspot file list with size and coupling metrics"
+  - "Security-sensitive file inventory"
+=== END PLAN_MODE_REQUEST ===
+STATUS: AWAITING_PLAN_MODE_RESULTS
+```
+
+Replace `<audit-slug>` with a concrete identifier from the audit request. **Do NOT proceed to Step 1 until you receive `PLAN_MODE_RESULTS`.**
+
 ### Step 1: Technology Stack Identification
+
+Using the `PLAN_MODE_RESULTS` payload:
 
 1. Read README, package.json, requirements.txt, Pipfile, pyproject.toml, Cargo.toml, go.mod, or equivalent dependency manifests
 2. Read configuration files: docker-compose, CI/CD configs, tsconfig, webpack, vite, etc.
@@ -177,3 +210,58 @@ AUDIT_INTAKE_RESULT:
   summary: "[what was found]"
   blocked_reason: "[if BLOCKED, why]"
 ```
+
+---
+
+## ACHADO #7 RUNTIME PROTOCOL (MANDATORY — v5.3.0+)
+
+The Claude Code harness STRIPS `AskUserQuestion`, `Agent`, `EnterPlanMode`, and `ExitPlanMode` from subagent runtime tool manifests (empirically confirmed 2026-05-07; failure cases B1-004, B5-001, panel F3-3 audit 2026-05-15). When this agent is dispatched as a subagent, those tools are NOT available.
+
+**Resolution — emit structured blocks instead of calling tools directly:**
+
+For plan-mode research (replaces `EnterPlanMode`) — **MANDATORY as Step 0 before any research:**
+
+```
+=== PLAN_MODE_REQUEST v1 ===
+plan_id: "<concrete-id-never-literal-{run_id}>"
+agent: "audit-intake"
+phase: "2c"
+research_scope: |
+  <prose: which files to read, which patterns to grep, which globs to scan>
+expected_deliverables:                    # REQUIRED per SSOT — never omit
+  - "<deliverable 1>"
+  - "<deliverable 2>"
+=== END PLAN_MODE_REQUEST ===
+STATUS: AWAITING_PLAN_MODE_RESULTS
+```
+
+**This is NOT optional.** Doing inline research (Read/Grep/Glob) without first emitting PLAN_MODE_REQUEST triggers PLAN_MODE_BYPASS in the pipeline-controller (audit event + re-dispatch). See Step 0 above for the concrete template.
+
+For user decisions (replaces `AskUserQuestion`):
+
+```
+=== GATE_REQUEST v1 ===
+gate_id: "<unique-id-this-emission>"
+agent: "audit-intake"
+phase: "2c"
+question: "<concrete question>"
+header: "<max 12 chars>"
+multi_select: false
+options:
+  - label: "<recommended option>"
+    description: "<why>"
+    recommended: true
+  - label: "<alternative>"
+    description: "<trade-off>"
+    recommended: false
+=== END GATE_REQUEST ===
+STATUS: AWAITING_GATE_RESPONSES
+```
+
+**Critical rules:**
+- Always include `expected_deliverables` in PLAN_MODE_REQUEST
+- Replace ALL `{placeholders}` with concrete values
+- NEVER call `AskUserQuestion`, `Agent`, `EnterPlanMode` directly — they are stripped
+- Wait for the corresponding response payload before continuing
+
+**Full protocol schema:** `references/gate-request-protocol.md`.

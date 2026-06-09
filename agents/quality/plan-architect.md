@@ -176,6 +176,35 @@ The table is intentionally lightweight — exactly 3 columns, no Owner/Team/Stat
 One row per bounded context the plan touches. If the plan crosses contexts, list each context separately and note cross-context coupling in the Risk Assessment section above.
 ```
 
+### Step 2b: Batch Metadata — Parallel Eligibility Analysis (MEDIA only)
+
+For MEDIA complexity plans (batch size 2-3), analyze each batch for parallel execution eligibility:
+
+1. **Group tasks into batches** per the complexity-matrix rules (2-3 tasks per batch, dependency-sorted).
+2. **For each batch**, cross-reference `CHANGE_CONTRACT.allowed_files` + `allowed_new_files` across all tasks in the batch.
+3. **If the file-scope intersection is EMPTY** (no two tasks modify or create the same file): mark the batch as `parallel_eligible: true`.
+4. **If any overlap exists**: mark `parallel_eligible: false` and record the overlap reason.
+
+Add a `batch_metadata` section to the IMPLEMENTATION_PLAN YAML output (Step 4):
+
+```yaml
+  batch_metadata:                          # MEDIA only — omit for SIMPLES/COMPLEXA
+    - batch_id: 1
+      tasks: ["T1", "T2", "T3"]
+      parallel_eligible: true              # all tasks have disjoint file scopes
+      overlap_reason: null
+    - batch_id: 2
+      tasks: ["T4", "T5"]
+      parallel_eligible: false
+      overlap_reason: "T4 and T5 both modify src/auth.ts"
+```
+
+**Rules:**
+- SIMPLES plans (all tasks at once) and COMPLEXA plans (1 task per batch) skip this step entirely — parallelism is N/A.
+- A task that CREATES a new file and another that MODIFIES the same file = overlap (parallel_eligible: false).
+- When in doubt (e.g., dynamic file paths), mark `parallel_eligible: false` — false negatives are safe, false positives are not.
+- This metadata is consumed by executor-controller Step 1 to decide serial vs parallel dispatch.
+
 ### Step 3: Present Plan to User
 
 Emit a `GATE_REQUEST v1` block for plan approval (schema: `references/gate-request-protocol.md`) and end your tool result with `STATUS: AWAITING_GATE_RESPONSES`. The parent invokes the interactive surface, captures the user's choice, and re-dispatches you with a `GATE_RESPONSES` payload. The three options stay the same (approve / adjust / reject) — only the mechanism changes from a direct tool call to a block emission.
@@ -239,6 +268,12 @@ IMPLEMENTATION_PLAN:
       invariants:
         - "[e.g., amount > 0]"
         - "[e.g., status transitions only via approve()/cancel()]"
+  # v7.10.0+ — MEDIA batch parallel eligibility (omit for SIMPLES/COMPLEXA)
+  batch_metadata:                          # populated by Step 2b
+    - batch_id: 1
+      tasks: ["T1", "T2"]
+      parallel_eligible: true
+      overlap_reason: null
   # v6.3.0+ — SCOPE / DIFF DISCIPLINE CONTRACT. Mandatory for MEDIA/COMPLEXA plans.
   # SSOT: references/implementation-discipline.md. Defaults below are fail-closed
   # (0 / false) — every plan MUST customize them. A plan that ships these defaults

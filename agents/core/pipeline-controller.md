@@ -515,7 +515,22 @@ These fields are READ by:
 > ```
 > Note: plan-architect's internal EnterPlanMode call also fails in subagent runtime. Plan-architect MUST itself emit a `=== PLAN_MODE_REQUEST v1 ===` block; the parent enters plan mode in its own context. See `references/gate-request-protocol.md` PLAN_MODE_REQUEST schema.
 >
-> **Plan Mode Enforcement (PLAN_MODE_BYPASS):** WHEN the controller receives a plan-architect return that carries an IMPLEMENTATION_PLAN but the dispatch cycle had NO `PLAN_MODE_REQUEST` block and NO `PLAN_MODE_RESULTS` payload (the agent planned inline, bypassing the plan-mode boundary), THEN log an `event: "PLAN_MODE_BYPASS"` entry to `{PIPELINE_DOC_PATH}/protocol-events.jsonl` (schema per `references/gate-request-protocol.md` "Audit-trail entries" — the `event:` field, never `gate:`, so it stays out of the gate decision log and the 35-gate registry accounting is untouched) and re-dispatch plan-architect ONCE with an explicit reminder of the PLAN_MODE_REQUEST obligation. If the second return still bypasses (no `PLAN_MODE_REQUEST` emitted again), ACCEPT the inline plan and proceed — do NOT hard-block, because legacy sessions without a PLAN_MODE_RESULTS handler must not deadlock — while keeping the audit trail (a second PLAN_MODE_BYPASS entry, detail "second inline — proceeding") and surfacing the violation in the phase doc and final report. Hardness: AUDIT — this is explicitly NOT a new registered gate: the 35-gate registry, `references/gates.md`, and the Inline Invariants list below stay untouched (`gate_registry_modification` is a forbidden change type).
+> **PLAN_MODE_MANDATORY_AGENTS** (v7.10.0+): The following agents perform heavy research (10-25 Read/Grep/Glob operations) and MUST emit `PLAN_MODE_REQUEST v1` before any inline reading:
+>
+> | Agent | Pipeline phase | Typical operations |
+> |-------|---------------|-------------------|
+> | plan-architect | 1.5 | 15-20 |
+> | bugfix-diagnostic-agent | 2c (Bug Fix) | 15-20 |
+> | bugfix-root-cause-analyzer | 2c (Bug Fix) | 12-18 |
+> | audit-intake | 2c (Audit) | 20-25 |
+> | audit-domain-analyzer | 2c (Audit) | 18-22 |
+> | design-interrogator | 0c (COMPLEXA) | 10-15 |
+> | feature-vertical-slice-planner | 2c (Feature) | 12-16 |
+> | step-01-explore | brainstorm-01 | 15-25 |
+> | executor-implementer-task | 2 (all types) | 10-20 |
+> | feature-implementer | 2 (Feature/User Story) | 10-20 |
+>
+> **Plan Mode Enforcement (PLAN_MODE_BYPASS):** WHEN the controller (or brainstorm-controller, for step-01-explore) receives a return from ANY agent in the PLAN_MODE_MANDATORY_AGENTS list above (including implementer agents dispatched via executor-controller's DISPATCH_REQUEST chain — the pipeline-controller is the enforcement point since it is the one that actually dispatches and receives agent returns per Achado #7), and that return carries substantive output (IMPLEMENTATION_PLAN, DIAGNOSTIC_REPORT, ROOT_CAUSE_RESULT, AuditIntake, DOMAIN_ANALYSIS, DESIGN_INTERROGATION, VSA_PLAN, IMPLEMENTER_RESULT, IMPLEMENTATION_RESULT, or 02-explore.md) but the dispatch cycle had NO `PLAN_MODE_REQUEST` block and NO `PLAN_MODE_RESULTS` payload (the agent researched inline, bypassing the plan-mode boundary), THEN log an `event: "PLAN_MODE_BYPASS"` entry to `{PIPELINE_DOC_PATH}/protocol-events.jsonl` (schema per `references/gate-request-protocol.md` "Audit-trail entries" — the `event:` field, never `gate:`, so it stays out of the gate decision log and the 35-gate registry accounting is untouched) with `detail: "<agent-name> researched inline without PLAN_MODE_REQUEST"`, and re-dispatch the agent ONCE with an explicit reminder of the PLAN_MODE_REQUEST obligation. If the second return still bypasses (no `PLAN_MODE_REQUEST` emitted again), ACCEPT the inline result and proceed — do NOT hard-block, because legacy sessions without a PLAN_MODE_RESULTS handler must not deadlock — while keeping the audit trail (a second PLAN_MODE_BYPASS entry, detail "second inline — proceeding") and surfacing the violation in the phase doc and final report. Hardness: AUDIT — this is explicitly NOT a new registered gate: the 35-gate registry, `references/gates.md`, and the Inline Invariants list below stay untouched (`gate_registry_modification` is a forbidden change type).
 >
 > **Phase 2c — executor-controller (Phase 2 batch execution kickoff):**
 > ```yaml

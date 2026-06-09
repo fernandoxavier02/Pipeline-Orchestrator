@@ -5,6 +5,64 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.10.0] - 2026-06-09 — Plan Mode generalized + parallel dispatch (MINOR)
+
+Generalizes mandatory Plan Mode from 1 agent (plan-architect) to 10 agents and introduces
+parallel task dispatch for MEDIA batches with disjoint file scopes. Adversarial review
+with 3 independent zero-context reviewers produced 6 fixes. 74 new regression test
+scenarios across 4 new test files.
+
+### Added
+- **Plan Mode mandatory in 10 agents** — 7 research-heavy agents (`step-01-explore`,
+  `audit-intake`, `audit-domain-analyzer`, `bugfix-diagnostic-agent`,
+  `bugfix-root-cause-analyzer`, `feature-vertical-slice-planner`,
+  `design-interrogator`) + 2 implementer agents (`executor-implementer-task`,
+  `feature-implementer`) now emit `PLAN_MODE_REQUEST v1` as Step 0/0b before any
+  deep codebase research, delegating reads to the parent in read-only isolation.
+- **PLAN_MODE_MANDATORY_AGENTS table** in `pipeline-controller.md` — formal registry
+  of all 10 agents subject to Plan Mode enforcement.
+- **PLAN_MODE_BYPASS enforcement generalized** — any agent in the mandatory table
+  returning without a REQUEST/RESULTS cycle triggers AUDIT event + single re-dispatch;
+  second bypass accepted (no deadlock). Extends the v7.9.4 plan-architect-only
+  enforcement to all 10 agents.
+- **Parallel dispatch for MEDIA batches** — `plan-architect.md` Step 2 now emits
+  `parallel_eligible: true|false` per batch after checking `CHANGE_CONTRACT`
+  file-scope overlap across tasks. `executor-controller.md` gains `1-PARALLEL`
+  dispatch mode: when `parallel_eligible: true`, emits N `DISPATCH_REQUEST` blocks
+  in a single response for concurrent implementer execution.
+- **Per-task checkpoint attribution** — `checkpoint-validator.md` gains conditional
+  `per_task_status` field (only when `parallel_execution: true`) enabling per-task
+  failure attribution without re-executing passed tasks.
+- **Parallel tasks row** in `references/complexity-matrix.md` Proportional Behavior
+  table (SIMPLES: N/A, MEDIA: "Parallel if file-scope disjoint", COMPLEXA: N/A).
+- **4 new regression test files** in `tests/regression/v7.10.0/`:
+  F20 plan-mode-mandatory-agents (45 scenarios),
+  F21 plan-mode-bypass-enforcement (14 scenarios),
+  F22 parallel-eligible-contract (9 scenarios),
+  F23 checkpoint-parallel-fields (6 scenarios).
+
+### Fixed (adversarial review, 6 findings)
+- **ADV-001 (HIGH):** `IMPLEMENTATION_RESULT` added to substantive output list in
+  pipeline-controller bypass detection — feature-implementer returns this, not
+  `IMPLEMENTER_RESULT`, so bypass detection was silently failing for it.
+- **ADV-002 (HIGH):** Removed misleading enforcement delegation to executor-controller
+  — pipeline-controller is the single enforcement point per Achado #7's dispatch model.
+  Added informational Plan Mode note to executor-controller.
+- **COR-001/COR-002 (HIGH):** Step 0 micro-gate reads exempted from Plan Mode
+  precondition — micro-gate performs bounded Read/Glob for existence and gap detection
+  BEFORE Step 0b Plan Mode Request; precondition changed to "beyond the micro-gate scope."
+- **COR-003/COR-004 (MEDIUM):** CONTEXT LOADING STRATEGY sections in both implementer
+  agents clarified as delegation definitions (WHAT to read, not WHEN) — actual reading
+  delegated to parent via PLAN_MODE_REQUEST.
+- **ADV-006 (MEDIUM):** `per_task_status` moved to commented-out conditional block in
+  checkpoint-validator YAML template to avoid ambiguity with `parallel_execution: false`.
+- **COR-005 (LOW):** feature-implementer Step 1 clarified — VSA_PLAN comes from INPUT
+  (dispatch context), codebase excerpts from PLAN_MODE_RESULTS payload.
+
+### Changed
+- `tests/regression/v7.2.0/F5_documentation_truth.cjs` baseline range 280-330 → 325-375
+  (plan-architect grew from 314 to 349 lines with Plan Mode additions).
+
 ## [7.9.4] - 2026-06-06 — Plan Mode contract fix (PATCH)
 
 Fixes the Plan Mode that never fired: 21+ real runs (2026-05-04 → 2026-06-05) produced
