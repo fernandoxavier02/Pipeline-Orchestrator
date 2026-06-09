@@ -5,6 +5,27 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.10.1] - 2026-06-09 — parallel_eligible default contract (PATCH)
+
+### Bug Fix
+
+- **plan-architect Rule 5 (analysis-incomplete default):** When overlap analysis between tasks in a batch cannot be completed (e.g., `CHANGE_CONTRACT` absent, `allowed_files` contains wildcards/globs, or file paths are dynamically generated), `parallel_eligible` MUST be set to `false` with `overlap_reason` prefixed `"analysis_incomplete:"` followed by the specific cause. Previously, the field was simply absent, causing undefined behavior in executor-controller's parallel dispatch decision.
+- **executor-controller explicit guard for absent parallel_eligible:** Added third explicit clause: when `parallel_eligible` is absent or undefined within a batch entry, the controller now falls through to serial dispatch and emits `WARN: parallel_eligible absent in batch <N> — defaulting to serial dispatch` to the pipeline trace. This converts implicit JS falsy behavior into an explicit, observable contract.
+
+### Tests
+
+- **F22-S10:** Verifies plan-architect has Rule 5 covering analysis failure case with `analysis_incomplete:` prefix guidance.
+- **F22-S11:** Verifies executor-controller has explicit guard for absent/undefined `parallel_eligible` with WARN trace message.
+- F22 total scenarios: 9 → 11 (all PASS).
+
+### Dogfood Evidence
+
+- Pipeline run (Bug Fix / SIMPLES / bugfix-light) validated Plan Mode protocol: 3/3 mandatory agents (plan-architect, bugfix-diagnostic-agent, bugfix-root-cause-analyzer) emitted `PLAN_MODE_REQUEST` on first attempt.
+
+### Iron Law
+
+- ZERO changes to `references/gates.md`, hooks, or `lib/`. 35-gate Registry and 23-row Mandatory Gates untouched.
+
 ## [7.10.0] - 2026-06-09 — Plan Mode generalized + parallel dispatch (MINOR)
 
 Generalizes mandatory Plan Mode from 1 agent (plan-architect) to 10 agents and introduces

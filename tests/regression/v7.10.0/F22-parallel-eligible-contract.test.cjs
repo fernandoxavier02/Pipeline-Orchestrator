@@ -100,6 +100,28 @@ test('F22-S9: complexity-matrix MEDIA allows parallel if disjoint', () => {
   );
 });
 
+test('F22-S10: plan-architect has Rule 5 for analysis-incomplete default', () => {
+  assert.ok(
+    /analysis cannot be completed/i.test(planArchitect),
+    'missing Rule 5 covering analysis failure case in plan-architect'
+  );
+  assert.ok(
+    planArchitect.includes('analysis_incomplete:'),
+    'missing analysis_incomplete: prefix in overlap_reason guidance'
+  );
+});
+
+test('F22-S11: executor-controller has explicit guard for absent parallel_eligible', () => {
+  assert.ok(
+    /parallel_eligible.*absent.*undefined/i.test(executorController),
+    'missing explicit guard for absent/undefined parallel_eligible in executor-controller'
+  );
+  assert.ok(
+    /WARN.*parallel_eligible absent/i.test(executorController),
+    'missing WARN trace message for absent parallel_eligible'
+  );
+});
+
 // summary
 const pass = results.filter(r => r.ok).length;
 const fail = results.filter(r => !r.ok).length;

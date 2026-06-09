@@ -160,7 +160,7 @@ STATUS: AWAITING_DISPATCH_RESULTS [batch-<N>-task-<M1>-implementer, batch-<N>-ta
 ```
 
 **Rules:**
-- Only when `parallel_eligible: true` in batch_metadata. If batch_metadata is absent or `parallel_eligible: false`, fall through to serial dispatch (Step 1a → 1b).
+- Only when `parallel_eligible: true` in batch_metadata. If batch_metadata is absent, `parallel_eligible: false`, **or `parallel_eligible` is absent/undefined within a batch entry**, fall through to serial dispatch (Step 1a → 1b). When `parallel_eligible` is absent from a batch entry, emit `WARN: parallel_eligible absent in batch <N> — defaulting to serial dispatch` to the pipeline trace before falling through. This converts the implicit JS falsy behavior into an explicit, observable contract.
 - The spec→quality review chain within each task remains SERIAL (quality only after spec PASS).
 - If any implementer fails, the others' results are still valid — checkpoint-validator handles per-task attribution.
 - COMPLEXA batches (1 task) and SIMPLES batches (all at once, single serial chain) skip this step.

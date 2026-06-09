@@ -184,6 +184,7 @@ For MEDIA complexity plans (batch size 2-3), analyze each batch for parallel exe
 2. **For each batch**, cross-reference `CHANGE_CONTRACT.allowed_files` + `allowed_new_files` across all tasks in the batch.
 3. **If the file-scope intersection is EMPTY** (no two tasks modify or create the same file): mark the batch as `parallel_eligible: true`.
 4. **If any overlap exists**: mark `parallel_eligible: false` and record the overlap reason.
+5. **If analysis cannot be completed** (e.g., `CHANGE_CONTRACT` absent for a task, `allowed_files` contains wildcards/globs, or file paths are dynamically generated): mark `parallel_eligible: false` and set `overlap_reason` to a descriptive message starting with `"analysis_incomplete:"` followed by the specific cause (e.g., `"analysis_incomplete: CHANGE_CONTRACT absent for task T3"`).
 
 Add a `batch_metadata` section to the IMPLEMENTATION_PLAN YAML output (Step 4):
 
@@ -202,7 +203,7 @@ Add a `batch_metadata` section to the IMPLEMENTATION_PLAN YAML output (Step 4):
 **Rules:**
 - SIMPLES plans (all tasks at once) and COMPLEXA plans (1 task per batch) skip this step entirely — parallelism is N/A.
 - A task that CREATES a new file and another that MODIFIES the same file = overlap (parallel_eligible: false).
-- When in doubt (e.g., dynamic file paths), mark `parallel_eligible: false` — false negatives are safe, false positives are not.
+- When in doubt, apply Rule 5 above: mark `parallel_eligible: false` with an `"analysis_incomplete:"` reason — false negatives are safe, false positives are not.
 - This metadata is consumed by executor-controller Step 1 to decide serial vs parallel dispatch.
 
 ### Step 3: Present Plan to User
