@@ -58,7 +58,7 @@ This agent reviews the COMPLETE diff as a whole, with zero contamination from an
 ```yaml
 FINAL_REVIEW_CONTEXT:
   complexity: "[SIMPLES | MEDIA | COMPLEXA]"
-  pipeline_variant: "[bugfix-light | implement-heavy | etc.]"
+  pipeline_variant: "[bugfix-light | feature-heavy | etc.]"
   all_files_modified: ["complete list across ALL batches"]
   all_files_created: ["complete list"]
   all_test_files: ["complete list"]

@@ -102,7 +102,7 @@ When reading project files for planning:
 
 ## PROCESS
 
-### Step 0: Request Plan Mode
+### Step 0: Request Plan Mode (MANDATORY)
 
 Emit a `PLAN_MODE_REQUEST v1` block (full schema in the **ACHADO #7 RUNTIME PROTOCOL** section at the top of this file — that section is canonical and this step defers to it, never contradicts it) and STOP. End your tool result with `STATUS: AWAITING_PLAN_MODE_RESULTS`.
 

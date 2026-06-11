@@ -11,12 +11,12 @@
  * Contract:
  *   - pipeline_variant === "spec-heavy" + checkpoint === "post_format_gate"
  *       → activated=true, reason mentions "spec-heavy".
- *   - pipeline_variant === "implement-heavy" + checkpoint === "post_format_gate"
+ *   - pipeline_variant === "feature-heavy" + checkpoint === "post_format_gate"
  *       → activated=false (guard prevents — not spec).
  *   - pipeline_variant === "spec-light" + checkpoint === "phase_2_to_3"
  *       → activated=true, BUT uses the OVERRIDE "post_phase_2_to_3_spec" which
  *         validates tasks.md [x] completion (not the default phase_2_to_3 logic).
- *   - pipeline_variant === "implement-heavy" + checkpoint === "phase_2_to_3"
+ *   - pipeline_variant === "feature-heavy" + checkpoint === "phase_2_to_3"
  *       → activated=true with default behavior (no spec override).
  *
  * SSOT for the rules: references/sentinel-integration.md +
@@ -127,11 +127,11 @@ if (require.main === module) {
       'Reason should mention the variant or spec context');
   });
 
-  // ─── Scenario 8b: implement-heavy + post_format_gate → guarded OFF ────────────────
+  // ─── Scenario 8b: feature-heavy + post_format_gate → guarded OFF ────────────────
 
-  test('Scenario 8b: implement-heavy + post_format_gate → activated=false (guard)', () => {
+  test('Scenario 8b: feature-heavy + post_format_gate → activated=false (guard)', () => {
     const result = evaluateSentinelCheckpoints(
-      { pipeline_variant: 'implement-heavy' },
+      { pipeline_variant: 'feature-heavy' },
       'post_format_gate'
     );
     assert.equal(result.activated, false,
@@ -152,17 +152,17 @@ if (require.main === module) {
       'spec-light must use the spec-specific override that validates tasks.md [x] completion');
   });
 
-  // ─── Scenario 8d: implement-heavy + phase_2_to_3 → default behavior ───────────────
+  // ─── Scenario 8d: feature-heavy + phase_2_to_3 → default behavior ───────────────
 
-  test('Scenario 8d: implement-heavy + phase_2_to_3 → activated, no override', () => {
+  test('Scenario 8d: feature-heavy + phase_2_to_3 → activated, no override', () => {
     const result = evaluateSentinelCheckpoints(
-      { pipeline_variant: 'implement-heavy' },
+      { pipeline_variant: 'feature-heavy' },
       'phase_2_to_3'
     );
     assert.equal(result.activated, true,
       'Default phase_2_to_3 fires for non-spec variants');
     assert.equal(result.override_used, undefined,
-      'No spec override should be applied for implement-heavy');
+      'No spec override should be applied for feature-heavy');
   });
 
   // ─── Sanity: SSOT shapes are frozen ──────────────────────────────────────────────

@@ -174,7 +174,7 @@ function classifySpec({ argument, flags, repo_glob }) {
     pipeline_variant = 'bugfix-light';
   } else if (/\b(add|create|implement|build)\b/i.test(argument)) {
     type = 'Feature';
-    pipeline_variant = 'implement-light';
+    pipeline_variant = 'feature-light';
   }
 
   return {

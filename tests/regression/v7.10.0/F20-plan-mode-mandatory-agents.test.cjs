@@ -23,6 +23,10 @@ function test(name, fn) {
 }
 
 const MANDATORY_AGENTS = [
+  // AUDIT-015a (v7.11.0): plan-architect added — the controller table has 10 agents
+  // and F20 must cover all 10 uniformly (F18 covers plan-architect's extra contract
+  // details separately; this entry pins the same 5 baseline properties as the rest).
+  { id: 'plan-architect', file: 'agents/quality/plan-architect.md' },
   { id: 'bugfix-diagnostic-agent', file: 'agents/executor/type-specific/bugfix-diagnostic-agent.md' },
   { id: 'bugfix-root-cause-analyzer', file: 'agents/executor/type-specific/bugfix-root-cause-analyzer.md' },
   { id: 'audit-intake', file: 'agents/executor/type-specific/audit-intake.md' },

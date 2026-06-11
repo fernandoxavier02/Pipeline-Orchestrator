@@ -32,7 +32,7 @@ You are the **TASK ORCHESTRATOR** — the mandatory entry point for ALL user req
 |  TASK-ORCHESTRATOR v2 - PROPOSAL READY                            |
 |  Type: [Bug Fix | Feature | User Story | Audit | UX Simulation | Spec] |
 |  Complexity: [SIMPLES | MEDIA | COMPLEXA]                         |
-|  Pipeline: [DIRETO | bugfix-light | implement-heavy | spec-* | ...] |
+|  Pipeline: [DIRETO | bugfix-light | feature-heavy | spec-* | ...] |
 |  Info-Gate: [CLEAR | RESOLVED (N gaps)]                            |
 |  Status: AWAITING USER CONFIRMATION                                |
 +==================================================================+
@@ -274,7 +274,7 @@ After information-gate resolves, present a PIPELINE PROPOSAL:
 |  Request: [1-line summary]                                        |
 |  Type: [Bug Fix | Feature | User Story | Audit | UX Simulation | Spec] |
 |  Complexity: [SIMPLES | MEDIA | COMPLEXA]                        |
-|  Pipeline: [bugfix-light | implement-heavy | ...]                  |
+|  Pipeline: [bugfix-light | feature-heavy | ...]                  |
 |  Probable files: [list]                                           |
 |  Risks: [list]                                                     |
 |  Info gaps resolved: [N]                                           |
@@ -304,13 +304,13 @@ Severity: Low
 Pipeline: DIRETO
 Reasoning: Single file, trivial change, no risk
 
-### Example 2: Medium feature (implement-light)
+### Example 2: Medium feature (feature-light)
 
 Request: "Add a CSV export button to the leads dashboard"
 Type: Feature (keywords: "add", "button")
 Complexity: MEDIA (3 files: route + service + template, 1 domain, ~50 lines)
 Severity: Medium
-Pipeline: implement-light
+Pipeline: feature-light
 Reasoning: 3 files across service+route+template layers, no auth/data model impact
 
 ### Example 3: Complex auth change (bugfix-heavy)
@@ -342,7 +342,7 @@ ORCHESTRATOR_DECISION:
   type: "[Bug Fix | Feature | User Story | Audit | UX Simulation | Spec]"
   complexity: "[SIMPLES | MEDIA | COMPLEXA]"
   severity: "[Critical | High | Medium | Low]"
-  pipeline_variant: "[DIRETO | bugfix-light | bugfix-heavy | implement-light | implement-heavy | user-story-light | user-story-heavy | audit-light | audit-heavy | ux-sim-light | ux-sim-heavy | spec-light | spec-heavy | spec-audit-only]"
+  pipeline_variant: "[DIRETO | bugfix-light | bugfix-heavy | feature-light | feature-heavy | user-story-light | user-story-heavy | audit-light | audit-heavy | ux-sim-light | ux-sim-heavy | spec-light | spec-heavy | spec-audit-only]"
   probable_files: ["file1.ts", "file2.tsx"]
   has_spec: "[Yes: path | No]"
   # spec_context (only when type=Spec) — see references/spec-context-schema.md

@@ -2,7 +2,7 @@
 ## Workflow inquebravel para Feature/User Story no modelo Paperclip+Codex
 
 **Versao:** 1.0 — 2026-05-22
-**Espelha:** pipeline-orchestrator original tipos "Feature" e "User Story" (variants: feature-light, feature-heavy, implement-heavy)
+**Espelha:** pipeline-orchestrator original tipos "Feature" e "User Story" (variants: feature-light, feature-heavy; legacy alias implement-* DEPRECATED desde v7.11.0)
 **Aplicar quando:** cliente pediu nova capacidade end-to-end com criterios de aceitacao
 **Precedencia:** este documento vence em conflito com qualquer skill especifica. Em conflito com `PAPERCLIP-AXIOMS.md`, os axiomas vencem.
 

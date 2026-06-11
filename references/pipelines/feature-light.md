@@ -1,23 +1,23 @@
-# User Story Pipeline — Light
+# Feature Implementation Pipeline (canonical variant id: feature-light, renamed from implement-light in v7.11.0 — AUDIT-013) — Light
 
 ## When Selected
-- Type: User Story
+- Type: Feature
 - Complexity: MEDIA (3-5 files, 30-100 lines, 2 domains)
 
 ## Team Composition
 
 | Step | Agent | Phase | Responsibility |
 |------|-------|-------|---------------|
-| 1 | task-orchestrator | 0a | Classify as User Story + MEDIA |
+| 1 | task-orchestrator | 0a | Classify as Feature + MEDIA |
 | 2 | sentinel (ORCHESTRATOR_VALIDATION) | 0 | Validate classification correctness |
-| 3 | information-gate | 0b | Verify: persona, trigger, acceptance criteria |
-| 4 | quality-gate-router | 2 (TDD) | Generate test scenarios from acceptance criteria |
+| 3 | information-gate | 0b | Verify: spec exists, UX flow, data persistence strategy |
+| 4 | quality-gate-router | 2 (TDD) | Generate test scenarios in plain language for user approval |
 | 5 | pre-tester | 2 (TDD) | Convert approved scenarios to automated tests (RED phase) |
-| 6 | executor-controller | 2 | Translate story → tasks, execute in batches of 2-3 |
+| 6 | executor-controller | 2 | Dispatch per-task subagents in batches of 2-3 |
 | 7 | checkpoint-validator | 2 | Build + tests after each batch |
 | 8 | review-orchestrator | 2 | Independent batch review (adversarial + architecture in parallel) |
 | 9 | sentinel (phase_2_to_3) | 2→3 | Validate phase transition coherence |
-| 10 | sanity-checker | 3 | Build + tests + user journey verification |
+| 10 | sanity-checker | 3 | Build + tests + scope verification |
 | 11 | final-adversarial-orchestrator | 3 | Independent final review (recommended, opt-in) |
 | 12 | final-validator (Pa de Cal) | 3 | Go/No-Go decision |
 | 13 | finishing-branch | 3 | Present closeout options (commit/PR/keep/discard) |
@@ -32,29 +32,29 @@
 
 ## Step-by-Step Flow
 
-### Step 1: Story Intake
-- Input: User's narrative (natural language)
-- Action: Parse into structured User Story format (As a..., I want..., So that...)
-- Output: Structured user story with acceptance criteria
-- Gate: If persona or trigger unclear, ASK user
+### Step 1: Intent & Scope
+- Input: User's feature request + classification
+- Action: Clarify what exactly should be built, boundaries of scope
+- Output: Clear scope statement with acceptance criteria
+- Gate: If scope unclear, ASK user
 
-### Step 2: Story Decomposition
-- Input: Structured user story
-- Action: Break into implementable tasks with clear acceptance criteria each
-- Output: Task list mapped to acceptance criteria
-- Gate: User confirmation of task breakdown
+### Step 2: Terrain Recon
+- Input: Scope statement
+- Action: Grep for related code, existing patterns, integration points
+- Output: Map of files to create/modify, patterns to follow
+- Gate: If touching unexpected domains, re-assess complexity
 
-### Step 3: Domain Mapping
-- Input: Task list
-- Action: Map tasks to code domains, identify SSOT, find patterns
-- Output: File map + integration points
-- Gate: If crossing unexpected domains, re-assess complexity
-
-### Step 4: Implementation (TDD)
-- Input: Approved tasks
+### Step 3: Implementation (TDD)
+- Input: Scope + terrain map
 - Action: Per-task TDD in batches of 2-3
-- Output: Story implemented, tests passing
+- Output: Feature implemented, tests passing
 - Gate: Micro-gate per task, checkpoint per batch
+
+### Step 4: Validation
+- Input: All modified/created files
+- Action: Build + tests + verify acceptance criteria
+- Output: Checkpoint result
+- Gate: STOP RULE if 2 consecutive failures
 
 ### Step 5: Adversarial Gate + Independent Review
 - Input: Checkpoint PASS result + files modified
@@ -70,33 +70,34 @@
 
 ### Step 6: Final Decision
 - Input: All results
-- Action: Verify story acceptance criteria met end-to-end
+- Action: Verify feature meets acceptance criteria
 - Output: Go/Conditional/No-Go
 
 ## Batch Configuration
 - Tasks per batch: 2-3
-- Adversarial intensity: 3 checklists
+- Adversarial intensity: 3 checklists (auth, input-validation, error-handling)
 - Checkpoint: Build + tests
 
 ## Success Criteria
-- All acceptance criteria from user story are met
-- User journey works end-to-end
+- Feature works as described in acceptance criteria
 - All new code has tests
+- Build passes
 - No critical adversarial findings
+- No scope creep beyond declared boundaries
 
 ## Escalation
-- Story too large (6+ tasks) -> escalate to user-story-heavy
-- Acceptance criteria ambiguous -> ASK user for clarification
-- Crosses 3+ domains -> re-assess complexity
+- Scope exceeds 5 files -> consider feature-heavy
+- Data model changes required -> elevate to COMPLEXA
+- Auth/security impact discovered -> add security checklists
 
 ---
 
 ### Type-Specific Agent Team
 
-**Team:** Feature Light (referenced from feature-light; legacy alias implement-light DEPRECATED)
+**Team:** Feature Light
 **Mode:** code-changing
 **Agents (execution order):**
-1. feature-vertical-slice-planner — story decomposition into implementable tasks, acceptance criteria mapping
+1. feature-vertical-slice-planner — scope decomposition, task mapping, acceptance criteria per task
 2. feature-implementer — per-task TDD implementation, batches of 2-3
 
-**Note:** feature-integration-validator is SKIPPED in Light. User Story Light uses the same agent team as Feature Light. The difference is upstream: user-story pipeline includes story intake and decomposition steps before reaching executor-controller.
+**Note:** feature-integration-validator is SKIPPED in Light (cross-slice integration handled inline by checkpoint-validator).
