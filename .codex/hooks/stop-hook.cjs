@@ -239,10 +239,23 @@ function readClassification(sentinel) {
 function ensureFidelityReport(runFolder, repoRoot, sentinel) {
   try {
     const reportPath = path.join(runFolder, 'fidelity-report.json');
-    if (fs.existsSync(reportPath)) return; // idempotent — never overwrite
+    const mdPath = path.join(runFolder, 'fidelity-report.md');
 
     const gdPath = path.join(runFolder, 'gate-decisions.jsonl');
     if (!fs.existsSync(gdPath)) return; // no gate data — skip, create nothing
+
+    // AUDIT-004 (v7.11.0) — KEEP-MAX instead of never-overwrite. The historical
+    // `if exists return` froze the FIRST teardown's (often undercounted) score
+    // forever; multi-session runs could never raise it. New contract: regenerate,
+    // keep whichever report has the HIGHER mandatory_triggered; never downgrade.
+    let prior = null; let priorJsonText = null; let priorMdText = null;
+    if (fs.existsSync(reportPath)) {
+      try {
+        priorJsonText = fs.readFileSync(reportPath, 'utf8');
+        prior = JSON.parse(priorJsonText);
+      } catch (_e) { prior = null; priorJsonText = null; }
+      try { priorMdText = fs.readFileSync(mdPath, 'utf8'); } catch (_e) { priorMdText = null; }
+    }
 
     const { type, complexity } = readClassification(sentinel);
 
@@ -262,6 +275,48 @@ function ensureFidelityReport(runFolder, repoRoot, sentinel) {
     });
     if (res && res.ok !== true) {
       warn(`ensureFidelityReport: generator returned not-ok: ${res && res.error ? res.error : 'unknown'}`);
+      // Generator failed AFTER a prior report existed — restore the PAIR
+      // untouched (SEC-2 follow-up: the generator writes .md before .json, so a
+      // mid-write failure can leave a fresh .md orphaned next to the prior .json).
+      if (priorJsonText !== null) {
+        try {
+          if (!fs.existsSync(reportPath)) fs.writeFileSync(reportPath, priorJsonText);
+          if (priorMdText !== null) {
+            fs.writeFileSync(mdPath, priorMdText);
+          } else {
+            // SEC-NEW-1 (v7.11.0): prior pair had no .md — drop any fresh .md
+            // the generator wrote before failing (it writes .md before .json).
+            try { fs.rmSync(mdPath, { force: true }); } catch (_e2) { /* soft */ }
+          }
+        } catch (_e) { /* soft */ }
+      }
+      return;
+    }
+
+    // KEEP-MAX arbitration (AUDIT-004): if the prior report counted MORE
+    // mandatory triggers than the fresh one, the prior is the high-watermark —
+    // restore it (a restart session with a truncated gate log must not erase
+    // real history). A prior report without a numeric mandatory_triggered is
+    // treated as 0 (legacy frozen reports get healed by the fresh count).
+    if (priorJsonText !== null) {
+      const fresh = readJsonSafe(reportPath);
+      const priorT = prior && Number.isFinite(Number(prior.mandatory_triggered))
+        ? Number(prior.mandatory_triggered) : 0;
+      const freshT = fresh && Number.isFinite(Number(fresh.mandatory_triggered))
+        ? Number(fresh.mandatory_triggered) : 0;
+      if (priorT > freshT) {
+        try {
+          fs.writeFileSync(reportPath, priorJsonText);
+          if (priorMdText !== null) {
+            fs.writeFileSync(mdPath, priorMdText);
+          } else {
+            // SEC-2 (v7.11.0): prior pair had no .md — remove the freshly
+            // generated .md so the restored .json never sits next to a
+            // contradictory lower-count narrative.
+            try { fs.rmSync(mdPath, { force: true }); } catch (_e2) { /* soft */ }
+          }
+        } catch (_e) { /* soft */ }
+      }
     }
   } catch (e) {
     warn(`ensureFidelityReport failed (soft): ${e && e.message ? e.message : 'unknown'}`);
@@ -307,9 +362,26 @@ function buildRunLogEntry(runFolder, repoRoot) {
 
   // D4 — duration: a date-only "YYYY-MM-DD" started_at has no time component, so
   // Date.parse would assume UTC-midnight and inflate the duration. Guard -> null.
-  const startedAt = session.started_at || sentinel.created_at || null;
-  const endedAt = new Date().toISOString();
+  // AUDIT-010 (v7.11.0): third fallback — derive the start from the sentinel
+  // pipeline_id ISO prefix ("<ISO>_<variant>"), the one timestamp every run has
+  // stamped at creation. Fixes the timestamp_start=null pattern in all
+  // multi-session runs since 2026-06-05.
+  let pipelineIdStart = null;
+  if (typeof sentinel.pipeline_id === 'string') {
+    const m = sentinel.pipeline_id.match(/^(\d{4}-\d{2}-\d{2}T[0-9:.]+(?:Z|[+-]\d{2}:?\d{2})?)/);
+    // SEC-4 (v7.11.0): the regex is syntactic only — reject semantically invalid
+    // timestamps (month 13, hour 25, ...) so the run-log never persists an
+    // ISO-looking-but-unparseable timestamp_start.
+    if (m && Number.isFinite(Date.parse(m[1]))) pipelineIdStart = m[1];
+  }
   const DATE_ONLY_RE = /^\d{4}-\d{2}-\d{2}$/;
+  // SEC-5 (v7.11.0): prefer the first candidate that carries a TIME component —
+  // a date-only created_at must not mask a full ISO start in pipeline_id.
+  const startCandidates = [session.started_at, sentinel.created_at, pipelineIdStart];
+  const startedAt = startCandidates.find((v) => typeof v === 'string' && v.trim() && !DATE_ONLY_RE.test(v.trim()))
+    || startCandidates.find((v) => typeof v === 'string' && v.trim())
+    || null;
+  const endedAt = new Date().toISOString();
   let durationSec = null;
   if (startedAt && DATE_ONLY_RE.test(startedAt.trim())) {
     durationSec = null; // cannot compute — no time component
@@ -318,6 +390,11 @@ function buildRunLogEntry(runFolder, repoRoot) {
     const t2 = Date.parse(endedAt);
     if (Number.isFinite(t1) && Number.isFinite(t2) && t2 > t1) {
       durationSec = Math.floor((t2 - t1) / 1000);
+    } else if (Number.isFinite(t1) && Number.isFinite(t2) && t2 < t1) {
+      // AUDIT-010 (v7.11.0): clock-skew guard — end before start. Keep both
+      // timestamps for forensics, null the duration, and surface a warning
+      // instead of writing a silently incoherent entry.
+      warn(`buildRunLogEntry: timestamp_end (${endedAt}) precedes timestamp_start (${startedAt}) — clock skew; duration_seconds=null`);
     }
   }
 

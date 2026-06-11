@@ -316,12 +316,24 @@ function readSentinelData() {
     if (!best) return empty;
     const j = JSON.parse(fs.readFileSync(best, 'utf8'));
     const od = (j && j.orchestrator_decision) || {};
+    // AUDIT-003 (v7.11.0): run_id falls back to the run-FOLDER basename — the
+    // canonical run id used by stop-hook's buildRunLogEntry — so spans stay
+    // attributable even for states written before the run_id field existed.
+    const folderBase = usedDir ? path.basename(usedDir) : '';
+    // AUDIT-003 (v7.11.0): surface the doc path as a RELATIVE fwd-slash path
+    // (relative to cwd) — absolute Windows paths were redacted to '' by the
+    // sanitizer downstream, which nulled trace correlation for 10 days of spans.
+    let relDoc = '';
+    if (usedDir) {
+      const rel = path.relative(process.cwd(), usedDir);
+      relDoc = (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) ? rel.split(path.sep).join('/') : folderBase;
+    }
     return {
       phase: (j && (j.current_phase || j.phase)) || '',
-      run_id: (j && j.run_id) != null ? j.run_id : null,
+      run_id: (j && j.run_id) != null ? j.run_id : (folderBase || null),
       type: od.type != null ? od.type : null,
       complexity: od.complexity != null ? od.complexity : null,
-      pipeline_doc_path: usedDir || '',
+      pipeline_doc_path: relDoc,
     };
   } catch (_e) { /* swallow */ }
   return empty;
@@ -454,7 +466,6 @@ function handlePre(payload, client, sanitize) {
   const sentinelData = readSentinelData();
   const currentPhase = sentinelData.phase || '';
   const enrichedMeta = buildTraceMetadata(sentinelData);
-  const sanitizedDocPath = sanitize(process.env.PIPELINE_DOC_PATH || '', PLUGIN_ROOT);
 
   // v7.9.0 (Finding 2): the trace carries the RUN-level name (set once at
   // creation, persisted in the carrier), NOT the current agent name. The agent
@@ -471,13 +482,13 @@ function handlePre(payload, client, sanitize) {
       const traceObj = client.trace({
         id: trace.traceId,
         name: traceName,
-        // BUG 3 (v7.9.3): merge the enriched run_id/type/complexity metadata,
-        // then keep the already-sanitized doc path + the trace's own version so
-        // those explicit values win on key overlap.
+        // BUG 3 (v7.9.3) + AUDIT-003/SEC-1 (v7.11.0): merge the enriched metadata —
+        // enrichedMeta already carries the sanitizer-safe RELATIVE pipeline_doc_path
+        // from readSentinelData; the old env-based override neutralized the fix on
+        // cross-drive installs and was removed.
         metadata: {
           ...enrichedMeta,
           phase: currentPhase,
-          pipeline_doc_path: sanitizedDocPath,
           plugin_version: trace.pluginVersion,
         },
       });
@@ -493,7 +504,6 @@ function handlePre(payload, client, sanitize) {
             ...enrichedMeta,
             phase: currentPhase,
             agent_name: agentName,
-            pipeline_doc_path: sanitizedDocPath,
           },
         });
       }
@@ -509,7 +519,6 @@ function handlePre(payload, client, sanitize) {
           ...enrichedMeta,
           phase: currentPhase,
           agent_name: agentName,
-          pipeline_doc_path: sanitizedDocPath,
         },
       });
     }
