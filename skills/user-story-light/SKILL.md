@@ -62,7 +62,7 @@ Step 6 (`pre-tester`) converts acceptance criteria into automated tests that MUS
 
 ## How execution flows
 
-This folder closes the **artifact layer-3** for the User Story type. It is invoked manually via `/pipeline-orchestrator:user-story-light "<story>"` OR inline by the pipeline controller after a User Story + MEDIA classification — **it does NOT change routing** (the controller does not auto-dispatch this skill yet; routing stays inline, consistent with `audit-*` per AUDIT-012).
+This folder closes the **artifact layer-3** for the User Story type. It is invoked manually via `/pipeline-orchestrator:user-story-light "<story>"` OR **dispatched by the pipeline controller** via `Skill(pipeline-orchestrator:user-story-light)` in Phase 2 after a User Story + MEDIA classification (v7.12.0 — the controller dispatch rule covers all skill-backed variants; only DIRETO runs inline). Phases 0 and 3 still wrap it via the controller.
 
 1. The skill is invoked via `/pipeline-orchestrator:user-story-light "<story narrative>"` (or inline after controller classification).
 2. The orchestrator reads `sequence:` and walks the steps.

@@ -64,7 +64,7 @@ Step 6 (`pre-tester`) converts acceptance criteria + journey + regression contra
 
 ## How execution flows
 
-This folder closes the **artifact layer-3** for the User Story type. It is invoked manually via `/pipeline-orchestrator:user-story-heavy "<story>"` OR inline by the pipeline controller after a User Story + COMPLEXA classification — **it does NOT change routing** (the controller does not auto-dispatch this skill yet; routing stays inline, consistent with `audit-*` per AUDIT-012).
+This folder closes the **artifact layer-3** for the User Story type. It is invoked manually via `/pipeline-orchestrator:user-story-heavy "<story>"` OR **dispatched by the pipeline controller** via `Skill(pipeline-orchestrator:user-story-heavy)` in Phase 2 after a User Story + COMPLEXA classification (v7.12.0 — the controller dispatch rule covers all skill-backed variants; only DIRETO runs inline). Phases 0 and 3 still wrap it via the controller.
 
 1. The skill is invoked via `/pipeline-orchestrator:user-story-heavy "<story narrative>"` (or inline after controller classification, or via auto-escalation from `user-story-light`).
 2. The orchestrator reads `sequence:` and walks the steps.

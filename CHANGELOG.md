@@ -5,6 +5,41 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.12.0] - 2026-06-11 — skill-dispatch wiring for all variants (MINOR)
+
+Completes the variant work begun in v7.11.0: the four families that still ran
+Phase 2 inline (`audit-*`, `feature-*`, `user-story-*`, `ux-sim-*`) are now
+dispatched to their prescriptive skills by the controller, alongside the
+already-dispatched `bugfix-*` and `spec-*`. Only `DIRETO` (SIMPLES, no skill
+folder) still runs inline.
+
+### Added
+- **Type-level thin shortcuts** `skills/user-story/` and `skills/ux-sim/`
+  (mirroring the existing `audit`/`bugfix`/`feature` shortcuts): pre-fix the
+  type and route `--light`/`--heavy` directly to the prescriptive skills.
+- NEW tests F31 (dispatch wiring) + F32 (user-story/ux-sim step-chain integrity).
+
+### Changed
+- `agents/core/pipeline-controller.md` Phase 2 dispatch rule maps all eight
+  light/heavy variants of audit/feature/user-story/ux-sim to `Skill(...)`. The
+  "state update before spawn" contract is generalized to ANY skill-backed
+  variant (no enumeration to drift). Documented that the central `/pipeline`
+  `--light/--heavy` flag covers Bug Fix only; other types force depth via their
+  thin shortcuts.
+- The four B5 prescriptive skills' "How execution flows" notes updated from the
+  v7.11.0 inline claim to the v7.12.0 skill-dispatch reality.
+
+### Notes
+- **AUDIT-012 reversal:** v7.11.0 reconciled the audit-heavy/light.md
+  doc-vs-controller contradiction by making the DOCS say "inline" (matching the
+  then-current controller). v7.12.0 resolves it the other direction — the
+  controller now DOES skill-dispatch audit, and the docs say so. The end state
+  (doc and controller agree on skill-dispatch) is the complete fix; v7.11.0 was
+  the interim consistent state. F24-S7 now asserts doc==controller rather than a
+  fixed inline/skill verdict.
+- Iron Law preserved: `references/gates.md` registry + 35-gate Mandatory table
+  untouched; no agent files beyond the controller changed.
+
 ## [7.11.0] - 2026-06-11 — enforcement-audit remediation (MINOR)
 
 Closes the 17 findings of the 2026-06-11 enforcement + variant-coverage audit
