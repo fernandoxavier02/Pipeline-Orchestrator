@@ -60,6 +60,8 @@ Before each Agent tool call, the controller MUST update sentinel-state.json via 
 
 The Write tool call MUST complete before the Agent tool call is made. This ensures the hook reads the correct state.
 
+**Discovery pointer (AUDIT-005, v7.11.0):** alongside the state file, the controller maintains `<cwd>/.pipeline/active-run.json` (`pipeline_doc_path` absolute + `run_id` + `updated_at`). Hooks consult it BEFORE any cwd scan (after the PIPELINE_DOC_PATH env var). Stale (>24h) or pointing at a `pipeline_active: false` state, it is ignored with a `DISCOVERY_POINTER_STALE` audit breadcrumb.
+
 ### Determining `expected_next`
 
 The controller determines `expected_next` by consulting:

@@ -400,6 +400,7 @@ Pass this EXACT path to ALL agents. Every agent saves to `{PIPELINE_DOC_PATH}/0N
 Immediately after creating PIPELINE_DOC_PATH, create the sentinel state file:
 
 1. Write `{PIPELINE_DOC_PATH}/sentinel-state.json` with initial state (see `references/sentinel-integration.md` Section 1). The initial state MUST include the v7.11.0 correlation fields: `run_id` (= the run folder basename), `pipeline_doc_path` (= absolute PIPELINE_DOC_PATH) and `created_at` (ISO timestamp) — telemetry (Langfuse spans, run-log, fidelity) keys off them (AUDIT-003/010)
+1b. ALSO write the discovery pointer `<cwd>/.pipeline/active-run.json` = `{ "pipeline_doc_path": "<absolute PIPELINE_DOC_PATH>", "run_id": "<run folder basename>", "updated_at": "<ISO now>" }` — sentinel-hook and stop-hook read it as discovery Priority 0/1.5, eliminating the cwd-mtime ambiguity (AUDIT-005). Refresh updated_at whenever you rewrite sentinel-state.json; it self-invalidates when pipeline_active=false
 2. Set `expected_next: "task-orchestrator"` so the hook knows the first expected spawn
 3. The Write MUST complete before any Agent tool call
 

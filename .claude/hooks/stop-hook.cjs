@@ -118,6 +118,50 @@ function readStateRunIdFromFile(filePath) {
 function findActiveRunFolder(cwd) {
   try {
     if (typeof cwd !== 'string' || !path.isAbsolute(cwd)) return null;
+
+    // Priority 0 (AUDIT-005, v7.11.0): deterministic pointer file written by the
+    // controller at run creation — `<cwd>/.pipeline/active-run.json` with
+    // { pipeline_doc_path, run_id, updated_at }. Beats every scan: it survives
+    // cwd ambiguity, is refreshed per run, and self-invalidates (stale >24h or
+    // pipeline_active=false in the pointed state -> fall through to the scans).
+    try {
+      const ptrPath = path.join(cwd, '.pipeline', 'active-run.json');
+      if (fs.existsSync(ptrPath)) {
+        // SEC-4 (v7.11.0): size cap — a valid pointer is ~200 bytes; reject blobs.
+        if (fs.statSync(ptrPath).size > 4096) throw new Error('pointer too large');
+        const ptr = JSON.parse(fs.readFileSync(ptrPath, 'utf8'));
+        const docPath = ptr && typeof ptr.pipeline_doc_path === 'string' ? ptr.pipeline_doc_path : '';
+        // SEC-2 (v7.11.0): uncomputable age = STALE (fail-closed), not fresh-forever.
+        const age = ptr && typeof ptr.updated_at === 'string' ? (Date.now() - Date.parse(ptr.updated_at)) : NaN;
+        const freshEnough = Number.isFinite(age) && age >= 0 && age < 24 * 3600 * 1000;
+        // SEC-1 (v7.11.0): containment — the pointer may only target a folder INSIDE
+        // the project tree (same guard family as the docsRoot scan below). Rejects
+        // absolute escapes, UNC shares and .. traversal.
+        const cwdGuard = path.resolve(cwd) + path.sep;
+        const resolvedDoc = docPath ? path.resolve(docPath) : '';
+        const contained = resolvedDoc !== '' && resolvedDoc.startsWith(cwdGuard);
+        // Concurrency guard: when PIPELINE_RUN_ID is set, the pointer must agree.
+        const envRunId = (process.env.PIPELINE_RUN_ID || '').trim();
+        const runIdOk = !envRunId || (ptr && ptr.run_id === envRunId);
+        let reason = '';
+        if (!docPath) reason = 'no_doc_path';
+        else if (!contained) reason = 'outside_project';
+        else if (!freshEnough) reason = 'age';
+        else if (!runIdOk) reason = 'run_id_mismatch';
+        if (!reason) {
+          const sf = path.join(resolvedDoc, 'sentinel-state.json');
+          if (fs.existsSync(sf)) {
+            const st = JSON.parse(fs.readFileSync(sf, 'utf8'));
+            if (!st || st.pipeline_active !== false) return resolvedDoc;
+            reason = 'inactive';
+          } else { reason = 'broken_path'; }
+        }
+        // SEC-3 (v7.11.0): reason-tagged audit so operators can tell age vs broken vs inactive.
+        emitAuditStop('DISCOVERY_POINTER_STALE', { pointer: ptrPath, reason },
+          `DISCOVERY_POINTER_STALE:stop:${ptrPath}`);
+      }
+    } catch (_e) { /* pointer unreadable — fall through to scans */ }
+
     const docsRoot = path.resolve(path.join(cwd, '.pipeline', 'docs'));
     if (!fs.existsSync(docsRoot)) return null;
     const docsRootGuard = docsRoot + path.sep;
