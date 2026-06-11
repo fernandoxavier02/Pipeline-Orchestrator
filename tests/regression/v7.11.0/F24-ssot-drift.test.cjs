@@ -103,14 +103,19 @@ test('F24-S7: audit pipeline refs state INLINE routing (no controller Skill-disp
   }
 });
 
-test('F24-S8: F20 covers all 10 PLAN_MODE_MANDATORY agents', () => {
-  const f20 = read('tests/regression/v7.10.0/F20-plan-mode-mandatory-agents.test.cjs');
-  const ids = (f20.match(/\{ id: '([a-z0-9-]+)'/g) || []).map((s) => s.replace(/\{ id: '/, '').replace(/'$/, ''));
+test('F24-S8: machine-readable roster covers all 10 PLAN_MODE_MANDATORY agents (AUDIT-002)', () => {
+  // AUDIT-002 (v7.11.0): the roster moved to a JSON SSOT that F20 + the
+  // dispatch-guard hook both read. Verify the SSOT itself, not F20's prose.
+  const roster = JSON.parse(read('references/plan-mode-mandatory-agents.json'));
+  const leaves = roster.agents.map((a) => a.leaf);
   const expected = ['plan-architect', 'bugfix-diagnostic-agent', 'bugfix-root-cause-analyzer',
     'audit-intake', 'audit-domain-analyzer', 'design-interrogator', 'feature-vertical-slice-planner',
     'step-01-explore', 'executor-implementer-task', 'feature-implementer'];
-  for (const e of expected) assert.ok(ids.includes(e), `F20 missing mandatory agent ${e}`);
-  assert.equal(ids.length, 10, `F20 must list exactly 10 agents, found ${ids.length}`);
+  for (const e of expected) assert.ok(leaves.includes(e), `roster missing mandatory agent ${e}`);
+  assert.equal(leaves.length, 10, `roster must list exactly 10 agents, found ${leaves.length}`);
+  // F20 must read from the JSON (not a hardcoded array) so it stays in lockstep.
+  const f20 = read('tests/regression/v7.10.0/F20-plan-mode-mandatory-agents.test.cjs');
+  assert.ok(/plan-mode-mandatory-agents\.json/.test(f20), 'F20 must load the roster from the JSON SSOT');
 });
 
 test('F24-S9: Visible Progress Protocol (AUDIT-018) pinned in both controller docs', () => {

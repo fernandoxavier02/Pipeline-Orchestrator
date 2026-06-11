@@ -41,3 +41,4 @@ context.md
 # Working-state dentro da spec do Paperclip movida para o repo (artefatos + pipeline runs)
 paperclip-native-spec/.claude/
 paperclip-native-spec/.pipeline/
+plan-mode-pending-*.json

@@ -1,0 +1,28 @@
+{
+  "$schema_note": "AUDIT-002 (v7.11.0): machine-readable SSOT for the PLAN_MODE_MANDATORY_AGENTS roster. The prose table in agents/core/pipeline-controller.md cites this file; tests (F20) and the dispatch-guard hook (PLAN_MODE_BYPASS detection, AUDIT-001) read it at runtime instead of re-parsing prose. Update HERE when the roster changes — the prose table and the per-agent Step-0 clauses must be kept in sync (see do_not_touch in docs/audits/2026-06-11-enforcement-variants-audit).",
+  "version": "7.11.0",
+  "substantive_output_markers": [
+    "IMPLEMENTATION_PLAN",
+    "DIAGNOSTIC_REPORT",
+    "ROOT_CAUSE_RESULT",
+    "AuditIntake",
+    "DOMAIN_ANALYSIS",
+    "DESIGN_INTERROGATION",
+    "VSA_PLAN",
+    "IMPLEMENTER_RESULT",
+    "IMPLEMENTATION_RESULT",
+    "02-explore.md"
+  ],
+  "agents": [
+    { "leaf": "plan-architect", "fqn": "pipeline-orchestrator:quality:plan-architect", "phase": "1.5", "typical_operations": "15-20" },
+    { "leaf": "bugfix-diagnostic-agent", "fqn": "pipeline-orchestrator:executor:type-specific:bugfix-diagnostic-agent", "phase": "2c", "typical_operations": "15-20" },
+    { "leaf": "bugfix-root-cause-analyzer", "fqn": "pipeline-orchestrator:executor:type-specific:bugfix-root-cause-analyzer", "phase": "2c", "typical_operations": "12-18" },
+    { "leaf": "audit-intake", "fqn": "pipeline-orchestrator:executor:type-specific:audit-intake", "phase": "2c", "typical_operations": "20-25" },
+    { "leaf": "audit-domain-analyzer", "fqn": "pipeline-orchestrator:executor:type-specific:audit-domain-analyzer", "phase": "2c", "typical_operations": "18-22" },
+    { "leaf": "design-interrogator", "fqn": "pipeline-orchestrator:quality:design-interrogator", "phase": "0c", "typical_operations": "10-15" },
+    { "leaf": "feature-vertical-slice-planner", "fqn": "pipeline-orchestrator:executor:type-specific:feature-vertical-slice-planner", "phase": "2c", "typical_operations": "12-16" },
+    { "leaf": "step-01-explore", "fqn": "pipeline-orchestrator:brainstorm:brainstorm-step-01-explore", "phase": "brainstorm-01", "typical_operations": "15-25" },
+    { "leaf": "executor-implementer-task", "fqn": "pipeline-orchestrator:executor:executor-implementer-task", "phase": "2", "typical_operations": "10-20" },
+    { "leaf": "feature-implementer", "fqn": "pipeline-orchestrator:executor:type-specific:feature-implementer", "phase": "2", "typical_operations": "10-20" }
+  ]
+}
