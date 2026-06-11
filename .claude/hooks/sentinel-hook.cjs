@@ -43,8 +43,13 @@ const enforcement = require('./skill-frontmatter-parser.cjs');
 // Returns null when no enforcement needed (no skill, no contract, or step not at checkpoint).
 // Returns { violation, hint } when contract is breached.
 function enforceSkillContract(state) {
-  const ctx = enforcement.getCurrentSkill(state);
-  if (!ctx || !ctx.step) return null; // No skill in flight → skip (preserves advisory mode)
+  // AUDIT-007 (v7.11.0): fall back to the pipeline_variant when no explicit
+  // current_skill is set — inline-routed variants (audit-*, ux-sim-*,
+  // user-story-*, feature-*) now have skill folders, so their sentinel_checkpoints
+  // can be enforced too. getVariantSkill returns null when neither applies,
+  // preserving the original advisory null-skip.
+  const ctx = enforcement.getCurrentSkill(state) || enforcement.getVariantSkill(state);
+  if (!ctx || !ctx.step) return null; // No skill/variant in flight → skip (preserves advisory mode)
   const repoRoot = process.env.PIPELINE_REPO_ROOT || process.cwd();
   const skillResult = enforcement.readSkillFrontmatter(ctx.skill, repoRoot);
   if (!skillResult.ok) return null; // Can't read skill → skip gracefully
