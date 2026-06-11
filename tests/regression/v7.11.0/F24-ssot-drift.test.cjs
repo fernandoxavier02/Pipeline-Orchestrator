@@ -94,12 +94,19 @@ test('F24-S6: canonical feature-*.md pipeline references exist', () => {
   }
 });
 
-test('F24-S7: audit pipeline refs state INLINE routing (no controller Skill-dispatch claim)', () => {
+test('F24-S7: audit pipeline refs are consistent with the controller routing reality', () => {
+  // v7.12.0: audit Phase 2 is now SKILL-DISPATCHED (the AUDIT-012 doc-vs-controller
+  // contradiction is resolved in favor of dispatch). The doc must match the controller —
+  // either both say inline or both say skill-dispatch, never contradict. Post-v7.12.0
+  // both say skill-dispatch.
+  const controller = read('agents/core/pipeline-controller.md');
   for (const lvl of ['heavy', 'light']) {
     const t = read(`references/pipelines/audit-${lvl}.md`);
-    assert.ok(/Phase 2 runs INLINE/i.test(t), `audit-${lvl}.md missing inline-routing note`);
-    assert.ok(!/it dispatches the skill via `Skill\(pipeline-orchestrator:audit-/.test(t),
-      `audit-${lvl}.md still claims controller Skill dispatch`);
+    const docSaysSkill = /Skill\(pipeline-orchestrator:audit-/.test(t);
+    const ctrlSaysSkill = new RegExp(`Skill\\(skill: "pipeline-orchestrator:audit-${lvl}"`).test(controller);
+    assert.strictEqual(docSaysSkill, ctrlSaysSkill,
+      `audit-${lvl}.md routing claim must match the controller (doc=${docSaysSkill}, controller=${ctrlSaysSkill})`);
+    assert.ok(!/Phase 2 runs INLINE/i.test(t), `audit-${lvl}.md must no longer claim INLINE after v7.12.0 wiring`);
   }
 });
 

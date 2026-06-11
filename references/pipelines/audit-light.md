@@ -1,6 +1,6 @@
 # Audit Pipeline — Light
 
-> **As of v4.5.0 (Slice 3a):** the prescriptive 9-step procedure now lives in `skills/audit-light/SKILL.md` and its supporting files (`steps/0X-*.md`). This file remains as the team-composition reference (which agent runs at which phase). **Routing reality (v7.11.0, AUDIT-012 fix):** when `pipeline-controller` detects `pipeline_variant: audit-light`, Phase 2 runs INLINE from the controller (the Skill-dispatch list at pipeline-controller.md covers only bugfix-* and spec-* variants). The `skills/audit-light/` folder is NOT dispatched by the controller — it serves the direct entry-point `/pipeline-orchestrator:audit` (thin shortcut) only. See `designs/pipeline-orchestrator-v5-consolidated.md` §22 for the full design.
+> **As of v4.5.0 (Slice 3a):** the prescriptive 9-step procedure now lives in `skills/audit-light/SKILL.md` and its supporting files (`steps/0X-*.md`). This file remains as the team-composition reference (which agent runs at which phase). **Routing reality (v7.12.0):** when `pipeline-controller` detects `pipeline_variant: audit-light`, Phase 2 dispatches the skill via `Skill(pipeline-orchestrator:audit-light)` (the report-only branch of the Phase 2 dispatch rule, alongside bugfix-*, feature-*, user-story-*, ux-sim-*, spec-*). Phases 0 and 3 still wrap it via the controller. The `skills/audit-light/` folder is ALSO reachable directly via the `/pipeline-orchestrator:audit` thin shortcut. (Prior to v7.12.0 the controller ran audit Phase 2 inline; the AUDIT-012 doc-vs-controller contradiction is now resolved in favor of skill dispatch.) See `designs/pipeline-orchestrator-v5-consolidated.md` §22 for the full design.
 
 ## When Selected
 - Type: Audit
@@ -15,7 +15,7 @@
 | 1 | task-orchestrator | 0a | Classify as Audit + MEDIA |
 | 2 | sentinel (ORCHESTRATOR_VALIDATION) | 0 | Validate classification correctness |
 | 3 | information-gate | 0b | Verify: scope, axes of analysis, stakeholder |
-| 4 | executor-controller | 2 | Dispatch analysis tasks (READ-ONLY) |
+| 4 | skill `audit-light` (via controller `Skill()`) | 2 | Walk the prescriptive 9-step read-only procedure (no executor-controller for report-only audit) |
 | 5 | sentinel (phase_2_to_3) | 2→3 | Validate phase transition coherence |
 | 6 | sanity-checker | 3 | Verify report completeness |
 | 7 | final-adversarial-orchestrator | 3 | Independent final review (recommended, opt-in) |

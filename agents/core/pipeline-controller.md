@@ -168,12 +168,28 @@ The flags `--light` and `--heavy` force `pipeline_variant` directly without re-i
 - Pass the flag through to `task-orchestrator` as `FORCE_VARIANT=light` or `FORCE_VARIANT=heavy` (see `task-orchestrator.md` Step 1a — `force_variant`). Strip the `--light/--heavy` token from the task text before forwarding.
 - If the task type is NOT `Bug Fix`, emit a warning in the proposal and proceed with normal variant inference (the flag is ignored for non-Bug-Fix types).
 
+**Variant-flag coverage note (v7.12.0):** the `--light`/`--heavy` override on the central `/pipeline` entry point is implemented only for `Bug Fix` (here) — other types reach their light/heavy variants through complexity inference. To FORCE a specific depth for `Audit`, `Feature`, `User Story`, or `UX Simulation`, use that type's dedicated thin shortcut with the flag, which strips it client-side and dispatches the prescriptive skill directly: `/pipeline-orchestrator:audit --heavy`, `/pipeline-orchestrator:feature --light`, `/pipeline-orchestrator:user-story --light`, `/pipeline-orchestrator:ux-sim --heavy`. This is a deliberate two-tier design: the central entry auto-infers depth; the type shortcuts allow forcing it.
+
 **Dispatch rule (Phase 2 delegation to skill):**
 
 After the Phase 1 user confirmation gate, instead of running the inline Phase 2 (executor-controller + per-batch adversarial loops), invoke the corresponding skill:
 
 - `pipeline_variant == bugfix-light` → `Skill(skill: "pipeline-orchestrator:bugfix-light")` with the request and accumulated context (CLASSIFICATION, INFORMATION_GATE, IMPLEMENTATION_PLAN if present).
 - `pipeline_variant == bugfix-heavy` → `Skill(skill: "pipeline-orchestrator:bugfix-heavy")` similarly.
+
+**Code-changing variant dispatch (v7.12.0 — feature + user story):** these run the full TDD-gated prescriptive procedure inside the skill (quality-gate-router + pre-tester are part of the skill's own step sequence). Pass the same accumulated context.
+
+- `pipeline_variant == feature-light` → `Skill(skill: "pipeline-orchestrator:feature-light")` similarly.
+- `pipeline_variant == feature-heavy` → `Skill(skill: "pipeline-orchestrator:feature-heavy")` similarly.
+- `pipeline_variant == user-story-light` → `Skill(skill: "pipeline-orchestrator:user-story-light")` similarly.
+- `pipeline_variant == user-story-heavy` → `Skill(skill: "pipeline-orchestrator:user-story-heavy")` similarly.
+
+**Report-only variant dispatch (v7.12.0 — audit + UX simulation):** these are REPORT-ONLY by Iron Law (no TDD phase, no production writes). The skill walks its prescriptive read-only step sequence and returns a structured report. Pass the accumulated context.
+
+- `pipeline_variant == audit-light` → `Skill(skill: "pipeline-orchestrator:audit-light")` similarly.
+- `pipeline_variant == audit-heavy` → `Skill(skill: "pipeline-orchestrator:audit-heavy")` similarly.
+- `pipeline_variant == ux-sim-light` → `Skill(skill: "pipeline-orchestrator:ux-sim-light")` similarly.
+- `pipeline_variant == ux-sim-heavy` → `Skill(skill: "pipeline-orchestrator:ux-sim-heavy")` similarly.
 
 **Spec dispatch (Wave 3-spec v4.11.0+):** When `pipeline_variant` starts with `spec-`, dispatch to the corresponding spec skill following the same pattern. Pass `spec_context` THROUGH the skill arguments untouched so downstream agents read requirements/design/tasks/acceptance_criteria without re-loading.
 
@@ -183,13 +199,13 @@ After the Phase 1 user confirmation gate, instead of running the inline Phase 2 
 
 **Routing discriminator:** `pipeline_variant` STRING is the discriminator, not the `type` field. If upstream produces `type=Spec` but `pipeline_variant=audit-light`, routing follows the variant (audit-light skill is invoked, no spec_context contamination).
 
-**State update before spawn (v4.8.0 hook contract):** Before spawning ANY skill (bugfix, feature, audit, spec), update `sentinel-state.json` with `current_skill: "pipeline-orchestrator:<variant>"` and `current_step: "01"`. This is mandatory for the dispatch-guard hook to validate `agent_type` per step.
+**State update before spawn (v4.8.0 hook contract; generalized v7.12.0):** Before spawning ANY skill via the Phase 2 dispatch rule — `bugfix-*`, `feature-*`, `user-story-*`, `audit-*`, `ux-sim-*`, `spec-*`, and any skill-backed variant added later — update `sentinel-state.json` with `current_skill: "pipeline-orchestrator:<variant>"` and `current_step: "01"`. This is mandatory for the dispatch-guard hook to validate `agent_type` per step; omitting it silently degrades per-step enforcement to advisory. The rule is generic on purpose so new skill families never bypass it by being absent from an enumeration.
 
 The skill returns a structured Phase 2 result (files modified, tests passing, batch reviews, etc.). Phases 0 and 3 still run normally:
 - **Phase 0** (information-gate, design-interrogator if COMPLEXA) runs BEFORE the skill dispatch.
 - **Phase 3** (sentinel `phase_2_to_3`, sanity-checker, final-adversarial-orchestrator opt-in, final-validator/Pa de Cal, finishing-branch) runs AFTER the skill returns.
 
-This delegation is additive: when `pipeline_variant` is anything other than `bugfix-light/bugfix-heavy` or `spec-light/spec-heavy/spec-audit-only`, Phase 2 runs inline as before (no behavior change for `feature-light/heavy`, `user-story-light/heavy`, `audit-*`, `ux-sim-*`, or `DIRETO`).
+This delegation covers ALL skill-backed variants (v7.12.0): `bugfix-*`, `feature-*`, `user-story-*`, `audit-*`, `ux-sim-*`, and `spec-*` all dispatch to their prescriptive skills in Phase 2. Only `DIRETO` (SIMPLES, no skill folder) still runs inline. The change is backward-compatible: a `DIRETO` classification, or any variant whose skill folder is unexpectedly absent, falls back to the inline executor-controller path with a WARN trace.
 
 ### Pre-classified type prefix (v4.2+)
 

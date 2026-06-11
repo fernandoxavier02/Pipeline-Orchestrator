@@ -64,7 +64,7 @@ Per the reference, COMPLEXA UX simulations are subject to Plan Mode (plan the si
 
 ## How execution flows
 
-This folder closes the **artifact layer-3** for the UX Simulation type. It is invoked manually via `/pipeline-orchestrator:ux-sim-heavy "<scope>"` OR inline by the pipeline controller after a UX Simulation + COMPLEXA classification — **it does NOT change routing** (the controller does not auto-dispatch this skill yet; routing stays inline, consistent with `audit-*` per AUDIT-012).
+This folder closes the **artifact layer-3** for the UX Simulation type. It is invoked manually via `/pipeline-orchestrator:ux-sim-heavy "<scope>"` OR **dispatched by the pipeline controller** via `Skill(pipeline-orchestrator:ux-sim-heavy)` in Phase 2 after a UX Simulation + COMPLEXA classification (v7.12.0 — the controller dispatch rule covers all skill-backed variants; only DIRETO runs inline). Phases 0 and 3 still wrap it via the controller.
 
 1. The skill is invoked via `/pipeline-orchestrator:ux-sim-heavy "<journey scope>"` (or inline after controller classification).
 2. The orchestrator reads `sequence:` and walks the steps.

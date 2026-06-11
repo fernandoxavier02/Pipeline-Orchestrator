@@ -1,6 +1,6 @@
 # Audit Pipeline — Heavy
 
-> **As of v4.5.0 (Slice 3a):** the prescriptive 9-step procedure now lives in `skills/audit-heavy/SKILL.md` and its supporting files (`steps/0X-*.md`). This file remains as the team-composition reference (which agent runs at which phase). **Routing reality (v7.11.0, AUDIT-012 fix):** when `pipeline-controller` detects `pipeline_variant: audit-heavy`, Phase 2 runs INLINE from the controller (the Skill-dispatch list at pipeline-controller.md covers only bugfix-* and spec-* variants). The `skills/audit-heavy/` folder is NOT dispatched by the controller — it serves the direct entry-point `/pipeline-orchestrator:audit` (thin shortcut) only. See `designs/pipeline-orchestrator-v5-consolidated.md` §22 for the full design.
+> **As of v4.5.0 (Slice 3a):** the prescriptive 9-step procedure now lives in `skills/audit-heavy/SKILL.md` and its supporting files (`steps/0X-*.md`). This file remains as the team-composition reference (which agent runs at which phase). **Routing reality (v7.12.0):** when `pipeline-controller` detects `pipeline_variant: audit-heavy`, Phase 2 dispatches the skill via `Skill(pipeline-orchestrator:audit-heavy)` (the report-only branch of the Phase 2 dispatch rule, alongside bugfix-*, feature-*, user-story-*, ux-sim-*, spec-*). Phases 0 and 3 still wrap it via the controller. The `skills/audit-heavy/` folder is ALSO reachable directly via the `/pipeline-orchestrator:audit` thin shortcut. (Prior to v7.12.0 the controller ran audit Phase 2 inline; the AUDIT-012 doc-vs-controller contradiction is now resolved in favor of skill dispatch.) See `designs/pipeline-orchestrator-v5-consolidated.md` §22 for the full design.
 
 ## When Selected
 - Type: Audit
@@ -19,7 +19,7 @@
 | 5 | sentinel (phase_0_to_1) | 0→1 | Validate Phase 0 coherence |
 | 6 | plan-architect | 1.5 | Enter Plan Mode, plan audit execution order |
 | 7 | sentinel (phase_1_to_2) | 1→2 | Validate Phase 1 coherence |
-| 8 | executor-controller | 2 | Dispatch analysis tasks across all axes (READ-ONLY) |
+| 8 | skill `audit-heavy` (via controller `Skill()`) | 2 | Walk the prescriptive 9-step read-only procedure across all axes (no executor-controller for report-only audit) |
 | 9 | review-orchestrator | 2 | Independent batch review (adversarial + architecture in parallel) |
 | 10 | sentinel (phase_2_to_3) | 2→3 | Validate phase transition coherence |
 | 11 | sanity-checker | 3 | Verify report completeness and evidence quality |
