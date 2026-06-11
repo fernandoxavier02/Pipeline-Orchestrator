@@ -1,4 +1,4 @@
-> **DEPRECATED (as of v4.7.0):** This file is preserved as historical reference. New canonical entry-points: `/pipeline-orchestrator:feature-light` skill (`skills/feature-light/SKILL.md`) mirroring Pulsar workflow 1:1, or `/pipeline-orchestrator:feature` thin shortcut with `--light` flag. Will be removed in v5.0 final.
+> **DEPRECATED (as of v4.7.0):** This file is preserved as historical reference. New canonical entry-points: `/pipeline-orchestrator:feature-light` skill (`skills/feature-light/SKILL.md`) mirroring Pulsar workflow 1:1, or `/pipeline-orchestrator:feature` thin shortcut with `--light` flag. Variant id renamed to feature-light in v7.11.0 (AUDIT-013); canonical team-composition reference now lives in references/pipelines/feature-light.md. This alias file is kept for backward compatibility with historical run docs.
 
 ---
 

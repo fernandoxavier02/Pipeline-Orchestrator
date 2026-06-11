@@ -142,17 +142,20 @@ try {
   }
 
   // =========================================================================
-  // S3 (regression) — idempotente-não-reescreve: existing report is untouched
+  // S3 (regression, UPDATED v7.11.0 AUDIT-004) — keep-max never-downgrade:
+  // an existing report with a HIGHER mandatory_triggered than the fresh count
+  // stays byte-identical. (The old "never overwrite anything" contract was the
+  // fidelity-freeze bug itself — upgrades are now pinned by F25-S5/S10.)
   // =========================================================================
   {
     let ok = false, why = '';
     try {
-      const SENTINEL_VALUE = 0.42;
       const rf = makeRunFolder('s3', {
         'sentinel-state.json': SENTINEL_MEDIA,
         'gate-decisions.jsonl': GATE_DECISIONS_JSONL,
-        // Pre-existing report with a distinctive score + marker we can detect.
-        'fidelity-report.json': { fidelity_score: SENTINEL_VALUE, _marker: 'PRE-EXISTING' },
+        // High-watermark report: more mandatory triggers than the fixture log
+        // can ever produce — keep-max must preserve it untouched.
+        'fidelity-report.json': { fidelity_score: 0.42, mandatory_triggered: 999, _marker: 'PRE-EXISTING' },
       });
       const reportPath = path.join(rf, 'fidelity-report.json');
       const before = fs.readFileSync(reportPath, 'utf8');
@@ -160,10 +163,10 @@ try {
       const after = fs.readFileSync(reportPath, 'utf8');
       ok = before === after;
       why = ok
-        ? 'pre-existing report byte-identical after ensure'
-        : 'report was rewritten (idempotency violated)';
+        ? 'high-watermark report byte-identical after ensure (keep-max never-downgrade)'
+        : 'high-watermark report was DOWNGRADED (keep-max violated)';
     } catch (err) { why = `threw: ${err.message}`; }
-    record('F16-S3: regression — existing fidelity-report.json is NOT overwritten', ok, why);
+    record('F16-S3: regression — keep-max never downgrades an existing higher report', ok, why);
   }
 
   // =========================================================================

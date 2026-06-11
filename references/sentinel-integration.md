@@ -19,6 +19,9 @@ Initial state:
   "schema_version": 1,
   "pipeline_active": true,
   "pipeline_id": "{ISO_TIMESTAMP}_{variant_placeholder}",
+  "run_id": "{RUN_FOLDER_BASENAME}",
+  "pipeline_doc_path": "{ABSOLUTE_PIPELINE_DOC_PATH}",
+  "created_at": "{ISO_TIMESTAMP}",
   "variant": null,
   "last_updated": "{ISO_TIMESTAMP}",
   "sequence_counter": 0,
@@ -56,6 +59,8 @@ Before each Agent tool call, the controller MUST update sentinel-state.json via 
 5. Set `last_updated` to current ISO timestamp
 
 The Write tool call MUST complete before the Agent tool call is made. This ensures the hook reads the correct state.
+
+**Discovery pointer (AUDIT-005, v7.11.0):** alongside the state file, the controller maintains `<cwd>/.pipeline/active-run.json` (`pipeline_doc_path` absolute + `run_id` + `updated_at`). Hooks consult it BEFORE any cwd scan (after the PIPELINE_DOC_PATH env var). Stale (>24h) or pointing at a `pipeline_active: false` state, it is ignored with a `DISCOVERY_POINTER_STALE` audit breadcrumb.
 
 ### Determining `expected_next`
 

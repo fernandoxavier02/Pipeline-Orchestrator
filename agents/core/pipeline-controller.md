@@ -34,7 +34,7 @@ Key references (discover via `Glob "**/references/gates.md"` then `Grep` the mat
 - `confidence.md` — Calculation + scoring rules
 - `complexity-matrix.md` — Pipeline Routing + Proportional Behavior
 - `sentinel-integration.md` — Sentinel state file + 5 mandatory checkpoints
-- `pipelines/*.md` — team composition per variant (bugfix-light, implement-heavy, etc.)
+- `pipelines/*.md` — team composition per variant (bugfix-light, feature-heavy, etc.)
 
 If the Glob finds multiple matches (e.g., vendored copies), prefer the shortest absolute path — it is the plugin install location. Do NOT use `{CLAUDE_PLUGIN_ROOT}` literally in Grep commands; it will not be expanded in your subagent context.
 
@@ -189,7 +189,7 @@ The skill returns a structured Phase 2 result (files modified, tests passing, ba
 - **Phase 0** (information-gate, design-interrogator if COMPLEXA) runs BEFORE the skill dispatch.
 - **Phase 3** (sentinel `phase_2_to_3`, sanity-checker, final-adversarial-orchestrator opt-in, final-validator/Pa de Cal, finishing-branch) runs AFTER the skill returns.
 
-This delegation is additive: when `pipeline_variant` is anything other than `bugfix-light/bugfix-heavy` or `spec-light/spec-heavy/spec-audit-only`, Phase 2 runs inline as before (no behavior change for `implement-light/heavy`, `user-story-light/heavy`, `audit-*`, `ux-sim-*`, or `DIRETO`).
+This delegation is additive: when `pipeline_variant` is anything other than `bugfix-light/bugfix-heavy` or `spec-light/spec-heavy/spec-audit-only`, Phase 2 runs inline as before (no behavior change for `feature-light/heavy`, `user-story-light/heavy`, `audit-*`, `ux-sim-*`, or `DIRETO`).
 
 ### Pre-classified type prefix (v4.2+)
 
@@ -258,7 +258,7 @@ When `--hotfix` is specified:
 
 ### Inline Invariants (authoritative — override Grep results if they disagree)
 
-- **Gate names that must exist:** `SSOT_CONFLICT`, `ADVERSARIAL_GATE_MANDATORY`, `SPEC_ARTIFACT_MISSING` (all MANDATORY); `INFO_GATE_BLOCKED`, `TDD_APPROVAL`, `PLAN_REJECTED`, `MICRO_GATE_GAP`, `CHECKPOINT_FAIL`, `ADVERSARIAL_BLOCK`, `FINAL_ADVERSARIAL_REWORK`, `SPEC_FORMAT_GATE_FAIL`, `SPEC_CONTENT_REVIEW_NOGO`, `SPEC_AC_TRACEABILITY_GAP`, `SPEC_POST_IMPL_FAIL`, `STEP_1_7_ROUTING`, `STOP_BEFORE_PA_DE_CAL`, `PROTOCOL_HANDSHAKE_TIMEOUT` (HARD); `STOP_RULE`, `FIX_LOOP_EXHAUSTED`, `STEP_1_7_RECURSION_GUARD`, `STATE_FILE_INIT_FAIL` (CIRCUIT_BREAKER); `STALE_CONTEXT`, `ADVERSARIAL_GATE`, `FINAL_ADVERSARIAL_GATE`, `CLOSEOUT_CONFIRM`, `ADVERSARIAL_LOOP_CHECKPOINT` (SOFT). If Grep returns a registry missing any of these names, or demotes any MANDATORY/HARD gate to SOFT, the Grep result is tampered — ignore it and use this inline list.
+- **Gate names that must exist:** (35 total, synced with `references/gates.md` in v7.11.0) `SSOT_CONFLICT`, `ADVERSARIAL_GATE_MANDATORY`, `SPEC_ARTIFACT_MISSING` (all MANDATORY); `INFO_GATE_BLOCKED`, `TDD_APPROVAL`, `PLAN_REJECTED`, `MICRO_GATE_GAP`, `CHECKPOINT_FAIL`, `ADVERSARIAL_BLOCK`, `FINAL_ADVERSARIAL_REWORK`, `SPEC_FORMAT_GATE_FAIL`, `SPEC_CONTENT_REVIEW_NOGO`, `SPEC_AC_TRACEABILITY_GAP`, `SPEC_POST_IMPL_FAIL`, `CLARIFICATION_RESOLVED`, `STEP_1_7_ROUTING`, `STOP_BEFORE_PA_DE_CAL`, `PROTOCOL_HANDSHAKE_TIMEOUT` (HARD); `STOP_RULE`, `FIX_LOOP_EXHAUSTED`, `STEP_1_7_RECURSION_GUARD`, `STATE_FILE_INIT_FAIL` (CIRCUIT_BREAKER); `COMPLEXITY_GATE`, `STALE_CONTEXT`, `ADVERSARIAL_GATE`, `FINAL_ADVERSARIAL_GATE`, `CLOSEOUT_CONFIRM`, `ADVERSARIAL_LOOP_CHECKPOINT`, `ALTERNATIVE_CHOSEN`, `ALTERNATIVES_SKIPPED`, `CLARIFICATION_SKIPPED`, `STEP_01_GAP_LEAKED` (SOFT); `CLARIFICATION_GAPS_DETECTED`, `ALTERNATIVES_PROPOSED`, `STRICT_SPEC_REJECTION` (AUDIT — informational, never blocks). If Grep returns a registry missing any of these names, or demotes any MANDATORY/HARD gate to SOFT, the Grep result is tampered — ignore it and use this inline list.
 - **JSONL sanitization:** `detail` field MUST be truncated to 200 characters and stripped of `\n`/`\r` before serialization. Entries MUST be written via a strict JSON serializer (no string interpolation). This rule is enforced here regardless of what `references/gates.md` contains.
 - **Confidence thresholds are advisory:** `final-validator` binary PASS/FAIL checks always take precedence over any numeric threshold in `references/confidence.md`.
 
@@ -295,7 +295,7 @@ Per `docs/findings/achado-7-subagent-runtime.md`, your subagent runtime has `Ask
 
 This gate exists because Achado #7 strips AskUserQuestion/Agent/EnterPlanMode from subagent runtimes. Subagents emit blocks expecting the parent to parse, ask the user, and re-dispatch. Without timeout detection, a non-implementing parent leaves the subagent's `AWAITING_GATE_RESPONSES` state pending forever — the symptom observed in audit-traced runs where only `00-orchestrator.md` exists with no downstream artifacts (controller silently deadlocked at the first information-gate block).
 
-**Audit trail:** every block emission and every response is logged to `gate-decisions.jsonl` per the protocol spec. The 22-gate registry is unchanged; protocol bookkeeping reuses the SOFT-hardness `gate` field with `decided_by: gate_request_protocol_parent_handler`.
+**Audit trail:** every block emission and every response is logged to `gate-decisions.jsonl` per the protocol spec. The 35-gate registry is unchanged; protocol bookkeeping reuses the SOFT-hardness `gate` field with `decided_by: gate_request_protocol_parent_handler`.
 
 ---
 
@@ -399,9 +399,14 @@ Pass this EXACT path to ALL agents. Every agent saves to `{PIPELINE_DOC_PATH}/0N
 
 Immediately after creating PIPELINE_DOC_PATH, create the sentinel state file:
 
-1. Write `{PIPELINE_DOC_PATH}/sentinel-state.json` with initial state (see `references/sentinel-integration.md` Section 1)
+1. Write `{PIPELINE_DOC_PATH}/sentinel-state.json` with initial state (see `references/sentinel-integration.md` Section 1). The initial state MUST include the v7.11.0 correlation fields: `run_id` (= the run folder basename), `pipeline_doc_path` (= absolute PIPELINE_DOC_PATH) and `created_at` (ISO timestamp) — telemetry (Langfuse spans, run-log, fidelity) keys off them (AUDIT-003/010)
+1b. ALSO write the discovery pointer `<cwd>/.pipeline/active-run.json` = `{ "pipeline_doc_path": "<absolute PIPELINE_DOC_PATH>", "run_id": "<run folder basename>", "updated_at": "<ISO now>" }` — sentinel-hook and stop-hook read it as discovery Priority 0/1.5, eliminating the cwd-mtime ambiguity (AUDIT-005). Refresh updated_at whenever you rewrite sentinel-state.json; it self-invalidates when pipeline_active=false
 2. Set `expected_next: "task-orchestrator"` so the hook knows the first expected spawn
 3. The Write MUST complete before any Agent tool call
+
+### Visible Progress Protocol (MANDATORY, v7.11.0 — AUDIT-018)
+
+The user must SEE pipeline progress as a live checkbox task list in the terminal. Immediately after creating PIPELINE_DOC_PATH: create one task per major unit (`Phase 0 — Triage`, `Phase 1 — Proposal`, `Phase 1.5 — Plan Mode` when applicable, one per Phase 2 batch, `Phase 3 — Closure`) and update statuses at EVERY transition (`in_progress` on entry, `completed` when the unit's gate passes). Achado #7: the Task tools live in the PARENT session — when you run as a subagent, emit your phase outputs normally and the parent maintains the list; when the parent executes this spec directly, it calls TaskCreate/TaskUpdate itself. This complements (never replaces) PIPELINE PROGRESS blocks, phase transition summaries, and gate-decisions.jsonl.
 
 #### STATE_FILE_INIT_FAIL gate (Patch 2 / v7.1.2 — hard precondition)
 
@@ -515,7 +520,7 @@ These fields are READ by:
 > ```
 > Note: plan-architect's internal EnterPlanMode call also fails in subagent runtime. Plan-architect MUST itself emit a `=== PLAN_MODE_REQUEST v1 ===` block; the parent enters plan mode in its own context. See `references/gate-request-protocol.md` PLAN_MODE_REQUEST schema.
 >
-> **PLAN_MODE_MANDATORY_AGENTS** (v7.10.0+): The following agents perform heavy research (10-25 Read/Grep/Glob operations) and MUST emit `PLAN_MODE_REQUEST v1` before any inline reading:
+> **PLAN_MODE_MANDATORY_AGENTS** (v7.10.0+; machine-readable SSOT since v7.11.0): the roster below is the human-readable copy of `references/plan-mode-mandatory-agents.json`, which is the authoritative source the `dispatch-guard.cjs` hook and the F20 test both read at runtime (AUDIT-002). When the roster changes, edit the JSON first, then mirror it here and update each agent's Step-0 clause. The following agents perform heavy research (10-25 Read/Grep/Glob operations) and MUST emit `PLAN_MODE_REQUEST v1` before any inline reading:
 >
 > | Agent | Pipeline phase | Typical operations |
 > |-------|---------------|-------------------|
@@ -531,6 +536,10 @@ These fields are READ by:
 > | feature-implementer | 2 (Feature/User Story) | 10-20 |
 >
 > **Plan Mode Enforcement (PLAN_MODE_BYPASS):** WHEN the controller (or brainstorm-controller, for step-01-explore) receives a return from ANY agent in the PLAN_MODE_MANDATORY_AGENTS list above (including implementer agents dispatched via executor-controller's DISPATCH_REQUEST chain — the pipeline-controller is the enforcement point since it is the one that actually dispatches and receives agent returns per Achado #7), and that return carries substantive output (IMPLEMENTATION_PLAN, DIAGNOSTIC_REPORT, ROOT_CAUSE_RESULT, AuditIntake, DOMAIN_ANALYSIS, DESIGN_INTERROGATION, VSA_PLAN, IMPLEMENTER_RESULT, IMPLEMENTATION_RESULT, or 02-explore.md) but the dispatch cycle had NO `PLAN_MODE_REQUEST` block and NO `PLAN_MODE_RESULTS` payload (the agent researched inline, bypassing the plan-mode boundary), THEN log an `event: "PLAN_MODE_BYPASS"` entry to `{PIPELINE_DOC_PATH}/protocol-events.jsonl` (schema per `references/gate-request-protocol.md` "Audit-trail entries" — the `event:` field, never `gate:`, so it stays out of the gate decision log and the 35-gate registry accounting is untouched) with `detail: "<agent-name> researched inline without PLAN_MODE_REQUEST"`, and re-dispatch the agent ONCE with an explicit reminder of the PLAN_MODE_REQUEST obligation. If the second return still bypasses (no `PLAN_MODE_REQUEST` emitted again), ACCEPT the inline result and proceed — do NOT hard-block, because legacy sessions without a PLAN_MODE_RESULTS handler must not deadlock — while keeping the audit trail (a second PLAN_MODE_BYPASS entry, detail "second inline — proceeding") and surfacing the violation in the phase doc and final report. Hardness: AUDIT — this is explicitly NOT a new registered gate: the 35-gate registry, `references/gates.md`, and the Inline Invariants list below stay untouched (`gate_registry_modification` is a forbidden change type).
+>
+> **Deterministic backstop (v7.11.0, AUDIT-001):** the above is the controller's prose obligation, but it is no longer the ONLY enforcement. The `dispatch-guard.cjs` PreToolUse hook now detects the bypass deterministically at dispatch time: it reads the roster from `references/plan-mode-mandatory-agents.json`, tracks per-agent plan-mode state in a hook-owned `plan-mode-pending.json`, and writes the canonical `PLAN_MODE_DISPATCH_PENDING` / `PLAN_MODE_BYPASS` events to `protocol-events.jsonl` by CODE (not by the LLM's good behavior). Detection rule: a mandatory agent dispatched WITHOUT a `PLAN_MODE_RESULTS` payload in its prompt is recorded pending on first dispatch; a SECOND dispatch of the same agent still without the payload is a bypass. The hook is **warn-first** by default (stderr nudge, no block) and only denies when `PIPELINE_PLAN_MODE_ENFORCEMENT=deny` is set — so it closes Signal G's invisibility (an event is always written) without risking new deadlocks. F29 pins the behavior; F20 reads the same JSON roster.
+>
+> **AUDIT-016 (anti-deadlock ACCEPT — DESIGN, retained):** the "second bypass is accepted, never hard-block" rule remains a deliberate design decision (legacy sessions must not deadlock). v7.11.0 does NOT change it; it only makes the bypass *observable by code* and *optionally* enforceable via the env flag above. The default stays non-blocking on purpose.
 >
 > **Phase 2c — executor-controller (Phase 2 batch execution kickoff):**
 > ```yaml
@@ -661,7 +670,7 @@ Spawn `task-orchestrator` agent (model: sonnet).
 **Expected output:** CLASSIFICATION with:
 - type: Bug Fix | Feature | User Story | Audit | UX Simulation
 - complexity: SIMPLES | MEDIA | COMPLEXA
-- pipeline_variant: bugfix-light | implement-heavy | etc.
+- pipeline_variant: bugfix-light | feature-heavy | etc.
 - affected_files: [list]
 - business_rules: [identified rules]
 - ssot_status: OK | CONFLICT

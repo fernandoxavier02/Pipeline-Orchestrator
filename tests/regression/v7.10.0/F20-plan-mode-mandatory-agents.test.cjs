@@ -22,17 +22,36 @@ function test(name, fn) {
   catch (e) { results.push({ name, ok: false, reason: e.message }); }
 }
 
-const MANDATORY_AGENTS = [
-  { id: 'bugfix-diagnostic-agent', file: 'agents/executor/type-specific/bugfix-diagnostic-agent.md' },
-  { id: 'bugfix-root-cause-analyzer', file: 'agents/executor/type-specific/bugfix-root-cause-analyzer.md' },
-  { id: 'audit-intake', file: 'agents/executor/type-specific/audit-intake.md' },
-  { id: 'audit-domain-analyzer', file: 'agents/executor/type-specific/audit-domain-analyzer.md' },
-  { id: 'design-interrogator', file: 'agents/quality/design-interrogator.md' },
-  { id: 'feature-vertical-slice-planner', file: 'agents/executor/type-specific/feature-vertical-slice-planner.md' },
-  { id: 'step-01-explore', file: 'agents/brainstorm/step-01-explore.md' },
-  { id: 'executor-implementer-task', file: 'agents/executor/executor-implementer-task.md' },
-  { id: 'feature-implementer', file: 'agents/executor/type-specific/feature-implementer.md' },
-];
+// AUDIT-002 (v7.11.0): the roster is loaded from the machine-readable SSOT
+// (references/plan-mode-mandatory-agents.json), NOT hardcoded here. F20 thereby
+// pins the SAME source the dispatch-guard hook reads at runtime — if the roster
+// drifts from the per-agent contracts, this test fails. AUDIT-015a: plan-architect
+// is included (the roster has all 10 agents).
+const LEAF_TO_FILE = {
+  'plan-architect': 'agents/quality/plan-architect.md',
+  'bugfix-diagnostic-agent': 'agents/executor/type-specific/bugfix-diagnostic-agent.md',
+  'bugfix-root-cause-analyzer': 'agents/executor/type-specific/bugfix-root-cause-analyzer.md',
+  'audit-intake': 'agents/executor/type-specific/audit-intake.md',
+  'audit-domain-analyzer': 'agents/executor/type-specific/audit-domain-analyzer.md',
+  'design-interrogator': 'agents/quality/design-interrogator.md',
+  'feature-vertical-slice-planner': 'agents/executor/type-specific/feature-vertical-slice-planner.md',
+  'step-01-explore': 'agents/brainstorm/step-01-explore.md',
+  'executor-implementer-task': 'agents/executor/executor-implementer-task.md',
+  'feature-implementer': 'agents/executor/type-specific/feature-implementer.md',
+};
+
+const roster = JSON.parse(fs.readFileSync(path.join(ROOT, 'references', 'plan-mode-mandatory-agents.json'), 'utf8'));
+const MANDATORY_AGENTS = roster.agents.map((a) => {
+  const file = LEAF_TO_FILE[a.leaf];
+  if (!file) throw new Error(`F20: roster agent '${a.leaf}' has no known agent file mapping — update LEAF_TO_FILE`);
+  return { id: a.leaf, file };
+});
+
+// Pin the roster size so a silent drop from the JSON is caught.
+test('F20-roster: machine-readable roster lists exactly 10 mandatory agents', () => {
+  assert.strictEqual(MANDATORY_AGENTS.length, 10,
+    `expected 10 PLAN_MODE_MANDATORY agents in references/plan-mode-mandatory-agents.json, got ${MANDATORY_AGENTS.length}`);
+});
 
 for (const agent of MANDATORY_AGENTS) {
   const content = fs.readFileSync(path.join(ROOT, agent.file), 'utf8');

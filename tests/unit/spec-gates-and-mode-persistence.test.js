@@ -350,11 +350,11 @@ test('Scenario 3a: v4.12.0 has exactly 15 inline gates', () => {
   );
 });
 
-test('Scenario 3b: v4.13.0 has exactly 22 inline gates (15 baseline + 6 new spec gates + COMPLEXITY_GATE drift-fix)', () => {
+test('Scenario 3b: live pipeline.md has exactly 35 inline gates (synced with references/gates.md registry in v7.11.0 — AUDIT-008 fix)', () => {
   assert.equal(
     getInlineGatesFromPipeline('4.13.0').length,
-    22,
-    'v4.13.0 must expose 22 inline gates (baseline 15 + 6 new spec gates + COMPLEXITY_GATE added by final-adversarial CONSENSUS-1 fix to match the 22-gate registry)'
+    35,
+    'live pipeline.md must expose 35 inline gates (22 from v4.13.0 + CLARIFICATION_RESOLVED/PROTOCOL_HANDSHAKE_TIMEOUT/STEP_1_7_ROUTING/STOP_BEFORE_PA_DE_CAL HARD + STATE_FILE_INIT_FAIL/STEP_1_7_RECURSION_GUARD CIRCUIT_BREAKER + ALTERNATIVE_CHOSEN/ALTERNATIVES_SKIPPED/CLARIFICATION_SKIPPED/STEP_01_GAP_LEAKED SOFT + 3 AUDIT-class) — AUDIT-008 drift remediation v7.11.0'
   );
 });
 

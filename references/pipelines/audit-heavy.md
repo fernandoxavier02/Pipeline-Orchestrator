@@ -1,6 +1,6 @@
 # Audit Pipeline — Heavy
 
-> **As of v4.5.0 (Slice 3a):** the prescriptive 9-step procedure now lives in `skills/audit-heavy/SKILL.md` and its supporting files (`steps/0X-*.md`). This file remains as the team-composition reference (which agent runs at which phase). When `pipeline-controller` detects `pipeline_variant: audit-heavy`, it dispatches the skill via `Skill(pipeline-orchestrator:audit-heavy)` for Phase 2 execution. See `designs/pipeline-orchestrator-v5-consolidated.md` §22 for the full design.
+> **As of v4.5.0 (Slice 3a):** the prescriptive 9-step procedure now lives in `skills/audit-heavy/SKILL.md` and its supporting files (`steps/0X-*.md`). This file remains as the team-composition reference (which agent runs at which phase). **Routing reality (v7.11.0, AUDIT-012 fix):** when `pipeline-controller` detects `pipeline_variant: audit-heavy`, Phase 2 runs INLINE from the controller (the Skill-dispatch list at pipeline-controller.md covers only bugfix-* and spec-* variants). The `skills/audit-heavy/` folder is NOT dispatched by the controller — it serves the direct entry-point `/pipeline-orchestrator:audit` (thin shortcut) only. See `designs/pipeline-orchestrator-v5-consolidated.md` §22 for the full design.
 
 ## When Selected
 - Type: Audit

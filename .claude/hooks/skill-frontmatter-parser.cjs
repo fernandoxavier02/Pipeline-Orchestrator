@@ -161,6 +161,28 @@ function getCurrentSkill(state) {
   };
 }
 
+// AUDIT-007 (v7.11.0): variant-aware fallback. Inline-routed pipelines (audit-*,
+// ux-sim-*, user-story-*, feature-*) never set `current_skill`, so the original
+// getCurrentSkill returned null and skill-checkpoint enforcement was skipped
+// entirely for 3 of 5 task types. Now that every variant has a skill folder, the
+// enforcement can resolve the skill from the pipeline_variant directly. Returns
+// null (preserving the old null-skip) when neither a skill nor a known variant is
+// in flight, or when current_step is absent (cannot locate a checkpoint).
+function getVariantSkill(state) {
+  if (!state || typeof state !== 'object') return null;
+  if (state.current_skill && typeof state.current_skill === 'string') return null; // real skill wins
+  const variant = state.variant || state.pipeline_variant
+    || (state.orchestrator_decision && state.orchestrator_decision.pipeline_variant);
+  if (!variant || typeof variant !== 'string') return null;
+  if (variant === 'DIRETO' || variant.startsWith('spec-')) return null; // not skill-backed here
+  return {
+    skill: variant,
+    step: typeof state.current_step === 'number' ? state.current_step : null,
+    expected_next: state.expected_next || null,
+    via_variant: true,
+  };
+}
+
 // ── Mode toggle (warn vs deny based on date) ───────────────────────────────
 //
 // Roll-out plan: warn mode until 2026-05-17, deny mode after.
@@ -206,6 +228,7 @@ module.exports = {
   parseFrontmatter,
   readSkillFrontmatter,
   getCurrentSkill,
+  getVariantSkill,
   getEnforcementMode,
   logEnforcementDecision,
   DENY_MODE_START_ISO,

@@ -93,7 +93,7 @@
 
 ### Type-Specific Agent Team
 
-**Team:** Feature Light (referenced from implement-light)
+**Team:** Feature Light (referenced from feature-light; legacy alias implement-light DEPRECATED)
 **Mode:** code-changing
 **Agents (execution order):**
 1. feature-vertical-slice-planner — story decomposition into implementable tasks, acceptance criteria mapping

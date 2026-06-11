@@ -23,7 +23,7 @@ The **task-orchestrator** classifies the request.
 |  TASK-ORCHESTRATOR v2 - PROPOSAL READY                            |
 |  Type: Feature                                                    |
 |  Complexity: MEDIA                                                |
-|  Pipeline: implement-light                                        |
+|  Pipeline: feature-light                                          |
 |  Info-Gate: 1 GAP DETECTED                                        |
 |  Status: RESOLVING GAPS                                           |
 +==================================================================+
@@ -67,7 +67,7 @@ PIPELINE PROPOSAL:
 
   Type:       Feature
   Complexity: MEDIA
-  Pipeline:   implement-light
+  Pipeline:   feature-light
   Batch size: 2-3 tasks per batch
   Adversarial: auth + input-validation + error-handling
   Sanity:     build + tests

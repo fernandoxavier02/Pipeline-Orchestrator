@@ -137,11 +137,12 @@ const body = fs.readFileSync(HOOK_PATH, 'utf8');
 // ---------------------------------------------------------------------------
 {
   const lines = body.split('\n').length;
-  // Baseline 2026-05-21: 335 lines. Tolerance ±50 (this hook gets updated
-  // organically; we only want to catch catastrophic truncation).
-  const within = lines >= 250 && lines <= 450;
+  // Baseline 2026-05-21: 335 lines. Upper bound raised to 560 in v7.11.0 after the
+  // AUDIT-005 discovery-pointer block (Priority 1.5) + AUDIT-007 variant fallback
+  // grew the hook organically. We only want to catch catastrophic truncation.
+  const within = lines >= 250 && lines <= 560;
   record(
-    `F7-S6: hook file line count loose sanity (got ${lines}, expected 250-450)`,
+    `F7-S6: hook file line count loose sanity (got ${lines}, expected 250-560)`,
     within,
     `line count ${lines} suggests catastrophic edit`
   );

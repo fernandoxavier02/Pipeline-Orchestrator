@@ -85,7 +85,7 @@ If no config exists, the pipeline auto-detects from `package.json`, `Makefile`, 
 | Type | Light (MEDIA) | Heavy (COMPLEXA) |
 |------|---------------|-------------------|
 | Bug Fix | bugfix-light | bugfix-heavy |
-| Feature | implement-light | implement-heavy |
+| Feature | feature-light | feature-heavy |
 | User Story | user-story-light | user-story-heavy |
 | Audit | audit-light | audit-heavy |
 | UX Simulation | ux-sim-light | ux-sim-heavy |

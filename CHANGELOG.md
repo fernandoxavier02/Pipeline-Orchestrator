@@ -5,6 +5,57 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.11.0] - 2026-06-11 — enforcement-audit remediation (MINOR)
+
+Closes the 17 findings of the 2026-06-11 enforcement + variant-coverage audit
+(`docs/audits/2026-06-11-enforcement-variants-audit/`). Five batches, each with
+TDD where code changed, two independent adversarial review passes, and a
+completeness watchdog (18/18 findings dispositioned). Suite: zero new failures
+vs the pre-work baseline; 6 new regression files F24–F30 (75 scenarios).
+
+### Added
+- **Visible Progress Protocol (AUDIT-018):** the controller MUST maintain a live
+  `TaskCreate`/`TaskUpdate` checkbox list per phase/batch — pipeline progress is
+  now visible in the terminal, not only in prose blocks. Pinned by F24.
+- **Deterministic Plan Mode enforcement (AUDIT-001/002/006):** new machine-readable
+  roster `references/plan-mode-mandatory-agents.json` (SSOT the hook + F20 read);
+  `dispatch-guard.cjs` now detects Plan Mode bypass in CODE (per-agent session-scoped
+  pending files, column-0 anchored `PLAN_MODE_RESULTS` check, FQN/namespace match),
+  writing `PLAN_MODE_DISPATCH_PENDING`/`PLAN_MODE_BYPASS` to protocol-events.jsonl.
+  Warn-first; deny under `PIPELINE_PLAN_MODE_ENFORCEMENT=deny`. Behavioral test F29.
+- **Deterministic discovery pointer (AUDIT-005):** `<cwd>/.pipeline/active-run.json`
+  (controller-written, containment-guarded, session-scoped) closes the cwd-mtime
+  ambiguity behind live false-denies. sentinel-hook Priority 1.5 + stop-hook
+  Priority 0. Behavioral tests F27 (sentinel deny path, AUDIT-009) + F28.
+- **User Story skills** `user-story-light` / `user-story-heavy` — 1:1 port of the
+  Pulsar playbooks (10 steps each). **UX Simulation skills** `ux-sim-light` /
+  `ux-sim-heavy` — synthesized, report-only. Closes the variant layer-3 gap
+  (AUDIT-014): all 5 task types now 4/4. Variant-aware sentinel enforcement via
+  `getVariantSkill` (AUDIT-007). Matrix pinned by F30.
+
+### Changed
+- **Gate-count SSOT sync (AUDIT-008):** the two stale inline gate lists
+  (`commands/pipeline.md`, `pipeline-controller.md`) updated from 22/27 to the
+  authoritative 35; F24 pins all three against each other.
+- **Telemetry correlation (AUDIT-003/004/010):** Langfuse spans carry a non-null
+  `run_id` (folder-basename fallback) + relative `pipeline_doc_path`;
+  `ensureFidelityReport` is now keep-max (no more frozen undercount);
+  `timestamp_start` derives from the sentinel `pipeline_id` with a clock-skew
+  guard. Behavioral test F25. New correlation fields in the state template.
+- **Routing docs (AUDIT-012/013):** `audit-heavy/light.md` corrected to state inline
+  routing; Feature variant canonicalized to `feature-light`/`feature-heavy`
+  (legacy `implement-*` kept as deprecated aliases). F20 extended to all 10
+  mandatory agents (AUDIT-015a).
+
+### Notes
+- **AUDIT-011** (foreign `chat-derek` traces) documented as historical pollution
+  (zero since the v7.9.3 F14 isolation fix) — no key rotation needed.
+- **AUDIT-016** (anti-deadlock ACCEPT) retained as deliberate design, now observable
+  by code. **AUDIT-017** informational, no action.
+- Iron Law preserved: `references/gates.md` registry + the 35-gate Mandatory table
+  untouched; PLAN_MODE_BYPASS stays `event:` (not a registered gate). Codex hook
+  mirrors byte-identical.
+
 ## [7.10.1] - 2026-06-09 — parallel_eligible default contract (PATCH)
 
 ### Bug Fix
