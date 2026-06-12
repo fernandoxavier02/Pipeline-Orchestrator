@@ -98,6 +98,40 @@ The watchdog (`scripts/watchdog-cloudcode-hardening.cjs` check W10) enforces the
 same invariant at release time: a run whose code-changing batches lack adversarial
 evidence is a `ReleaseBlocker`.
 
+### Step 1b-brainstorm: STEP 1.7 brainstorm evidence requirement (v7.14.0)
+
+For `complexity ∈ {MEDIA, COMPLEXA}` OR `type == "Spec"`, the STEP 1.7 brainstorm
+routing decision is NOT optional — the run MUST have recorded WHICH legal path it
+took (`dispatch-brainstorm`, `load-existing`, `no-prep-override`, or `simples-bypass`).
+A qualifying run that reaches Pa de Cal with NO `STEP_1_7_ROUTING` entry took the
+brainstorm step silently, the failure mode the 2026-06-12 audit caught (4 events in
+245 runs). Before issuing the final decision, verify brainstorm evidence:
+
+1. Scan the `gate-decisions.jsonl` entries already parsed in Step 1b for a line
+   whose `gate` field equals `STEP_1_7_ROUTING`.
+2. If the run is MEDIA/COMPLEXA/Spec AND no such entry exists, emit an
+   `event: "BRAINSTORM_EVIDENCE_MISSING"` line to
+   `{PIPELINE_DOC_PATH}/protocol-events.jsonl` (schema per
+   `references/gate-request-protocol.md` — the `event:` field, AUDIT hardness),
+   with a `detail` naming the run and its complexity/type.
+   This is **NOT a new registered gate**: the 35-gate registry, `references/gates.md`
+   and the Inline Invariants stay untouched (`gate_registry_modification` is a
+   forbidden change type), mirroring the v7.9.4 `PLAN_MODE_BYPASS` and the
+   `ADVERSARIAL_EVIDENCE_MISSING` patterns above.
+3. **DELIBERATE DIFFERENCE from the adversarial check: do NOT downgrade the verdict.**
+   The plan calls for a warning, not a block — a missing brainstorm record is a
+   process-hygiene signal surfaced in the audit trail, not a GO-blocking defect.
+   Note it in the PA_DE_CAL output ("brainstorm evidence missing — STEP_1_7_ROUTING
+   absent") but leave the GO/CONDITIONAL/NO-GO decision driven solely by the binary
+   build/test/gate checks.
+4. The qualifier is `complexity ∈ {MEDIA, COMPLEXA}` **OR** `type == "Spec"` — it is
+   an OR, not a complexity floor. A plain SIMPLES run (SIMPLES complexity AND a
+   non-Spec type) does NOT require a STEP_1_7_ROUTING entry and never triggers this
+   event. But a **SIMPLES + Spec** run DOES qualify (the `type == "Spec"` arm fires
+   regardless of complexity), so it MUST carry a STEP_1_7_ROUTING entry and is
+   subject to this check. This matches the `STEP_1_7_QUALIFYING` predicate in
+   `lib/fidelity-reporter.cjs` (kept in lockstep via a SYNC comment there).
+
 ### Step 1c: Read Confidence Score
 
 If a CONFIDENCE score is available from the pipeline:

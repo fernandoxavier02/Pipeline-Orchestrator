@@ -17,8 +17,8 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 
 const ROOT = path.resolve(__dirname, '../../..');
-const VERSION = '7.13.0';
-const PREV_VERSION = '7.12.0';
+const VERSION = '7.14.0';
+const PREV_VERSION = '7.13.0';
 
 let pass = 0, fail = 0;
 function test(name, fn) {

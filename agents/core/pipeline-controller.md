@@ -333,7 +333,14 @@ IF arguments contain "PREP_RUN_ID=<slug>":
 ELSE IF complexity in {MEDIA, COMPLEXA} OR type == "Spec":
     IF arguments contain "--no-prep":
         # Escape hatch. Log + bypass brainstorm.
-        Log to .pipeline/state/no-prep-overrides.jsonl: {timestamp, prompt, complexity, type}
+        Log to .pipeline/state/no-prep-overrides.jsonl via recordNoPrepOverride()
+        from lib/step-1-7-routing.cjs. The emitted entry carries:
+          { event: "NO_PREP_OVERRIDE", branch: "no-prep-override", run_id,
+            type, complexity, plugin_version, schema_version,
+            prompt (sanitized+capped), reason (sanitized+capped),
+            decided_by, timestamp }
+        (all free-form fields sanitized + 200-char capped; filePath must be
+        absolute and inside a .pipeline directory or the writer throws.)
         Continue to STEP 2 (no brainstorm).
     ELSE:
         # Mandatory brainstorm dispatch.
@@ -350,6 +357,10 @@ ELSE: # SIMPLES, no Spec type
 ```
 
 **Audit logging:** Every STEP 1.7 decision (load-existing, dispatch-brainstorm, no-prep-override, simples-bypass) MUST be logged to `gate-decisions.jsonl` as a `STEP_1_7_ROUTING` gate entry with `hardness: HARD` and `decision` set per the branch taken.
+
+**Closed branch vocabulary (v7.14.0, D1):** the branch identity is a CLOSED set of exactly four values — `load-existing | dispatch-brainstorm | no-prep-override | simples-bypass`. These map to the canonical 8-value gate-decision vocabulary via `lib/step-1-7-routing.cjs` (`dispatch-brainstorm` → `DISPATCHED`, `load-existing` → `CONFIRMED`, `no-prep-override` → `SKIPPED`, `simples-bypass` → `NOT_TRIGGERED`). The branch identity itself is preserved verbatim in the `detail` field. Writing the `STEP_1_7_ROUTING` entry through `appendStep17Routing()` (which validates the branch against `BRANCH_VALUES` and throws `TypeError` outside it) is MANDATORY — a raw branch value (e.g. `"SKIPPED"` written as the branch) is a contract violation the 2026-06-12 audit caught.
+
+**State-write-before-spawn contract (v7.14.0, D3):** the controller MUST write `sentinel-state.step_1_7 = { decision, prep_run_id | null, timestamp }` immediately after the STEP 1.7 decision is taken, BEFORE any Phase 1.5 (Plan Mode) or Phase 2 (execution) spawn. Build the block via `buildStep17StateBlock(branch, prepRunId)` from `lib/step-1-7-routing.cjs`. This makes the routing decision a verifiable fact in the signed sentinel-state (HMAC recursive canonicalization from v7.13.0 B2 already covers it) so a determinist dispatch-guard hook can detect a MEDIA/COMPLEXA/Spec run that reached Phase 1.5/2 with no `step_1_7` block (a brainstorm bypass). No spawn — including the very first plan-architect or executor-controller dispatch — may precede this write.
 
 **Re-entry safety:** If the brainstorm dispatched at this step itself fails or is cancelled, the controller exits with status `partial` (does NOT auto-retry). The user re-invokes the pipeline.
 

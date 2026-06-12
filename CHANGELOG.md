@@ -5,6 +5,80 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.14.0] - 2026-06-12 — Deterministic STEP 1.7 brainstorm enforcement (MINOR)
+
+Closes the critical finding of the 2026-06-12 classification-flow audit: STEP 1.7
+(mandatory brainstorm for MEDIA/COMPLEXA/Spec) was prompt-only — 4 `STEP_1_7_ROUTING`
+events in 245 runs, including 1 violation with an out-of-vocabulary value. Same
+hardening pattern as PLAN_MODE_BYPASS (v7.9.4 → v7.11.0): verifiable state +
+deterministic warn-first hook lock + closeout accrual. Dogfooded end-to-end: the
+implementation run itself proved BOTH paths (correct flow logged
+`dispatch-brainstorm` on first attempt at Phase 0; deliberate bypass produced a live
+`BRAINSTORM_BYPASS` warn and a deny under enforcement).
+
+### Added
+- `lib/step-1-7-routing.cjs` — SSOT for the STEP 1.7 routing contract: frozen 4-branch
+  vocabulary (`load-existing | dispatch-brainstorm | no-prep-override | simples-bypass`),
+  D1 canonical mapping (branch identity in `detail`; the 8-value gate-decision vocabulary
+  untouched), `appendStep17Routing` (delegates to the gate-decision-writer; sanitized
+  `phase`/`decided_by`; allowlisted `prep_run_id` with JSON-encoded interpolation),
+  `buildStep17StateBlock` (sentinel-state `step_1_7` block — stores the RAW branch;
+  consumers validate against `BRANCH_VALUES`, not `CANONICAL_DECISIONS`), and
+  `recordNoPrepOverride` (audited opt-out trail at `.pipeline/state/no-prep-overrides.jsonl`
+  with forensic `prompt` field, path containment, dir auto-create, exclusive lock).
+- `references/step-1-7-enforcement.json` — machine-readable roster of Phase-2 spawn
+  targets (agents + skill prefixes) consumed by the dispatch-guard, with an embedded
+  FAIL-CLOSED fallback in the hook (empty/poisoned registry falls through to the
+  fallback; `skill_prefixes` filtered 1..32 chars).
+- `.claude/hooks/dispatch-guard.cjs` — new `handleBrainstormDispatch` detector mirroring
+  the Plan Mode detector: on dispatch of a Phase-2 target while
+  `orchestrator_decision` is MEDIA/COMPLEXA or type Spec AND `sentinel-state.step_1_7`
+  is absent/invalid → AUDIT event `BRAINSTORM_BYPASS` in protocol-events.jsonl + stderr
+  warn; `PIPELINE_BRAINSTORM_ENFORCEMENT=deny` blocks the spawn with a corrective
+  message. Warn fails OPEN on unreadable state (never crashes a session); deny fails
+  CLOSED. Per-leaf+run dedup marker (one event per agent per run), namespace guards on
+  both Agent and Skill paths, length caps, printable-ASCII sanitization of
+  state-derived strings in the deny payload, and two-tier HMAC verification via the
+  existing sentinel-state-signer (unsigned tolerated in warn; invalid signature →
+  `BRAINSTORM_STATE_UNSIGNED` breadcrumb + block treated as absent; strict+deny
+  fail-closed). `planModeAppendEvent` renamed `appendProtocolEvent` (shared).
+- `tests/regression/v7.14.0/` — F33 (13 behavioral child-process scenarios: warn/deny/
+  happy/SIMPLES-exempt/fail-open/fail-closed/fallback/cache-poisoning/Skill-path/dedup),
+  F34 (7 scenarios pinned to the live `BRANCH_TO_CANONICAL` export), F35 (6 scenarios:
+  legal escape paths `--no-prep` + SIMPLES). TDD RED → GREEN.
+
+### Changed
+- `agents/core/pipeline-controller.md` STEP 1.7 — state-write-before-spawn contract
+  (D3): the controller writes `sentinel-state.step_1_7` immediately after the routing
+  decision, BEFORE any Phase 1.5/2 spawn; prose now documents the real
+  no-prep-overrides entry schema.
+- `lib/codex-operational-runtime.cjs` — STEP_1_7_ROUTING write site delegates to
+  `appendStep17Routing` (no inline schema duplication); caller-supplied
+  `pipelineDocPath` gets resolve + containment; `brainstormConcluded` initialized
+  `false` unconditionally (was substring-regex on LLM text).
+- `agents/core/final-validator.md` — new Step 1b-brainstorm mirroring
+  ADVERSARIAL_EVIDENCE_MISSING: a MEDIA/COMPLEXA/Spec run with no `STEP_1_7_ROUTING`
+  entry emits AUDIT event `BRAINSTORM_EVIDENCE_MISSING` to protocol-events.jsonl —
+  deliberately NO verdict downgrade (warning-only by design). NOT a new gate.
+- `lib/fidelity-reporter.cjs` — pushes a warning into `warnings[]` when a qualifying
+  run lacks `STEP_1_7_ROUTING`; binary fidelity score untouched.
+
+### Security
+- 27 adversarial findings closed across 6 per-batch zero-context reviews (5 fix loops)
+  + 3-reviewer final pass (1 authorized rework): log-injection hardening (allowlist +
+  JSON-encoded interpolation), path containment on two writers, registry cache
+  poisoning guard, skill-namespace guard, event dedup, length caps, deny-payload
+  sanitization, HMAC state verification in the hook.
+
+### Notes
+- Iron Law preserved: 35-gate registry, Mandatory table, Inline Invariants and the
+  8-value decision vocabulary untouched; `BRAINSTORM_*` are AUDIT events, not gates.
+- No `.codex/hooks/dispatch-guard.cjs` mirror exists (only langfuse/stop hooks are
+  mirrored); Codex parity lives in `lib/codex-operational-runtime.cjs`.
+- v7.15 backlog (documented in the run docs): dynamic require in the branch fallback,
+  `handleInput` extensibility for a 3rd detector, TTL constant rename, integration-test
+  regex robustness.
+
 ## [7.13.0] - 2026-06-12 — Claude Code loop hardening (MINOR)
 
 Closes the 13 audit findings (R1–R13) in `docs/specs/2026-06-12-cloudcode-loop-hardening/`

@@ -1,0 +1,19 @@
+{
+  "$schema_note": "v7.14.0 (B2): machine-readable SSOT for STEP 1.7 brainstorm-enforcement targets. The dispatch-guard hook (handleBrainstormDispatch, BRAINSTORM_BYPASS detection) reads this at runtime to decide whether a spawn is a brainstorm-enforcement target. A target is an Agent/Skill spawn that begins or carries out Phase 1.5/Phase 2 execution — by the time it runs, the STEP 1.7 brainstorm decision must already be recorded in sentinel-state.step_1_7. The hook carries an EMBEDDED fail-closed fallback list byte-equivalent to `targets` below: if this file is missing/unreadable, target detection still works (fail-closed detection) so an operator who deletes the SSOT does not silently disable enforcement. Update HERE when the target set changes; keep the hook's embedded fallback in sync. Mirrors the SHAPE of references/plan-mode-mandatory-agents.json, but note the array here is named `targets` (NOT `agents`): each entry is a Phase 1.5/Phase 2 enforcement target (Agent or Skill spawn), not strictly an agent. Do NOT rename `targets` — the hook's parser reads `j.targets`.",
+  "$schema_note_fields": "FIELD SEMANTICS (RR2 doc clarification): `targets[].fqn` and `targets[].leaf` are the ONLY load-bearing fields for Agent-path matching (exact FQN, or leaf within the pipeline-orchestrator namespace). `skill_prefixes[]` drives the Skill-path match (a variant skill whose name starts with one of these prefixes is enforced) — the hook FILTERS it at load time to entries of length 1..32 and, if the filtered list is empty, falls back to the embedded skill-prefix set (SEC-RR2-2: an empty-string prefix would otherwise match EVERY skill and DoS the Skill path). `targets[].phase` is METADATA ONLY (human-readable '1.5' / '2'); the hook does NOT read it for any decision. Adding/removing a `phase` value changes nothing at runtime.",
+  "version": "7.14.0",
+  "skill_prefixes": [
+    "feature-",
+    "bugfix-",
+    "audit-",
+    "user-story-",
+    "ux-sim-",
+    "spec-"
+  ],
+  "targets": [
+    { "leaf": "executor-controller", "fqn": "pipeline-orchestrator:executor:executor-controller", "phase": "2" },
+    { "leaf": "plan-architect", "fqn": "pipeline-orchestrator:quality:plan-architect", "phase": "1.5" },
+    { "leaf": "executor-implementer-task", "fqn": "pipeline-orchestrator:executor:executor-implementer-task", "phase": "2" },
+    { "leaf": "feature-implementer", "fqn": "pipeline-orchestrator:executor:type-specific:feature-implementer", "phase": "2" }
+  ]
+}

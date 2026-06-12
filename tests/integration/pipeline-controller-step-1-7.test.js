@@ -33,3 +33,17 @@ test('STEP 1.7 logs STEP_1_7_ROUTING gate', () => {
   assert.match(PC, /STEP_1_7_ROUTING/);
   assert.match(PC, /hardness: HARD/);
 });
+
+test('STEP 1.7 documents the state-write-before-spawn contract (v7.14.0 D3)', () => {
+  // The controller must write sentinel-state.step_1_7 immediately after the
+  // STEP 1.7 decision, BEFORE any Phase 1.5/Phase 2 spawn.
+  assert.match(PC, /sentinel-state\.step_1_7\s*=\s*\{[^}]*decision[^}]*prep_run_id[^}]*timestamp[^}]*\}/);
+  assert.match(PC, /BEFORE any Phase 1\.5[\s\S]*?or Phase 2[\s\S]*?spawn/);
+  assert.match(PC, /buildStep17StateBlock/);
+});
+
+test('STEP 1.7 cites the closed 4-value branch vocabulary + helper (v7.14.0 D1)', () => {
+  assert.match(PC, /load-existing \| dispatch-brainstorm \| no-prep-override \| simples-bypass/);
+  assert.match(PC, /lib\/step-1-7-routing\.cjs/);
+  assert.match(PC, /appendStep17Routing/);
+});
