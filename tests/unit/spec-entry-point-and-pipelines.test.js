@@ -233,12 +233,16 @@ test('regression: prior entry-points (bugfix/audit/feature) and commands/pipelin
 // not a Wave 4-spec content invariant.)
 // ----------------------------------------------------------------------
 
-test('version: .claude-plugin/plugin.json bumped to 5.2.0', () => {
-  const file = path.join(REPO_ROOT, '.claude-plugin', 'plugin.json');
-  const content = JSON.parse(fs.readFileSync(file, 'utf8'));
+test('version: .claude-plugin/plugin.json equals package.json (single source of truth)', () => {
+  // R2: version is a single source of truth — assert plugin.json tracks
+  // package.json rather than pinning a hand-maintained constant (which is what
+  // made this test go stale at 5.2.0 while the plugin shipped 7.x). This way it
+  // stays correct across every release bump and still catches real drift.
+  const plugin = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, '.claude-plugin', 'plugin.json'), 'utf8'));
+  const pkg = JSON.parse(fs.readFileSync(path.join(REPO_ROOT, 'package.json'), 'utf8'));
   assert.equal(
-    content.version,
-    '5.2.0',
-    'plugin.json version must be 5.2.0 (promoted from v5.2.0-rc.2 with same content; user authorized direct promotion for marketplace distribution to all consumers)'
+    plugin.version,
+    pkg.version,
+    `plugin.json version (${plugin.version}) must equal package.json version (${pkg.version})`
   );
 });

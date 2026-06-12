@@ -1,6 +1,17 @@
 // .claude/hooks/session-lock-hook.cjs
 const fs = require('node:fs');
 const path = require('node:path');
+// v7.13.0 (R6): derive the pipeline entry-point matcher from the shared registry
+// (references/entry-points.json) so this hook and force-pipeline-agents.cjs can
+// no longer drift. Loaded defensively — falls back to the legacy PIPELINE_REGEX.
+let entryPoints = null;
+try {
+  entryPoints = require('../../lib/entry-points.cjs');
+} catch (err) {
+  // lib unavailable (e.g. partial install) → legacy PIPELINE_REGEX fallback below,
+  // which is known-incomplete. Surface the degradation so it is never silent.
+  try { process.stderr.write(`session-lock-hook: entry-points lib unavailable (${err && err.message}); using legacy regex fallback\n`); } catch { /* ignore */ }
+}
 
 // v4.2: accepts /pipeline-orchestrator:pipeline OR thin entry-points
 // (bugfix, feature, userstory, audit, ux). All entry-points open the same
@@ -29,7 +40,10 @@ const STALE_THRESHOLD_MS = STALE_HEARTBEAT_THRESHOLD_MS; // deprecated alias, do
 
 function detectPipelineInvocation(text) {
   if (typeof text !== 'string' || text.length === 0) return false;
-  return PIPELINE_REGEX.test(text.trim());
+  if (entryPoints && typeof entryPoints.isPipelineEntryPoint === 'function') {
+    return entryPoints.isPipelineEntryPoint(text);
+  }
+  return PIPELINE_REGEX.test(text.trim()); // legacy fallback when the registry is unavailable
 }
 
 function isValidSessionId(id) {

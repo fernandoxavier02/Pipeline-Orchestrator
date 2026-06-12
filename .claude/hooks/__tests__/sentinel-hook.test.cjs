@@ -22,6 +22,13 @@ const { spawnSync } = require('child_process');
 
 const HOOK_PATH = path.join(__dirname, '..', 'sentinel-hook.cjs');
 
+// v7.13.0 (R4): the hook now HMAC-verifies the active state. These tests write
+// SIGNED states (matching real controller behavior) with a fixed test secret so
+// signatures are deterministic and the hook verifies silently — unsigned states
+// would otherwise emit the (expected, by design) migration warning on stderr.
+process.env.PIPELINE_HMAC_SECRET = process.env.PIPELINE_HMAC_SECRET || 'sentinel-hook-test-hmac-secret-0123456789abcdef';
+const stateSigner = require('../../../lib/sentinel-state-signer.cjs');
+
 // ── Canonical Subagent Type Paths ───────────────────────────────────────────
 //
 // The hook routes agents whose subagent_type starts with "pipeline-orchestrator:".
@@ -102,7 +109,8 @@ function createTempDir() {
 const tempDir = createTempDir;
 
 function writeState(dir, stateObj) {
-  fs.writeFileSync(path.join(dir, 'sentinel-state.json'), JSON.stringify(stateObj, null, 2));
+  const signed = stateSigner.signState(stateObj, process.env.PIPELINE_HMAC_SECRET);
+  fs.writeFileSync(path.join(dir, 'sentinel-state.json'), JSON.stringify(signed, null, 2));
 }
 
 // ── Tests ───────────────────────────────────────────────────────────────────

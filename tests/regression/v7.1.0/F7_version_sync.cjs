@@ -17,8 +17,8 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 
 const ROOT = path.resolve(__dirname, '../../..');
-const VERSION = '7.12.0';
-const PREV_VERSION = '7.11.0';
+const VERSION = '7.13.0';
+const PREV_VERSION = '7.12.0';
 
 let pass = 0, fail = 0;
 function test(name, fn) {
@@ -66,6 +66,22 @@ test(`CHANGELOG.md has "## [${VERSION}]" header at top of release sections`, () 
       `[${VERSION}] section must appear before [${PREV_VERSION}]`
     );
   }
+});
+
+test(`lib/index.cjs exported version === "${VERSION}"`, () => {
+  // v7.13.0 (R2): lib/index.cjs is a version surface — it had drifted to 6.1.0
+  // while the plugin shipped 7.x. Pin it via a side-effect-free source scan.
+  const src = fs.readFileSync(path.join(ROOT, 'lib/index.cjs'), 'utf8');
+  const m = src.match(/version:\s*['"]([^'"]+)['"]/);
+  assert.ok(m, 'lib/index.cjs must declare a version string');
+  assert.equal(m[1], VERSION, `lib/index.cjs version = ${m ? m[1] : '(none)'}`);
+});
+
+test(`README.md version badge === "${VERSION}"`, () => {
+  // v7.13.0 (R2): the visible README badge is a version surface (was 7.9.2).
+  const md = fs.readFileSync(path.join(ROOT, 'README.md'), 'utf8');
+  const re = new RegExp(`badge/version-${VERSION.replace(/\./g, '\\.')}-`);
+  assert.ok(re.test(md), `README.md must contain badge "version-${VERSION}-"`);
 });
 
 console.log('');

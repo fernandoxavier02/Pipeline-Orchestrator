@@ -5,6 +5,70 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.13.0] - 2026-06-12 — Claude Code loop hardening (MINOR)
+
+Closes the 13 audit findings (R1–R13) in `docs/specs/2026-06-12-cloudcode-loop-hardening/`
+across 7 batches (B0–B6), each delivered with ATDD+TDD and zero-context adversarial
+review (fix loop max 3). Dogfooded through the pipeline-orchestrator itself.
+
+### Security
+- **Hook manifest packaging (R3, severe):** `hooks/hooks.json` — the canonical manifest
+  that registers the 11 security hooks — is now in `package.json` `files[]`. The package
+  previously shipped the hook SCRIPTS but not the MANIFEST, so a tarball/npm install ran
+  with the security hooks INACTIVE. Real packaging smoke test via `npm pack`.
+- **Sentinel state integrity (R4, severe, warn-first):** `lib/sentinel-state-signer.cjs`
+  now uses recursive canonicalization (detects nested-field tampering the old shallow
+  `JSON.stringify(rest, topKeys.sort())` silently dropped), length-guarded
+  `timingSafeEqual` (no hook crash), and a version-agnostic HMAC key path with a legacy
+  5.3.0 fallback. `sentinel-hook.cjs` verifies the signature — WARN + AUDIT event by
+  default, DENY under `PIPELINE_HMAC_STRICT=true` (fail-closed covers missing / unparseable
+  / tampered active state).
+- **Session-lock coverage (R6, severe):** `references/entry-points.json` +
+  `lib/entry-points.cjs` (SSOT) replace the duplicated regex in `session-lock-hook` and
+  `force-pipeline-agents` that missed `user-story` / `ux-sim` / `spec` and every
+  `-light`/`-heavy` variant — those started a pipeline with NO edit lock. Complete embedded
+  fallback if the registry is corrupt (never fail-open).
+
+### Added
+- `lib/exclusive-lock.cjs` (R8): O_EXCL lock with stale-orphan recovery by age +
+  future-clock-skew guard + `Atomics.wait` parking, shared by gate-decisions /
+  protocol-events / run-log. `safeAppendJsonl` now actually locks (the "exclusive lock"
+  comments became true); protocol-events leaves raw append.
+- `scripts/watchdog-cloudcode-hardening.cjs` (R11/R12): release watchdog W1–W12,
+  fail-closed, with an explicit test-baseline allow-list (no substring false-PASS).
+- Test runner (R9): `scripts/run-tests.cjs` discovers `tests/unit` / `tests/packaging` /
+  `tests/watchdog` (previously orphan) with a per-test timeout and a category gate
+  (empty = skip, never fail). New categories `tests/packaging/`, `tests/watchdog/`.
+- 10 new test files: `tests/regression/v7.13.0/F01,F03–F09` + `tests/packaging/` +
+  `tests/watchdog/`.
+
+### Changed
+- **Version source of truth (R2):** `lib/index.cjs` (was 6.1.0) and the README badge now
+  track the canonical version; F7 covers both new surfaces.
+- **Controller tool truthfulness (R5):** `agents/core/pipeline-controller.md` frontmatter
+  drops `Bash` + `Task` (the prompt already said it lacks them); new frontmatter↔prompt
+  consistency scanner (F03).
+- **Gate-decision vocabulary (R7):** `FORCE_VARIANT_OVERRIDDEN` and STATE_FILE_INIT_FAIL's
+  `PASS` → canonical `TRIGGERED` (override/outcome semantics move to `detail`); new
+  context-aware vocabulary scanner (F08).
+- **Adversarial-evidence requirement (R11):** `agents/core/final-validator.md` no longer
+  tolerates a silent `adversarial: SKIP` at MEDIA/COMPLEXA — emits an AUDIT
+  `ADVERSARIAL_EVIDENCE_MISSING` event to protocol-events.jsonl and downgrades GO→CONDITIONAL.
+  NOT a new gate (35-gate registry + Inline Invariants untouched, per the v7.9.4
+  PLAN_MODE_BYPASS pattern).
+
+### Fixed
+- **Audit semantics (R10):** `lib/run-log.cjs` no longer coerces unknown
+  `total_gates_expected` / `duration_seconds` / `total_gates_triggered` from `null` to a
+  misleading `0` (unknown coverage ≠ zero coverage); completes the v7.9.1 D4 fix.
+  `references/fidelity-report-schema.md` distinguishes gate COVERAGE from QUALITY outcome.
+
+### Notes
+- Iron Law preserved: the 35-gate registry and the 23-row Mandatory Gates table are
+  untouched. `.codex` mirrors (stop-hook, langfuse-hook) stay byte-identical.
+- 6 zero-context adversarial review cycles surfaced and closed HIGH/CRITICAL findings
+  (sentinel strict bypass via corrupt state, registry fail-open, watchdog false-PASS).
+
 ## [7.12.0] - 2026-06-11 — skill-dispatch wiring for all variants (MINOR)
 
 Completes the variant work begun in v7.11.0: the four families that still ran

@@ -1,7 +1,7 @@
 ---
 name: pipeline-controller
 description: Orchestrates the pipeline-orchestrator 4-phase workflow in an isolated context. Spawned by skills/pipeline/SKILL.md when /pipeline-orchestrator:pipeline is invoked. Handles Phase 0 (triage), 1 (proposal), 1.5 (planning), 2 (batch execution), 3 (closure). Dispatches 37 N2 agents. Returns PIPELINE COMPLETE block to caller.
-tools: Read, Write, Glob, Grep, Agent, AskUserQuestion, Task, Bash
+tools: Read, Write, Glob, Grep, Agent, AskUserQuestion
 model: opus
 color: red
 ---
@@ -151,7 +151,7 @@ When `--strict-spec` is present in `$ARGUMENTS`, the controller MUST prepend `ST
 1. Honor STRICT_SPEC's rejection of Signal 3/4 — `type` does NOT become Spec via prose/glob.
 2. Override the spec-* variant force, demoting to a non-spec variant per inferred type + complexity (e.g., bugfix-light, audit-heavy).
 3. Emit a warning in the proposal: "STRICT_SPEC + FORCE_VARIANT=spec-* conflict — STRICT_SPEC wins; variant demoted from spec-* to <X>".
-4. Log a gate entry to `gate-decisions.jsonl`: `gate: "STRICT_SPEC_REJECTION", hardness: "AUDIT", phase: "0a-classify", decision: "FORCE_VARIANT_OVERRIDDEN", detail: "<forced_variant> demoted to <actual_variant>"`.
+4. Log a gate entry to `gate-decisions.jsonl`: `gate: "STRICT_SPEC_REJECTION", hardness: "AUDIT", phase: "0a-classify", decision: "TRIGGERED", detail: "FORCE_VARIANT_OVERRIDDEN <forced_variant> -> <actual_variant>"`. (R7: `decision` is one of the 8 canonical writer values — the override semantics live in `detail`, not in the decision field.)
 
 Rationale: STRICT_SPEC is a safety flag (refuses ambiguous Spec detection) and a safety flag must NOT be silently overridden by a routing flag. The inverse (FORCE_VARIANT wins) would produce `type=Audit + pipeline_variant=spec-light` which downstream skill loaders cannot handle. When the two are combined, the user's intent is unclear — fail safe to the more restrictive (STRICT_SPEC).
 
@@ -432,7 +432,7 @@ The initial Write is a **hard precondition** of Phase 0. The controller MUST tre
 
 1. Write `{PIPELINE_DOC_PATH}/sentinel-state.json` via the signer (atomic tmpPath + rename per `lib/sentinel-state-signer.cjs`).
 2. **Immediately re-read and verify** via the signer's `readVerifiedState()` (or equivalent integrity check). If the re-read fails OR the signature does not verify OR the file is empty/truncated, treat as Write failure and follow the BLOCKED path below.
-3. Append a single line to `{PIPELINE_DOC_PATH}/gate-decisions.jsonl` with `gate: "STATE_FILE_INIT_FAIL"`, `hardness: "CIRCUIT_BREAKER"`, `phase: "0-pre-dispatch"`, `decision: "PASS"`, and `detail: "sentinel-state.json verified ok"`. This PASS entry is required so the fidelity reporter records the gate as triggered on every successful run (the gate is MANDATORY across all complexities; absence of any entry would permanently haircut the fidelity score).
+3. Append a single line to `{PIPELINE_DOC_PATH}/gate-decisions.jsonl` with `gate: "STATE_FILE_INIT_FAIL"`, `hardness: "CIRCUIT_BREAKER"`, `phase: "0-pre-dispatch"`, `decision: "TRIGGERED"`, and `detail: "sentinel-state.json verified ok"`. (R7: `decision` is one of the 8 canonical writer values — the "verified ok" outcome lives in `detail`.) This TRIGGERED entry is required so the fidelity reporter records the gate as triggered on every successful run (the gate is MANDATORY across all complexities; absence of any entry would permanently haircut the fidelity score).
 4. Proceed to Phase 0a (DISPATCH_REQUEST for task-orchestrator).
 
 **Failure path (BLOCKED):**

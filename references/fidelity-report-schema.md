@@ -126,3 +126,30 @@ How `lib/fidelity-reporter.cjs::generateFidelityReport(...)` derives each number
 7. **Outputs:** write both `fidelity-report.md` and `fidelity-report.json` to `{pipelineDocPath}/`. Return `{ ok, fidelityScore, mandatoryTriggered, mandatoryExpected, globalFidelityPct, mdPath, jsonPath, warnings }`.
 
 8. **Error policy:** the reporter is SOFT-fail. Any unexpected exception during write returns `{ ok: false, error: '<message>' }` so the pipeline controller can surface a warning without aborting the run. Empty input is NOT an error — it returns `ok: true` with `fidelityScore: null`.
+
+---
+
+## 4. Coverage vs. Quality — what `fidelity_score` does and does NOT mean (R10)
+
+`fidelity_score` (and `mandatory_triggered / mandatory_expected`) measure **gate
+COVERAGE** — the fraction of mandatory gates that fired — NOT the **QUALITY** of
+the outcome. The two dimensions are independent:
+
+- A run can have `fidelity_score: 1.0` (every mandatory gate triggered) AND a
+  final verdict of **NO-GO** — full process coverage, failed result.
+- The quality outcome lives in the run-log's `final_decision` field and the Pa
+  de Cal verdict — NOT in `fidelity_score`. The Pa de Cal verdict is
+  `GO | CONDITIONAL | NO-GO`; the stop-hook's run-log `final_decision` writes the
+  values it can derive — `GO | NO-GO | UNKNOWN` (a `CONDITIONAL` Pa de Cal verdict
+  is not currently surfaced into run-log's `final_decision`).
+
+Consumers MUST read **both**. Reporting a run as "successful" merely because all
+gates fired — while `final_decision` is `NO-GO` — is the exact misrepresentation
+R10 forbids (high process, low quality). A watchdog detecting "all gates
+triggered but failed outcome" reads `total_gates_triggered == total_gates_expected`
+together with `final_decision`.
+
+`null` coverage values are also not zero: an unknown `total_gates_expected` or
+`duration_seconds` in `run-log.jsonl` MUST stay `null` (see `lib/run-log.cjs`
+normalizeEntry, R10.3) — "unknown coverage" is not "zero coverage", and coercing
+it to 0 would let a NaN-prone sum or a misleading dashboard read silently.

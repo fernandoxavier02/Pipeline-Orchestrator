@@ -1,0 +1,31 @@
+{
+  "$schema_note": "v7.13.0 (R6): machine-readable SSOT for the pipeline entry-point registry. session-lock-hook.cjs and force-pipeline-agents.cjs derive their /pipeline-orchestrator:* matcher from this list via lib/entry-points.cjs, replacing two hand-maintained, drift-prone regexes that omitted hyphenated variants (user-story, ux-sim) and every -light/-heavy thin skill. Update HERE when a pipeline-starting skill is added or removed. Report-only flows (audit, ux-sim, review) DO open a session lock per R6.1 (the run still spawns agents; concurrent manual edits should be guarded; the lock self-expires via heartbeat). INTENTIONALLY EXCLUDED (not pipeline entry points): the internal spec sub-steps (spec-init / spec-requirements / spec-design / spec-tasks / validate-design / validate-gap / verify-completion), measure-paperclip-fidelity, and the paperclip-* parallel dispatch channel.",
+  "version": "7.13.0",
+  "entry_points": [
+    "pipeline",
+    "bugfix",
+    "bugfix-light",
+    "bugfix-heavy",
+    "feature",
+    "feature-light",
+    "feature-heavy",
+    "user-story",
+    "user-story-light",
+    "user-story-heavy",
+    "audit",
+    "audit-light",
+    "audit-heavy",
+    "ux-sim",
+    "ux-sim-light",
+    "ux-sim-heavy",
+    "spec",
+    "spec-light",
+    "spec-heavy",
+    "spec-audit-only",
+    "review"
+  ],
+  "legacy_aliases": {
+    "userstory": "user-story",
+    "ux": "ux-sim"
+  }
+}

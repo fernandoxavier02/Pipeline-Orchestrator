@@ -15,6 +15,15 @@
 const fs = require('fs');
 const path = require('path');
 const enforcement = require('./skill-frontmatter-parser.cjs');
+// v7.13.0 (R6): shared pipeline entry-point matcher (references/entry-points.json)
+// so this hook and session-lock-hook cannot drift. Defensive load + regex fallback.
+let entryPoints = null;
+try {
+  entryPoints = require('../../lib/entry-points.cjs');
+} catch (err) {
+  // lib unavailable → legacy SKILL_PATTERNS / regex fallback (known-incomplete).
+  try { process.stderr.write(`force-pipeline-agents: entry-points lib unavailable (${err && err.message}); using legacy regex fallback\n`); } catch { /* ignore */ }
+}
 
 // ============================================================
 // CONFIGURAÇÃO
@@ -85,6 +94,10 @@ function isTrivialChat(prompt) {
 
 function isSkillCommand(prompt) {
   const trimmed = prompt.trim().toLowerCase();
+
+  // v7.13.0 (R6): registry-driven match covers ALL pipeline entry-point variants
+  // (hyphenated user-story/ux-sim + -light/-heavy + spec) that SKILL_PATTERNS missed.
+  if (entryPoints && entryPoints.isPipelineEntryPoint(prompt)) return true;
 
   for (const pattern of SKILL_PATTERNS) {
     if (pattern.test(trimmed)) {
@@ -290,7 +303,8 @@ process.stdin.on('end', () => {
       // prompt.trim() and relies on /i alone. Removing /i here re-opens SEC-1
       // (uppercase invocations would create a session lock but skip phase
       // enforcement). Do NOT remove /i without updating this comment + tests.
-      const isPipelineSkill = /^\/(pipeline-orchestrator:(pipeline|bugfix|feature|userstory|audit|ux)|pipeline)\b/i.test(prompt.trim());
+      const isPipelineSkill = (entryPoints && entryPoints.isPipelineEntryPoint(prompt))
+        || /^\/(pipeline-orchestrator:(pipeline|bugfix|feature|userstory|audit|ux)|pipeline)\b/i.test(prompt.trim());
       console.log(JSON.stringify({
         continue: true,
         systemMessage: isPipelineSkill ? PIPELINE_SKILL_MESSAGE : SKILL_MESSAGE

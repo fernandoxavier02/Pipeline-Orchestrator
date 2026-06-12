@@ -36,6 +36,11 @@
 const fs = require('fs');
 const path = require('path');
 const enforcement = require('./skill-frontmatter-parser.cjs');
+// v7.13.0 (R4): HMAC integrity verification of the active sentinel state.
+// Loaded defensively — if the lib is unavailable the hook degrades to advisory
+// (warn-first) and never crashes. Strict mode fails closed (PIPELINE_HMAC_STRICT).
+let stateSigner = null;
+try { stateSigner = require('../../lib/sentinel-state-signer.cjs'); } catch { /* advisory skip */ }
 
 // ── v4.8.0 Skill Enforcement ────────────────────────────────────────────────
 
@@ -321,11 +326,93 @@ function handleInput(raw) {
     // message may leak JSON fragments around the parse failure.
     const basename = path.basename(stateFilePath);
     const errKind = err && err.name ? err.name : 'ParseError';
+    // v7.13.0 (R4): in STRICT mode an unparseable active-pipeline state cannot be
+    // HMAC-verified, so it MUST NOT be trusted. Corrupting the file is a STRONGER
+    // attack than tampering (which strict already denies) — fail closed here too,
+    // mirroring the missing-state-file deny. Warn mode keeps the legacy allow+WARN.
+    if (process.env.PIPELINE_HMAC_STRICT === 'true') {
+      process.stderr.write(JSON.stringify({
+        audit_event: 'SENTINEL_HMAC_UNVERIFIED',
+        ts: new Date().toISOString(),
+        reason: `unparseable state (${errKind}) — strict fail-closed`,
+        unsigned: false, strict: true, state_file: basename,
+      }) + '\n');
+      console.log(JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'deny',
+          permissionDecisionReason:
+            `SENTINEL: active sentinel-state.json is unparseable (${errKind}) and cannot be ` +
+            'HMAC-verified. Strict mode (PIPELINE_HMAC_STRICT=true) refuses to trust it. Fix the ' +
+            'state file (re-create via the controller / signer) or unset PIPELINE_HMAC_STRICT.',
+        },
+      }));
+      return process.exit(0);
+    }
     process.stderr.write(
       `SENTINEL WARN: failed to parse state file ${basename} (${errKind}). ` +
       `Treating as non-enforcing (silent allow) for backwards compat. Check for partial writes or concurrent pipelines.\n`
     );
     return process.exit(0);
+  }
+
+  // 6.5. HMAC integrity verification (v7.13.0 — R4)
+  // Verify the active state's signature BEFORE trusting it for enforcement —
+  // this is what closes the "write pipeline_active:false to neutralize the
+  // sentinel" attack (the canonical body, incl. pipeline_active and nested
+  // fields, is signature-protected via recursive canonicalization).
+  // Warn-first (default): an unsigned/tampered state emits an auditable stderr
+  // event and is ALLOWED (migration period). Strict (PIPELINE_HMAC_STRICT=true):
+  // fail closed — deny the spawn. Read-only key lookup; the hook never writes.
+  {
+    const hmacStrict = process.env.PIPELINE_HMAC_STRICT === 'true';
+    let verification;
+    if (stateSigner && typeof stateSigner.verifyState === 'function') {
+      try {
+        verification = stateSigner.verifyState(state, {
+          key: stateSigner.readHmacKey(),
+          strict: hmacStrict,
+        });
+      } catch (err) {
+        // R4.7: verification could not be performed → fail closed only in strict.
+        verification = { valid: !hmacStrict, reason: `verify threw: ${err && err.message}` };
+      }
+    } else if (hmacStrict) {
+      verification = { valid: false, reason: 'signer module unavailable (strict fail-closed)' };
+    } else {
+      verification = { valid: true, reason: 'signer unavailable — advisory skip' };
+    }
+
+    // Emit the auditable warning when the state is tampered/invalid OR merely
+    // unsigned (R4.5: migration mode allows unsigned legacy states but MUST warn).
+    if (!verification.valid || verification.unsigned) {
+      process.stderr.write(JSON.stringify({
+        audit_event: 'SENTINEL_HMAC_UNVERIFIED',
+        ts: new Date().toISOString(),
+        reason: String(verification.reason || '').slice(0, 200),
+        unsigned: !!verification.unsigned,
+        strict: hmacStrict,
+        state_file: path.basename(stateFilePath),
+      }) + '\n');
+    }
+
+    // Deny only when verification actually FAILED and strict mode is on. In
+    // strict mode unsigned states already verify as invalid, so this covers them.
+    if (!verification.valid && hmacStrict) {
+        console.log(JSON.stringify({
+          hookSpecificOutput: {
+            hookEventName: 'PreToolUse',
+            permissionDecision: 'deny',
+            permissionDecisionReason:
+              'SENTINEL: active sentinel-state.json failed HMAC integrity verification ' +
+              `(${verification.reason}). Strict mode (PIPELINE_HMAC_STRICT=true) refuses to trust an ` +
+              'unsigned or tampered active state. Re-sign the state via lib/sentinel-state-signer.cjs ' +
+              '(writeSignedState), or unset PIPELINE_HMAC_STRICT to run in warn-first migration mode.',
+          },
+        }));
+        return process.exit(0);
+    }
+    // Warn-first default: the warning is on the record; allow and continue.
   }
 
   // 7. Schema version check (SEC-3, v3.4.0)

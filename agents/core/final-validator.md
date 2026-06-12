@@ -70,6 +70,34 @@ Read `{PIPELINE_DOC_PATH}/gate-decisions.jsonl` and analyze:
 If any MANDATORY or HARD gate shows `decision: SKIPPED` → immediate **NO-GO**.
 If any anomalous entries are detected → immediate **CONDITIONAL** with anomaly report.
 
+### Step 1b-adv: Adversarial evidence requirement (R11 — v7.13.0)
+
+For `complexity ∈ {MEDIA, COMPLEXA}`, per-batch adversarial review is NOT
+optional — a code-changing batch that reaches Pa de Cal with `adversarial: SKIP`
+and no evidence is a **silent skip**, the failure mode R11 closes. Before issuing
+**GO**, verify adversarial evidence:
+
+1. Each Phase 2 batch that changed code MUST have either an adversarial review
+   artifact under `.pipeline/reviews/<batch>/adversarial-review-attempt-*.md` OR a
+   matching `ADVERSARIAL_GATE` entry in `gate-decisions.jsonl`.
+2. If a code-changing batch at MEDIA/COMPLEXA shows `adversarial: SKIP` with no
+   documented justification AND no evidence artifact, emit an
+   `event: "ADVERSARIAL_EVIDENCE_MISSING"` line to
+   `{PIPELINE_DOC_PATH}/protocol-events.jsonl` (schema per
+   `references/gate-request-protocol.md` — the `event:` field, AUDIT hardness).
+   This is **NOT a new registered gate**: the 35-gate registry, `references/gates.md`
+   and the Inline Invariants stay untouched (`gate_registry_modification` is a
+   forbidden change type), mirroring the v7.9.4 `PLAN_MODE_BYPASS` pattern. Then
+   **downgrade the verdict from GO to CONDITIONAL** with the note
+   "adversarial evidence missing for <batch>".
+3. A documented SKIP (SIMPLES, or a batch the user explicitly authorized to skip
+   that touches no auth/crypto/data-model/payment domain) is allowed and does NOT
+   downgrade.
+
+The watchdog (`scripts/watchdog-cloudcode-hardening.cjs` check W10) enforces the
+same invariant at release time: a run whose code-changing batches lack adversarial
+evidence is a `ReleaseBlocker`.
+
 ### Step 1c: Read Confidence Score
 
 If a CONFIDENCE score is available from the pipeline:
