@@ -1,3 +1,13 @@
+> ## ⚠️ CORREÇÃO (2026-06-14, audit-heavy) — LEIA ANTES DE USAR ESTE DOCUMENTO
+>
+> Uma auditoria audit-heavy do próprio pipeline (relatório em `.pipeline/docs/Pre-Heavy-action/2026-06-14-contract-enforcement-base-audit/`) verificou que partes deste documento foram escritas contra uma foto **defasada** do repositório (~v7.8.0). O conserto de código (Fase 1) foi feito sobre a base CORRETA (git parent = release **v7.14.0** `b6d383e`) e integrou limpo, mas o raciocínio abaixo contém premissas factualmente erradas sobre o estado real em v7.14.0:
+>
+> - **Versão real:** o repositório está em **v7.14.0**, não 7.8.0.
+> - **Arquivos ditos "NÃO existe" que EXISTEM:** `lib/step-1-7-routing.cjs` (v7.14.0) e `references/plan-mode-mandatory-agents.json` (v7.11.0) — ver §2 itens 1 e 2. Também já existem `references/step-1-7-enforcement.json`, `references/entry-points.json`, `lib/entry-points.cjs`, `lib/exclusive-lock.cjs`.
+> - **§2 item 3 está errado:** `scripts/run-tests.cjs` JÁ varre `tests/unit`, `tests/packaging` e `tests/watchdog` (desde v7.13.0).
+> - **Contagem de testes:** a suíte real é **114/4/118**, não 58/60.
+> - **Consequência:** NÃO execute as Fases 2–6 do plano confiando na Seção 2 sem revalidar contra o código atual — várias lacunas já estão resolvidas, e criar SSOTs novos para arquivos que já existem reintroduziria o drift que o hardening quer eliminar.
+
 # Auditoria — Proposta "TypeScript Contract Enforcement" (hardening de hooks)
 
 **Data:** 2026-06-14

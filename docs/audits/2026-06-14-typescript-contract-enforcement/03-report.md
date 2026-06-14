@@ -1,3 +1,7 @@
+> ## ⚠️ CORREÇÃO (2026-06-14, audit-heavy)
+>
+> Auditoria audit-heavy posterior (relatório em `.pipeline/docs/Pre-Heavy-action/2026-06-14-contract-enforcement-base-audit/`) corrige os números e premissas deste relatório: a versão real é **v7.14.0** (não 7.8.0); a suíte real é **114/4/118** (não 58/60 nem 59/61); e os arquivos descritos como inexistentes (`lib/step-1-7-routing.cjs`, `references/plan-mode-mandatory-agents.json` e outros) **existem** desde v7.10–v7.14. O conserto da Fase 1 foi feito sobre a base correta e foi **entregue como v7.14.1** em 2026-06-14.
+
 # Relatório de Execução — Auditoria + Plano + Fidelidade
 
 **Data:** 2026-06-14

@@ -1,3 +1,12 @@
+> ## ⚠️ CORREÇÃO (2026-06-14, audit-heavy) — LEIA ANTES DE EXECUTAR ESTE PLANO
+>
+> Uma auditoria audit-heavy do próprio pipeline (relatório em `.pipeline/docs/Pre-Heavy-action/2026-06-14-contract-enforcement-base-audit/`) confirmou que a **Fase 1 foi executada e entregue** (v7.14.1), mas que as premissas herdadas de `01-audit-verdict.md` §2 estão **defasadas** (foram escritas contra ~v7.8.0). Antes de executar qualquer Fase 2–6:
+>
+> - O repositório está em **v7.14.0/7.14.1**, não 7.8.0.
+> - Arquivos que o plano trata como "criar novo" / "inexistente" **já existem**: `lib/step-1-7-routing.cjs`, `references/plan-mode-mandatory-agents.json`, `references/step-1-7-enforcement.json`, `references/entry-points.json`, `lib/entry-points.cjs`, `lib/exclusive-lock.cjs`. Criar SSOTs duplicados para eles **reintroduz o drift** que este plano quer eliminar.
+> - `scripts/run-tests.cjs` já varre `tests/unit`/`tests/packaging`/`tests/watchdog` (desde v7.13.0).
+> - **Revalide cada passo das Fases 2–6 contra o código atual** antes de tocá-lo.
+
 # Plano de Implementação — Contratos Executáveis SSOT (versão corrigida pós-auditoria)
 
 **Data:** 2026-06-14

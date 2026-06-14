@@ -5,6 +5,62 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [7.14.1] - 2026-06-14 — Gate-decision SSOT shipped / schema-drift fix (PATCH)
+
+Ships the "Fase 1 do contract-enforcement" fix that had already been merged to
+`main` on 2026-06-14 (commit `4420907`) but was never released — the marketplace
+`ref` and the lockstep version surfaces still pointed at v7.14.0, so users
+installing via marketplace/npm received the version WITHOUT the fix. This release
+bumps the lockstep and ships it.
+
+An audit-heavy run of the pipeline against its own repo (2026-06-14) verified the
+fix landed on the CORRECT base (git parent of the fix commit = the v7.14.0 release
+commit `b6d383e`), integrates cleanly, and introduced ZERO regressions. It also
+flagged that the audit/plan docs committed alongside the fix carry stale premises
+(they label the repo "7.8.0" and call three existing files "non-existent"); those
+docs are corrected in this same release. Report:
+`.pipeline/docs/Pre-Heavy-action/2026-06-14-contract-enforcement-base-audit/`.
+
+### Fixed (already in `main` since `4420907`, now released)
+- Schema drift: `agents/core/final-validator.md`, `agents/core/pipeline-controller.md`,
+  `commands/pipeline.md`, and `references/audit-trail.md` demanded "exactly these 8
+  keys" and looked for a `decision: RESOLVED` value the writer never emits. Since
+  v7.1.0 the writer emits 13 keys/line (8 base + 5 correlation), so the plugin was
+  flagging its own audit trail as anomalous and the MANDATORY/HARD gate validation
+  matched nothing. Prose is now aligned to the real writer (canonical 8-value
+  decision vocabulary; 13-key conformant subset; legacy <13-key lines tolerated).
+
+### Added
+- `lib/contracts/gate-decision.cjs` — SSOT for the gate-decisions.jsonl schema:
+  `CANONICAL_DECISIONS` (8), `CANONICAL_HARDNESS` (5), `BASE_GATE_DECISION_KEYS` (8),
+  `CORRELATION_KEYS` (5), `ALLOWED_GATE_DECISION_KEYS` (13), `SCHEMA_VERSION` ('1',
+  unchanged), plus `isCanonicalDecision`/`isCanonicalHardness`. Plain CommonJS +
+  `// @ts-check` (no build step, no devDependency). Consumed by
+  `gate-decision-writer.cjs`, `jsonl-sanitizer.cjs`, and `fidelity-reporter.cjs`,
+  which now share one Set object — making writer/reader drift structurally
+  impossible.
+- `tests/regression/v7.9.0/F-gate-decision-contract.test.cjs` — 10 checks (8/5/13
+  contract; `RESOLVED` rejected with TypeError; correlation fields written and
+  preserved by the sanitizer; structural identity writer/sanitizer/contract; prose
+  free of `RESOLVED | APPROVED` and "exactly these keys"). 10/10.
+
+### Changed (release hygiene)
+- Lockstep bumped 7.14.0 → 7.14.1 across the F7 surfaces (plugin.json,
+  marketplace.json version+ref, package.json, CLAUDE.md canonical line,
+  CHANGELOG, `lib/index.cjs`, README badge) + `.cursor-plugin/plugin.json`.
+- Corrected the stale premises in
+  `docs/audits/2026-06-14-typescript-contract-enforcement/` (wrong version label
+  7.8.0 → 7.14.0; "non-existent" files that exist since 7.10–7.14; test count
+  59/61 → 114/118) so a future executor of Phases 2–6 does not act on false facts.
+
+### Notes
+- Suite: 114 passed / 4 failed / 118 total. The 4 failures are pre-existing and
+  environmental (3 Langfuse observability tests + 1 known-flaky concurrent-write),
+  unrelated to this change. Build exit 0.
+- Iron Law: the underlying fix modified `agents/`/`lib/`/`commands/`/`references/`
+  — a conscious, minimal break justified by the self-auditing bug, acknowledged in
+  commit `4420907`. No new gate; 35-gate Registry + Mandatory table untouched.
+
 ## [7.14.0] - 2026-06-12 — Deterministic STEP 1.7 brainstorm enforcement (MINOR)
 
 Closes the critical finding of the 2026-06-12 classification-flow audit: STEP 1.7
