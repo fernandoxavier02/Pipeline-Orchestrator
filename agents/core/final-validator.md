@@ -59,11 +59,11 @@ Gather outputs from every previous stage:
 
 Read `{PIPELINE_DOC_PATH}/gate-decisions.jsonl` and analyze:
 
-1. **Parse-time validation:** Each line MUST parse as a single valid JSON object with exactly these keys: `gate`, `hardness`, `phase`, `decision`, `decided_by`, `timestamp`, `detail`, `confidence_impact`. Lines that fail to parse or contain unexpected keys are **anomalous** — flag them in the PA_DE_CAL output and do NOT count them in gate statistics
+1. **Parse-time validation:** Each line MUST parse as a single valid JSON object whose keys are a subset of the canonical `GateDecisionEntry` key set — the 8 base fields (`gate`, `hardness`, `phase`, `decision`, `decided_by`, `timestamp`, `detail`, `confidence_impact`) plus the 5 correlation-envelope fields (`run_id`, `plugin_version`, `schema_version`, `type`, `complexity`) injected by the v7.1.0+ writer. The canonical key set is defined in `lib/contracts/gate-decision.cjs`. Lines whose keys fall OUTSIDE that set, or that fail to parse, are **anomalous** — flag them in the PA_DE_CAL output and do NOT count them in gate statistics. A line missing the correlation envelope is **legacy** (pre-v7.1.0) — accept it with a warning, do NOT treat it as a fatal anomaly
 2. **Cross-validate hardness:** For each entry, verify `hardness` matches the Gate Registry for the named `gate`. Mismatches indicate tampering — flag as anomalous
 3. **Count total gates triggered** and their decisions
 4. **Identify SOFT gates that were SKIPPED** — each skipped SOFT gate is a risk indicator
-5. **Check for MANDATORY/HARD gates** — these must ALL show `decision: RESOLVED | APPROVED`
+5. **Check for MANDATORY/HARD gates** — these can NEVER show `decision: SKIPPED`. Valid `decision` values are exactly the 8 canonical ones (`BLOCKED`, `DISPATCHED`, `SKIPPED`, `APPROVED`, `CONFIRMED`, `REJECTED`, `TRIGGERED`, `NOT_TRIGGERED`); success/failure is interpreted per-gate (e.g. a HARD gate showing `BLOCKED` that was later cleared is fine; the failure condition is a MANDATORY/HARD gate left `SKIPPED`). There is no `RESOLVED` decision — the writer never emits it
 6. **Sum `confidence_impact`** — calculate total gate penalty (recompute from entries, do not trust stored values)
 7. **Cross-validate gate_penalty:** Compare recomputed gate_penalty against the stored CONFIDENCE object. If they differ by more than 0.01, use the recomputed value (from JSONL) as authoritative and log the discrepancy
 

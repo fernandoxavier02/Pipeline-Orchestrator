@@ -39,17 +39,20 @@ Every gate decision MUST be appended to `{PIPELINE_DOC_PATH}/gate-decisions.json
 
 **Format (one JSON object per line):**
 
+Each line carries the 8 base fields plus the 5 correlation-envelope fields (`run_id`, `plugin_version`, `schema_version`, `type`, `complexity`) that the v7.1.0+ writer injects:
+
 ```jsonl
-{"gate":"INFO_GATE_BLOCKED","hardness":"HARD","phase":0,"decision":"CONFIRMED","decided_by":"user","timestamp":"2026-03-29T14:30:00","detail":"2 gaps answered","confidence_impact":0.0}
-{"gate":"TDD_APPROVAL","hardness":"HARD","phase":2,"decision":"APPROVED","decided_by":"user","timestamp":"2026-03-29T14:45:00","detail":"3 scenarios approved","confidence_impact":0.0}
-{"gate":"ADVERSARIAL_GATE","hardness":"SOFT","phase":2,"decision":"SKIPPED","decided_by":"user","timestamp":"2026-03-29T15:00:00","detail":"user chose to skip batch 1 review","confidence_impact":-0.10}
+{"run_id":"2026-03-29-fix-login","plugin_version":"7.14.0","schema_version":"1","type":"Bug Fix","complexity":"MEDIA","gate":"INFO_GATE_BLOCKED","hardness":"HARD","phase":0,"decision":"CONFIRMED","decided_by":"user","timestamp":"2026-03-29T14:30:00","detail":"2 gaps answered","confidence_impact":0.0}
+{"run_id":"2026-03-29-fix-login","plugin_version":"7.14.0","schema_version":"1","type":"Bug Fix","complexity":"MEDIA","gate":"TDD_APPROVAL","hardness":"HARD","phase":2,"decision":"APPROVED","decided_by":"user","timestamp":"2026-03-29T14:45:00","detail":"3 scenarios approved","confidence_impact":0.0}
+{"run_id":"2026-03-29-fix-login","plugin_version":"7.14.0","schema_version":"1","type":"Bug Fix","complexity":"MEDIA","gate":"ADVERSARIAL_GATE","hardness":"SOFT","phase":2,"decision":"SKIPPED","decided_by":"user","timestamp":"2026-03-29T15:00:00","detail":"user chose to skip batch 1 review","confidence_impact":-0.10}
 ```
 
 **Fields:**
+- `run_id`, `plugin_version`, `schema_version`, `type`, `complexity`: correlation envelope (v7.1.0+) — SSOT `lib/contracts/gate-decision.cjs`
 - `gate`: Gate name from the Gate Registry (see `references/gates.md`)
-- `hardness`: MANDATORY | HARD | CIRCUIT_BREAKER | SOFT
+- `hardness`: MANDATORY | HARD | CIRCUIT_BREAKER | SOFT | AUDIT
 - `phase`: Phase number where gate was triggered (0, 1, 1.5, 2, 3)
-- `decision`: BLOCKED | DISPATCHED | SKIPPED | APPROVED | CONFIRMED | REJECTED | TRIGGERED | NOT_TRIGGERED (the canonical 8-value vocabulary enforced at write time by `lib/gate-decision-writer.cjs`; anything outside throws a `TypeError`)
+- `decision`: BLOCKED | DISPATCHED | SKIPPED | APPROVED | CONFIRMED | REJECTED | TRIGGERED | NOT_TRIGGERED (the canonical 8-value vocabulary defined in `lib/contracts/gate-decision.cjs` and enforced at write time by `lib/gate-decision-writer.cjs`; anything outside throws a `TypeError`)
 - `decided_by`: `user` (explicit user response via AskUserQuestion) | `system` (pipeline controller enforced — e.g., MANDATORY gates, CIRCUIT_BREAKER triggers) | `auto` (automatic resolution without user interaction — e.g., info-gate self-answered from code)
 - `timestamp`: ISO 8601
 - `detail`: Human-readable summary
@@ -63,7 +66,7 @@ Every gate decision MUST be appended to `{PIPELINE_DOC_PATH}/gate-decisions.json
 5. MANDATORY/HARD gates cannot have `decision: "SKIPPED"`
 6. **Controller-only writes:** Only the pipeline controller appends to this file. Subagents report gate outcomes in structured YAML; the controller serializes them. This eliminates injection surface at the file level
 7. **Sanitization:** The `detail` field MUST be truncated to 200 characters and stripped of newline characters (`\n`, `\r`) before serialization. Entries MUST be written via a strict JSON serializer, never via string interpolation
-8. **Parse-time validation (final-validator):** Each line MUST parse as a single valid JSON object with exactly these keys: `gate`, `hardness`, `phase`, `decision`, `decided_by`, `timestamp`, `detail`, `confidence_impact`. Lines that fail to parse or contain unexpected keys MUST be flagged as anomalous and reported to the user. The `hardness` value MUST match the Gate Registry in `references/gates.md` for the named `gate` — mismatches indicate tampering
+8. **Parse-time validation (final-validator):** Each line MUST parse as a single valid JSON object whose keys are a subset of the canonical `GateDecisionEntry` key set: the 8 base fields (`gate`, `hardness`, `phase`, `decision`, `decided_by`, `timestamp`, `detail`, `confidence_impact`) plus the 5 correlation-envelope fields (`run_id`, `plugin_version`, `schema_version`, `type`, `complexity`) that the v7.1.0+ writer injects. The canonical key set is defined once in `lib/contracts/gate-decision.cjs` and consumed by `lib/gate-decision-writer.cjs` and `lib/jsonl-sanitizer.cjs`. Lines whose keys fall OUTSIDE that set, or that fail to parse, MUST be flagged as anomalous and reported to the user. A line missing the correlation envelope is legacy (pre-v7.1.0) — acceptable with a warning, not a fatal anomaly. The `hardness` value MUST match the Gate Registry in `references/gates.md` for the named `gate` — mismatches indicate tampering
 
 ---
 
@@ -76,7 +79,9 @@ Every gate decision MUST be appended to `{PIPELINE_DOC_PATH}/gate-decisions.json
 | Vocabulary | Producer | Values | Where it appears |
 |------------|----------|--------|------------------|
 | **Pipeline Verdict** | `final-validator` ONLY | `GO` \| `CONDITIONAL` \| `NO-GO` | Pipeline output FINAL DECISION line; pipeline summary block |
-| **Gate Decision** | Each gate (16+ gates) | `BLOCKED` \| `DISPATCHED` \| `SKIPPED` \| `APPROVED` \| `CONFIRMED` \| `REJECTED` \| `TRIGGERED` \| `NOT_TRIGGERED` | `gate-decisions.jsonl` (one per gate trigger); audit trail entries |
+| **Gate Decision** (written) | Each gate, via the controller | `BLOCKED` \| `DISPATCHED` \| `SKIPPED` \| `APPROVED` \| `CONFIRMED` \| `REJECTED` \| `TRIGGERED` \| `NOT_TRIGGERED` (the 8 canonical values — SSOT `lib/contracts/gate-decision.cjs`) | `gate-decisions.jsonl` (one per gate trigger); audit trail entries |
+
+> **Normalization note (v7.1.0+):** the per-producer value labels in the cross-reference table below (`PASS`, `FAIL`, etc.) are **legacy producer-intent** labels describing what each gate conceptually decides. At write time the controller normalizes them onto the 8 canonical `decision` values via `lib/gate-decision-writer.cjs` (which throws on anything outside the canonical set). There is no `RESOLVED` written decision — a gate that "resolves" is recorded with a canonical value (e.g. a cleared blocker is no longer `BLOCKED`; an approval is `APPROVED`). Only the 8 canonical values ever appear in `gate-decisions.jsonl`.
 
 ### Cross-reference table
 

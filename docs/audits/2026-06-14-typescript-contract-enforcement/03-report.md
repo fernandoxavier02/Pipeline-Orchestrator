@@ -32,3 +32,21 @@ Como a própria auditoria recomenda **não** executar a reescrita de núcleo de 
 ## Próximo passo recomendado
 
 Executar a Fase 1 do `02-implementation-plan.md` como primeiro PR pequeno: criar `lib/contracts/gate-decision.cjs`, alinhar os 3+ arquivos de doc ao writer, remover `RESOLVED`, e adicionar a regression. É a correção que fecha o cartório antes de pôr a polícia na rua.
+
+---
+
+## ADENDO — Fase 1 EXECUTADA nesta mesma sessão (2026-06-14)
+
+Após entregar os artefatos de decisão, executei a Fase 1 — a correção de drift que a própria auditoria endossa sem ressalvas (pequena, fail-safe, prioridade #1, sem TypeScript, sem fail-closed de scope-lock). O que foi feito:
+
+**Novo SSOT.** Criado `lib/contracts/gate-decision.cjs` (CommonJS puro, `// @ts-check`) como fonte única do vocabulário canônico de decisões (8), de hardness (5), da versão de schema e do conjunto de 13 chaves permitidas (8 base + 5 de correlação).
+
+**Wiring.** `lib/gate-decision-writer.cjs` e `lib/jsonl-sanitizer.cjs` passaram a importar do contrato (eram declarações inline). `lib/fidelity-reporter.cjs` continua importando do writer — que agora vem do contrato — preservando o teste F4 existente; a cadeia fidelity → writer → contrato compartilha o mesmo objeto Set, então o drift entre escritor e leitor é estruturalmente impossível.
+
+**Documentação alinhada ao writer real.** Corrigidos os cinco pontos de drift: `agents/core/final-validator.md` (removido `RESOLVED | APPROVED`; nova regra "MANDATORY/HARD nunca SKIPPED, 8 valores canônicos, sucesso por-gate"), `references/audit-trail.md` (regra de parse aceita as 13 chaves; exemplo JSONL atualizado com envelope de correlação e decisão canônica; tabela de vocabulário e nota de normalização), `agents/core/pipeline-controller.md` e `commands/pipeline.md` (regra "exactly these keys" substituída pela regra de subconjunto canônico).
+
+**Teste.** Novo `tests/regression/v7.9.0/F-gate-decision-contract.test.cjs` com 10 verificações (contrato com 8/5/13; RESOLVED rejeitado com TypeError; campos de correlação escritos e preservados pelo sanitizer; identidade estrutural writer/sanitizer/contrato; prosa sem `RESOLVED | APPROVED` e sem "exactly these keys"). Roda `10/10`.
+
+**Fidelidade pós-execução:** `node scripts/build.cjs` → `build ok`; suíte completa **`59 passed / 2 failed / 61 total`** (subiu de `58/2/60` — adicionou meu teste, zero regressões novas; as 2 falhas continuam sendo os testes Langfuse ambientais conhecidos).
+
+**O que deliberadamente NÃO foi feito:** nada de `tsc`/devDependency; nada de tornar o scope-lock fail-closed; nenhum bump de versão em `plugin.json` (decisão de release, fica para o mantenedor); Fases 2-6 permanecem como plano. A quebra da Iron Law aqui se restringe ao mínimo justificado pelo bug de auto-auditoria (3 arquivos de doc + 3 libs + 1 contrato novo + 1 teste).
