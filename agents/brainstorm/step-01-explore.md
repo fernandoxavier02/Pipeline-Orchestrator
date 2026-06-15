@@ -139,6 +139,12 @@ Write your analysis to a scratch buffer (kept in memory; emit summarised in Phas
 
 For each lens below: state what intake/files already answer, then enumerate residual gaps. **A lens may produce zero questions** (if fully answered) **or many** (if intake is vague). There is no minimum or maximum.
 
+**Decision-class vs. factual gap (v8.0.0 hardening — MANDATORY).** Before marking any gap ANSWERED via your own Phase A reading, classify it:
+- **Factual lookup** — the answer is an objective fact already present in the code/config/docs (e.g., "which file defines X", "what is the current timeout value", "does this function exist"). You MAY self-resolve these, and you MUST cite the file:line evidence.
+- **Decision-class** — the answer SHAPES THE PRODUCT: behavior, scope, naming, a trade-off, a contract, an inclusion/exclusion, a default. You MUST NOT self-resolve these from inference, "the codebase precedent", or "what feels right" — escalate every one via `GATE_REQUEST`. A codebase precedent is evidence to put in the recommendation, never a substitute for the user's decision.
+
+When in doubt about which class a gap is, treat it as decision-class and ask. The cost of one extra question is far lower than the cost of inventing product behavior the user never sanctioned.
+
 The 11 lenses:
 
 | # | Lens | What it surfaces |
@@ -239,8 +245,8 @@ After all GATE_RESPONSES are received, write `pipeline-runs/<run_id>/00-brainsto
 **Telemetry events** — append one JSON line per event to `pipeline-runs/<run_id>/00-brainstorm/gate-decisions.jsonl`:
 
 ```jsonl
-{"gate":"CLARIFICATION_GAPS_DETECTED","hardness":"AUDIT","phase":"brainstorm-01","decision":"COMPLETED","decided_by":"step-01-explore","timestamp":"<iso>","detail":"<N> gaps across <M> lenses (<lens-list>); <K> resolved via Phase A reading, <L> escalated to GATE_REQUEST","confidence_impact":0}
-{"gate":"CLARIFICATION_RESOLVED","hardness":"HARD","phase":"brainstorm-01","decision":"ANSWERED","decided_by":"user","timestamp":"<iso>","detail":"Q<N>: <abbrev>","confidence_impact":+0.02}
+{"gate":"CLARIFICATION_GAPS_DETECTED","hardness":"AUDIT","phase":"brainstorm-01","decision":"TRIGGERED","decided_by":"step-01-explore","timestamp":"<iso>","detail":"<N> gaps across <M> lenses (<lens-list>); <K> resolved via Phase A reading, <L> escalated to GATE_REQUEST","confidence_impact":0}
+{"gate":"CLARIFICATION_RESOLVED","hardness":"HARD","phase":"brainstorm-01","decision":"APPROVED","decided_by":"user","timestamp":"<iso>","detail":"Q<N>: <abbrev>","confidence_impact":+0.02}
 {"gate":"CLARIFICATION_SKIPPED","hardness":"SOFT","phase":"brainstorm-01","decision":"SKIPPED","decided_by":"step-01-explore","timestamp":"<iso>","detail":"Lens <N>: answered in intake","confidence_impact":0}
 ```
 

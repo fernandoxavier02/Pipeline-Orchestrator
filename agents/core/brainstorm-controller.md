@@ -1,6 +1,6 @@
 ---
 name: brainstorm-controller
-description: Orchestrates the pre-execution brainstorm + spec lifecycle pipeline. Spawned by commands/brainstorm.md or by pipeline-controller STEP 1.7 (auto-dispatch for MEDIA/COMPLEXA/Spec). Handles 10 sequential steps (00-intake → 01-explore [dynamic exhaustive clarification, v6.2+] → 01b-alternatives [propose alternative approaches, v6.2+] → 02-spec-init → 03-spec-requirements → 04-validate-gap → 05-spec-design → 06-validate-design → 07-spec-tasks → 08-handoff). Returns RUN_COMPLETE block to caller.
+description: Orchestrates the pre-execution brainstorm + spec lifecycle pipeline. Spawned by commands/brainstorm.md or by pipeline-controller STEP 1.7 (auto-dispatch for MEDIA/COMPLEXA/Spec). Handles 11 sequential steps (00-intake → 01-explore [dynamic exhaustive clarification, v6.2+] → 01b-alternatives [propose alternative approaches, v6.2+] → 01c-ideation [proactive improvement & feature proposals, v8.0.0+] → 02-spec-init → 03-spec-requirements → 04-validate-gap → 05-spec-design → 06-validate-design → 07-spec-tasks → 08-handoff). Returns RUN_COMPLETE block to caller.
 tools: Read, Write, Glob, Grep, Agent, AskUserQuestion, Bash
 model: opus
 color: blue
@@ -21,7 +21,7 @@ You MAY NOT write to anything else.
 
 - `Read`, `Glob`, `Grep`: read source skills, run-dir state, prior artifacts.
 - `Write`: only within `pipeline-runs/<run_id>/`.
-- `Agent`: dispatch step agents (`agents/brainstorm/step-00-intake.md`, `agents/brainstorm/step-01-explore.md`) and cloned spec-lifecycle skills (`pipeline-orchestrator:spec-init`, etc.).
+- `Agent`: dispatch step agents (`agents/brainstorm/step-00-intake.md`, `step-01-explore.md`, `step-01b-alternatives.md`, `step-01c-ideation.md`) and cloned spec-lifecycle skills (`pipeline-orchestrator:spec-init`, etc.).
 - `AskUserQuestion`: handoff gate at step-08, optional re-confirmations.
 - `Bash`: only for `git status`, `git log`, and read-only git inspection during step-00-intake.
 
@@ -60,7 +60,7 @@ If `--resume`:
 2. Validate schema (use `lib/run-manifest.cjs` parsing rules — defer to schema validation in step agents).
 3. Set `start_at_step = manifest.step_completed + 1`.
 
-**Terminal guard:** if `manifest.status` is `ready` AND `manifest.step_completed >= 8`, the run already completed. Do NOT re-enter STEP C. Emit RUN_COMPLETE with the existing manifest values, append `notes: 'resumed-already-complete'` audit log, and exit. The user can inspect `04-final-report.md` for the prior outcome.
+**Terminal guard:** if `manifest.status` is `ready` AND `manifest.step_completed >= 8` AND the manifest is NOT a spec-authoring run (`notes.options.controller_type` is absent or `brainstorm` — never `spec`), the run already completed. Do NOT re-enter STEP C. (The `controller_type` guard prevents a spec-authoring run — whose `step_completed` may sit at 8 mid review-loop — from being falsely declared complete if its run id is passed to `/brainstorm --resume` by mistake.) Emit RUN_COMPLETE with the existing manifest values, append `notes: 'resumed-already-complete'` audit log, and exit. The user can inspect `04-final-report.md` for the prior outcome.
 
 Else:
 1. Spawn a node helper or compute inline: next monotonic `<NNN>` from `pipeline-runs/`. Generate slug from prompt (kebab-case, max 5 words, collision suffix).
@@ -94,6 +94,7 @@ This is partial atomicity — not a true 2-phase commit (Write tool is not trans
 | 0 | 0 | `agents/brainstorm/step-00-intake.md` | (never skip) |
 | 1 | 0 | `agents/brainstorm/step-01-explore.md` (dynamic exhaustive clarification, v6.2+) | (never skip) |
 | 1b | 0 | `agents/brainstorm/step-01b-alternatives.md` (propose alternative approaches, v6.2+) | All 4 auto-skip conditions met (mechanical prompt + zero open lenses + ≤2 files + SIMPLES) — see step-01b for definition |
+| 1c | 0 | `agents/brainstorm/step-01c-ideation.md` (proactive improvement & feature proposals, v8.0.0+) | All 4 auto-skip conditions met (same rule as 1b) — see step-01c for definition |
 | 2 | 1 | `pipeline-orchestrator:spec-init` skill | (never skip) |
 | 3 | 1 | `pipeline-orchestrator:spec-requirements` skill | (never skip) |
 | 4 | 1 | `pipeline-orchestrator:validate-gap` skill | `--skip-validate-gap` set OR no git history |
@@ -102,7 +103,7 @@ This is partial atomicity — not a true 2-phase commit (Write tool is not trans
 | 7 | 1 | `pipeline-orchestrator:spec-tasks` skill | (never skip) |
 | 8 | 2 | (inline AskUserQuestion handoff) | `--no-impl` set |
 
-**Numbering note (v6.2+):** Step 1b is **inserted** as a fractional step to preserve `step_completed` integer semantics in legacy `manifest.yaml` files. When step 1b runs, `step_completed` advances from `1` → `1` (unchanged) until 1b completes, then advances to `2`. Internal tracking uses `notes.options.alternatives_done = true|false|"auto-skipped"`. Legacy runs created before 2026-05-18 lack this field and resume cleanly (controller treats missing field as `"auto-skipped"`).
+**Numbering note (v6.2+, extended v8.0.0):** Steps 1b and 1c are **fractional** steps inserted to preserve `step_completed` integer semantics in legacy `manifest.yaml` files. Both ride between integer `1` and `2`: when 1b runs, `step_completed` stays `1`; when 1c runs, it still stays `1`; only after BOTH 1b and 1c have completed (or auto-skipped) does it advance to `2`. Internal tracking uses `notes.options.alternatives_done` and `notes.options.ideation_done` (each `true|false|"auto-skipped"`). Legacy runs lacking either field resume cleanly (the controller treats a missing field as `"auto-skipped"`). A run interrupted between 1b and 1c is recovered by re-checking BOTH flags — never the integer alone — so the second fractional step is neither skipped nor re-run.
 
 ### STEP D: Step-06 retry loop
 
@@ -211,7 +212,7 @@ Concrete example for step-00-intake (apply same pattern to step-01-explore):
 === DISPATCH_REQUEST v1 ===
 dispatch_id: brainstorm-step-00-intake
 target_kind: agent
-target_name: pipeline-orchestrator:core:step-00-intake
+target_name: pipeline-orchestrator:brainstorm:brainstorm-step-00-intake
 description: "Brainstorm step 0 — capture prompt + git state + candidate files"
 prompt: |
   TASK_DESCRIPTION: <verbatim user task>

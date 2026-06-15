@@ -1,6 +1,6 @@
 # Gate System Reference
 
-> **SSOT** for gate definitions — hardness taxonomy and the 35-gate registry. `commands/pipeline.md` Grep-redirects here when it needs the full table with trigger conditions and recovery actions. Operational audit mechanics (Phase Transition Summary block template, Gate Decision Log JSONL format + parse/sanitization rules) live in `references/audit-trail.md` — they evolve independently from gate definitions. If you change gate hardness levels or registry rows, update this file; downstream tooling parses it.
+> **SSOT** for gate definitions — hardness taxonomy and the 43-gate registry. `commands/pipeline.md` Grep-redirects here when it needs the full table with trigger conditions and recovery actions. Operational audit mechanics (Phase Transition Summary block template, Gate Decision Log JSONL format + parse/sanitization rules) live in `references/audit-trail.md` — they evolve independently from gate definitions. If you change gate hardness levels or registry rows, update this file; downstream tooling parses it.
 
 ---
 
@@ -74,6 +74,21 @@ Each gate has a formal **hardness** level that determines enforcement behavior:
 | ALTERNATIVE_CHOSEN | SOFT | User picked an approach from step-01b GATE_REQUEST (implicit plan or named alternative). | Append entry with decision = chosen approach name. | None — choice persisted in 02b-alternatives.md. |
 | ALTERNATIVES_SKIPPED | SOFT | step-01b auto-skip rule satisfied (mechanical + zero open lenses + ≤2 files + SIMPLES). | Append informational entry. | None. |
 | STEP_01_GAP_LEAKED | SOFT | step-01b detected a clarification gap that should have been caught in step-01 Phase B. | Append entry; recommend re-running step-01-explore. | Controller may decide to loop back to step-01 (Phase 0 retry). |
+
+### Spec-authoring workflow gates (v8.0.0)
+
+These 8 events are emitted by the spec-authoring workflow (`step-01c-ideation`, `spec-controller`, `spec-adversarial-critic`). All are AUDIT/SOFT — **none is mandatory**, so the "Mandatory Gates by Complexity" table is UNCHANGED (F1 preserved). Each maps onto a canonical 8-value `decision`.
+
+| Gate | Hardness | Trigger | Action (decision) | Recovery |
+|------|----------|---------|--------|----------|
+| IDEATION_PROPOSED | AUDIT | step-01c-ideation emitted N proactive suggestions across dimensions. | Append informational entry (TRIGGERED). | None — informational. |
+| IDEATION_ACCEPTED | SOFT | User accepted an ideation proposal. | Append entry `decided_by: user` (APPROVED, +0.03). | None — idea enters the spec. |
+| IDEATION_REJECTED | SOFT | User rejected an ideation proposal. | Append entry `decided_by: user` (REJECTED). | None — idea dropped. |
+| IDEATION_SKIPPED | SOFT | step-01c auto-skip rule satisfied (mechanical + zero open lenses + ≤2 files + SIMPLES). | Append informational entry (SKIPPED). | None. |
+| DESIGN_INTERROGATOR_FORCED | AUDIT | spec-controller Step 1d dispatched the forced design-interrogator. | Append informational entry (DISPATCHED). | None — informational. |
+| SPEC_REVIEW_FINDINGS | AUDIT | spec-adversarial-critic returned a verdict over the spec documents. | Append informational entry (TRIGGERED if findings, NOT_TRIGGERED if clean). | None — drives the review loop. |
+| SPEC_SEALED | AUDIT | spec-controller sealed the spec (`phase: sealed`). | Append informational entry (CONFIRMED). | None — contract sealed. |
+| SPEC_AMENDED | AUDIT | spec-controller re-sealed an amended spec (`spec_version` incremented). | Append informational entry (CONFIRMED). | None — amendment recorded. |
 
 **AUDIT hardness:** new level in the taxonomy as of v6.2.0. Informational only — never blocks, never asks, never penalises confidence. Exists so observability events have a first-class gate row rather than masquerading as SOFT skipped/COMPLETED entries.
 

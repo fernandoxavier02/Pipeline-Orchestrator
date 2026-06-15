@@ -5,6 +5,31 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.0.0] - 2026-06-15 — Spec-authoring workflow take-over (MAJOR)
+
+`/pipeline-orchestrator:spec` changes meaning: it now **authors a new specification from scratch** and seals it as a contract, instead of pre-classifying and implementing an existing spec. This is a breaking entry-point semantic change → MAJOR.
+
+### Added
+- **`agents/core/spec-controller.md`** — N1 orchestrator for the spec-authoring workflow: brainstorm clarification → proactive ideation → forced (proportional) design-interrogation → Kiro lifecycle (init/requirements/validate-gap/design/validate-design/tasks) → bounded adversarial-review loop over the spec documents → SEAL. Stops at the sealed spec (no implementation handoff). Handles `--amend <run_id>`.
+- **`agents/brainstorm/step-01c-ideation.md`** — new global brainstorm step that PROACTIVELY proposes improvement/feature ideas the user did not raise, across product / architecture / code-quality / UX / risk dimensions (evidence-grounded, opt-in, auto-skips for SIMPLES).
+- **`agents/executor/type-specific/spec-adversarial-critic.md`** — reviews spec DOCUMENTS (own inline 13-axis schema; read-only). Reused by the spec-controller loop and by the new `/pipeline-orchestrator:spec-review` command (runs outside the locked spec-light/heavy/audit-only sequences).
+- **`references/run-orchestration-substrate.md`** — SSOT for the run-dir/manifest/audit machinery shared by spec-controller and brainstorm-controller; documents the spec.json sealed lifecycle and the `notes.options` ownership convention (`controller_type`).
+- **Amendment flow** (`--amend`): reopen a sealed spec, delta-scoped clarification + ideation, re-review, re-seal with `spec_version` increment.
+- **8 new telemetry events** — `IDEATION_PROPOSED` (AUDIT/TRIGGERED), `IDEATION_ACCEPTED` (SOFT/APPROVED +0.03), `IDEATION_REJECTED` (SOFT/REJECTED), `IDEATION_SKIPPED` (SOFT/SKIPPED), `DESIGN_INTERROGATOR_FORCED` (AUDIT/DISPATCHED), `SPEC_REVIEW_FINDINGS` (AUDIT/TRIGGERED|NOT_TRIGGERED), `SPEC_SEALED` (AUDIT/CONFIRMED), `SPEC_AMENDED` (AUDIT/CONFIRMED). Gate Registry header **35 → 43**.
+
+### Changed
+- `skills/spec/SKILL.md` repurposed to the authoring workflow (thin dispatch of spec-controller). Legacy spec PROCESSING preserved under `/pipeline-orchestrator:spec-light` / `-heavy` / `-audit-only` and `/pipeline --type=Spec`.
+- `agents/brainstorm/step-01-explore.md` hardened: every decision-class gap escalates to the user; only pure factual lookups are self-resolved.
+- `agents/core/brainstorm-controller.md` gains the global ideation step 1c (fractional 1b→1c numbering preserved; resume back-compat) and a `controller_type` guard in its terminal check.
+
+### Preserved (Iron Law)
+- **"Mandatory Gates by Complexity" table UNCHANGED** (SIMPLES 6 / MEDIA 11 / COMPLEXA 17 / Spec +6); F1 untouched. The 8 new events are AUDIT/SOFT and are NOT mandatory.
+- Reused-without-modifying surfaces unchanged: the Kiro lifecycle skills, `adversarial-architecture-critic`, the `design-interrogator` body, and the spec-light/heavy/audit-only pipelines.
+- `autoDiscover: true` covers the new agents/skills/commands — no manifest registration needed. **`.codex` parity gap (recorded, not fixed):** there is no `.codex` command manifest in this repo (`.codex/` holds only hooks + artifacts), so autoDiscover covers Codex too; nothing to register there.
+
+### Verification
+- Adversarial review of the built code across 3 independent lenses + 2 correction loops; 0 open CRITICAL/HIGH. New regression suite under `tests/regression/v8.0.0/`. Version lockstep + F7 at 8.0.0.
+
 ## [7.14.1] - 2026-06-14 — Gate-decision SSOT shipped / schema-drift fix (PATCH)
 
 Ships the "Fase 1 do contract-enforcement" fix that had already been merged to

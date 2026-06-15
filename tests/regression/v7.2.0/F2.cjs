@@ -149,14 +149,13 @@ test('F2-S6: cross-check — 23-row Mandatory count AND aggregate Gate Registry 
 
   const registrySection = extractSection(md, 'Gate Registry');
   const registryRows = parseAllTableDataRows(registrySection);
-  // The Gate Registry now aggregates 35 data rows across its 4 sub-tables
-  // (18 base + 6 spec + 4 routing + 7 brainstorm = 35) post-Patch-2/3/4.
-  // Patch 2 added STATE_FILE_INIT_FAIL to base (32→33); Patch 3 added
-  // PROTOCOL_HANDSHAKE_TIMEOUT to base (33→34); Patch 4 added
-  // STRICT_SPEC_REJECTION to routing (34→35). No UNAUTHORIZED row may
-  // have been added beyond these three.
-  assert.equal(registryRows.length, 35,
-    `Gate Registry aggregate row count must be 35 (got ${registryRows.length}) — no UNAUTHORIZED row may have been added beyond Patch 2/3/4 gates`);
+  // The Gate Registry now aggregates 43 data rows across its 5 sub-tables
+  // (18 base + 6 spec + 4 routing + 7 brainstorm + 8 spec-authoring = 43) post-v8.0.0.
+  // v8.0.0 added the 8 spec-authoring telemetry gates (IDEATION_*, DESIGN_INTERROGATOR_FORCED,
+  // SPEC_REVIEW_FINDINGS, SPEC_SEALED, SPEC_AMENDED) — all AUDIT/SOFT, none mandatory, so the
+  // Mandatory Gates table stays at 23. No UNAUTHORIZED row may have been added beyond these.
+  assert.equal(registryRows.length, 43,
+    `Gate Registry aggregate row count must be 43 (got ${registryRows.length}) — no UNAUTHORIZED row may have been added beyond the v8.0.0 spec-authoring gates`);
 });
 
 console.log('');

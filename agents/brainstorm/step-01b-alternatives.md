@@ -121,9 +121,9 @@ After response, write `pipeline-runs/<run_id>/00-brainstorm/02b-alternatives.md`
 **Telemetry events** — append to `pipeline-runs/<run_id>/00-brainstorm/gate-decisions.jsonl`:
 
 ```jsonl
-{"gate":"ALTERNATIVES_PROPOSED","hardness":"AUDIT","phase":"brainstorm-01b","decision":"COMPLETED","decided_by":"step-01b-alternatives","timestamp":"<iso>","detail":"<N> alternatives across axes <axis-list>; implicit plan: <quote>","confidence_impact":0}
-{"gate":"ALTERNATIVE_CHOSEN","hardness":"SOFT","phase":"brainstorm-01b","decision":"<implicit | alternative-name>","decided_by":"user","timestamp":"<iso>","detail":"<reason or 'no-text-rationale'>","confidence_impact":+0.05}
-{"gate":"ALTERNATIVES_SKIPPED","hardness":"SOFT","phase":"brainstorm-01b","decision":"AUTO_SKIPPED","decided_by":"step-01b-alternatives","timestamp":"<iso>","detail":"All 4 auto-skip conditions met: <evidence>","confidence_impact":0}
+{"gate":"ALTERNATIVES_PROPOSED","hardness":"AUDIT","phase":"brainstorm-01b","decision":"TRIGGERED","decided_by":"step-01b-alternatives","timestamp":"<iso>","detail":"<N> alternatives across axes <axis-list>; implicit plan: <quote>","confidence_impact":0}
+{"gate":"ALTERNATIVE_CHOSEN","hardness":"SOFT","phase":"brainstorm-01b","decision":"APPROVED","decided_by":"user","timestamp":"<iso>","detail":"chose <implicit | alternative-name>: <reason or 'no-text-rationale'>","confidence_impact":+0.05}
+{"gate":"ALTERNATIVES_SKIPPED","hardness":"SOFT","phase":"brainstorm-01b","decision":"SKIPPED","decided_by":"step-01b-alternatives","timestamp":"<iso>","detail":"All 4 auto-skip conditions met: <evidence>","confidence_impact":0}
 ```
 
 ---

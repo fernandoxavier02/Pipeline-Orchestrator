@@ -118,21 +118,16 @@ test('happy: skills/spec/SKILL.md exists with valid manual-only frontmatter', ()
     'disable-model-invocation must be true (manual-only routing)'
   );
 
-  // The skill body must document --light / --heavy / --audit-only flag routing.
+  // v8.0.0: /spec is now the spec-AUTHORING workflow (name take-over). It dispatches
+  // the spec-controller and points legacy spec-PROCESSING at the variant commands.
   const body = stripFrontmatter(raw);
-  assert.match(body, /--light/, 'must document --light flag routing');
-  assert.match(body, /--heavy/, 'must document --heavy flag routing');
-  assert.match(body, /--audit-only/, 'must document --audit-only flag routing');
+  assert.match(body, /SPEC_AUTHORING_MODE|spec-controller/, 'must dispatch the spec-authoring workflow (spec-controller)');
   assert.match(
     body,
     /pipeline-orchestrator:spec-(light|heavy|audit-only)/,
-    'must reference target spec-* skills for flag dispatch'
+    'must point legacy spec-processing at the variant commands'
   );
-  assert.match(
-    body,
-    /PRE_CLASSIFIED_TYPE=Spec/,
-    'must pre-classify type=Spec when delegating to pipeline-controller'
-  );
+  assert.match(body, /--amend/, 'must document the amendment flow');
 });
 
 // ----------------------------------------------------------------------

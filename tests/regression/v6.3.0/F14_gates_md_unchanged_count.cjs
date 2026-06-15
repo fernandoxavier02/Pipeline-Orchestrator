@@ -46,13 +46,13 @@ test('references/gates.md exists', () => {
   assert.ok(fs.existsSync(TARGET), `expected file at ${TARGET}`);
 });
 
-test('Gate Registry section contains 35 data rows (Core 18 + Spec 6 + Routing 4 + Brainstorm 7) post-Patch-2/3/4', () => {
+test('Gate Registry section contains 43 data rows (Core 18 + Spec 6 + Routing 4 + Brainstorm 7 + Spec-authoring 8) post-v8.0.0', () => {
   // Bumped from 32 → 35: +1 STATE_FILE_INIT_FAIL (Patch 2 / v7.1.2, Core),
   // +1 PROTOCOL_HANDSHAKE_TIMEOUT (Patch 3 / v7.1.2, Core),
   // +1 STRICT_SPEC_REJECTION (Patch 4 / v7.1.2, Routing).
   const content = fs.readFileSync(TARGET, 'utf8');
   const rows = countDataRowsBetween(content, /^##\s+Gate Registry\s*$/m, /^##\s+Mandatory Gates by Complexity\s*$/m);
-  assert.equal(rows, 35, `expected 35 data rows in Gate Registry section, got ${rows}`);
+  assert.equal(rows, 43, `expected 43 data rows in Gate Registry section, got ${rows}`);
 });
 
 test('Mandatory Gates by Complexity section contains 23 data rows (post-Patch-2 baseline)', () => {

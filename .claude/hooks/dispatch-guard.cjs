@@ -49,6 +49,7 @@ const AGENT_LEAF_TO_FQN = Object.freeze({
   'pipeline-controller': 'pipeline-orchestrator:core:pipeline-controller',
   'brainstorm-controller': 'pipeline-orchestrator:core:brainstorm-controller',
   'task-orchestrator': 'pipeline-orchestrator:core:task-orchestrator',
+  'spec-controller': 'pipeline-orchestrator:core:spec-controller',
   'information-gate': 'pipeline-orchestrator:core:information-gate',
   'sentinel': 'pipeline-orchestrator:core:sentinel',
   'checkpoint-validator': 'pipeline-orchestrator:core:checkpoint-validator',
@@ -83,14 +84,16 @@ const AGENT_LEAF_TO_FQN = Object.freeze({
   'spec-format-gate': 'pipeline-orchestrator:executor:type-specific:spec-format-gate',
   'spec-content-reviewer': 'pipeline-orchestrator:executor:type-specific:spec-content-reviewer',
   'spec-post-impl-validator': 'pipeline-orchestrator:executor:type-specific:spec-post-impl-validator',
+  'spec-adversarial-critic': 'pipeline-orchestrator:executor:type-specific:spec-adversarial-critic',
   'ux-simulator': 'pipeline-orchestrator:executor:type-specific:ux-simulator',
   'ux-accessibility-auditor': 'pipeline-orchestrator:executor:type-specific:ux-accessibility-auditor',
   'ux-qa-validator': 'pipeline-orchestrator:executor:type-specific:ux-qa-validator',
 
-  // brainstorm/ step agents (3 — step-01b-alternatives added v6.2.0 clarification overhaul)
+  // brainstorm/ step agents (4 — step-01c-ideation added v8.0.0 spec-authoring)
   'step-00-intake': 'pipeline-orchestrator:brainstorm:brainstorm-step-00-intake',
   'step-01-explore': 'pipeline-orchestrator:brainstorm:brainstorm-step-01-explore',
   'step-01b-alternatives': 'pipeline-orchestrator:brainstorm:brainstorm-step-01b-alternatives',
+  'step-01c-ideation': 'pipeline-orchestrator:brainstorm:brainstorm-step-01c-ideation',
 
   // quality/ (8 agents — v6.3.0 added diff-discipline-reviewer)
   'review-orchestrator': 'pipeline-orchestrator:quality:review-orchestrator',
