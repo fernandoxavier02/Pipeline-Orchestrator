@@ -5,6 +5,18 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.0.1] - 2026-06-15 — Paperclip layer: reflect v8.0.0 + fix handoff stalls (PATCH)
+
+Additive update to the `references/paperclip/` integration layer. ZERO changes to the plugin runtime, agents, skills, commands, hooks, or `lib/` outside the Paperclip subtree.
+
+### Changed
+- Reflect the v8.0.0 spec-authoring feature into the Paperclip layer: register `spec-controller`, `brainstorm-step-01c-ideation`, `spec-adversarial-critic` in the catalog + provisioner roster (47 → 50, all count references reconciled); split the Spec flow into AUTHORING (spec-controller → ideation → forced interrogator → Kiro lifecycle → spec-adversarial-critic over the documents → contract seal) vs legacy PROCESSING; use the canonical telemetry vocabulary (`IDEATION_PROPOSED/ACCEPTED/REJECTED/SKIPPED`, `DESIGN_INTERROGATOR_FORCED`, `SPEC_REVIEW_FINDINGS`, `SPEC_SEALED`, `SPEC_AMENDED`) — no invented names, no hash-signing (seal stores `phase=sealed` + `sealed_spec` pointer).
+- Fix the flow-mirror handoff stalls (root cause per the A0-CALIBRACAO audit of 54 real runs: cargos left the next step implicit): harden the engine against the structural root causes (prevIssueId guard, roster-completeness validation, pre-flight + best-effort compensating delete on partial fan-in, dry-run markers, molde-integrity guarantee, classify→template guard) and enforce the "Montagem Progressiva / Handoff Discipline" contract in PAPERCLIP-AXIOMS + the SPEC workflow.
+
+### Verified
+- Flow-mirror suite 13/13 files green (353 tests). Adversarially reviewed; 4 findings fixed.
+- **Provisional:** live end-to-end validation pending (Paperclip VPS API was unreachable); the live per-step handoff still depends on cargos following the discipline. A deterministic pre-built-spine remediation is the fallback if a real run stalls.
+
 ## [8.0.0] - 2026-06-15 — Spec-authoring workflow take-over (MAJOR)
 
 `/pipeline-orchestrator:spec` changes meaning: it now **authors a new specification from scratch** and seals it as a contract, instead of pre-classifying and implementing an existing spec. This is a breaking entry-point semantic change → MAJOR.
