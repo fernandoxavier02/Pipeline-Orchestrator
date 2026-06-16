@@ -8,6 +8,8 @@ when_to_use: Em qualquer trabalho do tipo `Spec`. Carregado por spec-format-gate
 
 Define o ciclo de vida da spec (requirements → design → tasks → implementation → close) e os gates obrigatorios em cada transicao.
 
+> **Dois fluxos compartilham o nome "Spec" desde a v8.0.0.** As secoes 2–8 abaixo descrevem o fluxo de **PROCESSING** (validar/fechar uma spec que JA existe) — usado por `spec-format-gate`, `spec-content-reviewer`, `spec-post-impl-validator`, `spec-closer`. A secao 9 descreve os gates e artefatos do fluxo de **AUTHORING** (criar e SELAR uma spec do zero) — usado por `spec-controller` e `spec-adversarial-critic`. Nao misture os dois conjuntos de gates. Roteamento completo em `PAPERCLIP-SPEC-WORKFLOW.md` §0.
+
 ## 1. Artefatos da spec
 
 Toda spec produzida pela empresa Pipeline Orchestrator vive em uma pasta dedicada:
@@ -24,7 +26,9 @@ specs/{{client-company}}/{{spec-slug}}/
     └── post-impl-validator-report.yaml
 ```
 
-## 2. Fase 0 — Format Gate (`spec-format-gate`)
+## 2. Fase 0 — Format Gate (`spec-format-gate`) — PROCESSING GATES (Format/Content/Post-Impl)
+
+> **Secoes 2–8 sao gates de PROCESSING** — aplicam-se a uma spec que JA existe. Usadas por `spec-format-gate`, `spec-content-reviewer`, `spec-post-impl-validator`. Para os gates de AUTHORING (criar e selar do zero), ver secao 9.
 
 Roda 25 checks deterministicos. NAO julga conteudo, julga estrutura.
 
@@ -195,9 +199,52 @@ Board cria issue "Spec X"
   → spec-closer (PA_DE_CAL + reports + status=closed)
 ```
 
-## 9. Anti-padroes
+## 9. SPEC-AUTHORING — GATES E ARTEFATOS (v8.0.0)
+
+> **Esta secao eh do fluxo de AUTHORING** (criar e SELAR uma spec do zero), usado por `spec-controller` e `spec-adversarial-critic`. As secoes 2–8 acima sao do fluxo de PROCESSING (validar uma spec existente), usadas por `spec-format-gate`, `spec-content-reviewer`, `spec-post-impl-validator`. **Nao misture.** O sequenciamento completo do authoring vive em `PAPERCLIP-SPEC-WORKFLOW.md` §AUTHORING.
+
+### 9.1 Gates de authoring
+
+| Gate | Hardness | Emitido por | Quando |
+|---|---|---|---|
+| IDEATION_PROPOSED | AUDIT | brainstorm-step-01c-ideation | o step emitiu N propostas proativas de conceito (decision TRIGGERED) |
+| IDEATION_ACCEPTED / IDEATION_REJECTED | SOFT | brainstorm-step-01c-ideation | usuario aceitou (APPROVED) ou rejeitou (REJECTED) um conceito de design |
+| IDEATION_SKIPPED | SOFT | brainstorm-step-01c-ideation | ideacao auto-pulada por haver um unico melhor caminho por best-practice (decision SKIPPED) |
+| DESIGN_INTERROGATOR_FORCED | AUDIT | spec-controller | interrogador de design FORCADO despachado (decision DISPATCHED) |
+| SPEC_REVIEW_FINDINGS | AUDIT | spec-adversarial-critic | veredito do critico em 13 eixos sobre os documentos (TRIGGERED quando ha achados / NOT_TRIGGERED quando limpo) |
+| SPEC_SEALED | AUDIT | spec-controller | `spec.json` phase=sealed gravado (decision CONFIRMED) |
+| SPEC_AMENDED | AUDIT | spec-controller | spec emendada re-selada com spec_version incrementado (decision CONFIRMED) |
+
+O **SPEC_SEALED eh AUDIT/informacional**: ele apenas CONFIRMA que o spec-controller gravou `phase=sealed` no `spec.json`. O `phase=sealed` eh a SSOT do estado selado; `ready_for_implementation` eh DERIVADO de `phase`. **Nao ha hashing em 8.0.0** — content-hashing foi explicitamente diferido (follow-up R8). O selo grava ainda `spec_version`, `sealed_at` e um ponteiro `sealed_spec` {`run_dir`, `artifacts[5]`}. Apos selado, a spec so muda via `--amend` (que incrementa `spec_version` e emite SPEC_AMENDED).
+
+### 9.2 Eixos do spec-adversarial-critic (read-only, sobre os DOCUMENTOS)
+
+O critico aplica 13 eixos sobre requirements.md / design.md / tasks.md — sem tocar codigo (a spec ainda nao foi implementada): coverage, testability, ambiguity, risks, contracts, data-models, vertical-slices, dependencies, DI/CI, operational, failure-modes, security, coherence. Distingue-se do `spec-content-reviewer` (PROCESSING, 6/12 eixos sobre spec existente em ciclo de validacao).
+
+### 9.3 Artefato spec.json no authoring
+
+| Campo | Valores | Observacao |
+|---|---|---|
+| status | draft / in-review / approved / implementing / closed | herdado do PROCESSING (secao 2, check 19) |
+| phase | autho-draft → interrogated → sealed | **v8 authoring**: SSOT do progresso do authoring; `phase=sealed` eh o estado selado canonico |
+| approvals.* | registros de aprovacao por step (ex.: ideacao, interrogacao) | trilha de quem aprovou o que durante o authoring |
+| ready_for_implementation | boolean DERIVADO | NAO eh SSOT — derivado de `phase` (true sse `phase=sealed`) |
+| spec_version | inteiro | incrementa a cada `--amend` (re-selo) |
+| sealed_at | timestamp ISO | carimbado no selo |
+| sealed_spec | ponteiro `{ run_dir, artifacts[5] }` | run_dir + os 5 nomes de arquivo do bundle selado; **sem content-hash em 8.0.0** (diferido — follow-up R8) |
+
+### 9.4 Bloco de selo
+
+No selo, o spec-controller emite o bloco com cabecalho EXATO `### SPEC_SEALED v1` (CAIXA_ALTA, sufixo `v1`, tres `#`), conforme a disciplina de cabecalho da Secao 11 dos AXIOMS, e segue o Contrato de Handoff (NEXT_STEP + criacao da proxima issue no mesmo heartbeat, se houver — no authoring o selo eh tipicamente o ultimo passo, encerrando o fluxo).
+
+## 10. Anti-padroes
+
+> **Cross-reference para evitar drift:** os gates de PROCESSING (secoes 2–8) sao usados por `spec-format-gate`, `spec-content-reviewer`, `spec-post-impl-validator`. Os gates de AUTHORING (secao 9) sao usados por `spec-controller`, `spec-adversarial-critic`. Ao editar uma secao, confira se a outra continua coerente.
 
 ❌ **Pular Format Gate "porque eh urgente"** — sem 25/25 a base estrutural quebra todo o resto
 ❌ **Aprovar Content Review com warnings sem comment justificando** — Board precisa saber o que aceitou
 ❌ **Marcar spec como `closed` antes de Post-Impl** — fidelidade desconhecida = spec inutil
 ❌ **Editar requirements.md durante a implementacao** — se mudou, eh nova versao + reanalise. NAO retroativo
+❌ **Selar (AUTHORING) sem rodar o spec-adversarial-critic sobre os documentos** — selo sem critica eh contrato cego
+❌ **Declarar SPEC_SEALED sem ter gravado e verificado `phase=sealed` no `spec.json`** — selo falso quebra a confianca do contrato (em 8.0.0 nao ha hash; a confirmacao eh a escrita verificada de `phase=sealed`)
+❌ **Conflacionar os cargos de AUTHORING e PROCESSING** — `spec-controller`/`spec-adversarial-critic` (authoring) vs `spec-format-gate`/`spec-content-reviewer`/`spec-post-impl-validator` (processing)

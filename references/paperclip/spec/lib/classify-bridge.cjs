@@ -278,6 +278,63 @@ function validateComplexity(value) {
   }
 }
 
+// ─── ROOT CAUSE #8: GUARDA DE PAR (type, complexity) ROTEÁVEL ─────────────────
+// O dispatcher assume que TODO (type, complexity) produzido por classify() tem um
+// template correspondente. Tipos read-only (Audit, UX Simulation, Spec) só existem
+// nas variantes light/heavy — não há molde "audit + SIMPLES" direto. Sem normalização,
+// um (type='Audit', complexity='SIMPLES') tentaria rotear para um molde inexistente e
+// o dispatcher estouraria (raiz #8).
+//
+// Política de normalização (mínima, determinística):
+//   - Tipos read-only com complexity='SIMPLES' → elevados para 'MEDIA'. A ÚNICA garantia
+//     real aqui é de ROTEABILIDADE: não existe molde "audit/UX/spec + SIMPLES", então o par
+//     SIMPLES seria não-roteável; MEDIA, sim, tem template correspondente. A elevação só
+//     assegura que o par resultante TEM molde — NÃO afirma qual variante o dispatcher vai
+//     escolher (não há mapeamento fixo MEDIA→light honrado aqui; a escolha da variante é do
+//     dispatcher/template-factory, não desta guarda).
+//   - Demais pares já são roteáveis e seguem inalterados.
+// A guarda mantém classify() puro (I7): nenhuma rede, nenhum I/O, tabela estática local.
+
+/** Tipos read-only cujo SIMPLES não tem template e deve normalizar para MEDIA. */
+const READ_ONLY_TYPES = Object.freeze(['Audit', 'UX Simulation', 'Spec']);
+
+/**
+ * validateTypeComplexityPair(type, complexity) → { type, complexity, normalized, notes }
+ *
+ * Garante que o par seja roteável. Normaliza tipos read-only SIMPLES→MEDIA.
+ * Lança se, após normalização, o par ainda for inválido (defesa — não deve ocorrer
+ * porque type e complexity já vêm dos conjuntos canônicos validados).
+ *
+ * @param {string} type Tipo canônico (VALID_TYPES)
+ * @param {string} complexity Complexidade canônica (VALID_COMPLEXITIES)
+ * @returns {{ type: string, complexity: string, normalized: boolean, notes: string[] }}
+ */
+function validateTypeComplexityPair(type, complexity) {
+  const notes = [];
+  let finalComplexity = complexity;
+  let normalized = false;
+
+  if (READ_ONLY_TYPES.includes(type) && complexity === 'SIMPLES') {
+    finalComplexity = 'MEDIA';
+    normalized = true;
+    notes.push(
+      `type-complexity guard: read-only type "${type}" + SIMPLES não tem molde → ` +
+      `elevado a MEDIA, que tem template roteável (garantia: roteabilidade, não uma ` +
+      `variante específica; CLASSIFY_NORMALIZATION)`,
+    );
+  }
+
+  // Defesa final: type e complexity devem pertencer aos conjuntos canônicos.
+  if (!VALID_TYPES.includes(type) || !VALID_COMPLEXITIES.includes(finalComplexity)) {
+    throw new Error(
+      `classify-bridge/validateTypeComplexityPair: par não-roteável (type="${type}", ` +
+      `complexity="${finalComplexity}") — sem template correspondente após normalização.`,
+    );
+  }
+
+  return { type, complexity: finalComplexity, normalized, notes };
+}
+
 // ─── FUNÇÃO PRINCIPAL ─────────────────────────────────────────
 
 /**
@@ -327,11 +384,15 @@ function classify(description, override) {
 
   // I5 — Override total: ambos fornecidos → bypass heurística
   if (ov.type !== undefined && ov.complexity !== undefined) {
+    // ROOT CAUSE #8: ainda assim garantir roteabilidade (read-only SIMPLES → MEDIA).
+    const guarded = validateTypeComplexityPair(ov.type, ov.complexity);
+    const notes = [`override accepted: type="${ov.type}", complexity="${ov.complexity}"`];
+    notes.push(...guarded.notes);
     return {
-      type: ov.type,
-      complexity: ov.complexity,
+      type: guarded.type,
+      complexity: guarded.complexity,
       source: 'override',
-      notes: [`override accepted: type="${ov.type}", complexity="${ov.complexity}"`],
+      notes,
     };
   }
 
@@ -360,13 +421,21 @@ function classify(description, override) {
     notes.push(...complexityResult.notes);
   }
 
+  // ROOT CAUSE #8: garantir que o par (type, complexity) seja roteável antes de retornar.
+  // Normaliza tipos read-only SIMPLES→MEDIA e emite nota CLASSIFY_NORMALIZATION.
+  const guarded = validateTypeComplexityPair(finalType, finalComplexity);
+  notes.push(...guarded.notes);
+
   return {
-    type: finalType,
-    complexity: finalComplexity,
+    type: guarded.type,
+    complexity: guarded.complexity,
     source: 'heuristic',
     notes,
   };
 }
 
 // ─── EXPORTS (CommonJS, espelhando padrão dos módulos existentes) ─
-module.exports = { classify, VALID_TYPES, VALID_COMPLEXITIES };
+module.exports = {
+  classify, VALID_TYPES, VALID_COMPLEXITIES,
+  validateTypeComplexityPair, READ_ONLY_TYPES,
+};

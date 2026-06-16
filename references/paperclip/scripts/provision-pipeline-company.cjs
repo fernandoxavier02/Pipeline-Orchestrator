@@ -3,7 +3,7 @@
  * provision-pipeline-company.cjs
  * ------------------------------------------------------------------
  * Generic provisioner: stands up a Paperclip company with the full
- * pipeline-orchestrator cargo roster (47), installs the 11 custom
+ * pipeline-orchestrator cargo roster (50), installs the 11 custom
  * skills (from THIS plugin's references/paperclip/skills/), hires the
  * cargos and attaches the right skills per category.
  *
@@ -63,6 +63,10 @@ const AX = 'PAPERCLIP-AXIOMS.md', SPEC = 'PAPERCLIP-SPEC-WORKFLOW.md', FEAT = 'P
 const BUG = 'PAPERCLIP-BUGFIX-WORKFLOW.md', UX = 'PAPERCLIP-UX-WORKFLOW.md', AUD = 'PAPERCLIP-AUDIT-WORKFLOW.md', ADV = 'PAPERCLIP-ADVERSARIAL-WORKFLOW.md';
 
 // [name, role, extraSkills, workflowFile, title]; pipeline-controller MUST be index 0 (org-chart top)
+// Currently 50 cargos. v8.0.0 added the 3 spec-authoring cargos (spec-controller,
+// brainstorm-step-01c-ideation, spec-adversarial-critic) — all wired to SPECP (spec-protocol)
+// and the SPEC workflow doc; spec-controller also carries CLASS (it orchestrates/classifies),
+// the critic carries ADVS (adversarial document review).
 const ROSTER = [
   ['pipeline-controller', 'pm', [CLASS], AX, 'Project Manager / Delivery Lead'],
   ['task-orchestrator', 'pm', [CLASS], AX, 'Intake Coordinator / Triage'],
@@ -74,9 +78,11 @@ const ROSTER = [
   ['finishing-branch', 'devops', [], AX, 'Release Engineer / DevOps'],
   ['brainstorm-controller', 'pm', [CLASS], AX, 'Discovery Workshop Facilitator'],
   ['adversarial-batch', 'security', [ADVS, TDD], AX, 'Security Analyst (per-batch)'],
+  ['spec-controller', 'pm', [CLASS, SPECP], AX, 'Spec Orchestrator (Authoring)'],
   ['brainstorm-step-00-intake', 'pm', [SPECP, CLASS], SPEC, 'Discovery Note-Taker'],
   ['brainstorm-step-01-explore', 'pm', [SPECP, CLASS], SPEC, 'Requirements Detective'],
   ['brainstorm-step-01b-alternatives', 'pm', [SPECP, CLASS], SPEC, 'Options Strategist'],
+  ['brainstorm-step-01c-ideation', 'pm', [SPECP, CLASS], SPEC, 'Ideation Specialist'],
   ['design-interrogator', 'engineer', [CLASS], AX, 'Principal Engineer / Design Reviewer'],
   ['plan-architect', 'engineer', [TDD, SPECP], AX, 'Tech Lead / Implementation Architect'],
   ['quality-gate-router', 'qa', [TDD], AX, 'QA Lead / Test Strategist'],
@@ -111,6 +117,7 @@ const ROSTER = [
   ['spec-format-gate', 'qa', [SPECP], SPEC, 'Spec Format Auditor / Linter'],
   ['spec-content-reviewer', 'qa', [SPECP], SPEC, 'Senior Spec Reviewer'],
   ['spec-post-impl-validator', 'qa', [SPECP], SPEC, 'Spec Implementation Auditor'],
+  ['spec-adversarial-critic', 'engineer', [ADVS, SPECP], SPEC, 'Spec Adversary (Document Review)'],
 ];
 
 async function api(method, urlPath, body) {
@@ -128,7 +135,7 @@ async function ensureCompany() {
   const list = await api('GET', '/companies');
   const found = (list.json || []).find((c) => c.name === COMPANY_NAME && c.status !== 'archived');
   if (found) { console.log('Company exists: ' + COMPANY_NAME + ' (' + found.id + ')'); return found.id; }
-  const created = await api('POST', '/companies', { name: COMPANY_NAME, description: 'pipeline-orchestrator infra company (47 cargos)' });
+  const created = await api('POST', '/companies', { name: COMPANY_NAME, description: 'pipeline-orchestrator infra company (50 cargos)' });
   if (created.status !== 201 || !created.json) { throw new Error('Company create failed: ' + created.status + ' ' + created.text.slice(0, 200)); }
   console.log('Company created: ' + COMPANY_NAME + ' (' + created.json.id + ', prefix ' + created.json.issuePrefix + ')');
   return created.json.id;
@@ -210,6 +217,6 @@ async function attachAll(byName) {
   await installSkills(companyId);
   const byName = await hireAll(companyId);
   await attachAll(byName);
-  console.log('\\nDONE. 47 cargos provisioned (heartbeat OFF — inert until you assign an issue).');
+  console.log('\\nDONE. 50 cargos provisioned (heartbeat OFF — inert until you assign an issue).');
   console.log('Company id: ' + companyId);
 })().catch((e) => { console.error('FATAL: ' + (e && e.message ? e.message : e)); process.exit(1); });

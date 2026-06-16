@@ -228,23 +228,33 @@ async function runCli({ args, transport, confirm }) {
       const parallelNodes = allParallelSteps(complexity, nodeToCreate.step, variant || undefined);
       const drySpec = nodeSpec(complexity, nodeToCreate.step, resolvedPrevIssueId, variant || undefined);
 
+      // ROOT CAUSE #4: marcar dry-run EXPLICITAMENTE. Sem o marcador, o operador podia
+      // confundir o preview (sem issueId) com uma criação confirmada. Agora o JSON traz
+      // dryRun:true + issueId:null + issueIds:[] de forma inequívoca, e um aviso vai pro stderr.
       let result;
       if (parallelNodes.length > 1) {
         // Grupo paralelo: mostrar todos os steps que seriam criados
         const steps = parallelNodes.map((n) => n.step);
         result = {
+          dryRun: true,
           steps,
           step: steps,
+          issueId: null,
+          issueIds: [],
           title: drySpec.title,
           nextStep: nodeToCreate.step,  // operador usa este valor como currentStep na próxima chamada
         };
       } else {
         result = {
+          dryRun: true,
           step: nodeToCreate.step,
+          issueId: null,
+          issueIds: [],
           title: drySpec.title,
           nextStep: nodeToCreate.step,  // operador usa este valor como currentStep na próxima chamada
         };
       }
+      stderr = 'DRY-RUN: nenhuma issue foi criada. Use --confirm para executar.';
       stdout = JSON.stringify(result);
       return { stdout, stderr, exitCode: 0 };
     }

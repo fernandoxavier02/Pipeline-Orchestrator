@@ -2,9 +2,9 @@
 
 **Versao:** 1.0 — 2026-05-22
 **Owner:** Board (humano) → delegado a pipeline-controller via issue PIP-4
-**Objetivo:** atualizar `desiredSkills` + `instructionsFilePath` dos 46 cargos da empresa Paperclip "Pipeline Orchestrator", **validado por revisao adversarial em loop**, sem corromper config existente.
+**Objetivo:** atualizar `desiredSkills` + `instructionsFilePath` dos 50 cargos da empresa Paperclip "Pipeline Orchestrator", **validado por revisao adversarial em loop**, sem corromper config existente.
 
-> **Nota de contagem (2026-06-02):** este plano foi escrito quando o roster tinha 46 cargos — a contagem historica abaixo e preservada de proposito. O roster atual e de **47 cargos** (o provisionador `references/paperclip/scripts/provision-pipeline-company.cjs` e o catalogo `paperclip-catalog.md` ja refletem 47). Os numeros "46" e "43 restantes" nas secoes seguintes sao o estado da epoca do planejamento.
+> **Nota de contagem (atualizada 2026-06-15):** este plano foi escrito quando o roster tinha 46 (a contagem historica da tabela de categorias abaixo e preservada de proposito, como estado da epoca do planejamento). O roster atual e de **50 cargos**: a **v8.0.0 fez o roster crescer em 3** (os cargos de spec-authoring `spec-controller`, `brainstorm-step-01c-ideation` e `spec-adversarial-critic`). O catalogo `paperclip-catalog.md` e o provisionador `references/paperclip/scripts/provision-pipeline-company.cjs` sao a SSOT e ja refletem 50. O nome do arquivo mantem o "46" historico de proposito.
 
 ---
 
@@ -12,7 +12,7 @@
 
 | Pre-condicao | Status atual |
 |---|---|
-| 46 cargos vivos na empresa PIP | ✓ |
+| 50 cargos vivos na empresa PIP | ✓ |
 | 11 skills custom em `~/.paperclip/instances/default/skills/` | ✓ |
 | 8 docs Paperclip + 3 docs master em `Pipeline-Orchestrator/references/paperclip/` (canonical) | ✓ commit `d4de83e` |
 | Zoneamento documentado e auditado sem drift | ✓ `.pipeline/ZONING.md` |
@@ -52,7 +52,7 @@ Toda categoria carrega o **NUCLEO UNIVERSAL** + skills especificas da categoria.
 | **adversarial** | 4 (adversarial-review-coordinator, adversarial-security-scanner, adversarial-architecture-critic, adversarial-quality-reviewer) | `pipeline-orchestrator-adversarial` |
 | **spec** | 3 (spec-format-gate, spec-content-reviewer, spec-post-impl-validator) | `pipeline-orchestrator-spec-protocol` |
 
-**Total:** 46 cargos, cada um com 3-7 skills `desiredSkills`.
+**Total:** 50 cargos, cada um com 3-7 skills `desiredSkills`. (A tabela de categorias acima e o breakdown historico de 46; os 3 cargos de spec-authoring que a v8.0.0 acrescentou — `spec-controller`, `brainstorm-step-01c-ideation`, `spec-adversarial-critic` — fecham os 50; ver `paperclip-catalog.md`, a SSOT do roster.)
 
 ## 3. Mapping `instructionsFilePath` por categoria
 
@@ -151,7 +151,7 @@ Total: 47 (10+11+6+3+6+7+4). 1 a mais porque executor-controller tem 6 incluindo
                        ↓
 ┌────────────────────────────────────────────────────────────┐
 │  final-validator → PA_DE_CAL                                │
-│    GO: 46 cargos atualizados, sem critical pendente         │
+│    GO: 50 cargos atualizados, sem critical pendente         │
 │    CONDITIONAL: passou mas com high/medium nao bloqueante   │
 │    NO_GO: critical pendente → rework loop                   │
 └────────────────────────────────────────────────────────────┘
@@ -176,10 +176,10 @@ Reviewer NAO carrega `pipeline-orchestrator-classification` (nao precisa classif
 
 ## 7. Definicao de Done do PIP-4 (criterios binarios)
 
-- [ ] 46 cargos PATCHed (verificavel via `GET /api/agents` count com `desiredSkills` populado)?
+- [ ] 50 cargos PATCHed (verificavel via `GET /api/agents` count com `desiredSkills` populado)?
 - [ ] 100% dos cargos com `instructionsFilePath` apontando pra arquivo do repo (NAO workspace)?
 - [ ] Adversarial review por batch (7 batches) PASS ou PASS_WITH_WARN?
-- [ ] Final adversarial (sobre todos os 46) PASS?
+- [ ] Final adversarial (sobre todos os 50) PASS?
 - [ ] PA_DE_CAL = GO ou CONDITIONAL?
 - [ ] Spec-closer entregou 2 relatorios (technical + executive)?
 - [ ] Nenhum cargo orfa ou com config corrompida?
@@ -200,7 +200,7 @@ Reviewer NAO carrega `pipeline-orchestrator-classification` (nao precisa classif
 
 Se em qualquer batch o adversarial detectar que cargos foram corrompidos:
 1. ESCALATION_REQUEST imediato (interrupcao do flow)
-2. Snapshot atual de TODOS os 46 cargos (GET salva em JSON)
+2. Snapshot atual de TODOS os 50 cargos (GET salva em JSON)
 3. Restaurar config de quem foi corrompido via PATCH com estado anterior
 4. Re-iniciar o batch problematico
 
@@ -208,7 +208,7 @@ Se em qualquer batch o adversarial detectar que cargos foram corrompidos:
 
 ## 10. Estimativa de orcamento
 
-- pipeline-controller: ~46 PATCH chamadas + 7 batch updates + final report ≈ 30 min Codex compute
+- pipeline-controller: ~50 PATCH chamadas + 7 batch updates + final report ≈ 30 min Codex compute
 - adversarial reviewers (trio × 7 batches + 1 final): 22 sessoes Codex ≈ 60-90 min
 - Total estimado: ~$5-10 USD em compute Codex (gpt-5.4)
 
@@ -223,7 +223,7 @@ Se em qualquer batch o adversarial detectar que cargos foram corrompidos:
 6. B5 update (6 PATCHes) → adversarial review → fix loop
 7. B6 update (7 PATCHes) → adversarial review → fix loop
 8. B7 update (4 PATCHes) → adversarial review → fix loop
-9. final-adversarial sobre 47 cargos consolidado
+9. final-adversarial sobre 50 cargos consolidado
 10. final-validator → PA_DE_CAL
 11. spec-closer → 2 reports + status=done
 ```

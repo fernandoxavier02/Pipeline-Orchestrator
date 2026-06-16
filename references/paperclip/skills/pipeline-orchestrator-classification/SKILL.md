@@ -6,7 +6,7 @@ when_to_use: Inicio de qualquer issue nova. Cargo task-orchestrator usa pra emit
 
 # pipeline-orchestrator-classification
 
-Classificacao em duas dimensoes: **tipo da tarefa** + **complexidade**. Combinadas, definem qual pipeline (sub-conjunto dos 47 cargos) eh acionado e em que ordem.
+Classificacao em duas dimensoes: **tipo da tarefa** + **complexidade**. Combinadas, definem qual pipeline (sub-conjunto dos 50 cargos) eh acionado e em que ordem.
 
 ## 1. Tipos de tarefa (7)
 

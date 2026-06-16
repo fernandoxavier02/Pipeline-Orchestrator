@@ -1,6 +1,6 @@
 ---
 name: pipeline-orchestrator-iron-laws
-description: Iron Laws inalteradas do pipeline-orchestrator original (TDD obrigatorio, ask-first em ambiguidade, self-review, stop rule, evidence-based decisions). Carregada por todos os 47 cargos.
+description: Iron Laws inalteradas do pipeline-orchestrator original (TDD obrigatorio, ask-first em ambiguidade, self-review, stop rule, evidence-based decisions). Carregada por todos os 50 cargos.
 when_to_use: Sempre. Aplicam a qualquer trabalho real (escrever codigo, validar entrega, decidir caminho). Sao as 7 leis que nao mudam entre Claude Code e Paperclip.
 ---
 

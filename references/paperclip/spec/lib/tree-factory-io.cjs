@@ -65,6 +65,75 @@ function resolveRole(name, agentsById) {
   return uuid;
 }
 
+// ─── VALIDATE ROSTER COMPLETENESS (ROOT CAUSE #2) ────────────────────────────
+
+/**
+ * validateRosterCompleteness(nodes, agentsById) — pré-flight do roster.
+ *
+ * Confirma que TODO cargo (role) declarado pelos nós a criar resolve para um uuid
+ * não-vazio no roster fornecido. Roda ANTES de qualquer createIssue, de modo que um
+ * roster incompleto falha cedo (fail-fast) em vez de só estourar quando a API tenta
+ * atribuir a issue — tarde demais para recuperar a cadeia (raiz #2: phantom UUID /
+ * roster incompleto).
+ *
+ * @param {Array<{role: string}>} nodes Nós cujos roles serão criados nesta chamada
+ * @param {Object<string, string>} agentsById Mapa nome→uuid (roster indexado)
+ * @throws {Error} listando TODOS os roles ausentes (não só o primeiro)
+ */
+function validateRosterCompleteness(nodes, agentsById) {
+  const map = agentsById || {};
+  const missing = [];
+  const seen = new Set();
+  for (const node of nodes || []) {
+    const role = node && node.role;
+    if (!role || seen.has(role)) continue;
+    seen.add(role);
+    const uuid = map[role];
+    if (typeof uuid !== 'string' || uuid.length === 0) {
+      missing.push(role);
+    }
+  }
+  if (missing.length > 0) {
+    throw new Error(
+      `tree-factory-io/validateRosterCompleteness: roster incompleto — ` +
+      `cargo(s) sem uuid válido: [${missing.join(', ')}]. ` +
+      `Pré-flight (Invariante AC-IO-27): todos os roles do molde devem resolver ANTES de criar qualquer issue.`,
+    );
+  }
+}
+
+// ─── VALIDATE FAN-IN MAP (ROOT CAUSE #6) ─────────────────────────────────────
+
+/**
+ * validateFanInMap(junctionNode, stepToIssueIdMap) — pré-flight de junção.
+ *
+ * Para um nó de junção (blockedBy = array), confirma que o stepToIssueIdMap contém
+ * uma entrada válida (não-vazia) para CADA step irmão declarado em blockedBy[].
+ * Roda ANTES de nodeSpecFanIn, transformando o throw tardio de nodeSpecFanIn num
+ * erro de pré-flight com mensagem acionável (raiz #6: stepmap incompleto → junção
+ * nunca criada → cadeia morre em silêncio).
+ *
+ * @param {{step: string, blockedBy: string[]}} junctionNode Nó de junção
+ * @param {Object<string, string>|undefined} stepToIssueIdMap Mapa step→issueId
+ * @throws {Error} listando os steps ausentes do mapa
+ */
+function validateFanInMap(junctionNode, stepToIssueIdMap) {
+  if (!junctionNode || !Array.isArray(junctionNode.blockedBy)) return;
+  const map = stepToIssueIdMap || {};
+  const missing = junctionNode.blockedBy.filter((sib) => {
+    const id = map[sib];
+    return id === undefined || id === null || id === '';
+  });
+  if (missing.length > 0) {
+    throw new Error(
+      `tree-factory-io/validateFanInMap: junção "${junctionNode.step}" — ` +
+      `stepToIssueIdMap incompleto: faltam [${missing.join(', ')}] ` +
+      `(esperado todos de [${junctionNode.blockedBy.join(', ')}], recebido [${Object.keys(map).join(', ') || 'vazio'}]). ` +
+      `Pré-flight de fan-in (Invariante AC-IO-28): a junção só é criada quando TODOS os irmãos têm issueId.`,
+    );
+  }
+}
+
 // ─── BUILD CREATE PAYLOAD (AC-IO-04) ─────────────────────────────────────────
 
 /**
@@ -138,6 +207,43 @@ async function createIssue(transport, companyId, payload) {
   return data.id;
 }
 
+// ─── COMPENSATE CREATED ISSUES (best-effort, FIX 3 — mid-sequence partials) ──
+//
+// Pré-flight (validateRosterCompleteness/validateFanInMap/prevIssueId) elimina os
+// parciais da CLASSE de validação: nada é criado se algum role/blocker/mapa é inválido.
+// Mas dentro de um grupo paralelo/fan-in com >1 nó, o primeiro POST pode ter sucesso e
+// um POST seguinte falhar por TRANSPORTE/REDE — deixando irmãos órfãos e a junção sem
+// nascer (a atomicidade verdadeira exigiria transação server-side, que a API REST não
+// oferece). Esta função faz a COMPENSAÇÃO best-effort: tenta apagar os irmãos já criados
+// para que o grupo volte ao estado "nada criado". Se um DELETE também falha (rede ainda
+// instável), os IDs ficam REGISTRADOS para limpeza manual — nunca silenciados.
+//
+// Retorna { deleted: string[], undeletable: string[] } para o chamador decidir o que
+// reportar. NÃO relança: a propagação do erro ORIGINAL é responsabilidade de quem chamou.
+async function compensateCreatedIssues(transport, companyId, createdIssueIds) {
+  const deleted = [];
+  const undeletable = [];
+  for (const issueId of createdIssueIds || []) {
+    try {
+      assertSafeId(issueId); // S1: nunca montar path com id não-validado
+      const { status } = await transport.request({
+        method: 'DELETE',
+        path: `/api/companies/${companyId}/issues/${issueId}`,
+      });
+      // 200/204 = apagado; qualquer outro status conta como não-apagado (registrar).
+      if (status === 200 || status === 204) {
+        deleted.push(issueId);
+      } else {
+        undeletable.push(issueId);
+      }
+    } catch (e) {
+      // Best-effort: a falha de compensação NÃO mascara o erro original. Só registra.
+      undeletable.push(issueId);
+    }
+  }
+  return { deleted, undeletable };
+}
+
 // ─── GROW SPINE (AC-IO-10..11) ───────────────────────────────────────────────
 
 /**
@@ -198,27 +304,56 @@ async function growSpine(
   const parallelNodes = allParallelSteps(complexity, nodeToCreate.step, variant || undefined);
   // parallelNodes sempre inclui o nó atual + quaisquer irmãos paralelos
 
-  const createdIssueIds = [];
-  const createdSteps = [];
-
+  // ── PRÉ-FLIGHT ATÔMICO (raízes #1, #2, #5, #6) ─────────────────────────────
+  // Toda validação acontece ANTES do primeiro POST. Se qualquer checagem falhar,
+  // lançamos sem ter criado nenhuma issue — um fan-in/paralelo ou cria TODOS os nós
+  // ou nenhum (atomicidade do ponto de vista do chamador, sem transação de DB).
+  // Sem esta fase, o nó #1 era criado e o nó #2 falhava deixando issues órfãs e a
+  // junção nunca nascia (raiz #5).
+  const specs = [];
   for (const parallelNode of parallelNodes) {
-    let spec;
-
-    // Verificar se é nó de junção (blockedBy = array no molde) — Invariante FAN
-    // A junção é detectada verificando se blockedBy no molde é um array.
-    // Isso requer olhar o template diretamente ou usar nodeSpecFanIn com mapa.
+    // Detectar junção (blockedBy = array no molde) — Invariante FAN
     const isJunction = Array.isArray(parallelNode.blockedBy);
 
     if (isJunction) {
-      // Fan-in real: usa nodeSpecFanIn com mapa step→issueId
+      // ROOT CAUSE #6: validar completude do stepToIssueIdMap ANTES de nodeSpecFanIn.
+      validateFanInMap(parallelNode, stepToIssueIdMap);
       const fanInMap = stepToIssueIdMap || {};
-      spec = nodeSpecFanIn(complexity, parallelNode.step, fanInMap, variant || undefined);
+      specs.push(nodeSpecFanIn(complexity, parallelNode.step, fanInMap, variant || undefined));
     } else {
-      // Nó linear ou nó paralelo simples: usa nodeSpec com prevIssueId
-      spec = nodeSpec(complexity, parallelNode.step, prevIssueId, variant || undefined);
+      // ROOT CAUSE #1: nó não-raiz exige prevIssueId não-nulo/não-vazio. Um nó linear
+      // com prevIssueId ausente nasceria com blockedByIssueIds=[] → issue DESBLOQUEADA,
+      // capturada prematuramente ou órfã (5/54 runs auditados travaram por isso).
+      // Raiz = root do template (blockedBy === null no molde) → prevIssueId pode ser null.
+      const isRoot = parallelNode.blockedBy === null;
+      if (!isRoot && (prevIssueId === null || prevIssueId === undefined || prevIssueId === '')) {
+        throw new Error(
+          `tree-factory-io/growSpine: prevIssueId inválido ("${prevIssueId}") para o nó não-raiz ` +
+          `"${parallelNode.step}". Invariante AC-IO-26: cadeia linear exige prevIssueId não-nulo ` +
+          `para nós não-raiz, senão a issue nasce sem blocker e é capturada prematuramente.`,
+        );
+      }
+      specs.push(nodeSpec(complexity, parallelNode.step, prevIssueId, variant || undefined));
     }
+  }
 
-    // Resolver o cargo para uuid (lança se cargo ausente — AC-IO-25)
+  // ROOT CAUSE #2: resolver TODOS os roles contra o roster ANTES de qualquer POST.
+  validateRosterCompleteness(specs.map((s) => ({ role: s.assigneeAgentId })), agentsById);
+
+  // ── FASE DE CRIAÇÃO (pós pré-flight) ───────────────────────────────────────
+  // Tudo já foi validado; agora os POSTs em sequência. O pré-flight garantiu
+  // roles + blockers, então a falha de VALIDAÇÃO está descartada. Resta a falha de
+  // TRANSPORTE/REDE no meio da sequência: num grupo com >1 nó (paralelo/fan-in), o
+  // POST #1 pode ter sucesso e o POST #2 falhar — deixando irmãos órfãos. Não há
+  // transação server-side; então fazemos COMPENSAÇÃO best-effort (apagar os irmãos já
+  // criados) antes de propagar o erro. Para um único nó (grupo de 1) não há parcial
+  // possível, então o caminho continua simples.
+  const createdIssueIds = [];
+  const createdSteps = [];
+  const isMultiIssueGroup = specs.length > 1;
+
+  for (let i = 0; i < specs.length; i++) {
+    const spec = specs[i];
     const assigneeUuid = resolveRole(spec.assigneeAgentId, agentsById);
 
     // Montar payload REST (P1 + P2)
@@ -230,9 +365,32 @@ async function growSpine(
     };
 
     // Criar a issue via transport injetado
-    const issueId = await createIssue(transport, companyId, payload);
+    let issueId;
+    try {
+      issueId = await createIssue(transport, companyId, payload);
+    } catch (err) {
+      // Falha MID-sequence num grupo multi-issue → compensar os irmãos já criados.
+      if (isMultiIssueGroup && createdIssueIds.length > 0) {
+        const { deleted, undeletable } =
+          await compensateCreatedIssues(transport, companyId, createdIssueIds);
+        // Enriquecer o erro original com o resultado da compensação (sem mascará-lo).
+        err.partialGroupCompensation = {
+          step: parallelNodes[i].step,
+          createdBeforeFailure: createdIssueIds.slice(),
+          deleted,
+          undeletable, // ← se não-vazio, EXIGE limpeza/escalação manual
+        };
+        err.message +=
+          ` | grupo paralelo/fan-in parcial: ${createdIssueIds.length} irmão(s) criado(s) antes da falha; ` +
+          `compensação best-effort apagou [${deleted.join(', ') || '∅'}]` +
+          (undeletable.length
+            ? `, NÃO apagou [${undeletable.join(', ')}] (registrados para limpeza manual — escalar)`
+            : ' (grupo revertido ao estado vazio)') + '.';
+      }
+      throw err;
+    }
     createdIssueIds.push(issueId);
-    createdSteps.push(parallelNode.step);
+    createdSteps.push(parallelNodes[i].step);
   }
 
   // Descobrir o próximo nó a partir do step recém-criado (tronco linear)
@@ -254,7 +412,10 @@ async function growSpine(
 module.exports = {
   assertSafeId,
   resolveRole,
+  validateRosterCompleteness,
+  validateFanInMap,
   buildCreatePayload,
   createIssue,
+  compensateCreatedIssues,
   growSpine,
 };

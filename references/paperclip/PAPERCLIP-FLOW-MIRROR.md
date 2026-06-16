@@ -106,4 +106,4 @@ O guard tambem existe na camada do CLI: `grow-tree.cjs` so faz POST quando `--co
 
 ## 6. Onde isso se encaixa
 
-A integracao Paperclip foi entregue em camadas: a **camada de integracao** (v7.6.0) permitiu rodar os cargos via adapter; o **provisionador** (v7.8.0, `references/paperclip/scripts/provision-pipeline-company.cjs`) sobe a empresa inteira com os 47 cargos de uma vez; e o **flow-mirror** (v7.9.0, descrito aqui) espelha o pipeline inteiro como arvore de issues que os robos executam. Os tres sao aditivos — a Iron Law (zero mudancas em `agents/`, `skills/`, `references/` originais) e preservada.
+A integracao Paperclip foi entregue em camadas: a **camada de integracao** (v7.6.0) permitiu rodar os cargos via adapter; o **provisionador** (v7.8.0, `references/paperclip/scripts/provision-pipeline-company.cjs`) sobe a empresa inteira com os 50 cargos de uma vez; e o **flow-mirror** (v7.9.0, descrito aqui) espelha o pipeline inteiro como arvore de issues que os robos executam. Os tres sao aditivos — a Iron Law (zero mudancas em `agents/`, `skills/`, `references/` originais) e preservada.

@@ -547,3 +547,97 @@ test('T-CLI-58: grow-tree CLI — stepMapJson inválido (não-JSON) retorna exit
     `stderr deve mencionar "stepMapJson". Recebido: "${output.stderr}"`,
   );
 });
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NOVOS TESTES — ROOT CAUSE #4 (marcador de dry-run) + #8 (guarda de dispatch)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+const { classify } = require('./classify-bridge.cjs');
+const { getTemplate } = require('./tree-template.cjs');
+
+// ─── ROOT CAUSE #4: marcador explícito de dry-run ────────────────────────────
+
+test('T-CLI-59: grow-tree CLI — dry-run inclui dryRun=true e issueId=null', async () => {
+  const transport = makeFakeTransport();
+  const output = await runCli({ args: ['PIP-CO', 'SIMPLES'], transport, confirm: false });
+  assert.strictEqual(output.exitCode, 0);
+  const parsed = parseJson(output.stdout);
+  assert.strictEqual(parsed.dryRun, true, 'dry-run deve marcar dryRun=true explicitamente');
+  assert.strictEqual(parsed.issueId, null, 'dry-run deve ter issueId=null (nada criado)');
+  assert.deepStrictEqual(parsed.issueIds, [], 'dry-run deve ter issueIds=[] (nada criado)');
+  // stderr deve avisar que nada foi criado.
+  assert.ok(/DRY-RUN/.test(output.stderr), 'stderr deve avisar DRY-RUN');
+  // Nenhum POST.
+  assert.strictEqual(transport.calls.filter((c) => c.method === 'POST').length, 0);
+});
+
+test('T-CLI-60: grow-tree CLI — saída confirmada NÃO traz dryRun (ou é false)', async () => {
+  const transport = makeFakeTransport();
+  const output = await runCli({ args: ['PIP-CO', 'SIMPLES'], transport, confirm: true });
+  assert.strictEqual(output.exitCode, 0);
+  const parsed = parseJson(output.stdout);
+  assert.notStrictEqual(parsed.dryRun, true, 'criação confirmada não deve marcar dryRun=true');
+  assert.ok(parsed.issueId, 'criação confirmada deve trazer issueId real');
+});
+
+test('T-CLI-61: grow-tree CLI — operador distingue preview de criação pelo par (dryRun, issueId)', async () => {
+  const transport = makeFakeTransport();
+  const dry = parseJson((await runCli({ args: ['PIP-CO', 'SIMPLES'], transport, confirm: false })).stdout);
+  const real = parseJson((await runCli({ args: ['PIP-CO', 'SIMPLES'], transport, confirm: true })).stdout);
+  // Preview: dryRun=true E issueId=null. Criação: dryRun ausente/false E issueId presente.
+  assert.ok(dry.dryRun === true && dry.issueId === null, 'preview inequívoco');
+  assert.ok(real.dryRun !== true && !!real.issueId, 'criação inequívoca');
+});
+
+// ─── ROOT CAUSE #8: par (type, complexity) sempre roteável ───────────────────
+
+// Mapeia o type canônico do classify para a chave de TEMPLATES, e a complexity para variante.
+function variantForComplexity(complexity) {
+  // SIMPLES → light; MEDIA/COMPLEXA → heavy (mesma regra do dispatcher light/heavy).
+  return complexity === 'SIMPLES' ? 'light' : 'heavy';
+}
+function typeKey(type) {
+  switch (type) {
+    case 'Bug Fix': return 'bugfix';
+    case 'Feature': return 'feature';
+    case 'User Story': return 'user-story';
+    case 'UX Simulation': return 'ux';
+    case 'Audit': return 'audit';
+    case 'Spec': return 'spec';
+    default: throw new Error(`tipo desconhecido: ${type}`);
+  }
+}
+
+test('T-CLI-62: classify — read-only Audit + SIMPLES normaliza para um par com template', () => {
+  // Override read-only SIMPLES: a guarda eleva para MEDIA → variante heavy existe.
+  const r = classify('any text', { type: 'Audit', complexity: 'SIMPLES' });
+  assert.strictEqual(r.type, 'Audit');
+  assert.strictEqual(r.complexity, 'MEDIA', 'read-only SIMPLES deve normalizar para MEDIA');
+  // O par resultante deve ter template real.
+  const tpl = getTemplate(typeKey(r.type), variantForComplexity(r.complexity));
+  assert.ok(Array.isArray(tpl) && tpl.length > 0, 'par normalizado deve ter template roteável');
+});
+
+test('T-CLI-63: classify — Spec + SIMPLES normaliza para Spec + MEDIA (CLASSIFY_NORMALIZATION)', () => {
+  const r = classify('any text', { type: 'Spec', complexity: 'SIMPLES' });
+  assert.strictEqual(r.complexity, 'MEDIA');
+  assert.ok(
+    r.notes.some((n) => /CLASSIFY_NORMALIZATION/.test(n)),
+    'deve emitir nota CLASSIFY_NORMALIZATION para auditoria',
+  );
+});
+
+test('T-CLI-64: classify — todo par (type, complexity) produzido tem template (varredura)', () => {
+  // Para cada tipo e complexidade, o par retornado por classify deve ser roteável.
+  const types = ['Bug Fix', 'Feature', 'User Story', 'Audit', 'UX Simulation', 'Spec'];
+  const complexities = ['SIMPLES', 'MEDIA', 'COMPLEXA'];
+  for (const t of types) {
+    for (const c of complexities) {
+      const r = classify('any text', { type: t, complexity: c });
+      assert.doesNotThrow(
+        () => getTemplate(typeKey(r.type), variantForComplexity(r.complexity)),
+        `par (${t}, ${c}) → (${r.type}, ${r.complexity}) deve ter template`,
+      );
+    }
+  }
+});

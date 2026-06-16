@@ -3,7 +3,7 @@
 
 **Versao:** 1.0 — 2026-05-22
 **Fontes:** docs oficiais (paperclipai-paperclip.mintlify.app), repo (github.com/paperclipai/paperclip), DeepWiki (deepwiki.com/paperclipai/paperclip), paperclipai.info, e validacao empirica via D:\paperclip instance v2026.517.0
-**Escopo:** tudo que precisamos saber pra adaptar os 46 cargos do pipeline-orchestrator ao modelo Paperclip+Codex sem chute
+**Escopo:** tudo que precisamos saber pra adaptar os 50 cargos do pipeline-orchestrator ao modelo Paperclip+Codex sem chute
 
 ---
 
@@ -403,14 +403,14 @@ Cada agente tem `budgetMonthlyCents`. Ao atingir 100%, **auto-pause**. Soft warn
 
 ---
 
-## 13. Skill custom: como criar uma para os 46 cargos
+## 13. Skill custom: como criar uma para os 50 cargos
 
 Quando voce escreve uma skill custom (`SKILL.md` + arquivos auxiliares), pode:
 
 1. Colocar em `~/.paperclip/instances/default/skills/{{slug}}/` (local)
 2. Ou publicar em GitHub e referenciar via `desiredSkills: ["org/repo/skill-name"]`
 
-Para o nosso caso: vamos criar `pipeline-orchestrator-contracts` como skill custom, contendo todos os contratos traduzidos (GATE_REQUEST, DISPATCH_REQUEST, etc. adaptados pro modelo Paperclip). Os 46 cargos vao ter ela em `desiredSkills`.
+Para o nosso caso: vamos criar `pipeline-orchestrator-contracts` como skill custom, contendo todos os contratos traduzidos (GATE_REQUEST, DISPATCH_REQUEST, etc. adaptados pro modelo Paperclip). Os 50 cargos vao ter ela em `desiredSkills`.
 
 ---
 

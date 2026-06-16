@@ -1,7 +1,7 @@
 ---
 name: pipeline-orchestrator-contracts
 description: Contratos de comunicacao adaptados (GATE_REQUEST, DISPATCH_REQUEST, ORCHESTRATOR_DECISION, etc.) do pipeline-orchestrator original para o modelo Paperclip+Codex (assincrono, ticket-based, comment-driven).
-when_to_use: Qualquer cargo do pipeline-orchestrator que precise solicitar decisao do Board, despachar subordinado, emitir veredicto estruturado, ou registrar decisao de orquestracao. Carregada por TODOS os 47 cargos por default.
+when_to_use: Qualquer cargo do pipeline-orchestrator que precise solicitar decisao do Board, despachar subordinado, emitir veredicto estruturado, ou registrar decisao de orquestracao. Carregada por TODOS os 50 cargos por default.
 inputs:
   - issue_id: ID da issue atual (obtido via PAPERCLIP_TASK_ID)
   - cargo: nome do cargo emissor (obtido via PAPERCLIP_AGENT_ID + /api/agents/me)

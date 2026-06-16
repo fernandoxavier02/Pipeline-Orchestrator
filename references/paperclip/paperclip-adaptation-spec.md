@@ -2,14 +2,14 @@
 ## Como traduzir o pipeline-orchestrator original para o modelo Paperclip+Codex
 
 **Versao:** 0.1 — 2026-05-22 (status revisado em 2026-06-02)
-**Status:** piloto ja rodou na VPS (empresa Pipeline Orchestrator, 47 cargos provisionados). O modelo de execucao evoluiu: a aposta inicial era espelhar o pipeline so via **comentarios estruturados** na issue; desde a v7.9.0 a execucao real e uma **arvore de tarefas** — cada passo do pipeline vira um cartao atribuido a um cargo, com travas `blockedByIssueIds` ditando a ordem (ver `PAPERCLIP-FLOW-MIRROR.md`). A tabela de traducao de primitivos abaixo continua valida como contrato de comportamento de cada cargo; o que mudou foi o transporte (arvore de issues, nao so comentarios soltos).
-**Aplica-se a:** todos os 47 cargos da empresa Paperclip "Pipeline Orchestrator"
+**Status:** piloto ja rodou na VPS (empresa Pipeline Orchestrator, 50 cargos provisionados). O modelo de execucao evoluiu: a aposta inicial era espelhar o pipeline so via **comentarios estruturados** na issue; desde a v7.9.0 a execucao real e uma **arvore de tarefas** — cada passo do pipeline vira um cartao atribuido a um cargo, com travas `blockedByIssueIds` ditando a ordem (ver `PAPERCLIP-FLOW-MIRROR.md`). A tabela de traducao de primitivos abaixo continua valida como contrato de comportamento de cada cargo; o que mudou foi o transporte (arvore de issues, nao so comentarios soltos).
+**Aplica-se a:** todos os 50 cargos da empresa Paperclip "Pipeline Orchestrator"
 
 ---
 
 ## 1. Por que essa spec existe
 
-Os 47 agentes originais do pipeline-orchestrator foram desenhados para o **harness do Claude Code**:
+Os 50 agentes originais do pipeline-orchestrator foram desenhados para o **harness do Claude Code**:
 - AskUserQuestion sincrono que bloqueia ate o usuario escolher
 - Subagents disparados via Agent tool dentro do mesmo processo
 - Hooks SessionStart, PreToolUse, PostToolUse, Stop
@@ -23,7 +23,7 @@ O **Paperclip+Codex** opera em um modelo fundamentalmente diferente:
 - Memoria persistente eh arquivo no disco (`~/.paperclip/instances/default/...`)
 - Comunicacao via **comments na issue + status changes + structured replies**
 
-Sem traducao explicita, os 47 cargos vao improvisar comportamentos que parecem certos mas nao respeitam os contratos rigorosos do pipeline original. Esta spec define a traducao.
+Sem traducao explicita, os 50 cargos vao improvisar comportamentos que parecem certos mas nao respeitam os contratos rigorosos do pipeline original. Esta spec define a traducao.
 
 ---
 
@@ -150,8 +150,8 @@ Voce eh nome literal do pipeline-orchestrator original (ex: `information-gate`).
 2. Disparar uma issue real cross-empresa pequena
 3. Validar que os 3 cargos respeitam os contratos
 
-### Fase B — Aplicar nos 43 restantes
-- Delegar ao pipeline-controller via issue PIP-N: "Adaptar instructions de todos os 43 cargos restantes seguindo paperclip-adaptation-spec.md, usando os 3 pilotos como referencia"
+### Fase B — Aplicar nos cargos restantes (os demais 47, de um total de 50 menos os 3 pilotos)
+- Delegar ao pipeline-controller via issue PIP-N: "Adaptar instructions de todos os cargos restantes (os 47 que faltam, dos 50 totais) seguindo paperclip-adaptation-spec.md, usando os 3 pilotos como referencia"
 - Ele tem skill paperclip pra atualizar instructions de cada cargo
 
 ### Fase C — Validacao do organograma completo
@@ -165,7 +165,7 @@ Voce eh nome literal do pipeline-orchestrator original (ex: `information-gate`).
 
 - [ ] Como exatamente carregar o `instructions.md` em cada cargo? (Setting `instructionsFilePath` no adapter via API skill paperclip ou via Configuration tab no painel)
 - [ ] Onde fica fisicamente o instructions.md de cada cargo? Sugestao: `D:\Pipeline Orchestrator Claude\.pipeline\instructions\{{nome}}.md`
-- [ ] Como sincronizar mudancas? (Se editamos o template, todos os 47 cargos precisam ser re-injetados)
+- [ ] Como sincronizar mudancas? (Se editamos o template, todos os 50 cargos precisam ser re-injetados)
 - [ ] O Paperclip permite skill custom (`paperclip-gate-helper`)? Se sim, vale criar uma skill compartilhada que todos os cargos importam — DRY
 - [ ] Como o final-validator vai "fechar" um ticket sem ser o assignee original? Approver vs assignee na fase de closure
 

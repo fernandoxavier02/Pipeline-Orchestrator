@@ -667,6 +667,52 @@ function buildSpecHeavy() {
   ];
 }
 
+// ─── SPEC.AUTHORING (v8.0.0 — NOVA FORMA, distinta de PROCESSING) ────────────
+// IMPORTANTE: spec.light/spec.heavy acima espelham o pipeline de spec-PROCESSING
+// (validar/revisar uma spec JÁ EXISTENTE: spec-format-gate → spec-content-reviewer →
+// spec-post-impl-validator). A variante spec.authoring abaixo é a forma NOVA do v8.0.0:
+// CRIA uma spec do zero e PARA no selo de contrato (sem implementação). NÃO confundir
+// as duas — entry-points distintos (/pipeline-orchestrator:spec → authoring;
+// /spec-light|-heavy|-audit-only e /pipeline --type=Spec → processing).
+//
+// Sequência canônica (paperclip-catalog.md §spec-controller, v8.0.0):
+//   classificar → clarificar → brainstorm (clarificação) → ideation (step-01c, proativo)
+//   → design-interrogar (FORÇADO) → spec-authoring (controller orquestra o ciclo Kiro:
+//   spec-init → spec-requirements → validate-gap → spec-design → validate-design → spec-tasks)
+//   → spec-adversarial-critic (read-only, 13 eixos sobre os DOCUMENTOS) → revisão (loop limitado)
+//   → selar (PA_DE_CAL = selo de contrato, spec.json phase=sealed) → spec-closer (closeout)
+//
+// Notas de bloco: os nós novos (ideation/critic/authoring) declaram blocks:[] porque
+// seus blocos reais (IDEATION_PROPOSED, SPEC_REVIEW_FINDINGS, SPEC_SEALED) são
+// eventos de telemetria AUDIT/SOFT do v8, NÃO portões medidos no dicionário de fidelidade
+// (mesma política de design-interrogator/brainstorm, que também declaram blocks:[]).
+// O selo reutiliza PA_DE_CAL (já mapeado a FINAL_ADVERSARIAL_GATE) como portão estrutural
+// do contrato, e o closeout reutiliza SLICE_CLOSEOUT — sem inventar blocos novos no dicionário.
+function buildSpecAuthoring() {
+  return [
+    { step: 'classificar', role: 'task-orchestrator', blocks: [B_ORCHESTRATOR], blockedBy: null, next: 'clarificar' },
+    { step: 'clarificar', role: 'information-gate', blocks: [B_CLARIFICATION], blockedBy: 'classificar', next: 'sentinel-1' },
+    nodeSentinel('sentinel-1', 'clarificar', 'brainstorm'),
+    // clarificação proativa do brainstorm antes da ideação
+    { step: 'brainstorm', role: 'brainstorm-controller', blocks: [], blockedBy: 'sentinel-1', next: 'ideation' },
+    // NOVO v8: step-01c-ideation propõe 2-3 conceitos de design antes do ciclo Kiro
+    { step: 'ideation', role: 'brainstorm-step-01c-ideation', blocks: [], blockedBy: 'brainstorm', next: 'design-interrogar' },
+    // design-interrogator FORÇADO no fluxo de authoring (sempre presente)
+    nodeDesignInterrogator('ideation', 'sentinel-2'),
+    nodeSentinel('sentinel-2', 'design-interrogar', 'spec-authoring'),
+    // spec-controller orquestra o ciclo Kiro (init→requirements→validate-gap→design→validate-design→tasks)
+    { step: 'spec-authoring', role: 'spec-controller', blocks: [], blockedBy: 'sentinel-2', next: 'sentinel-3' },
+    nodeSentinel('sentinel-3', 'spec-authoring', 'spec-critic'),
+    // NOVO v8: spec-adversarial-critic — read-only, 13 eixos sobre os DOCUMENTOS da spec
+    { step: 'spec-critic', role: 'spec-adversarial-critic', blocks: [], blockedBy: 'sentinel-3', next: 'sentinel-4' },
+    nodeSentinel('sentinel-4', 'spec-critic', 'selar'),
+    // SELO DE CONTRATO: final-validator emite PA_DE_CAL (selo). O fluxo PARA aqui (sem impl).
+    { step: 'selar', role: 'final-validator', blocks: [B_PA_DE_CAL], blockedBy: 'sentinel-4', next: 'spec-closer' },
+    // closeout: spec.json phase=sealed + reports
+    { step: 'spec-closer', role: 'finishing-branch', blocks: [B_SLICE_CLOSEOUT], blockedBy: 'selar', next: null },
+  ];
+}
+
 // ─── HOTFIX (12 nós exatos) ──────────────────────────────────────────────────
 // Modo especial: classificação forçada, sem planejar (plan-architect ausente).
 // Fluxo: HF-N0..HF-N11 = 12 nós exatos.
@@ -757,8 +803,11 @@ const TEMPLATES = {
     heavy: buildUxHeavy(),
   },
   spec: {
+    // PROCESSING (legado): validar/revisar uma spec já existente
     light: buildSpecLight(),
     heavy: buildSpecHeavy(),
+    // AUTHORING (v8.0.0): criar uma spec do zero, parando no selo de contrato
+    authoring: buildSpecAuthoring(),
   },
   hotfix: HOTFIX,
   'review-only': REVIEW_ONLY,
@@ -775,6 +824,121 @@ const TEMPLATES = {
 TEMPLATES.SIMPLES = SIMPLES_ORIGINAL;
 TEMPLATES.MEDIA = MEDIA_ORIGINAL;
 TEMPLATES.COMPLEXA = COMPLEXA_ORIGINAL;
+
+// ─── ROOT CAUSE #7: AUDITORIA DE INTEGRIDADE DO MOLDE ────────────────────────
+// Um molde pode declarar um grupo paralelo (nó com `parallel: [...]`) sem um nó de
+// junção downstream cujo `blockedBy` liste TODOS esses irmãos — nesse caso o fan-in
+// dead-ends (expandSlices/growSpine nunca cria a junção e a cadeia morre em silêncio).
+// validateTemplateMoldeIntegrity caminha um molde e valida o ciclo completo:
+//   (a) todo step referenciado em qualquer blockedBy (escalar ou array) e em next existe;
+//   (b) todo nó com `parallel: [...]` tem uma junção cujo blockedBy[] inclui o nó E
+//       todos os seus irmãos paralelos (cardinalidade completa do fan-in);
+//   (c) simetria de `parallel`: se A.parallel inclui B, então B.parallel inclui A;
+//   (d) todo nó de junção (blockedBy array) referencia apenas steps existentes e ≥2 deles.
+// É puro e determinístico — roda em tempo de carga de teste sobre todos os moldes.
+//
+// @param {Array} molde Array de nós do template
+// @param {string} label Rótulo para mensagens de erro (ex: 'feature.heavy')
+// @throws {Error} na PRIMEIRA inconsistência encontrada (mensagem acionável)
+function validateTemplateMoldeIntegrity(molde, label) {
+  const lbl = label || '(sem rótulo)';
+  if (!Array.isArray(molde) || molde.length === 0) {
+    throw new Error(`validateTemplateMoldeIntegrity[${lbl}]: molde vazio ou não é array`);
+  }
+
+  const byStep = new Map();
+  for (const node of molde) {
+    if (byStep.has(node.step)) {
+      throw new Error(`validateTemplateMoldeIntegrity[${lbl}]: step duplicado "${node.step}"`);
+    }
+    byStep.set(node.step, node);
+  }
+  const exists = (step) => byStep.has(step);
+
+  for (const node of molde) {
+    // (a) next aponta para step existente (ou null = terminal)
+    if (node.next !== null && node.next !== undefined && !exists(node.next)) {
+      throw new Error(
+        `validateTemplateMoldeIntegrity[${lbl}]: nó "${node.step}" tem next="${node.next}" inexistente no molde`,
+      );
+    }
+
+    // (a/d) blockedBy referencia steps existentes
+    if (Array.isArray(node.blockedBy)) {
+      if (node.blockedBy.length < 2) {
+        throw new Error(
+          `validateTemplateMoldeIntegrity[${lbl}]: junção "${node.step}" tem blockedBy com < 2 ` +
+          `elementos [${node.blockedBy.join(', ')}] — fan-in exige ≥2 irmãos`,
+        );
+      }
+      for (const dep of node.blockedBy) {
+        if (!exists(dep)) {
+          throw new Error(
+            `validateTemplateMoldeIntegrity[${lbl}]: junção "${node.step}" referencia step ` +
+            `inexistente "${dep}" em blockedBy`,
+          );
+        }
+      }
+    } else if (node.blockedBy !== null && node.blockedBy !== undefined) {
+      if (!exists(node.blockedBy)) {
+        throw new Error(
+          `validateTemplateMoldeIntegrity[${lbl}]: nó "${node.step}" tem blockedBy="${node.blockedBy}" ` +
+          `inexistente no molde`,
+        );
+      }
+    }
+
+    // (b/c) grupo paralelo → junção completa + simetria
+    if (Array.isArray(node.parallel) && node.parallel.length > 0) {
+      // (c) simetria: cada irmão deve existir e listar este nó de volta
+      for (const sib of node.parallel) {
+        const sibNode = byStep.get(sib);
+        if (!sibNode) {
+          throw new Error(
+            `validateTemplateMoldeIntegrity[${lbl}]: nó "${node.step}" declara irmão paralelo ` +
+            `inexistente "${sib}"`,
+          );
+        }
+        if (!Array.isArray(sibNode.parallel) || !sibNode.parallel.includes(node.step)) {
+          throw new Error(
+            `validateTemplateMoldeIntegrity[${lbl}]: assimetria de paralelo — "${node.step}" lista ` +
+            `"${sib}", mas "${sib}" não lista "${node.step}" de volta`,
+          );
+        }
+      }
+
+      // (b) junção: deve existir um nó cujo blockedBy[] inclua este nó + todos os irmãos
+      const fullGroup = [node.step, ...node.parallel];
+      const junction = molde.find(
+        (n) => Array.isArray(n.blockedBy) && fullGroup.every((s) => n.blockedBy.includes(s)),
+      );
+      if (!junction) {
+        throw new Error(
+          `validateTemplateMoldeIntegrity[${lbl}]: grupo paralelo [${fullGroup.join(', ')}] ` +
+          `(a partir de "${node.step}") não tem junção downstream cujo blockedBy liste TODOS os ` +
+          `irmãos — fan-in dead-end`,
+        );
+      }
+    }
+  }
+}
+
+// validateAllTemplates() — roda a auditoria de integridade sobre TODOS os moldes do
+// objeto TEMPLATES (incluindo a variante authoring e os modos especiais). Pura.
+// Os aliases backward-compat (SIMPLES/MEDIA/COMPLEXA) também são auditados.
+function validateAllTemplates() {
+  for (const [typeKey, val] of Object.entries(TEMPLATES)) {
+    if (Array.isArray(val)) {
+      validateTemplateMoldeIntegrity(val, typeKey);
+    } else if (val && typeof val === 'object') {
+      for (const [varKey, nodes] of Object.entries(val)) {
+        if (Array.isArray(nodes)) {
+          validateTemplateMoldeIntegrity(nodes, `${typeKey}.${varKey}`);
+        }
+      }
+    }
+  }
+}
 
 // ─── ALIAS getTemplate ───────────────────────────────────────────────────────
 // Aceita tipo com espaço/capitalização e devolve o FlowTemplate correto (AC-15).
@@ -797,4 +961,17 @@ function getTemplate(type, variant) {
   return template;
 }
 
-module.exports = { TEMPLATES, getTemplate };
+// ─── AUDITORIA DE INTEGRIDADE EM TEMPO DE CARGA (ROOT CAUSE #7) ──────────────
+// Roda a validação sobre TODOS os moldes assim que o módulo é importado. Se algum
+// molde tiver um grupo paralelo sem junção, um blockedBy órfão, assimetria de paralelo,
+// ou step duplicado, o require() falha imediatamente — antes de qualquer execução de
+// cadeia no Paperclip. Defesa em profundidade: o teste dedicado também chama a função,
+// mas o gate de carga garante que nenhum consumidor receba um molde corrompido.
+validateAllTemplates();
+
+module.exports = {
+  TEMPLATES,
+  getTemplate,
+  validateTemplateMoldeIntegrity,
+  validateAllTemplates,
+};

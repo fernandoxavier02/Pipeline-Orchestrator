@@ -1,8 +1,8 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { nextStep, nodeSpec, nodeSpecFanIn, allParallelSteps, templateFor, expandSlices, LOOP_INTERNAL_INSTRUCTION } = require('./tree-factory.cjs');
-const { TEMPLATES } = require('./tree-template.cjs');
+const { nextStep, nodeSpec, nodeSpecFanIn, allParallelSteps, templateFor, expandSlices, LOOP_INTERNAL_INSTRUCTION, buildBodyValidation, BLOCK_HEADER_PATTERN } = require('./tree-factory.cjs');
+const { TEMPLATES, getTemplate, validateTemplateMoldeIntegrity } = require('./tree-template.cjs');
 
 // GEN2 — nextStep(complexity, currentStep): decide o próximo nó (lê `next` do nó atual).
 // currentStep === null retorna a raiz; fim retorna null.
@@ -904,4 +904,237 @@ test('T-REGR-03 — todos os moldes G1 percorrem o tronco inteiro sem erro via n
     }
     assert.ok(count > 0, `${type}.${variant || 'especial'}: tronco deve ter ao menos 1 nó`);
   }
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NOVOS TESTES — ROOT CAUSE #3 (formato de cabeçalho de bloco) + #7 (integridade de molde)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── ROOT CAUSE #3: buildBody emite e buildBodyValidation valida "### NOME v1" ──
+
+test('T-D7-01: buildBodyValidation — body de nodeSpec contém "### NOME v1" para cada bloco', () => {
+  // 'implementar' emite TDD_GREEN + REGRESSION_RESULT.
+  const spec = nodeSpec('SIMPLES', 'implementar', 'PREV');
+  const res = buildBodyValidation(spec.body, ['TDD_GREEN', 'REGRESSION_RESULT']);
+  assert.strictEqual(res.valid, true, `body deve validar; motivo: ${res.reason}`);
+  assert.deepStrictEqual(res.missing, []);
+  // Cabeçalho literal presente no body (formato que o parser de fidelidade reconhece).
+  assert.match(spec.body, /^###\s+TDD_GREEN\s+v1/m, 'body deve ter "### TDD_GREEN v1"');
+  assert.match(spec.body, /^###\s+REGRESSION_RESULT\s+v1/m, 'body deve ter "### REGRESSION_RESULT v1"');
+});
+
+test('T-D7-02: buildBodyValidation — rejeita cabeçalho malformado ("##" ou sem v1)', () => {
+  // Body com "## NOME" (dois hashes) e "### OUTRO" (sem v1) — ambos inválidos.
+  const badBody = '## TDD_GREEN\nalgum texto\n### REGRESSION_RESULT\nfim';
+  const res = buildBodyValidation(badBody, ['TDD_GREEN', 'REGRESSION_RESULT']);
+  assert.strictEqual(res.valid, false, 'cabeçalho malformado não deve validar');
+  assert.ok(res.missing.includes('TDD_GREEN'), 'TDD_GREEN deve constar como faltante');
+  assert.ok(res.missing.includes('REGRESSION_RESULT'), 'REGRESSION_RESULT (sem v1) deve faltar');
+});
+
+test('T-D7-02b: buildBodyValidation — body sem nenhum cabeçalho válido marca todos os blocos faltantes', () => {
+  const res = buildBodyValidation('- TDD_GREEN\n- REGRESSION_RESULT', ['TDD_GREEN', 'REGRESSION_RESULT']);
+  assert.strictEqual(res.valid, false);
+  assert.deepStrictEqual(res.missing.sort(), ['REGRESSION_RESULT', 'TDD_GREEN']);
+  assert.match(res.reason, /nenhum cabeçalho/);
+});
+
+test('T-D7-07: nodeSpec — body de TODO step com blocos passa buildBodyValidation (todos os moldes)', () => {
+  const moldes = [
+    ['feature', 'light'], ['feature', 'heavy'],
+    ['bugfix', 'light'], ['bugfix', 'heavy'],
+    ['user-story', 'light'], ['user-story', 'heavy'],
+    ['audit', 'light'], ['audit', 'heavy'],
+    ['ux', 'light'], ['ux', 'heavy'],
+    ['spec', 'light'], ['spec', 'heavy'], ['spec', 'authoring'],
+    ['hotfix', null], ['review-only', null],
+  ];
+  for (const [type, variant] of moldes) {
+    const nodes = getTemplate(type, variant || undefined);
+    for (const node of nodes) {
+      if (!node.blocks || node.blocks.length === 0) continue;
+      // Junções (blockedBy array) usam nodeSpecFanIn; demais usam nodeSpec.
+      let spec;
+      if (Array.isArray(node.blockedBy)) {
+        const fakeMap = {};
+        for (const dep of node.blockedBy) fakeMap[dep] = `ID-${dep}`;
+        spec = nodeSpecFanIn(type, node.step, fakeMap, variant || undefined);
+      } else {
+        spec = nodeSpec(type, node.step, 'PREV', variant || undefined);
+      }
+      const res = buildBodyValidation(spec.body, node.blocks);
+      assert.strictEqual(
+        res.valid, true,
+        `${type}.${variant || 'especial'}/${node.step}: body deve validar; motivo: ${res.reason}`,
+      );
+    }
+  }
+});
+
+test('T-D7-08: edge case — nó com 0 blocos ainda emite NEXT_STEP e passa buildBodyValidation', () => {
+  // 'aprovar' (COMPLEXA) tem blocks:[] — não deve ser reprovado por buildBodyValidation.
+  const spec = nodeSpec('COMPLEXA', 'aprovar', 'PREV');
+  const res = buildBodyValidation(spec.body, []);
+  assert.strictEqual(res.valid, true, 'nó sem blocos deve sempre validar');
+  assert.match(spec.body, /NEXT_STEP:\s*implementar/, 'NEXT_STEP deve estar presente mesmo sem blocos');
+});
+
+test('T-D7-09: o regex do parser de fidelidade casa com TODO cabeçalho "### NOME v1" que buildBody emite', () => {
+  // Cross-check produtor↔leitor REAL (não auto-comparação): para cada nó de cada molde
+  // de produção, monta o body via nodeSpec/nodeSpecFanIn (que chamam buildBody) e extrai
+  // TODA linha de cabeçalho "### NOME v1" emitida. O regex BLOCK_HEADER do parser de
+  // fidelidade DEVE reconhecer cada uma — senão o handoff perde o bloco (MISSING_BLOCK).
+  //
+  // ASSIMETRIA INTENCIONAL (documentada), em DUAS dimensões:
+  //   (a) ESCOPO DE VARREDURA: o produtor varre o body INTEIRO — BLOCK_HEADER_PATTERN tem a flag
+  //       `m` (multiline) porque um nó pode listar vários cabeçalhos no corpo. O parser varre só a
+  //       PRIMEIRA linha não-vazia do comentário (openingBlock) → seu BLOCK_HEADER NÃO tem `m`:
+  //       os blocos reais ABREM o comentário (R-CRIT-2), e um cabeçalho citado no meio da prosa
+  //       é falso positivo.
+  //   (b) CAPTURA: o parser PRECISA extrair o NOME do bloco, então usa um grupo de captura
+  //       `([A-Z0-9_]+)`; o produtor só valida a forma, então usa `[A-Z0-9_]+` sem captura.
+  // Fora isso o NÚCLEO é idêntico: `^###\s+[A-Z0-9_]+\s+v\d+`. Normalizando o grupo de captura,
+  // os dois sources coincidem — provando que não há drift de forma, só a captura esperada.
+  const { BLOCK_HEADER } = require('./mirror-fidelity-parser.cjs');
+
+  const normalize = (src) => src.replace('([A-Z0-9_]+)', '[A-Z0-9_]+');
+  assert.strictEqual(
+    normalize(BLOCK_HEADER.source), BLOCK_HEADER_PATTERN.source,
+    'núcleo do regex deve coincidir entre produtor e parser (única diferença: o grupo de captura do nome)',
+  );
+  assert.ok(BLOCK_HEADER_PATTERN.flags.includes('m'), 'produtor varre o body inteiro → flag m');
+  assert.ok(!BLOCK_HEADER.flags.includes('m'), 'parser varre só a linha de abertura → sem flag m');
+
+  // 2) Coletar TODO cabeçalho que buildBody realmente emite em produção.
+  const moldes = [
+    ['feature', 'light'], ['feature', 'heavy'],
+    ['bugfix', 'light'], ['bugfix', 'heavy'],
+    ['user-story', 'light'], ['user-story', 'heavy'],
+    ['audit', 'light'], ['audit', 'heavy'],
+    ['ux', 'light'], ['ux', 'heavy'],
+    ['spec', 'light'], ['spec', 'heavy'], ['spec', 'authoring'],
+    ['hotfix', null], ['review-only', null],
+  ];
+  const emittedHeaders = [];
+  for (const [type, variant] of moldes) {
+    const nodes = getTemplate(type, variant || undefined);
+    for (const node of nodes) {
+      let spec;
+      if (Array.isArray(node.blockedBy)) {
+        const fakeMap = {};
+        for (const dep of node.blockedBy) fakeMap[dep] = `ID-${dep}`;
+        spec = nodeSpecFanIn(type, node.step, fakeMap, variant || undefined);
+      } else {
+        spec = nodeSpec(type, node.step, 'PREV', variant || undefined);
+      }
+      for (const line of spec.body.split('\n')) {
+        if (/^###\s/.test(line.trim())) emittedHeaders.push(line.trim());
+      }
+    }
+  }
+
+  // Sanidade: a varredura realmente encontrou cabeçalhos (senão o teste seria vacuoso de novo).
+  assert.ok(emittedHeaders.length > 0, 'buildBody deve emitir ao menos um cabeçalho "### NOME v1"');
+
+  // 3) O regex do parser deve casar com CADA cabeçalho que o produtor emite.
+  for (const header of emittedHeaders) {
+    assert.ok(
+      BLOCK_HEADER.test(header),
+      `parser DEVE reconhecer o cabeçalho emitido pelo produtor: ${JSON.stringify(header)}`,
+    );
+    // E deve extrair o NOME do bloco (grupo de captura) — não só casar.
+    const m = BLOCK_HEADER.exec(header);
+    assert.ok(m && m[1] && /^[A-Z0-9_]+$/.test(m[1]), `nome do bloco extraível de ${JSON.stringify(header)}`);
+  }
+});
+
+// ─── ROOT CAUSE #7: validateTemplateMoldeIntegrity ───────────────────────────
+
+test('T-D7-03: validateTemplateMoldeIntegrity — passa para todos os moldes de produção', () => {
+  const moldes = [
+    ['feature', 'light'], ['feature', 'heavy'],
+    ['bugfix', 'light'], ['bugfix', 'heavy'],
+    ['user-story', 'light'], ['user-story', 'heavy'],
+    ['audit', 'light'], ['audit', 'heavy'],
+    ['ux', 'light'], ['ux', 'heavy'],
+    ['spec', 'light'], ['spec', 'heavy'], ['spec', 'authoring'],
+    ['hotfix', null], ['review-only', null],
+  ];
+  for (const [type, variant] of moldes) {
+    const nodes = getTemplate(type, variant || undefined);
+    const label = variant ? `${type}.${variant}` : type;
+    assert.doesNotThrow(
+      () => validateTemplateMoldeIntegrity(nodes, label),
+      `${label} deve passar na auditoria de integridade`,
+    );
+  }
+});
+
+test('T-D7-04: validateTemplateMoldeIntegrity — lança quando paralelo declarado sem junção', () => {
+  // Grupo paralelo A‖B mas nenhuma junção cujo blockedBy liste ambos → dead-end.
+  const molde = [
+    { step: 'raiz', role: 'task-orchestrator', blocks: [], blockedBy: null, next: 'A' },
+    { step: 'A', role: 'sentinel', blocks: [], blockedBy: 'raiz', next: 'fim', parallel: ['B'] },
+    { step: 'B', role: 'sentinel', blocks: [], blockedBy: 'raiz', next: 'fim', parallel: ['A'] },
+    { step: 'fim', role: 'sentinel', blocks: [], blockedBy: 'A', next: null }, // blockedBy escalar, não lista B
+  ];
+  assert.throws(
+    () => validateTemplateMoldeIntegrity(molde, 'fake.deadend'),
+    (err) => err instanceof Error && /junção downstream|dead-end/.test(err.message),
+  );
+});
+
+test('T-D7-05: validateTemplateMoldeIntegrity — lança quando junção referencia step inexistente', () => {
+  const molde = [
+    { step: 'raiz', role: 'task-orchestrator', blocks: [], blockedBy: null, next: 'A' },
+    { step: 'A', role: 'sentinel', blocks: [], blockedBy: 'raiz', next: 'juncao', parallel: ['B'] },
+    { step: 'B', role: 'sentinel', blocks: [], blockedBy: 'raiz', next: 'juncao', parallel: ['A'] },
+    // junção referencia 'C' que não existe
+    { step: 'juncao', role: 'sentinel', blocks: [], blockedBy: ['A', 'B', 'C'], next: null },
+  ];
+  assert.throws(
+    () => validateTemplateMoldeIntegrity(molde, 'fake.badref'),
+    (err) => err instanceof Error && /inexistente/.test(err.message) && /C/.test(err.message),
+  );
+});
+
+test('T-D7-06: validateTemplateMoldeIntegrity — junção deve listar TODOS os irmãos paralelos (cardinalidade)', () => {
+  // Trio A‖B‖C mas a junção só lista A e B → cardinalidade incompleta → sem junção válida.
+  const molde = [
+    { step: 'raiz', role: 'task-orchestrator', blocks: [], blockedBy: null, next: 'A' },
+    { step: 'A', role: 'sentinel', blocks: [], blockedBy: 'raiz', next: 'juncao', parallel: ['B', 'C'] },
+    { step: 'B', role: 'sentinel', blocks: [], blockedBy: 'raiz', next: 'juncao', parallel: ['A', 'C'] },
+    { step: 'C', role: 'sentinel', blocks: [], blockedBy: 'raiz', next: 'juncao', parallel: ['A', 'B'] },
+    { step: 'juncao', role: 'sentinel', blocks: [], blockedBy: ['A', 'B'], next: null }, // falta C
+  ];
+  assert.throws(
+    () => validateTemplateMoldeIntegrity(molde, 'fake.partialfanin'),
+    (err) => err instanceof Error && /junção downstream/.test(err.message),
+  );
+});
+
+test('T-D7-06b: validateTemplateMoldeIntegrity — assimetria de paralelo lança', () => {
+  // A lista B, mas B não lista A de volta.
+  const molde = [
+    { step: 'raiz', role: 'task-orchestrator', blocks: [], blockedBy: null, next: 'A' },
+    { step: 'A', role: 'sentinel', blocks: [], blockedBy: 'raiz', next: 'juncao', parallel: ['B'] },
+    { step: 'B', role: 'sentinel', blocks: [], blockedBy: 'raiz', next: 'juncao' }, // sem parallel
+    { step: 'juncao', role: 'sentinel', blocks: [], blockedBy: ['A', 'B'], next: null },
+  ];
+  assert.throws(
+    () => validateTemplateMoldeIntegrity(molde, 'fake.asym'),
+    (err) => err instanceof Error && /assimetria/.test(err.message),
+  );
+});
+
+test('T-D7-06c: validateTemplateMoldeIntegrity — step duplicado lança', () => {
+  const molde = [
+    { step: 'raiz', role: 'task-orchestrator', blocks: [], blockedBy: null, next: 'dup' },
+    { step: 'dup', role: 'sentinel', blocks: [], blockedBy: 'raiz', next: null },
+    { step: 'dup', role: 'sentinel', blocks: [], blockedBy: 'raiz', next: null },
+  ];
+  assert.throws(
+    () => validateTemplateMoldeIntegrity(molde, 'fake.dup'),
+    (err) => err instanceof Error && /duplicado/.test(err.message),
+  );
 });

@@ -6,7 +6,7 @@
 // ============================================================
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { classify, VALID_TYPES, VALID_COMPLEXITIES } = require('./classify-bridge.cjs');
+const { classify, VALID_TYPES, VALID_COMPLEXITIES, validateTypeComplexityPair, READ_ONLY_TYPES } = require('./classify-bridge.cjs');
 
 // ─── CONSTANTES ESPERADAS ────────────────────────────────────
 const EXPECTED_TYPES = ['Bug Fix', 'Feature', 'User Story', 'Audit', 'UX Simulation', 'Spec'];
@@ -390,4 +390,59 @@ test('T47 — phrase boundary: frases canonicas legitimas continuam funcionando 
     '"as a user" no inicio deve continuar sendo User Story');
   assert.ok(classify('change the data model for users', {}).complexity !== 'SIMPLES',
     '"data model" autonomo deve continuar elevando complexidade');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NOVOS TESTES — ROOT CAUSE #8: guarda de par (type, complexity) roteável
+// ═══════════════════════════════════════════════════════════════════════════════
+
+test('T-CB-40 — classify Audit sem override de complexity retorna complexity com template (nunca SIMPLES read-only sem molde)', () => {
+  // Sem sinais de elevação, a heurística produziria SIMPLES; a guarda normaliza para MEDIA.
+  const r = classify('audit the payment module', { type: 'Audit' });
+  assert.strictEqual(r.type, 'Audit');
+  assert.notStrictEqual(r.complexity, 'SIMPLES',
+    'Audit (read-only) nunca deve sair SIMPLES — sem template para esse par');
+  assert.ok(EXPECTED_COMPLEXITIES.includes(r.complexity), 'complexity deve ser canônica');
+});
+
+test('T-CB-41 — validateTypeComplexityPair normaliza read-only SIMPLES → MEDIA para todos os tipos read-only', () => {
+  for (const t of READ_ONLY_TYPES) {
+    const out = validateTypeComplexityPair(t, 'SIMPLES');
+    assert.strictEqual(out.complexity, 'MEDIA', `${t} + SIMPLES deve normalizar para MEDIA`);
+    assert.strictEqual(out.normalized, true, `${t} deve marcar normalized=true`);
+    assert.ok(out.notes.length > 0, `${t} deve registrar nota de normalização`);
+  }
+});
+
+test('T-CB-42 — validateTypeComplexityPair NÃO altera tipos de código nem complexidades já roteáveis', () => {
+  // Tipos de código (não read-only) com SIMPLES permanecem SIMPLES.
+  const codeTypes = ['Bug Fix', 'Feature', 'User Story'];
+  for (const t of codeTypes) {
+    const out = validateTypeComplexityPair(t, 'SIMPLES');
+    assert.strictEqual(out.complexity, 'SIMPLES', `${t} + SIMPLES não deve mudar`);
+    assert.strictEqual(out.normalized, false);
+  }
+  // Read-only com MEDIA/COMPLEXA já é roteável — sem normalização.
+  for (const t of READ_ONLY_TYPES) {
+    for (const c of ['MEDIA', 'COMPLEXA']) {
+      const out = validateTypeComplexityPair(t, c);
+      assert.strictEqual(out.complexity, c, `${t} + ${c} não deve mudar`);
+      assert.strictEqual(out.normalized, false);
+    }
+  }
+});
+
+test('T-CB-43 — toda saída de classify() é um par válido (type ∈ VALID_TYPES, complexity ∈ VALID_COMPLEXITIES)', () => {
+  // Varredura: todos os tipos × todas as complexidades via override → par sempre válido.
+  for (const t of VALID_TYPES) {
+    for (const c of VALID_COMPLEXITIES) {
+      const r = classify('any text', { type: t, complexity: c });
+      assert.ok(VALID_TYPES.includes(r.type), `type inválido para (${t}, ${c})`);
+      assert.ok(VALID_COMPLEXITIES.includes(r.complexity), `complexity inválida para (${t}, ${c})`);
+      // Read-only nunca termina SIMPLES.
+      if (READ_ONLY_TYPES.includes(t)) {
+        assert.notStrictEqual(r.complexity, 'SIMPLES', `${t} read-only nunca SIMPLES`);
+      }
+    }
+  }
 });

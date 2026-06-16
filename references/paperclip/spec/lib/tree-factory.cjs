@@ -88,11 +88,30 @@ function allParallelSteps(complexity, currentStep, variant) {
   return [current, ...siblings];
 }
 
+// ─── ROOT CAUSE #3: contrato de cabeçalho de bloco exato ─────────────────────
+// O parser de fidelidade (mirror-fidelity-parser.cjs) só reconhece o bloco quando o
+// agente posta o cabeçalho EXATO "### NOME_DO_BLOCO v1" como PRIMEIRA linha não-vazia
+// do comentário. Qualquer variação ("##NOME", "### NOME" sem "v1", "- NOME") faz o
+// parser perder o bloco → MISSING_BLOCK → Pá de Cal trava o closeout (raiz #3).
+//
+// BLOCK_HEADER_PATTERN espelha exatamente o regex do parser para que produtor e leitor
+// nunca driftem. buildBody passa a INSTRUIR o agente com o formato exato (template
+// literal "### NOME v1") em vez do antigo "- NOME" ambíguo, e buildBodyValidation
+// confirma que o body gerado satisfaz o contrato (smoke-check determinístico).
+const BLOCK_HEADER_PATTERN = /^###\s+[A-Z0-9_]+\s+v\d+/m;
+
+// Constrói a linha de cabeçalho canônica de um bloco (mesma forma que o agente deve postar).
+function blockHeaderLine(block) {
+  return `### ${block} v1`;
+}
+
 // Monta o corpo da issue: instrui o cargo a emitir o(s) bloco(s) do nó ao concluir e
 // declara o próximo passo (NEXT_STEP) — base da montagem progressiva.
 // D4: se o nó tem role executor-fix, injeta a instrução de iteração interna ANTES do
 // marcador NEXT_STEP — o agente lê a instrução antes de agir. O corpo segue sendo os
 // mesmos 4 campos canônicos; a diferença está exclusivamente no texto do body.
+// ROOT CAUSE #3: a instrução agora exige o cabeçalho EXATO "### NOME v1" e mostra o
+// formato literal para cada bloco, fechando o gap de handoff por header malformado.
 function buildBody(node) {
   const lines = [];
   lines.push(`Etapa do pipeline: ${node.step} (cargo: ${node.role}).`);
@@ -103,9 +122,12 @@ function buildBody(node) {
   }
   if (node.blocks.length > 0) {
     lines.push('');
-    lines.push('Ao concluir, emita o(s) bloco(s) abaixo para a régua de fidelidade ler:');
+    lines.push('Ao concluir, emita o(s) bloco(s) abaixo. FORMATO OBRIGATORIO: o cabecalho do bloco');
+    lines.push('deve ser EXATAMENTE "### NOME_DO_BLOCO v1" (tres hashes, espaco, NOME, espaco, v1)');
+    lines.push('como PRIMEIRA linha nao-vazia do comentario — a regua de fidelidade so reconhece esse');
+    lines.push('formato; qualquer variacao perde o bloco e trava o fechamento (Pa de Cal). Exemplo(s):');
     for (const block of node.blocks) {
-      lines.push(`- ${block}`);
+      lines.push(blockHeaderLine(block));
     }
   } else {
     lines.push('');
@@ -117,6 +139,38 @@ function buildBody(node) {
     lines.push(`PARALLEL_SIBLINGS: ${node.parallel.join(', ')}`);
   }
   return lines.join('\n');
+}
+
+// buildBodyValidation(body, blocks) — smoke-check do contrato de cabeçalho (raiz #3).
+//   - Se blocks.length > 0: confirma que o body contém AO MENOS um cabeçalho bem-formado
+//     e que CADA bloco declarado aparece num cabeçalho "### NOME v1".
+//   - Se blocks.length === 0: nada a validar (nó sem bloco de fidelidade).
+// Retorna { valid: boolean, missing: string[], reason?: string } — puro, sem efeitos.
+// Usado pelos testes e por nodeSpec/nodeSpecFanIn como asserção defensiva opcional.
+function buildBodyValidation(body, blocks) {
+  const text = body || '';
+  const declared = Array.isArray(blocks) ? blocks : [];
+  if (declared.length === 0) {
+    return { valid: true, missing: [] };
+  }
+  if (!BLOCK_HEADER_PATTERN.test(text)) {
+    return {
+      valid: false,
+      missing: declared.slice(),
+      reason: 'nenhum cabeçalho "### NOME v1" bem-formado encontrado no body',
+    };
+  }
+  const missing = declared.filter((block) => {
+    const perBlock = new RegExp(`^###\\s+${block}\\s+v\\d+`, 'm');
+    return !perBlock.test(text);
+  });
+  return {
+    valid: missing.length === 0,
+    missing,
+    reason: missing.length === 0
+      ? undefined
+      : `bloco(s) sem cabeçalho "### NOME v1": ${missing.join(', ')}`,
+  };
 }
 
 // nodeSpec(complexity, step, prevIssueId [, variant]) → payload puro da issue.
@@ -379,4 +433,8 @@ function expandSlices(complexity, n, prevIssueId, variant) {
   return { slices, intermediaries, junction };
 }
 
-module.exports = { nextStep, nodeSpec, nodeSpecFanIn, allParallelSteps, templateFor, expandSlices, LOOP_INTERNAL_INSTRUCTION };
+module.exports = {
+  nextStep, nodeSpec, nodeSpecFanIn, allParallelSteps, templateFor, expandSlices,
+  LOOP_INTERNAL_INSTRUCTION,
+  buildBodyValidation, BLOCK_HEADER_PATTERN,
+};

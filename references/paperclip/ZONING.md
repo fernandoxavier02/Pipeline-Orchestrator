@@ -11,7 +11,7 @@
 ```
 D:\Pipeline Orchestrator Claude\          ← workspace raiz (NAO eh git repo)
 ├── Pipeline-Orchestrator\                ← REPO GIT (origin: github.com/fernandoxavier02/Pipeline-Orchestrator)
-│   ├── agents\                           ← 46 agentes Markdown do plugin (oficiais)
+│   ├── agents\                           ← 50 agentes Markdown do plugin (oficiais)
 │   ├── references\
 │   │   └── paperclip\                    ← **CANONICAL** das specs Paperclip (versionado)
 │   │       ├── PAPERCLIP-AXIOMS.md
@@ -30,7 +30,7 @@ D:\Pipeline Orchestrator Claude\          ← workspace raiz (NAO eh git repo)
 └── ~/.paperclip\                         ← INSTALACAO Paperclip (em C:\Users\win\.paperclip\)
     └── instances\default\
         ├── skills\                       ← skills carregaveis pelos cargos Codex (instalacao)
-        └── agents\                       ← state files dos 46 cargos
+        └── agents\                       ← state files dos 50 cargos
 ```
 
 ## Source-of-truth (regra mestra de edicao)
@@ -39,7 +39,7 @@ D:\Pipeline Orchestrator Claude\          ← workspace raiz (NAO eh git repo)
 |---|---|---|
 | Specs Paperclip (PAPERCLIP-*.md) | `Pipeline-Orchestrator/references/paperclip/` (no repo) | `.pipeline/` (workspace) + `~/.paperclip/instances/default/skills/` (instalacao) |
 | Skills custom (SKILL.md) | `Pipeline-Orchestrator/references/paperclip/skills/{slug}/` | `.pipeline/skills/{slug}/` + `~/.paperclip/instances/default/skills/{slug}/` |
-| 46 agentes oficiais (Markdown) | `Pipeline-Orchestrator/agents/` | nao replicar fora do repo |
+| 50 agentes oficiais (Markdown) | `Pipeline-Orchestrator/agents/` | nao replicar fora do repo |
 | Logs de pipeline run | `.pipeline/docs/Pre-*-action/` | nao versionar |
 | Catalogo / KB / Adaptation Spec | `Pipeline-Orchestrator/references/paperclip/` | `.pipeline/` (copia operacional) |
 

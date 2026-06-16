@@ -12,6 +12,8 @@ const assert = require('node:assert');
 const {
   assertSafeId,
   resolveRole,
+  validateRosterCompleteness,
+  validateFanInMap,
   buildCreatePayload,
   createIssue,
   growSpine,
@@ -484,6 +486,87 @@ test('T-IO-41: growSpine — grupo paralelo hotfix: cada irmão bloqueado por pr
   }
 });
 
+// ─── FIX 3: compensação best-effort de parcial mid-sequence ──────────────────
+// Pré-flight cobre os parciais de VALIDAÇÃO. Mas uma falha de TRANSPORTE entre o
+// POST do irmão#1 e o do irmão#2 num grupo paralelo ainda cria parte do grupo.
+// growSpine deve então tentar APAGAR (DELETE) os irmãos já criados (compensação),
+// anexar o resultado ao erro e propagar o erro original.
+
+// Transport que falha no N-ésimo POST e registra DELETEs (para verificar compensação).
+function makeFlakyTransport({ failOnPostNumber, deleteStatus = 204 } = {}) {
+  const calls = [];
+  let postCounter = 0;
+  return {
+    calls,
+    async request({ method, path, body }) {
+      calls.push({ method, path, body });
+      if (method === 'POST') {
+        postCounter += 1;
+        if (postCounter === failOnPostNumber) {
+          throw new Error(`fake transport: queda de rede no POST #${postCounter}`);
+        }
+        return { status: 201, data: { id: `FAKE-${String(postCounter).padStart(3, '0')}` } };
+      }
+      if (method === 'DELETE') {
+        return { status: deleteStatus, data: {} };
+      }
+      return { status: 200, data: [] };
+    },
+  };
+}
+
+test('T-IO-41b: growSpine — falha de transporte no 2º POST de um grupo paralelo compensa (DELETE) o irmão já criado', async () => {
+  // Grupo paralelo hotfix (HF-N6/7/8): 3 POSTs. Falha no 2º → 1 irmão já criado (FAKE-001).
+  // growSpine deve emitir 1 DELETE para o irmão criado e propagar o erro com o relatório.
+  const transport = makeFlakyTransport({ failOnPostNumber: 2, deleteStatus: 204 });
+  let caught = null;
+  await assert.rejects(
+    () => growSpine(transport, 'PIP-CO', 'hotfix', 'HF-N5-review', 'PREV-HF-N5', HOTFIX_ROSTER),
+    (err) => { caught = err; return err instanceof Error; },
+  );
+  const posts = transport.calls.filter((c) => c.method === 'POST');
+  const deletes = transport.calls.filter((c) => c.method === 'DELETE');
+  // 2 POSTs tentados (o 2º estourou); exatamente 1 DELETE (o irmão criado no 1º POST).
+  assert.strictEqual(posts.length, 2, 'deve ter tentado 2 POSTs antes de estourar');
+  assert.strictEqual(deletes.length, 1, 'deve compensar exatamente o 1 irmão já criado');
+  assert.match(deletes[0].path, /\/issues\/FAKE-001$/, 'DELETE deve mirar o irmão criado FAKE-001');
+  // O erro carrega o relatório de compensação, sem mascarar a causa original.
+  assert.ok(caught.partialGroupCompensation, 'erro deve carregar partialGroupCompensation');
+  assert.deepStrictEqual(caught.partialGroupCompensation.deleted, ['FAKE-001']);
+  assert.deepStrictEqual(caught.partialGroupCompensation.undeletable, []);
+  assert.match(caught.message, /queda de rede/, 'causa original preservada na mensagem');
+});
+
+test('T-IO-41c: growSpine — compensação que não consegue apagar registra o irmão em undeletable (escalação)', async () => {
+  // DELETE retorna 500 → o irmão não pôde ser apagado → fica em undeletable para limpeza manual.
+  const transport = makeFlakyTransport({ failOnPostNumber: 2, deleteStatus: 500 });
+  let caught = null;
+  await assert.rejects(
+    () => growSpine(transport, 'PIP-CO', 'hotfix', 'HF-N5-review', 'PREV-HF-N5', HOTFIX_ROSTER),
+    (err) => { caught = err; return err instanceof Error; },
+  );
+  assert.strictEqual(transport.calls.filter((c) => c.method === 'DELETE').length, 1, 'tentou 1 DELETE');
+  assert.deepStrictEqual(caught.partialGroupCompensation.deleted, [], 'nenhum apagado com sucesso');
+  assert.deepStrictEqual(
+    caught.partialGroupCompensation.undeletable, ['FAKE-001'],
+    'irmão não-apagável registrado para limpeza manual',
+  );
+  assert.match(caught.message, /limpeza manual|escalar/i, 'mensagem deve sinalizar escalação');
+});
+
+test('T-IO-41d: growSpine — falha de transporte num nó ÚNICO (grupo de 1) não dispara compensação', async () => {
+  // Nó simples (SIMPLES/classificar) é grupo de 1 → não há irmão parcial → sem DELETE.
+  const transport = makeFlakyTransport({ failOnPostNumber: 1 });
+  await assert.rejects(
+    () => growSpine(transport, 'PIP-CO', 'SIMPLES', null, null, SAMPLE_ROSTER),
+    (err) => err instanceof Error,
+  );
+  assert.strictEqual(
+    transport.calls.filter((c) => c.method === 'DELETE').length, 0,
+    'nó único não deve disparar compensação (nada parcial possível)',
+  );
+});
+
 test('T-IO-42: growSpine — nó de junção hotfix (HF-N9) usa nodeSpecFanIn com todos os irmãos', async () => {
   // Simular que os 3 irmãos foram criados nas chamadas anteriores
   const siblingIds = {
@@ -590,4 +673,171 @@ test('T-IO-44: growSpine — template hierárquico feature.light: primeiro nó c
   assert.match(postCalls[0].body.title, /feature\.light/, 'título deve conter feature.light');
   assert.match(postCalls[0].body.title, /classificar/, 'título deve conter classificar');
   assert.ok(result.issueId, 'deve retornar issueId');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NOVOS TESTES — HANDOFF HARDENING (raízes #1–#6)
+// Pré-flight de validação e atomicidade do fan-in. Cada guarda existe porque sem ela
+// a cadeia parava em silêncio (5/54 runs auditados travaram).
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// ─── ROOT CAUSE #1: prevIssueId guard ────────────────────────────────────────
+
+test('T-IO-45: growSpine — prevIssueId null para nó não-raiz lança ANTES de qualquer POST', async () => {
+  const transport = makeFakeTransport();
+  await assert.rejects(
+    () => growSpine(transport, 'PIP-CO', 'SIMPLES', 'classificar', null, SAMPLE_ROSTER),
+    (err) => err instanceof Error && /prevIssueId/.test(err.message) && /AC-IO-26/.test(err.message),
+    'growSpine deve rejeitar prevIssueId null para nó não-raiz',
+  );
+  assert.strictEqual(
+    transport.calls.filter((c) => c.method === 'POST').length, 0,
+    'nenhum POST deve ocorrer quando o pré-flight de prevIssueId falha',
+  );
+});
+
+test('T-IO-45b: growSpine — prevIssueId string vazia para nó não-raiz também lança', async () => {
+  const transport = makeFakeTransport();
+  await assert.rejects(
+    () => growSpine(transport, 'PIP-CO', 'SIMPLES', 'classificar', '', SAMPLE_ROSTER),
+    (err) => err instanceof Error && /prevIssueId/.test(err.message),
+  );
+  assert.strictEqual(transport.calls.filter((c) => c.method === 'POST').length, 0);
+});
+
+test('T-IO-46: growSpine — prevIssueId null para a RAIZ (currentStep=null) é aceito', async () => {
+  const transport = makeFakeTransport();
+  const result = await growSpine(transport, 'PIP-CO', 'SIMPLES', null, null, SAMPLE_ROSTER);
+  const postCalls = transport.calls.filter((c) => c.method === 'POST');
+  assert.strictEqual(postCalls.length, 1, 'raiz deve ser criada');
+  assert.deepStrictEqual(postCalls[0].body.blockedByIssueIds, [], 'raiz sem bloqueadores');
+  assert.ok(result.issueId, 'deve retornar issueId da raiz');
+});
+
+// ─── ROOT CAUSE #2: validateRosterCompleteness ───────────────────────────────
+
+test('T-IO-47: validateRosterCompleteness — lança listando TODOS os roles ausentes', () => {
+  const nodes = [
+    { role: 'task-orchestrator' },
+    { role: 'cargo-fantasma-1' },
+    { role: 'cargo-fantasma-2' },
+  ];
+  assert.throws(
+    () => validateRosterCompleteness(nodes, SAMPLE_ROSTER),
+    (err) =>
+      err instanceof Error &&
+      err.message.includes('cargo-fantasma-1') &&
+      err.message.includes('cargo-fantasma-2'),
+    'mensagem deve listar todos os roles ausentes, não só o primeiro',
+  );
+});
+
+test('T-IO-47b: validateRosterCompleteness — roster completo não lança', () => {
+  const nodes = [{ role: 'task-orchestrator' }, { role: 'information-gate' }];
+  assert.doesNotThrow(() => validateRosterCompleteness(nodes, SAMPLE_ROSTER));
+});
+
+test('T-IO-47c: validateRosterCompleteness — uuid vazio conta como ausente (phantom UUID)', () => {
+  const nodes = [{ role: 'cargo-vazio' }];
+  assert.throws(
+    () => validateRosterCompleteness(nodes, { 'cargo-vazio': '' }),
+    (err) => err instanceof Error && err.message.includes('cargo-vazio'),
+    'uuid string-vazia deve ser tratado como roster incompleto',
+  );
+});
+
+test('T-IO-48: growSpine — pré-valida o roster ANTES de qualquer POST (roster incompleto)', async () => {
+  const transport = makeFakeTransport();
+  const incompleteRoster = { 'information-gate': 'uuid-ig' };
+  await assert.rejects(
+    () => growSpine(transport, 'PIP-CO', 'SIMPLES', null, null, incompleteRoster),
+    (err) => err instanceof Error,
+  );
+  assert.strictEqual(
+    transport.calls.filter((c) => c.method === 'POST').length, 0,
+    'nenhum POST quando o roster está incompleto',
+  );
+});
+
+// ─── ROOT CAUSE #6: validateFanInMap + completude do stepmap ─────────────────
+
+test('T-IO-49: validateFanInMap — junção com stepmap completo não lança', () => {
+  const junction = { step: 'HF-N9-juncao', blockedBy: ['HF-N6-adv-sec', 'HF-N7-adv-arch', 'HF-N8-adv-qual'] };
+  const map = { 'HF-N6-adv-sec': 'A', 'HF-N7-adv-arch': 'B', 'HF-N8-adv-qual': 'C' };
+  assert.doesNotThrow(() => validateFanInMap(junction, map));
+});
+
+test('T-IO-50: validateFanInMap — junção com stepmap incompleto lança listando os steps faltantes', () => {
+  const junction = { step: 'HF-N9-juncao', blockedBy: ['HF-N6-adv-sec', 'HF-N7-adv-arch', 'HF-N8-adv-qual'] };
+  const map = { 'HF-N6-adv-sec': 'A' };
+  assert.throws(
+    () => validateFanInMap(junction, map),
+    (err) =>
+      err instanceof Error &&
+      err.message.includes('HF-N7-adv-arch') &&
+      err.message.includes('HF-N8-adv-qual') &&
+      /AC-IO-28/.test(err.message),
+  );
+});
+
+test('T-IO-50b: growSpine — junção com stepToIssueIdMap incompleto lança ANTES de qualquer POST', async () => {
+  const transport = makeFakeTransport();
+  const partialMap = { 'HF-N6-adv-sec': 'ID-N6' };
+  await assert.rejects(
+    () =>
+      growSpine(
+        transport, 'PIP-CO', 'hotfix', 'HF-N6-adv-sec', null,
+        HOTFIX_ROSTER, undefined, partialMap,
+      ),
+    (err) => err instanceof Error && /stepToIssueIdMap|fan-in/i.test(err.message),
+  );
+  assert.strictEqual(
+    transport.calls.filter((c) => c.method === 'POST').length, 0,
+    'nenhum POST quando o stepmap da junção está incompleto',
+  );
+});
+
+// ─── ROOT CAUSE #5: atomicidade do grupo paralelo ───────────────────────────
+
+test('T-IO-51: growSpine — falha de POST no 2º nó paralelo NÃO deixa retorno parcial (atomicidade)', async () => {
+  let postCount = 0;
+  const transport = {
+    calls: [],
+    async request({ method, path, body }) {
+      this.calls.push({ method, path, body });
+      if (method === 'POST') {
+        postCount += 1;
+        if (postCount === 2) {
+          throw new Error('transport: simulated network failure on 2nd POST');
+        }
+        return { status: 201, data: { id: `OK-${postCount}` } };
+      }
+      return { status: 200, data: [] };
+    },
+  };
+  await assert.rejects(
+    () => growSpine(transport, 'PIP-CO', 'hotfix', 'HF-N5-review', 'PREV-HF-N5', HOTFIX_ROSTER),
+    (err) => err instanceof Error && /simulated network failure/.test(err.message),
+    'falha no 2º POST deve propagar como exceção (sem return parcial)',
+  );
+  const postCalls = transport.calls.filter((c) => c.method === 'POST');
+  assert.strictEqual(postCalls.length, 2, 'a falha ocorre exatamente no 2º POST (1 criado, 2º falhou)');
+});
+
+test('T-IO-52: growSpine — pré-flight roster falha ANTES de qualquer POST em grupo paralelo (atomicidade total)', async () => {
+  const transport = makeFakeTransport();
+  const rosterMissingAdv = {
+    'task-orchestrator': 'uuid-to',
+    'information-gate': 'uuid-ig',
+    'sentinel': 'uuid-sentinel',
+    'review-orchestrator': 'uuid-ro',
+  };
+  await assert.rejects(
+    () => growSpine(transport, 'PIP-CO', 'hotfix', 'HF-N5-review', 'PREV-HF-N5', rosterMissingAdv),
+    (err) => err instanceof Error,
+  );
+  assert.strictEqual(
+    transport.calls.filter((c) => c.method === 'POST').length, 0,
+    'fan-out: roster incompleto deve impedir TODOS os POSTs (nenhum nó parcial criado)',
+  );
 });

@@ -1,9 +1,9 @@
 # PAPERCLIP-AXIOMS
 ## Contratos universais inquebraveis para execucao no Paperclip+Codex
 
-**Versao:** 1.0 — 2026-05-22
+**Versao:** 1.1 — 2026-06-15 (v8.0.0: Secao 11 Handoff Discipline / Montagem Progressiva; roster 47 → 50)
 **Status:** vigente
-**Escopo:** TODOS os 46 cargos da empresa Paperclip "Pipeline Orchestrator", em TODOS os workflows.
+**Escopo:** TODOS os 50 cargos da empresa Paperclip "Pipeline Orchestrator", em TODOS os workflows.
 **Prioridade:** este documento eh **autoritativo**. Em qualquer conflito entre uma spec de workflow especifica e os axiomas aqui, **os axiomas vencem**.
 
 ---
@@ -269,3 +269,61 @@ Workflows futuros: nunca cria-los inline numa sessao Codex. Caso surja necessida
 > **A spec eh a unica fonte de verdade do workflow. O canonical eh a unica fonte de verdade de engenharia. O Board eh a unica fonte de verdade do negocio. Voce, cargo, eh apenas o executor disciplinado dessas tres fontes — nunca um decisor autonomo.**
 
 Tudo o que voce produzir (comment, decisao, codigo) deve poder ser trazado de volta a uma destas tres fontes. Auditoria post-hoc passa por isso.
+
+---
+
+## 11. Handoff Discipline / Montagem Progressiva (AXIOMA UNIVERSAL)
+
+**Aplica-se a TODOS os 50 cargos, em TODOS os workflows.** Este axioma fecha a falha estrutural numero 1 observada em producao: *uma issue termina e nunca passa o bastao para o proximo cargo — a cadeia morre em silencio.* A auditoria de calibracao de 54 runs reais (secao 7, "handoff fragil") listou 5 issues paradas exatamente por isso. A causa raiz eh que o "proximo passo" ficava **implicito**: o cargo nao criava a sub-issue seguinte na mesma rodada, e nada estruturalmente obrigava ele a fazer isso.
+
+### 11.1 O Contrato de Handoff (os 4 atos do MESMO heartbeat)
+
+Ao concluir o seu trabalho numa issue, voce **DEVE** executar os quatro atos abaixo **na mesma rodada (heartbeat)**, nesta ordem. Pular ou adiar qualquer um eh violacao grave do Contrato Inquebravel.
+
+1. **Emitir os blocos de fidelidade com o cabecalho EXATO.** Todo bloco usa o formato literal `### BLOCK_NAME v1` — `BLOCK_NAME` em CAIXA_ALTA_COM_UNDERSCORE, sufixo ` v1` obrigatorio, exatamente tres `#`. Exemplos validos: `### CLARIFICATION_DONE v1`, `### SPEC_SEALED v1`. O parser de fidelidade procura esse cabecalho literal; `### block_name v1`, `### BLOCK_NAME` (sem `v1`) ou `#### BLOCK_NAME v1` fazem o parser **perder o bloco** → veredicto MISSING_BLOCK → o Pa de Cal trava o fechamento. Nao traduza, nao minusculize, nao invente variantes.
+
+2. **Declarar um bloco `### NEXT_STEP v1` explicito** nomeando o proximo passo, o cargo que vai assumir, e os bloqueadores que a proxima issue tera:
+
+   ```markdown
+   ### NEXT_STEP v1
+
+   next_step: {{nome-do-proximo-passo}}
+   assignee: {{slug-do-proximo-cargo}}
+   blockedByIssueIds: [{{ids das issues que precisam fechar antes — para no linear, eh a issue ATUAL}}]
+   expected_outcome: {{1 linha do que se espera de volta}}
+   ```
+
+   Se o proximo passo eh um fan-in (varios irmaos paralelos convergindo num no de juncao), nomeie **TODOS** os irmaos e o no de juncao, com os bloqueadores de cada um.
+
+3. **CRIAR a proxima sub-issue de verdade**, no MESMO heartbeat, via a API (ver `pipeline-orchestrator-contracts` §2 DISPATCH_REQUEST), com `blockedByIssueIds` = a lista exata declarada no NEXT_STEP. **Nunca deixe o proximo passo apenas implicito** confiando que o agendador de heartbeat vai "inferir" — ele nao infere. Em fan-in, crie **todos** os irmaos E o no de juncao na mesma rodada (atomicidade — ver 11.3).
+
+4. **So entao** PATCH do seu proprio status para `done`. A ordem importa: o status vira `done` **depois** que a proxima issue foi criada e o `issueId` dela foi confirmado e logado. `done` antes da criacao = cadeia orfa.
+
+### 11.2 Quando o proximo passo nao pode ser criado
+
+Se a criacao da proxima issue falhar (erro de validacao, falha de API, role que nao resolve), voce **NAO** marca `done` e **NAO** deixa implicito. Em vez disso:
+
+- PATCH do seu status para `paused` (nao `blocked` — ver Axioma §5),
+- comente o motivo concreto da falha (`### HANDOFF_BLOCKED v1` com o erro),
+- e escale conforme §5 se o motivo nao estiver coberto pela hierarquia 1-2-3.
+
+A regra de ouro: **a cadeia so avanca por criacao explicita, nunca por inferencia; e se nao da pra avancar, isso fica registrado, nunca silencioso.**
+
+### 11.3 Atomicidade em fan-in (criacao paralela)
+
+Quando o proximo passo eh um grupo paralelo que converge num no de juncao, a criacao busca ser **tudo-ou-nada**, mas e importante ser preciso sobre ate onde a garantia vai. Nao existe transacao server-side: a API cria issue por issue. A protecao tem duas camadas e cobre coisas diferentes.
+
+**Camada 1 — pre-voo (elimina os parciais da classe de validacao).** ANTES de criar qualquer issue: resolva TODOS os roles dos irmaos, valide TODOS os bloqueadores, e confirme que o no de juncao lista no `blockedByIssueIds` **todos** os irmaos. So depois que tudo valida, comece a criar. Se a validacao falha, **nenhuma** issue eh criada — um role ausente, um bloqueador invalido ou um stepmap incompleto NUNCA deixa parcial.
+
+**Camada 2 — compensacao best-effort (cobre a falha de transporte no meio).** Mesmo com o pre-voo verde, uma falha de **transporte/rede** entre o POST do irmao#1 e o do irmao#2 ainda pode criar parte do grupo. Nesse caso o `tree-factory` faz compensacao best-effort: tenta apagar os irmaos ja criados para reverter o grupo ao estado vazio. Se algum DELETE tambem falha, esses IDs ficam **registrados no erro** (`partialGroupCompensation.undeletable`) e **exigem limpeza/escalacao manual** — nunca sao silenciados. Ou seja: o pre-voo garante "nada parcial por validacao"; a compensacao reverte a maioria das falhas de transporte; o residuo que nem a compensacao reverte vira escalacao explicita, jamais uma juncao orfa silenciosa.
+
+> A motivacao de design ("Montagem Progressiva"): cada no, ao concluir, deterministicamente monta o proximo no na mesma rodada. A spec `.kiro/specs/paperclip-task-tree-factory/design.md` ("Montagem Progressiva (NEXT_STEP)") eh a mitigacao estrutural correspondente — o tree-factory cria o proximo no no mesmo ciclo, e este axioma eh o contrato de comportamento que os cargos seguem para que a trava estrutural e a disciplina manual se reforcem mutuamente. Nenhuma das duas camadas sozinha basta.
+
+### 11.4 Definition of Done do handoff (afirme os 4 antes de declarar `done`)
+
+- [ ] Blocos de fidelidade emitidos com cabecalho EXATO `### BLOCK_NAME v1`?
+- [ ] Bloco `### NEXT_STEP v1` emitido com assignee + blockedByIssueIds + expected_outcome?
+- [ ] Proxima sub-issue (ou todos os irmaos + juncao, em fan-in) criada NESTE heartbeat, com `issueId` confirmado?
+- [ ] Status PATCH para `done` SO depois da criacao confirmada (ou `paused` + motivo se falhou)?
+
+Os quatro precisam estar verdadeiros. Tres de quatro = cadeia fragil = a issue para e nao passa o bastao.

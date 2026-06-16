@@ -1,8 +1,8 @@
 # Paperclip Catalog — Pipeline-Orchestrator Agents
 
-**Generated:** 2026-05-22 (revisado em 2026-06-02 — contagem de 47 cargos reconferida; lista inalterada)
+**Generated:** 2026-05-22 (revisado em 2026-06-15 — v8.0.0 spec-authoring: +3 cargos novos, 47 → 50)
 **Source:** `D:\Pipeline Orchestrator Claude\Pipeline-Orchestrator\agents\**\*.md`
-**Total agents:** 47
+**Total agents:** 50
 
 ---
 
@@ -12,12 +12,14 @@
 
 | Categoria | Pasta | Quantidade |
 |---|---|---|
-| core | `agents/core/` | 10 |
-| brainstorm | `agents/brainstorm/` | 3 |
+| core | `agents/core/` | 11 |
+| brainstorm | `agents/brainstorm/` | 4 |
 | quality | `agents/quality/` | 8 |
 | executor-controller | `agents/executor/` (raiz) | 6 |
-| executor-type-specific | `agents/executor/type-specific/` | 20 |
-| **TOTAL** | | **47** |
+| executor-type-specific | `agents/executor/type-specific/` | 21 |
+| **TOTAL** | | **50** |
+
+> **v8.0.0 (2026-06-15):** três cargos novos do fluxo de **spec-authoring** — `spec-controller` (core), `brainstorm-step-01c-ideation` (brainstorm) e `spec-adversarial-critic` (executor-type-specific). O fluxo de spec-authoring CRIA e SELA uma spec do zero; os cargos legados `spec-format-gate` / `spec-content-reviewer` / `spec-post-impl-validator` continuam servindo o fluxo de **spec-processing** (validar uma spec já existente). Ver `PAPERCLIP-SPEC-WORKFLOW.md` §AUTHORING vs §PROCESSING.
 
 ### Contagem por protocolo emitido
 
@@ -41,7 +43,7 @@
 
 ---
 
-## CATEGORIA: core (10 agentes)
+## CATEGORIA: core (11 agentes)
 
 ### pipeline-controller
 
@@ -153,9 +155,21 @@
 - **emits_protocol:** ADVERSARIAL_BATCH_REVIEW YAML; AskUserQuestion para escalation no 3rd failure.
 - **paperclip_role_suggestion:** Security Analyst / Penetration Tester (per-batch)
 
+### spec-controller
+
+- **name:** spec-controller
+- **category:** core
+- **description:** Orquestra o fluxo v8.0.0 de **spec-authoring** (CRIAR uma spec do zero, parando no selo — sem implementacao). Sequencia: clarificacao (brainstorm) → step-01c-ideation (proposta proativa de 2-3 conceitos) → design-interrogator FORCADO → ciclo Kiro (spec-init → spec-requirements → validate-gap → spec-design → validate-design → spec-tasks) → spec-adversarial-critic (read-only, 13 eixos sobre os DOCUMENTOS) → loop de revisao limitado → selo de contrato (`spec.json` phase=sealed). O selo grava `phase=sealed` (SSOT) + `ready_for_implementation` (derivado) + `spec_version` + `sealed_at` + um ponteiro `sealed_spec` (run_dir + os 5 artefatos) — SEM hashing em 8.0.0 (content-hashing diferido como follow-up R8). Fluxo `--amend` reabre uma spec selada e incrementa `spec_version`.
+- **when_to_use:** Spawnado por `/pipeline-orchestrator:spec` (take-over v8.0.0). NAO confundir com os cargos de spec-processing (`spec-format-gate`/`spec-content-reviewer`/`spec-post-impl-validator`), que validam uma spec JA existente.
+- **tools:** Read, Write, Glob, Grep, Agent, AskUserQuestion, Bash
+- **role_one_line:** Orquestrador N1 do spec-authoring que conduz ideacao → interrogacao → lifecycle Kiro → critica adversarial dos documentos → selo, e para antes de implementar.
+- **emits_protocol:** DISPATCH_REQUEST v1 (spawn dos cargos de ideacao/interrogacao/critica) + bloco `### SPEC_SEALED v1` no selo; eventos IDEATION_PROPOSED / DESIGN_INTERROGATOR_FORCED / SPEC_SEALED.
+- **paperclip_role_suggestion:** Spec Orchestrator (Authoring) / RFC Lead
+- **NOTA:** NOVO em v8.0.0 — variante de authoring. Ver `PAPERCLIP-SPEC-WORKFLOW.md` §SPEC-AUTHORING-WORKFLOW.
+
 ---
 
-## CATEGORIA: brainstorm (3 agentes)
+## CATEGORIA: brainstorm (4 agentes)
 
 ### brainstorm-step-00-intake
 
@@ -189,6 +203,17 @@
 - **role_one_line:** Brainstormer de alternativas que propõe 2-4 caminhos (mínimo/padrão/agressivo/contrário) antes de travar o design.
 - **emits_protocol:** GATE_REQUEST v1 para escolha de alternativa; ALTERNATIVES_SKIPPED telemetria quando auto-skip.
 - **paperclip_role_suggestion:** Solutions Architect / Options Strategist
+
+### brainstorm-step-01c-ideation
+
+- **name:** brainstorm-step-01c-ideation
+- **category:** brainstorm
+- **description:** Gera 2-3 conceitos de design (Minimal / Aggressive / Innovative) APOS a clarificacao estar completa e ANTES do spec-init do Kiro. Le o codebase + esboco de requirements e propoe alternativas com trade-offs. Emite IDEATION_PROPOSED quando o step gera as propostas proativas, IDEATION_ACCEPTED quando o usuario seleciona um conceito (IDEATION_REJECTED se rejeita), ou IDEATION_SKIPPED quando o caminho eh unanime por best-practice (um unico melhor caminho obvio). FQN: `brainstorm-step-01c-ideation`. NOVO em v8.0.0.
+- **when_to_use:** Step 1c do brainstorm de spec-authoring (v8.0.0), apos step-01b-alternatives clarificar requirements; eh o portao de entrada para o lifecycle Kiro.
+- **tools:** Read, Write, AskUserQuestion, Glob, Grep
+- **role_one_line:** Especialista de ideacao que propoe 2-3 conceitos de design (minimal/aggressive/innovative) antes de travar a arquitetura.
+- **emits_protocol:** GATE_REQUEST v1 (para escolha do conceito); telemetria IDEATION_PROPOSED → IDEATION_ACCEPTED / IDEATION_REJECTED / IDEATION_SKIPPED.
+- **paperclip_role_suggestion:** Principal Architect / Design Strategist
 
 ---
 
@@ -354,7 +379,7 @@
 
 ---
 
-## CATEGORIA: executor-type-specific (20 agentes em agents/executor/type-specific/)
+## CATEGORIA: executor-type-specific (21 agentes em agents/executor/type-specific/)
 
 ### feature-vertical-slice-planner
 
@@ -576,6 +601,17 @@
 - **emits_protocol:** post-impl-validator-report.yaml; SPEC_POST_IMPL_FAIL gate (HARD) em FAIL.
 - **paperclip_role_suggestion:** Spec Implementation Auditor / Coverage Verifier
 
+### spec-adversarial-critic
+
+- **name:** spec-adversarial-critic
+- **category:** executor-type-specific
+- **description:** Reviewer read-only do fluxo de **spec-authoring** (v8.0.0). Critica os DOCUMENTOS da spec (requirements.md / design.md / tasks.md) usando um schema proprio de 13 eixos: coverage, testability, ambiguity, risks, contracts, data-models, vertical-slices, dependencies, DI/CI, operational, failure-modes, security, coherence. NAO toca codigo (a spec ainda nao foi implementada). Roda apos o lifecycle Kiro e antes do selo do spec-controller. Distinto do `spec-content-reviewer` (spec-processing, 6/12 eixos sobre spec existente).
+- **when_to_use:** Fase de critica do spec-authoring, apos spec-tasks e antes do selo; tambem invocavel standalone via `/spec-review` sobre uma pasta de spec.
+- **tools:** Read, Grep, Glob (read-only por Iron Law — a spec ainda nao virou codigo)
+- **role_one_line:** Adversario dos documentos de spec que aplica 13 eixos sobre requirements/design/tasks antes do selo de contrato.
+- **emits_protocol:** SPEC_REVIEW_FINDINGS (AUDIT; YAML 13-eixos com findings detalhados, decision TRIGGERED quando ha achados a corrigir / NOT_TRIGGERED quando limpo); SPEC_REVIEW_STANDALONE quando invocado por `/spec-review`.
+- **paperclip_role_suggestion:** Spec Adversary (Document Review) / RFC Red Team
+
 ---
 
 ## Mapping Pipeline → Paperclip
@@ -592,9 +628,11 @@
 | finishing-branch | core | Release Engineer / DevOps |
 | brainstorm-controller | core | Pre-Sales Lead / Discovery Workshop Facilitator |
 | adversarial-batch | core | Security Analyst / Penetration Tester (per-batch) |
+| spec-controller | core | Spec Orchestrator (Authoring) / RFC Lead |
 | brainstorm-step-00-intake | brainstorm | Discovery Note-Taker / Onboarding Specialist |
 | brainstorm-step-01-explore | brainstorm | Senior Discovery Analyst / Requirements Detective |
 | brainstorm-step-01b-alternatives | brainstorm | Solutions Architect / Options Strategist |
+| brainstorm-step-01c-ideation | brainstorm | Principal Architect / Design Strategist |
 | design-interrogator | quality | Principal Engineer / Design Reviewer |
 | plan-architect | quality | Tech Lead / Implementation Architect |
 | quality-gate-router | quality | QA Lead / Test Strategist |
@@ -629,5 +667,6 @@
 | spec-format-gate | executor-type-specific | Spec Format Auditor / Linter |
 | spec-content-reviewer | executor-type-specific | Senior Spec Reviewer / Requirements Auditor |
 | spec-post-impl-validator | executor-type-specific | Spec Implementation Auditor / Coverage Verifier |
+| spec-adversarial-critic | executor-type-specific | Spec Adversary (Document Review) / RFC Red Team |
 
-**Total na tabela:** 47 agentes confirmados.
+**Total na tabela:** 50 agentes confirmados.

@@ -1,7 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { TEMPLATES } = require('./tree-template.cjs');
+const { TEMPLATES, getTemplate, validateTemplateMoldeIntegrity, validateAllTemplates } = require('./tree-template.cjs');
 const { gateForBlock, BLOCK_TO_GATE } = require('./mirror-fidelity-dictionary.cjs');
 
 // GEN1 — molde declarativo (tree-template.cjs). Espelha a tabela do design §Molde Concreto.
@@ -111,6 +111,8 @@ const KNOWN_ROLES = new Set([
   'ux-simulator', 'ux-accessibility-auditor', 'ux-qa-validator',
   'spec-format-gate', 'spec-content-reviewer', 'spec-post-impl-validator', 'spec-closer',
   'brainstorm-controller', 'general-purpose', 'adversarial-review-coordinator',
+  // v8.0.0 — cargos do fluxo de spec-authoring (paperclip-catalog.md §v8.0.0)
+  'spec-controller', 'brainstorm-step-01c-ideation', 'spec-adversarial-critic',
 ]);
 
 // Helper: itera todos os FlowTemplates (arrays folha) do objeto TEMPLATES
@@ -700,4 +702,119 @@ test('T-33 Módulo não modifica BLOCK_TO_GATE — nenhum bloco inventado inseri
   // Número total bate com o conjunto canônico (21 após remoção de SANITY_CHECK + REVIEW_ONLY_SCORE)
   assert.strictEqual(Object.keys(BLOCK_TO_GATE).length, knownGateBlocks.length,
     'BLOCK_TO_GATE deve ter exatamente as chaves canônicas');
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NOVOS TESTES — ROOT CAUSE #7: integridade de molde (todos os fluxos, incl. v8 authoring)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// Todos os moldes a auditar: os 14 canônicos + a variante v8 spec.authoring.
+function moldesParaIntegridade() {
+  const out = canonicalTemplates(); // 14 canônicos (light/heavy + hotfix/review-only)
+  out.push({ key: 'spec.authoring', nodes: getTemplate('spec', 'authoring') });
+  return out;
+}
+
+test('TM-INT-01: validateAllTemplates não lança (gate de carga já provou; reconfirma explicitamente)', () => {
+  assert.doesNotThrow(() => validateAllTemplates(),
+    'auditoria de integridade de TODOS os moldes deve passar');
+});
+
+test('TM-INT-02: cada molde (14 + authoring) passa validateTemplateMoldeIntegrity', () => {
+  for (const { key, nodes } of moldesParaIntegridade()) {
+    assert.doesNotThrow(
+      () => validateTemplateMoldeIntegrity(nodes, key),
+      `${key} deve passar na auditoria de integridade`,
+    );
+  }
+});
+
+test('TM-INT-03: todo grupo paralelo tem junção cujo blockedBy lista TODOS os irmãos', () => {
+  for (const { key, nodes } of moldesParaIntegridade()) {
+    for (const node of nodes) {
+      if (!Array.isArray(node.parallel) || node.parallel.length === 0) continue;
+      const fullGroup = [node.step, ...node.parallel];
+      const junction = nodes.find(
+        (n) => Array.isArray(n.blockedBy) && fullGroup.every((s) => n.blockedBy.includes(s)),
+      );
+      assert.ok(
+        junction,
+        `[${key}] grupo paralelo [${fullGroup.join(', ')}] deve ter junção que liste todos`,
+      );
+    }
+  }
+});
+
+test('TM-INT-04: toda referência (next, blockedBy escalar/array) aponta para step existente', () => {
+  for (const { key, nodes } of moldesParaIntegridade()) {
+    const steps = new Set(nodes.map((n) => n.step));
+    for (const node of nodes) {
+      if (node.next !== null && node.next !== undefined) {
+        assert.ok(steps.has(node.next), `[${key}/${node.step}] next="${node.next}" deve existir`);
+      }
+      if (Array.isArray(node.blockedBy)) {
+        for (const dep of node.blockedBy) {
+          assert.ok(steps.has(dep), `[${key}/${node.step}] blockedBy "${dep}" deve existir`);
+        }
+      } else if (node.blockedBy) {
+        assert.ok(steps.has(node.blockedBy), `[${key}/${node.step}] blockedBy "${node.blockedBy}" deve existir`);
+      }
+    }
+  }
+});
+
+test('TM-INT-05: paralelo é simétrico (A.parallel⊇{B} ⇒ B.parallel⊇{A}) em todos os moldes', () => {
+  for (const { key, nodes } of moldesParaIntegridade()) {
+    const byStep = new Map(nodes.map((n) => [n.step, n]));
+    for (const node of nodes) {
+      if (!Array.isArray(node.parallel)) continue;
+      for (const sib of node.parallel) {
+        const sibNode = byStep.get(sib);
+        assert.ok(sibNode, `[${key}] irmão "${sib}" de "${node.step}" deve existir`);
+        assert.ok(
+          Array.isArray(sibNode.parallel) && sibNode.parallel.includes(node.step),
+          `[${key}] assimetria: "${node.step}"→"${sib}" mas não o contrário`,
+        );
+      }
+    }
+  }
+});
+
+// ─── v8 spec.authoring: forma NOVA distinta de PROCESSING (light/heavy) ──────
+
+test('TM-V8-01: spec.authoring existe e é distinto de spec.light/heavy (não conflação)', () => {
+  const authoring = getTemplate('spec', 'authoring');
+  const light = getTemplate('spec', 'light');
+  const heavy = getTemplate('spec', 'heavy');
+  assert.ok(Array.isArray(authoring) && authoring.length > 0, 'spec.authoring deve existir');
+  // Authoring tem os cargos novos do v8; processing tem os cargos legados.
+  const authoringRoles = new Set(authoring.map((n) => n.role));
+  assert.ok(authoringRoles.has('spec-controller'), 'authoring deve usar spec-controller');
+  assert.ok(authoringRoles.has('brainstorm-step-01c-ideation'), 'authoring deve usar step-01c-ideation');
+  assert.ok(authoringRoles.has('spec-adversarial-critic'), 'authoring deve usar spec-adversarial-critic');
+  assert.ok(authoringRoles.has('design-interrogator'), 'authoring força design-interrogator');
+  // Processing (light/heavy) NÃO usa os cargos de authoring.
+  for (const tpl of [light, heavy]) {
+    const roles = new Set(tpl.map((n) => n.role));
+    assert.ok(!roles.has('spec-controller'), 'processing não deve usar spec-controller');
+    assert.ok(!roles.has('spec-adversarial-critic'), 'processing não deve usar spec-adversarial-critic');
+  }
+  // Processing mantém os cargos legados que authoring não tem.
+  const lightRoles = new Set(light.map((n) => n.role));
+  assert.ok(lightRoles.has('spec-format-gate'), 'processing.light mantém spec-format-gate');
+  assert.ok(!authoringRoles.has('spec-format-gate'), 'authoring não usa spec-format-gate');
+});
+
+test('TM-V8-02: spec.authoring sela com PA_DE_CAL e fecha com SLICE_CLOSEOUT (para no selo)', () => {
+  const authoring = getTemplate('spec', 'authoring');
+  const seal = authoring.find((n) => n.blocks.includes('PA_DE_CAL'));
+  const closer = authoring.find((n) => n.blocks.includes('SLICE_CLOSEOUT'));
+  assert.ok(seal, 'authoring deve ter um nó de selo (PA_DE_CAL)');
+  assert.ok(closer, 'authoring deve ter um nó de closeout (SLICE_CLOSEOUT)');
+  // Terminal único: closer.next === null.
+  const terminal = authoring.find((n) => n.next === null);
+  assert.strictEqual(terminal.role, 'finishing-branch', 'terminal de authoring é finishing-branch');
+  // Raiz única.
+  const roots = authoring.filter((n) => n.blockedBy === null);
+  assert.strictEqual(roots.length, 1, 'authoring deve ter exatamente uma raiz');
 });
