@@ -85,6 +85,10 @@ const CATEGORIES = {
   unit:       { default: true,  required: true,  discover: (root) => discoverFlat(root, path.join('tests', 'unit'), /\.test\.(js|cjs)$/) },
   packaging:  { default: true,  required: false, discover: (root) => discoverFlat(root, path.join('tests', 'packaging'), /\.test\.cjs$/) },
   watchdog:   { default: true,  required: false, discover: (root) => discoverFlat(root, path.join('tests', 'watchdog'), /\.test\.cjs$/) },
+  // v8.0.2: the Paperclip flow-mirror engine (the handoff-stall fix) lived
+  // outside every swept category, so a regression there never turned `npm test`
+  // red. Wire its 13 *.test.cjs into the default gate.
+  paperclip:  { default: true,  required: false, discover: (root) => discoverFlat(root, path.join('references', 'paperclip', 'spec', 'lib'), /\.test\.cjs$/) },
   integration:{ default: false, required: false, discover: (root) => discoverFlat(root, path.join('tests', 'integration'), /\.test\.(js|cjs)$/) },
   snapshot:   { default: false, required: false, discover: (root) => discoverFlat(root, path.join('tests', 'snapshot'), /\.test\.js$/) },
 };

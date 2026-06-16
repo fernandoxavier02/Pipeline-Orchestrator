@@ -1,7 +1,13 @@
 # Inverse of files[] in package.json — list what NOT to publish
 
 # Working state (never publish)
+# Anchored AND globbed: a bare `.pipeline/` is not honored inside a files[]-
+# whitelisted dir (e.g. commands/.pipeline/), so glob it at any depth. This
+# closed the v8.0.1 leak where commands/.pipeline/sessions/*.lock shipped.
 .pipeline/
+**/.pipeline/
+*.lock
+**/*.lock
 .kiro/
 pipeline-runs/
 .claude/worktrees/

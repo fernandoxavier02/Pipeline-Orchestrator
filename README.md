@@ -5,7 +5,7 @@
 </div>
 
 <div align="center">
-  <img src="assets/diagrams/hero-banner.svg" alt="Pipeline Orchestrator v7.9.2" width="100%"/>
+  <img src="assets/diagrams/hero-banner.svg" alt="Pipeline Orchestrator v8.0.2" width="100%"/>
 </div>
 
 <h1 align="center">Pipeline Orchestrator</h1>
@@ -13,12 +13,12 @@
 <p align="center"><strong>The governance layer between your spec and your production code — now with first-class observability.</strong></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-8.0.1-7C3AED?style=for-the-badge&logo=git&logoColor=white" alt="Version" />
+  <img src="https://img.shields.io/badge/version-8.0.2-7C3AED?style=for-the-badge&logo=git&logoColor=white" alt="Version" />
   <img src="https://img.shields.io/badge/agents-20-0EA5E9?style=for-the-badge" alt="Agents" />
   <img src="https://img.shields.io/badge/gates-43_(23_mandatory)-22C55E?style=for-the-badge" alt="Gates" />
   <img src="https://img.shields.io/badge/observability-Langfuse_Cloud-FF6B6B?style=for-the-badge&logo=opentelemetry&logoColor=white" alt="Observability" />
   <img src="https://img.shields.io/badge/audit_coverage-95%25-F59E0B?style=for-the-badge" alt="Audit Coverage" />
-  <img src="https://img.shields.io/badge/tests-61%2F61-EF4444?style=for-the-badge" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-137_suites-EF4444?style=for-the-badge" alt="Tests" />
   <img src="https://img.shields.io/badge/platform-Claude_Code_%2B_Cursor-000?style=for-the-badge" alt="Platform" />
   <img src="https://img.shields.io/badge/license-PolyForm_Shield_1.0.0-EC4899?style=for-the-badge" alt="License" />
 </p>
@@ -27,6 +27,7 @@
   <a href="#the-problem">The Problem</a> &bull;
   <a href="#how-we-fix-it">How We Fix It</a> &bull;
   <a href="#paperclip-integration">Paperclip ✨</a> &bull;
+  <a href="#whats-new-in-v80">v8.0</a> &bull;
   <a href="#whats-new-in-v79">v7.9</a> &bull;
   <a href="#whats-new-in-v740">v7.4.0</a> &bull;
   <a href="#whats-new-in-v720">v7.2.0</a> &bull;
@@ -136,6 +137,21 @@ The `claude_local` adapter lets a Paperclip agent run the exact same workflow co
 ### Flow-mirror (v7.9.0) — dispatch a whole pipeline as an issue tree
 
 The flow-mirror reproduces all **14 pipeline flows** as a dependency-linked **tree of Paperclip issues**: each node blocks the next via `blockedByIssueIds`, so once the root is created the remote agents grow the tree in cascade with no manual handoff between steps. It ships **8 slash commands** — `/pipeline-orchestrator:paperclip-bugfix`, `-feature`, `-user-story`, `-audit`, `-ux`, `-spec`, `-hotfix`, and `-review` — each of which classifies the task locally, builds the tree in **dry-run** first, shows it to you, and only creates anything in Paperclip **after explicit confirmation**. The same dispatch is also reachable from the main pipeline via the `--on=paperclip` flag. The dry-run-then-confirm guard means no card is ever created on the server without you saying yes.
+
+---
+
+## What's New in v8.0
+
+> **⚠️ Breaking change (v8.0.0 — MAJOR).** `/pipeline-orchestrator:spec` **changed meaning**. It no longer pre-classifies and implements an existing spec — it now **authors a brand-new specification from scratch** and seals it as a contract, then stops *before* any implementation.
+
+**Spec-authoring takeover (v8.0.0).** `/pipeline-orchestrator:spec` now runs the full authoring lifecycle: brainstorm clarification → **proactive ideation** (it proposes improvements/features you didn't ask for, across product/architecture/code/UX/risk) → a forced, proportional **design-interrogation** → the Kiro lifecycle (init → requirements → design → tasks → research) → an **adversarial review of the spec documents** → a sealed, unbreakable **contract**. It interrogates every product-shaping gap instead of inventing answers, and halts at the sealed spec.
+
+- **Migration.** If you relied on the old behavior (classify + implement an existing spec), use the preserved legacy entry points: `/pipeline-orchestrator:spec-light`, `/pipeline-orchestrator:spec-heavy`, `/pipeline-orchestrator:spec-audit-only`, or `/pipeline-orchestrator:pipeline --type=Spec`.
+- New surfaces: `spec-controller`, the global brainstorm `step-01c-ideation`, `spec-adversarial-critic`, the `/spec-review` command, and the `--amend` re-seal flow. The **Gate Registry grows 35 → 43** (8 new AUDIT/SOFT telemetry events); the *Mandatory Gates by Complexity* table is **unchanged** (Iron Law).
+
+**Paperclip parity + handoff fix (v8.0.1).** The Paperclip flow-mirror layer was updated to reflect the spec-authoring workflow (roster 47 → 50 cargos) and hardened against the handoff stalls where a cargo finished its work but never created the next step — *Montagem Progressiva* discipline plus structural root-cause guards. Additive; zero plugin-runtime change.
+
+**Release hygiene (v8.0.2).** The npm tarball now matches the git tag exactly (a leaked runtime session lock was removed and the previously-npm-only `/help` command is tracked; `.npmignore` hardened for `**/.pipeline/` + `*.lock`, guarded by a new packaging test). The 13 Paperclip flow-mirror tests are now wired into the release gate, and the stale description/README prose was refreshed.
 
 ---
 
@@ -718,7 +734,7 @@ To report a suspected attribution or trademark violation, open an [issue](https:
 ---
 
 <div align="center">
-  <p><strong>Pipeline Orchestrator v7.9.2</strong> · 2026-06-02</p>
+  <p><strong>Pipeline Orchestrator v8.0.2</strong> · 2026-06-16</p>
   <p>Built by <a href="https://github.com/fernandoxavier02">FX Studio AI</a> · <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator">Source on GitHub</a> · <a href="https://github.com/sponsors/fernandoxavier02">Sponsor</a></p>
   <p>Observability powered by <a href="https://langfuse.com"><img src="https://langfuse.com/langfuse_logo.svg" alt="Langfuse" height="16" style="vertical-align: middle;"/></a> · Available on <strong>Claude Code</strong> + <strong>Cursor</strong></p>
   <p><em>"AI follows a contract, not its mood — and now you can watch it do so in real time."</em></p>

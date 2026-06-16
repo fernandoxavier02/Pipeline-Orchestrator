@@ -5,6 +5,22 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.0.2] - 2026-06-16 — Release hygiene: clean npm tarball + paperclip tests gated + doc refresh (PATCH)
+
+Closes 4 confirmed findings from an adversarial review of the v8.0.1 release. ZERO changes to the plugin runtime, agents, skills, commands, hooks, or `lib/` behavior.
+
+### Fixed
+- **npm tarball ≠ git tag (HIGH).** The published 8.0.1 tarball shipped two files absent from the `v8.0.1` git tree: an untracked `commands/help.md` and a leaked runtime session lock `commands/.pipeline/sessions/<uuid>.lock`. Root cause: `package.json` `files[]` whitelists `commands/` wholesale and the unanchored `.pipeline/` `.npmignore` line is not honored for a nested occurrence under a whitelisted dir. Fix: deleted the stray `.pipeline/` tree, **committed `commands/help.md`** (it is a real `/help` command surface — now consistent across npm + marketplace), and hardened `.npmignore` (`**/.pipeline/`, `*.lock`, `**/*.lock`).
+- **Stale manifest descriptions (LOW).** `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json`, and `.cursor-plugin/plugin.json` reported `version` 8.0.1 but their human-facing `description` prose was frozen at "v7.14.1", so the marketplace listing advertised the wrong release. Prepended v8.0.0/v8.0.1/v8.0.2 summaries (identical across the three manifests; cursor↔claude parity preserved).
+- **README frozen at v7.9.2 (MEDIUM).** Added a "What's New in v8.0" section documenting the spec-authoring takeover + the migration path to `/spec-light`/`-heavy`/`-audit-only`; refreshed the hero/footer version and the tests badge.
+
+### Added
+- **Packaging guard** `tests/packaging/no-pack-cruft.test.cjs` — asserts the real `npm pack` output contains no `.pipeline/`, `*.lock`, or editor/OS cruft, so the v8.0.1 leak can never recur silently.
+- **`paperclip` test category** in `scripts/run-tests.cjs` — the 13 Paperclip flow-mirror suites (the handoff-stall engine) are now part of the default `npm test` release gate (previously they passed only when invoked manually).
+
+### Notes
+- The 4 local `npm test` failures remain environment-induced (the repo `.env` carries live Langfuse keys + `LANGFUSE_ENABLED=true`, loaded with priority by `lib/langfuse-client.cjs`; F9 additionally needs `CLAUDE_PLUGIN_ROOT`). They are excluded from the tarball (`.env` is gitignored and not in `files[]`) and never reach consumers. Honest correction to the v8.0.1 notes: the real failing set is 4 (not 6–7); `v7.4.2/F2` and `v7.13.0/F07` pass.
+
 ## [8.0.1] - 2026-06-15 — Paperclip layer: reflect v8.0.0 + fix handoff stalls (PATCH)
 
 Additive update to the `references/paperclip/` integration layer. ZERO changes to the plugin runtime, agents, skills, commands, hooks, or `lib/` outside the Paperclip subtree.
