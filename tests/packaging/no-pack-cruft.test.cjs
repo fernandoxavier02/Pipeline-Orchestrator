@@ -50,6 +50,25 @@ function packedFiles() {
   return entry.files.map((f) => String(f.path).replace(/\\/g, '/'));
 }
 
+// npm-availability guard: mirror scripts/run-tests.cjs category-gate SKIP
+// semantics (v7.13.0) — a hermetic environment without `npm` on PATH must NOT
+// turn the release red for an environment reason. An absent npm can never hide
+// cruft, so skipping here is safe (zero false-green risk).
+function npmAvailable() {
+  const r = spawnSync('npm', ['--version'], {
+    encoding: 'utf8',
+    shell: process.platform === 'win32',
+    timeout: 30000,
+  });
+  return r.status === 0;
+}
+
+if (!npmAvailable()) {
+  console.log('  [SKIP] npm not resolvable on PATH — packaging guard skipped');
+  console.log('\nSummary: 0 pass / 0 fail / 0 total (SKIPPED: npm unavailable)');
+  process.exit(0);
+}
+
 const files = packedFiles();
 
 test('tarball is non-empty (sanity)', () => {
