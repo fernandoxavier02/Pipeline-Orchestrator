@@ -84,6 +84,15 @@ test(`README.md version badge === "${VERSION}"`, () => {
   assert.ok(re.test(md), `README.md must contain badge "version-${VERSION}-"`);
 });
 
+test(`.cursor-plugin/plugin.json version === "${VERSION}" (lockstep)`, () => {
+  // v8.0.1 (R): the Cursor manifest is a version surface enforced by F1-S4's
+  // lockstep parity check but was NOT in this 5-file invariant, so a release
+  // could bump .claude-plugin and forget .cursor-plugin (exactly the 8.0.1
+  // drift). Pin it here so the gap is caught at the version-sync gate.
+  const j = JSON.parse(fs.readFileSync(path.join(ROOT, '.cursor-plugin/plugin.json'), 'utf8'));
+  assert.equal(j.version, VERSION, `.cursor-plugin version = ${j.version}`);
+});
+
 console.log('');
 console.log(`Summary: ${pass} pass / ${fail} fail / ${pass + fail} total`);
 process.exit(fail > 0 ? 1 : 0);
