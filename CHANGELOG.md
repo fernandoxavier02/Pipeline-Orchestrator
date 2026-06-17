@@ -5,6 +5,18 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.0.3] - 2026-06-17 — Protocol doc guard: no-SendMessage anti-pattern note (PATCH)
+
+Documentation-only. ZERO changes to the plugin runtime, agents, skills, commands, hooks, or `lib/` behavior.
+
+### Fixed
+- **Parent main LLM mis-reads the emit-and-hoist handshake as needing `SendMessage` (HIGH, dogfood).** When the `spec-controller` (or any subagent) emits an `AWAITING_DISPATCH_RESULTS` / `AWAITING_GATE_RESPONSES` / `AWAITING_PLAN_MODE_RESULTS` handshake, the parent must re-dispatch with a **fresh `Agent()` call** — the subagent re-hydrates its state from the run-dir on disk. A dogfood session instead concluded it needed `SendMessage` to "continue the same live agent", could not use it, and abandoned the run. The pipeline does **not** use `SendMessage` anywhere; even where it exists it is a deferred tool loadable via `ToolSearch`. Added an explicit anti-pattern note in two places so the next parent does not repeat it:
+  - `references/gate-request-protocol.md` (parent-side handler): "re-dispatch" = fresh `Agent()` + disk re-hydration; "SAME subagent" = same `subagent_type` + `run_id`, not the same live process.
+  - `skills/spec/SKILL.md` (Achado #7 handler): same guard at the point the parent reads the handler contract.
+
+### Notes
+- Covers the Claude plugin and the Cursor plugin (shared file tree); the OpenCode sibling does not use these files.
+
 ## [8.0.2] - 2026-06-16 — Release hygiene: clean npm tarball + paperclip tests gated + doc refresh (PATCH)
 
 Closes 4 confirmed findings from an adversarial review of the v8.0.1 release. ZERO changes to the plugin runtime, agents, skills, commands, hooks, or `lib/` behavior.
