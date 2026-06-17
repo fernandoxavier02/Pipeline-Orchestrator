@@ -133,13 +133,13 @@ test('T9: executor legítimo (exec-window válida) NÃO é barrado mesmo com pen
   fs.rmSync(tmp, { recursive: true });
 });
 
-test('T10: modo aviso (PIPELINE_DISPATCH_LOCK=warn) não bloqueia, só audita → ALLOW', () => {
+test('T10: desligamento por variável de ambiente REMOVIDO — PIPELINE_DISPATCH_LOCK=warn NÃO desarma → BLOCK', () => {
   const { tmp } = setupState({ pending: RECENT_DISPATCH() });
   const prev = process.env.PIPELINE_DISPATCH_LOCK;
   process.env.PIPELINE_DISPATCH_LOCK = 'warn';
   try {
     const r = handlePreToolUse({ tool_name: 'Write', tool_input: { file_path: path.join(tmp, 'src/bar.ts') }, cwd: tmp });
-    assert.strictEqual(r.decision, 'allow');
+    assert.strictEqual(r.decision, 'block');
   } finally {
     if (prev === undefined) delete process.env.PIPELINE_DISPATCH_LOCK; else process.env.PIPELINE_DISPATCH_LOCK = prev;
   }

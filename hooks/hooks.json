@@ -95,6 +95,15 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/scope-lock-hook.cjs\""
           }
         ]
+      },
+      {
+        "matcher": "Bash|PowerShell",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/edit-guard-hook.cjs\""
+          }
+        ]
       }
     ]
   }

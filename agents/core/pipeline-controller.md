@@ -708,6 +708,14 @@ Spawn `task-orchestrator` agent (model: sonnet).
 
 After receiving ORCHESTRATOR_DECISION:
 1. Update sentinel-state.json with the full orchestrator_decision
+1b. **ARM the Plan-Mode gate (deterministic Plan-Mode enforcement — Batch A).** Run
+    `node "${CLAUDE_PLUGIN_ROOT}/scripts/record-plan-gate.cjs" "{PIPELINE_DOC_PATH}" arm "<orchestrator_decision.type>"`.
+    This stamps `phase_1_5_plan { required, executed:false, approved:false }` into the signed state
+    (schema→2). `required` is true for every code-writing type (Bug Fix, Feature, User Story, Spec)
+    across ALL complexities; false for read-only types (Audit, UX Simulation). From here the
+    `edit-guard` hook DENIES every production-code write (Edit/Write/NotebookEdit/MultiEdit AND shell
+    write-commands via Bash/PowerShell) until the plan is approved — enforced by code, not prose.
+    Mandatory, not skippable.
 2. Set expected_next based on classification (information-gate for non-DIRETO, or exit for DIRETO)
 3. Spawn Agent(pipeline-orchestrator:core:sentinel) with mode ORCHESTRATOR_VALIDATION
 4. Handle SENTINEL_VERDICT per `references/sentinel-integration.md` Section 3
@@ -880,6 +888,14 @@ If triggered, spawn `plan-architect` agent (model: sonnet).
 - risks: [identified risks with mitigation]
 
 **The plan-architect enters Plan Mode (read-only), researches the codebase, generates a structured plan, and presents it to the user for approval.** The approved plan becomes the blueprint for executor-controller.
+
+**Record the plan decision into the signed state (deterministic Plan-Mode enforcement — Batch A).**
+The moment the user APPROVES the plan (the `phase-1-5-plan-approval` gate), and BEFORE dispatching
+Phase 2, run `node "${CLAUDE_PLUGIN_ROOT}/scripts/record-plan-gate.cjs" "{PIPELINE_DOC_PATH}" approve`.
+Setting `phase_1_5_plan.approved=true` is the ONLY thing that lifts the edit-guard Plan-Mode lock and
+lets production code be written. On ADJUSTED, only `approve` once the user signs off the adjusted
+plan; on REJECTED run `... reject` (the lock stays armed). The lock is fail-safe: if this step is
+skipped, the gate stays armed and all production-code writes remain blocked.
 
 **If REJECTED:** Pipeline returns to Phase 1 for re-classification or exits.
 

@@ -13,7 +13,7 @@
 <p align="center"><strong>The governance layer between your spec and your production code — now with first-class observability.</strong></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-8.1.0-7C3AED?style=for-the-badge&logo=git&logoColor=white" alt="Version" />
+  <img src="https://img.shields.io/badge/version-8.2.0-7C3AED?style=for-the-badge&logo=git&logoColor=white" alt="Version" />
   <img src="https://img.shields.io/badge/agents-20-0EA5E9?style=for-the-badge" alt="Agents" />
   <img src="https://img.shields.io/badge/gates-43_(23_mandatory)-22C55E?style=for-the-badge" alt="Gates" />
   <img src="https://img.shields.io/badge/observability-Langfuse_Cloud-FF6B6B?style=for-the-badge&logo=opentelemetry&logoColor=white" alt="Observability" />

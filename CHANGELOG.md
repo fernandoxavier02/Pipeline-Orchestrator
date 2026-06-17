@@ -5,6 +5,28 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.2.0] - 2026-06-17 — Deterministic Plan-Mode gate + hardened write locks (MINOR)
+
+Closes the root cause the user demanded: **no production code is written in a pipeline run until an APPROVED plan is registered in the state** — enforced by code, in all code-writing workflows, not by prose. Also hardens the v8.1.0 dispatch lock against the 3 critical escapes an independent adversarial review found (v8.1.0 had shipped vulnerable).
+
+### Added
+- **Deterministic Plan-Mode gate** in `.claude/hooks/edit-guard-hook.cjs` (`shouldBlockWithoutApprovedPlan` + `planGateArmedFromState`): denies production-code writes (Edit/Write/NotebookEdit/MultiEdit AND Bash/PowerShell write-commands) while the active run requires a plan and `phase_1_5_plan.approved !== true`. Fail-safe: a schema≥2 active run with no recorded approval blocks by default.
+- `scripts/record-plan-gate.cjs` — arm/approve/reject the gate by read-merge-resigning the HMAC-signed sentinel-state. `arm` derives `required` per workflow type (code-writing → required; Audit/UX read-only → not). approve/reject require a prior arm.
+- Controller wiring (`agents/core/pipeline-controller.md`): arm at Sentinel Checkpoint #1, approve/reject at the `phase-1-5-plan-approval` gate. New state field `phase_1_5_plan` (schema_version → 2; legacy schema-1 tolerated). `Bash|PowerShell` matcher added to `hooks/hooks.json`.
+
+### Fixed (security — two adversarial review rounds)
+- **Terminal bypass closed**: shell write-commands (redirects incl. `>|`, tee, sed -i, cp/mv/ln/dd, node -e, perl/ruby/php -e, Set-Content/Out-File/Start-Process/iex, heredoc) blocked while a lock is armed; `detectShellWrite` strips quoted substrings to avoid false-positives on reads (`grep 'a>b'`).
+- **State substitution closed**: canonical `discoverStatePath` (PIPELINE_DOC_PATH-contained > active-run.json pointer > PIPELINE_RUN_ID > mtime) ties enforcement to the active run.
+- **Env-var off-switch removed** (`PIPELINE_DISPATCH_LOCK=warn` no longer disarms).
+- **Signature verification on read** (SEC-1): an authoritatively-pointed run whose signed state was tampered on disk → CORRUPT → fail-closed; unsigned/keyless tolerated (migration).
+- Corrupt-vs-absent distinction; three block-id aliases (gate_id/dispatch_id/plan_id); handshake-timeout ceiling; approve-without-arm rejected; ReDoS pattern removed.
+
+### Known limitations / follow-up
+- `record-plan-gate.cjs approve` is callable directly (cooperative-agent threat model; mitigated by requiring a prior arm). Session-lock check is a follow-up.
+- Accepted debt (non-blocking): extract `discoverStatePath` + read-merge-resign into shared `lib/` modules (3 copies exist across hooks).
+
+Iron Law: changes limited to `.claude/hooks/`, `hooks/hooks.json`, `scripts/`, tests, and the Plan-gate wiring in `agents/core/pipeline-controller.md` + lockstep.
+
 ## [8.1.0] - 2026-06-17 — Dispatch-pending preventive lock (MINOR)
 
 Real-time enforcement closing the Achado #7 failure mode where the parent main LLM ignores a pending `DISPATCH_REQUEST`/`GATE_REQUEST`/`PLAN_MODE_REQUEST` handshake and conducts work inline (observed live in a real Clínica Companion run: fidelity 0.0435, 1/23 mandatory gates). Until now, parent-side enforcement was prompt-only plus a reactive SessionStart timeout that fired ~12h later.

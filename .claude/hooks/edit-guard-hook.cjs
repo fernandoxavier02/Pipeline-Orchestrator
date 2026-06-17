@@ -1,6 +1,7 @@
 // .claude/hooks/edit-guard-hook.cjs
 const fs = require('node:fs');
 const path = require('node:path');
+const signer = require('../../lib/sentinel-state-signer.cjs');
 
 const SESSION_ID_RE = /^[A-Za-z0-9._-]{1,64}$/;
 const MAX_TTL_MINUTES = 60;
@@ -31,6 +32,7 @@ const STALE_HEARTBEAT_MS = STALE_HEARTBEAT_THRESHOLD_MS; // deprecated alias, do
 // dead (cleanup-orphan hook recovers them) so the lock never deadlocks forever.
 const HANDSHAKE_TIMEOUT_FLOOR_MS = 60_000;
 const DEFAULT_HANDSHAKE_TIMEOUT_MS = 30 * 60 * 1000;
+const MAX_HANDSHAKE_TIMEOUT_MS = 4 * 60 * 60 * 1000; // SEC-4: ceiling — no env can hold the lock open for years
 const PENDING_BLOCK_TYPES = new Set(['DISPATCH_REQUEST', 'GATE_REQUEST', 'PLAN_MODE_REQUEST']);
 
 function getActiveLock(pipelineDir) {
@@ -420,49 +422,95 @@ function buildBlockMessage(filePath, sessionId) {
 function resolveHandshakeTimeoutMs() {
   const raw = process.env.PIPELINE_HANDSHAKE_TIMEOUT_MS;
   const n = raw != null ? Number(raw) : NaN;
-  if (Number.isFinite(n) && n >= HANDSHAKE_TIMEOUT_FLOOR_MS) return n;
+  if (Number.isFinite(n) && n >= HANDSHAKE_TIMEOUT_FLOOR_MS) return Math.min(n, MAX_HANDSHAKE_TIMEOUT_MS);
   if (Number.isFinite(n) && n > 0) return HANDSHAKE_TIMEOUT_FLOOR_MS; // honor floor for tiny overrides
   return DEFAULT_HANDSHAKE_TIMEOUT_MS;
 }
 
-// Resolve the active run's sentinel-state.json. Precedence: PIPELINE_DOC_PATH (only when it
-// resolves INSIDE this project's .pipeline/, to avoid reading another project's state) >
-// most-recently-modified under .pipeline/docs/Pre-*-action/*/. Returns the parsed object or null.
-function findActiveSentinelState(pipelineDir) {
-  const candidates = [];
+// Sentinel returned by findActiveSentinelState when an AUTHORITATIVELY-discovered run state
+// exists on disk but is unreadable/corrupt → callers must fail CLOSED (block).
+const CORRUPT_SENTINEL = '__CORRUPT_SENTINEL_STATE__';
+
+// Discover the active run's sentinel-state.json path with canonical precedence (mirrors
+// sentinel-hook, closing the mtime-substitution hole). `authoritative` is true when the path
+// came from an explicit pointer (env / active-run.json / run id) rather than the mtime fallback.
+//   1. PIPELINE_DOC_PATH env  — only if it resolves INSIDE this project's .pipeline/
+//   2. <cwd>/.pipeline/active-run.json pointer (pipeline_doc_path, contained)
+//   3. PIPELINE_RUN_ID env matched to a Pre-*-action/<run>/ folder
+//   4. most-recently-modified Pre-*-action/*/sentinel-state.json  (NON-authoritative fallback)
+function discoverStatePath(pipelineDir) {
   const norm = process.platform === 'win32' ? (s) => s.toLowerCase() : (s) => s;
   const base = path.resolve(path.join(pipelineDir, '.pipeline'));
+  const contained = (p) => {
+    const r = norm(path.resolve(p));
+    return r === norm(base) || r.startsWith(norm(base) + path.sep);
+  };
+  const docsRoot = path.join(pipelineDir, '.pipeline', 'docs');
+
+  // 1. PIPELINE_DOC_PATH (use the RESOLVED path, not the raw env string — CLAR-1 fix)
   const docPathEnv = process.env.PIPELINE_DOC_PATH;
   if (typeof docPathEnv === 'string' && docPathEnv.trim()) {
     const resolved = path.resolve(docPathEnv);
-    if (norm(resolved) === norm(base) || norm(resolved).startsWith(norm(base) + path.sep)) {
-      candidates.push(path.join(docPathEnv, 'sentinel-state.json'));
-    }
+    if (contained(resolved)) return { statePath: path.join(resolved, 'sentinel-state.json'), authoritative: true };
   }
-  const docsRoot = path.join(pipelineDir, '.pipeline', 'docs');
+  // 2. active-run.json pointer
+  try {
+    const ptr = JSON.parse(fs.readFileSync(path.join(pipelineDir, '.pipeline', 'active-run.json'), 'utf8'));
+    if (ptr && typeof ptr.pipeline_doc_path === 'string' && contained(ptr.pipeline_doc_path)) {
+      return { statePath: path.join(path.resolve(ptr.pipeline_doc_path), 'sentinel-state.json'), authoritative: true };
+    }
+  } catch (_) { /* no pointer */ }
+  // 3. PIPELINE_RUN_ID
+  const runId = process.env.PIPELINE_RUN_ID;
+  if (typeof runId === 'string' && /^[A-Za-z0-9._-]{1,128}$/.test(runId)) {
+    try {
+      for (const preDir of fs.readdirSync(docsRoot).filter((d) => /^Pre-.*-action$/.test(d))) {
+        const cand = path.join(docsRoot, preDir, runId, 'sentinel-state.json');
+        if (fs.existsSync(cand)) return { statePath: cand, authoritative: true };
+      }
+    } catch (_) { /* */ }
+  }
+  // 4. mtime fallback (non-authoritative)
   const walked = [];
   try {
-    const preDirs = fs.readdirSync(docsRoot).filter((d) => /^Pre-.*-action$/.test(d));
-    for (const preDir of preDirs) {
+    for (const preDir of fs.readdirSync(docsRoot).filter((d) => /^Pre-.*-action$/.test(d))) {
       const preDirPath = path.join(docsRoot, preDir);
       let subs;
       try { subs = fs.readdirSync(preDirPath, { withFileTypes: true }).filter((e) => e.isDirectory()); }
       catch (_) { continue; }
       for (const sub of subs) {
         const p = path.join(preDirPath, sub.name, 'sentinel-state.json');
-        try { walked.push({ p, mtime: fs.statSync(p).mtimeMs }); } catch (_) { /* skip */ }
+        try { walked.push({ p, mtime: fs.statSync(p).mtimeMs }); } catch (_) { /* */ }
       }
     }
-  } catch (_) { /* no docs root — not in a pipeline */ }
+  } catch (_) { /* no docs root */ }
   walked.sort((a, b) => b.mtime - a.mtime);
-  for (const w of walked) candidates.push(w.p);
-  for (const c of candidates) {
-    try {
-      const state = JSON.parse(fs.readFileSync(c, 'utf8'));
-      if (state && typeof state === 'object') return state;
-    } catch (_) { /* try next candidate */ }
+  if (walked.length) return { statePath: walked[0].p, authoritative: false };
+  return { statePath: null, authoritative: false };
+}
+
+// Returns the parsed state object, null (absent / non-authoritative-unreadable → fail-open),
+// or CORRUPT_SENTINEL (authoritatively-pointed run whose state is unreadable → fail-closed).
+function findActiveSentinelState(pipelineDir) {
+  const { statePath, authoritative } = discoverStatePath(pipelineDir);
+  if (!statePath) return null;
+  let raw;
+  try { raw = fs.readFileSync(statePath, 'utf8'); }
+  catch (_) { return authoritative ? CORRUPT_SENTINEL : null; }
+  let state;
+  try { state = JSON.parse(raw); }
+  catch (_) { return authoritative ? CORRUPT_SENTINEL : null; }
+  if (!state || typeof state !== 'object') return authoritative ? CORRUPT_SENTINEL : null;
+  // SEC-1: for an AUTHORITATIVELY-pointed run, reject a PRESENT-but-INVALID signature (tampering on
+  // disk). Unsigned states and an unavailable key are tolerated (migration / read-only) unless
+  // PIPELINE_HMAC_STRICT. mtime-fallback (non-authoritative) is advisory and not verified here.
+  if (authoritative) {
+    let v;
+    try { v = signer.verifyState(state, { key: signer.readHmacKey() }); }
+    catch (_) { v = { valid: true }; }
+    if (!v.valid && !v.unsigned && !v.key_unavailable) return CORRUPT_SENTINEL;
   }
-  return null;
+  return state;
 }
 
 function findLivePendingBlock(state, timeoutMs) {
@@ -493,6 +541,68 @@ function isInsidePipelineDirs(filePath, pipelineDir) {
   return nf === np || nf.startsWith(np + path.sep) || nf === npr || nf.startsWith(npr + path.sep);
 }
 
+// Shared fail-closed result for an authoritatively-corrupt run state.
+function corruptResult(filePath, pipelineDir) {
+  if (isInsidePipelineDirs(filePath, pipelineDir)) return { block: false };
+  const lock = getActiveLock(pipelineDir);
+  if (lock && getActiveExecWindow(pipelineDir, lock.session_id)) return { block: false };
+  return { block: true, reason: 'PIPELINE_STATE_CORRUPT: active run state is unreadable — failing closed. Restore or archive the corrupt sentinel-state before writing code.' };
+}
+
+// Heuristic: does a shell command write to a file? Conservative on purpose — while a lock is
+// armed the agent should not be writing code via the terminal at all (closes the Bash bypass).
+function detectShellWrite(command) {
+  if (typeof command !== 'string' || !command) return false;
+  // Strip quoted substrings so a '>' inside quotes (grep 'a>b', echo "x > y") is NOT read as a
+  // redirect — fixes the false-positive that blocked benign reads. Redirect check runs on stripped.
+  const stripped = command.replace(/'[^']*'/g, "''").replace(/"[^"]*"/g, '""');
+  // > / >> / >| redirect to a path; left char not digit/& (so 2>&1 and >& fd-dups are excluded).
+  if (/[^0-9&]>>?\|?[ \t]*[^&\s|>]/.test(stripped)) return true;
+  // Write-capable command verbs (checked on the raw command). Conservative while a lock is armed —
+  // includes interpreter -e/-c evals (node/perl/ruby/php/python) and PowerShell write cmdlets, to
+  // close the node -e / Start-Process / iex evasions.
+  const WRITE_CMDS = [
+    /\btee\b/,
+    /\bsed\b[^|;]*\s-i\b/,
+    /\b(cp|mv|dd|truncate|install|rsync|ln)\b/,
+    /<<-?[ \t]*['"]?[A-Za-z_]/,                                  // heredoc
+    /\bnode\b[^|;]*\s(?:-e|--eval)\b/,
+    /\b(?:python[0-9.]*|perl|ruby|php)\b[^|;]*\s-[ecrI]\b/,
+    /\b(?:Set-Content|Out-File|Add-Content|New-Item|Set-Item|Start-Process|Invoke-Expression|iex)\b/i,
+    /\[\s*IO\.File\s*\]::Write/i,
+    /\beval\b/,
+    /\bBASH_ENV\b/,
+  ];
+  return WRITE_CMDS.some((re) => re.test(command));
+}
+
+// State-only checks (no path) used by the terminal-write guard.
+function isDispatchPending(pipelineDir) {
+  const state = findActiveSentinelState(pipelineDir);
+  if (state === CORRUPT_SENTINEL) return true;
+  if (!state) return false;
+  return !!findLivePendingBlock(state, resolveHandshakeTimeoutMs());
+}
+
+// Is the Plan-Mode gate armed for this state? Armed when: corrupt-authoritative; OR a plan field
+// says required && !approved; OR there is NO plan field but the run is schema>=2 AND active
+// (fail-safe — a new run that never recorded an approved plan must not write code, even if the
+// controller forgot to arm). Legacy schema-1 runs without the field stay allowed (transition).
+function planGateArmedFromState(state) {
+  if (state === CORRUPT_SENTINEL) return true;
+  if (!state || typeof state !== 'object') return false;
+  const plan = state.phase_1_5_plan;
+  if (plan && typeof plan === 'object') {
+    if (plan.required !== true) return false;
+    return plan.approved !== true;
+  }
+  return Number(state.schema_version) >= 2 && state.pipeline_active !== false;
+}
+
+function isPlanGateArmed(pipelineDir) {
+  return planGateArmedFromState(findActiveSentinelState(pipelineDir));
+}
+
 function buildDispatchBlockMessage(blockType, dispatchId) {
   return (
     `Há um ${blockType} pendente e não-resolvido no sentinel-state (id: ${dispatchId}). ` +
@@ -510,13 +620,16 @@ function buildDispatchBlockMessage(blockType, dispatchId) {
 function shouldBlockOnPendingDispatch(filePath, pipelineDir) {
   if (typeof filePath !== 'string' || typeof pipelineDir !== 'string') return { block: false };
   const state = findActiveSentinelState(pipelineDir);
+  if (state === CORRUPT_SENTINEL) return corruptResult(filePath, pipelineDir);
   if (!state) return { block: false };
   const pending = findLivePendingBlock(state, resolveHandshakeTimeoutMs());
   if (!pending) return { block: false };
   if (isInsidePipelineDirs(filePath, pipelineDir)) return { block: false };
   const lock = getActiveLock(pipelineDir);
   if (lock && getActiveExecWindow(pipelineDir, lock.session_id)) return { block: false };
-  const id = typeof pending.dispatch_id === 'string' ? pending.dispatch_id : '(unknown)';
+  const id = (typeof pending.gate_id === 'string' && pending.gate_id) ||
+    (typeof pending.dispatch_id === 'string' && pending.dispatch_id) ||
+    (typeof pending.plan_id === 'string' && pending.plan_id) || '(unknown)';
   return {
     block: true,
     reason: `DISPATCH_LOCK_ACTIVE: ${buildDispatchBlockMessage(pending.block_type, id)}`,
@@ -524,7 +637,46 @@ function shouldBlockOnPendingDispatch(filePath, pipelineDir) {
   };
 }
 
+function buildPlanGateMessage() {
+  return (
+    'This pipeline run requires an APPROVED plan before any production code is written, ' +
+    'and no approved plan is registered in the run state (phase_1_5_plan.approved !== true). ' +
+    'Enter Plan Mode, get the plan approved by the user, and record the approval before writing code. ' +
+    'Do NOT skip planning. Writes inside .pipeline/ remain allowed.'
+  );
+}
+
+// Deterministic Plan-Mode gate (Batch B-core): block production-code writes when the active run
+// REQUIRES a plan and no approved plan is registered. Universal across workflows. Legacy state
+// (schema 1, no phase_1_5_plan) is allowed for transition; runs that don't require a plan
+// (required !== true) are allowed; writes inside .pipeline/ and a valid exec-window are allowed.
+function shouldBlockWithoutApprovedPlan(filePath, pipelineDir) {
+  if (typeof filePath !== 'string' || typeof pipelineDir !== 'string') return { block: false };
+  const state = findActiveSentinelState(pipelineDir);
+  if (state === CORRUPT_SENTINEL) return corruptResult(filePath, pipelineDir);
+  if (!state) return { block: false };
+  if (!planGateArmedFromState(state)) return { block: false };
+  if (isInsidePipelineDirs(filePath, pipelineDir)) return { block: false };
+  const lock = getActiveLock(pipelineDir);
+  if (lock && getActiveExecWindow(pipelineDir, lock.session_id)) return { block: false };
+  return { block: true, reason: `PLAN_GATE_ACTIVE: ${buildPlanGateMessage()}` };
+}
+
 function handlePreToolUse(payload) {
+  // Terminal-write guard (closes the Bash/PowerShell bypass): shell commands can write code,
+  // dodging the Edit/Write matcher. While a lock is armed, deny write-commands. No env-var
+  // off-switch (the old PIPELINE_DISPATCH_LOCK=warn escape is removed).
+  if (payload.tool_name === 'Bash' || payload.tool_name === 'PowerShell') {
+    const command = payload.tool_input?.command;
+    if (!command || !detectShellWrite(command)) return { decision: 'allow' };
+    const dir = payload.cwd;
+    if (typeof dir !== 'string') return { decision: 'block', reason: 'PIPELINE_GUARD: invalid payload (failing closed)' };
+    const lock = getActiveLock(dir);
+    if (lock && getActiveExecWindow(dir, lock.session_id)) return { decision: 'allow' };
+    if (isDispatchPending(dir)) return { decision: 'block', reason: 'DISPATCH_LOCK_ACTIVE: shell write blocked while a protocol handshake is pending. Resolve the dispatch before writing code via the terminal.' };
+    if (isPlanGateArmed(dir)) return { decision: 'block', reason: 'PLAN_GATE_ACTIVE: shell write blocked — no approved plan registered. Get the plan approved before writing code via the terminal.' };
+    return { decision: 'allow' };
+  }
   if (!['Edit', 'Write', 'NotebookEdit', 'MultiEdit'].includes(payload.tool_name)) {
     return { decision: 'allow' };
   }
@@ -533,19 +685,17 @@ function handlePreToolUse(payload) {
 
   const result = shouldBlock(filePath, payload.cwd);
   if (result.block) {
-    return {
-      decision: 'block',
-      reason: result.reason,
-    };
+    return { decision: 'block', reason: result.reason };
   }
-  // Dispatch-pending preventive lock (Fase 1). Deny by default; PIPELINE_DISPATCH_LOCK=warn audits only.
+  // Dispatch-pending preventive lock (deny-only; no env-var off-switch).
   const dispatch = shouldBlockOnPendingDispatch(filePath, payload.cwd);
   if (dispatch.block) {
-    if (String(process.env.PIPELINE_DISPATCH_LOCK || '').toLowerCase() === 'warn') {
-      process.stderr.write('edit-guard: [WARN] dispatch-pending lock would block: ' + dispatch.reason + '\n');
-    } else {
-      return { decision: 'block', reason: dispatch.reason };
-    }
+    return { decision: 'block', reason: dispatch.reason };
+  }
+  // Deterministic Plan-Mode gate (Batch B-core): no production code without an approved plan.
+  const planGate = shouldBlockWithoutApprovedPlan(filePath, payload.cwd);
+  if (planGate.block) {
+    return { decision: 'block', reason: planGate.reason };
   }
   return { decision: 'allow' };
 }
@@ -578,4 +728,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, openExecWindow, closeExecWindow, findPairingEntry, appendAuditEntry, shouldBlockOnPendingDispatch, buildDispatchBlockMessage, findActiveSentinelState, findLivePendingBlock, resolveHandshakeTimeoutMs, MAX_TTL_MINUTES, PAIRING_TOLERANCE_MS, STALE_HEARTBEAT_THRESHOLD_MS, STALE_HEARTBEAT_MS /* deprecated alias, removal scheduled for v5.4.0 */ };
+module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, openExecWindow, closeExecWindow, findPairingEntry, appendAuditEntry, shouldBlockOnPendingDispatch, buildDispatchBlockMessage, findActiveSentinelState, discoverStatePath, findLivePendingBlock, resolveHandshakeTimeoutMs, shouldBlockWithoutApprovedPlan, buildPlanGateMessage, planGateArmedFromState, detectShellWrite, isDispatchPending, isPlanGateArmed, CORRUPT_SENTINEL, MAX_TTL_MINUTES, PAIRING_TOLERANCE_MS, STALE_HEARTBEAT_THRESHOLD_MS, STALE_HEARTBEAT_MS /* deprecated alias, removal scheduled for v5.4.0 */ };
