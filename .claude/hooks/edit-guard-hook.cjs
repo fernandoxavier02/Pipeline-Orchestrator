@@ -23,6 +23,16 @@ const PAIRING_TOLERANCE_MS = 60000; // NI-3: +/- 60s audit-log timestamp toleran
 const STALE_HEARTBEAT_THRESHOLD_MS = 10 * 60 * 1000;
 const STALE_HEARTBEAT_MS = STALE_HEARTBEAT_THRESHOLD_MS; // deprecated alias, do not use in new code
 
+// --- Dispatch-pending preventive lock (Fase 1, docs/plans/2026-06-17-dispatch-pending-lock.md) ---
+// A pending DISPATCH_REQUEST/GATE_REQUEST/PLAN_MODE_REQUEST in sentinel-state means the
+// controller asked the parent to dispatch/ask and is AWAITING_* a re-dispatch. Until that
+// handshake is honored, the parent must NOT write production code (the Achado #7 failure mode
+// that broke the Clínica Companion run). Blocks older than the handshake timeout are treated as
+// dead (cleanup-orphan hook recovers them) so the lock never deadlocks forever.
+const HANDSHAKE_TIMEOUT_FLOOR_MS = 60_000;
+const DEFAULT_HANDSHAKE_TIMEOUT_MS = 30 * 60 * 1000;
+const PENDING_BLOCK_TYPES = new Set(['DISPATCH_REQUEST', 'GATE_REQUEST', 'PLAN_MODE_REQUEST']);
+
 function getActiveLock(pipelineDir) {
   const sessionsDir = path.join(pipelineDir, '.pipeline', 'sessions');
   if (!fs.existsSync(sessionsDir)) return null;
@@ -407,6 +417,113 @@ function buildBlockMessage(filePath, sessionId) {
   );
 }
 
+function resolveHandshakeTimeoutMs() {
+  const raw = process.env.PIPELINE_HANDSHAKE_TIMEOUT_MS;
+  const n = raw != null ? Number(raw) : NaN;
+  if (Number.isFinite(n) && n >= HANDSHAKE_TIMEOUT_FLOOR_MS) return n;
+  if (Number.isFinite(n) && n > 0) return HANDSHAKE_TIMEOUT_FLOOR_MS; // honor floor for tiny overrides
+  return DEFAULT_HANDSHAKE_TIMEOUT_MS;
+}
+
+// Resolve the active run's sentinel-state.json. Precedence: PIPELINE_DOC_PATH (only when it
+// resolves INSIDE this project's .pipeline/, to avoid reading another project's state) >
+// most-recently-modified under .pipeline/docs/Pre-*-action/*/. Returns the parsed object or null.
+function findActiveSentinelState(pipelineDir) {
+  const candidates = [];
+  const norm = process.platform === 'win32' ? (s) => s.toLowerCase() : (s) => s;
+  const base = path.resolve(path.join(pipelineDir, '.pipeline'));
+  const docPathEnv = process.env.PIPELINE_DOC_PATH;
+  if (typeof docPathEnv === 'string' && docPathEnv.trim()) {
+    const resolved = path.resolve(docPathEnv);
+    if (norm(resolved) === norm(base) || norm(resolved).startsWith(norm(base) + path.sep)) {
+      candidates.push(path.join(docPathEnv, 'sentinel-state.json'));
+    }
+  }
+  const docsRoot = path.join(pipelineDir, '.pipeline', 'docs');
+  const walked = [];
+  try {
+    const preDirs = fs.readdirSync(docsRoot).filter((d) => /^Pre-.*-action$/.test(d));
+    for (const preDir of preDirs) {
+      const preDirPath = path.join(docsRoot, preDir);
+      let subs;
+      try { subs = fs.readdirSync(preDirPath, { withFileTypes: true }).filter((e) => e.isDirectory()); }
+      catch (_) { continue; }
+      for (const sub of subs) {
+        const p = path.join(preDirPath, sub.name, 'sentinel-state.json');
+        try { walked.push({ p, mtime: fs.statSync(p).mtimeMs }); } catch (_) { /* skip */ }
+      }
+    }
+  } catch (_) { /* no docs root — not in a pipeline */ }
+  walked.sort((a, b) => b.mtime - a.mtime);
+  for (const w of walked) candidates.push(w.p);
+  for (const c of candidates) {
+    try {
+      const state = JSON.parse(fs.readFileSync(c, 'utf8'));
+      if (state && typeof state === 'object') return state;
+    } catch (_) { /* try next candidate */ }
+  }
+  return null;
+}
+
+function findLivePendingBlock(state, timeoutMs) {
+  if (!state || !Array.isArray(state.pending_blocks)) return null;
+  const now = Date.now();
+  for (const b of state.pending_blocks) {
+    if (!b || typeof b !== 'object') continue;
+    if (!PENDING_BLOCK_TYPES.has(b.block_type)) continue;
+    const emitted = typeof b.emitted_at === 'string' ? Date.parse(b.emitted_at)
+      : typeof b.emitted_at === 'number' ? b.emitted_at : NaN;
+    if (!Number.isFinite(emitted)) continue;
+    // age > timeout → dead handshake (recovery via cleanup-orphan); negative age (future skew)
+    // is treated as live (0) so a fabricated future emitted_at cannot dodge the lock.
+    if (now - emitted > timeoutMs) continue;
+    return b;
+  }
+  return null;
+}
+
+function isInsidePipelineDirs(filePath, pipelineDir) {
+  const normalizedFile = path.resolve(pipelineDir, filePath);
+  const pipelinePath = path.resolve(path.join(pipelineDir, '.pipeline'));
+  const pipelineRunsPath = path.resolve(path.join(pipelineDir, 'pipeline-runs'));
+  const norm = process.platform === 'win32' ? (s) => s.toLowerCase() : (s) => s;
+  const nf = norm(normalizedFile);
+  const np = norm(pipelinePath);
+  const npr = norm(pipelineRunsPath);
+  return nf === np || nf.startsWith(np + path.sep) || nf === npr || nf.startsWith(npr + path.sep);
+}
+
+function buildDispatchBlockMessage(blockType, dispatchId) {
+  return (
+    `Há um ${blockType} pendente e não-resolvido no sentinel-state (id: ${dispatchId}). ` +
+    `Atenda o protocolo ANTES de escrever código de produção: para um DISPATCH_REQUEST, ` +
+    `despache o alvo via Agent tool e re-invoque o controller (chamada Agent() NOVA) com DISPATCH_RESULTS prependado; ` +
+    `para um GATE_REQUEST, colete a resposta via AskUserQuestion e re-invoque com GATE_RESPONSES. ` +
+    `NÃO conduza o trabalho inline. Re-dispatch NÃO usa SendMessage. ` +
+    `Se o handshake morreu, o cleanup-orphan hook o expira automaticamente.`
+  );
+}
+
+// Preventive lock: block production-code writes while a protocol block is pending+live and the
+// parent has not honored the handshake. Robust to the pipeline_active=false escape (only
+// pending_blocks + age matter). Writes inside .pipeline/ and a legitimate exec-window are allowed.
+function shouldBlockOnPendingDispatch(filePath, pipelineDir) {
+  if (typeof filePath !== 'string' || typeof pipelineDir !== 'string') return { block: false };
+  const state = findActiveSentinelState(pipelineDir);
+  if (!state) return { block: false };
+  const pending = findLivePendingBlock(state, resolveHandshakeTimeoutMs());
+  if (!pending) return { block: false };
+  if (isInsidePipelineDirs(filePath, pipelineDir)) return { block: false };
+  const lock = getActiveLock(pipelineDir);
+  if (lock && getActiveExecWindow(pipelineDir, lock.session_id)) return { block: false };
+  const id = typeof pending.dispatch_id === 'string' ? pending.dispatch_id : '(unknown)';
+  return {
+    block: true,
+    reason: `DISPATCH_LOCK_ACTIVE: ${buildDispatchBlockMessage(pending.block_type, id)}`,
+    pending,
+  };
+}
+
 function handlePreToolUse(payload) {
   if (!['Edit', 'Write', 'NotebookEdit', 'MultiEdit'].includes(payload.tool_name)) {
     return { decision: 'allow' };
@@ -420,6 +537,15 @@ function handlePreToolUse(payload) {
       decision: 'block',
       reason: result.reason,
     };
+  }
+  // Dispatch-pending preventive lock (Fase 1). Deny by default; PIPELINE_DISPATCH_LOCK=warn audits only.
+  const dispatch = shouldBlockOnPendingDispatch(filePath, payload.cwd);
+  if (dispatch.block) {
+    if (String(process.env.PIPELINE_DISPATCH_LOCK || '').toLowerCase() === 'warn') {
+      process.stderr.write('edit-guard: [WARN] dispatch-pending lock would block: ' + dispatch.reason + '\n');
+    } else {
+      return { decision: 'block', reason: dispatch.reason };
+    }
   }
   return { decision: 'allow' };
 }
@@ -452,4 +578,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, openExecWindow, closeExecWindow, findPairingEntry, appendAuditEntry, MAX_TTL_MINUTES, PAIRING_TOLERANCE_MS, STALE_HEARTBEAT_THRESHOLD_MS, STALE_HEARTBEAT_MS /* deprecated alias, removal scheduled for v5.4.0 */ };
+module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, openExecWindow, closeExecWindow, findPairingEntry, appendAuditEntry, shouldBlockOnPendingDispatch, buildDispatchBlockMessage, findActiveSentinelState, findLivePendingBlock, resolveHandshakeTimeoutMs, MAX_TTL_MINUTES, PAIRING_TOLERANCE_MS, STALE_HEARTBEAT_THRESHOLD_MS, STALE_HEARTBEAT_MS /* deprecated alias, removal scheduled for v5.4.0 */ };

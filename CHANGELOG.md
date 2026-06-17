@@ -5,6 +5,18 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.1.0] - 2026-06-17 — Dispatch-pending preventive lock (MINOR)
+
+Real-time enforcement closing the Achado #7 failure mode where the parent main LLM ignores a pending `DISPATCH_REQUEST`/`GATE_REQUEST`/`PLAN_MODE_REQUEST` handshake and conducts work inline (observed live in a real Clínica Companion run: fidelity 0.0435, 1/23 mandatory gates). Until now, parent-side enforcement was prompt-only plus a reactive SessionStart timeout that fired ~12h later.
+
+### Added
+
+- `shouldBlockOnPendingDispatch(filePath, pipelineDir)` in `.claude/hooks/edit-guard-hook.cjs`: denies `Edit`/`Write`/`NotebookEdit`/`MultiEdit` to paths outside `.pipeline/` + `pipeline-runs/` while the run's `sentinel-state.json` has a live pending protocol block (age ≤ `PIPELINE_HANDSHAKE_TIMEOUT_MS`, default 30 min). Robust to the `pipeline_active=false` escape (only `pending_blocks` + age matter); expired blocks → allow (recovery via the cleanup-orphan hook); a valid exec-window → allow (legitimate executor). Deny by default; `PIPELINE_DISPATCH_LOCK=warn` audits without blocking. Fail-OPEN on absent/illegible state. Wired into `handlePreToolUse` after the existing lock check — enters force via the already-registered `PreToolUse` `Edit|Write|NotebookEdit|MultiEdit` hook, no manifest change.
+- `.claude/hooks/__tests__/dispatch-pending-lock.test.cjs` — 12 scenarios incl. T5 (Clínica Companion reproduction that now BLOCKs) and T12 (CLI dogfood invoking the hook via stdin as Claude Code does). Hooks suite 131/131; full project suite shows no new failures (the 4 pre-existing Langfuse failures are unchanged).
+- `docs/plans/2026-06-17-dispatch-pending-lock.md` — Fase 1 of the "parent-orchestrates" re-architecture (Fases 2-3 to follow: state advanced by hook; parent becomes the orchestrator, retiring the DISPATCH_REQUEST hoist).
+
+Iron Law preserved: changes limited to `.claude/hooks/` + tests + docs; no gate registry / agents / skills / commands changes.
+
 ## [8.0.3] - 2026-06-17 — Protocol doc guard: no-SendMessage anti-pattern note (PATCH)
 
 Documentation-only. ZERO changes to the plugin runtime, agents, skills, commands, hooks, or `lib/` behavior.
