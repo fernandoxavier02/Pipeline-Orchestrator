@@ -2,6 +2,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const signer = require('../../lib/sentinel-state-signer.cjs');
+const os = require('node:os');
 
 const SESSION_ID_RE = /^[A-Za-z0-9._-]{1,64}$/;
 const MAX_TTL_MINUTES = 60;
@@ -541,9 +542,37 @@ function isInsidePipelineDirs(filePath, pipelineDir) {
   return nf === np || nf.startsWith(np + path.sep) || nf === npr || nf.startsWith(npr + path.sep);
 }
 
+// v8.2.1: the harness Plan-Mode plan file lives in the user config dir (~/.claude/plans or
+// $CLAUDE_CONFIG_DIR/plans), OUTSIDE .pipeline/. Writing the plan IS planning, not production
+// code — so the gate must exempt it, or it deadlocks Plan Mode itself (the gate arms in Phase 0,
+// then blocks the plan file the controller must write in Phase 1.5). Found by live dogfood.
+function isPlanFile(filePath) {
+  if (typeof filePath !== 'string' || !filePath) return false;
+  let resolved;
+  try { resolved = path.resolve(filePath); } catch (_) { return false; }
+  const norm = process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+  const candidates = [];
+  if (process.env.CLAUDE_CONFIG_DIR) candidates.push(path.resolve(process.env.CLAUDE_CONFIG_DIR, 'plans'));
+  try { candidates.push(path.resolve(os.homedir(), '.claude', 'plans')); } catch (_) {}
+  for (const c of candidates) {
+    const nc = process.platform === 'win32' ? c.toLowerCase() : c;
+    if (norm === nc || norm.startsWith(nc + path.sep)) return true;
+  }
+  // generic fallback: any `<sep>.claude<sep>plans<sep>` segment (covers nonstandard config dirs)
+  const seg = `${path.sep}.claude${path.sep}plans${path.sep}`;
+  const segNorm = process.platform === 'win32' ? seg.toLowerCase() : seg;
+  return norm.includes(segNorm);
+}
+
+// A write is exempt from the preventive locks when it targets the run's .pipeline/ dirs OR the
+// harness Plan-Mode plan file. Production code outside these stays subject to the gate.
+function isExemptPath(filePath, pipelineDir) {
+  return isInsidePipelineDirs(filePath, pipelineDir) || isPlanFile(filePath);
+}
+
 // Shared fail-closed result for an authoritatively-corrupt run state.
 function corruptResult(filePath, pipelineDir) {
-  if (isInsidePipelineDirs(filePath, pipelineDir)) return { block: false };
+  if (isExemptPath(filePath, pipelineDir)) return { block: false };
   const lock = getActiveLock(pipelineDir);
   if (lock && getActiveExecWindow(pipelineDir, lock.session_id)) return { block: false };
   return { block: true, reason: 'PIPELINE_STATE_CORRUPT: active run state is unreadable — failing closed. Restore or archive the corrupt sentinel-state before writing code.' };
@@ -624,7 +653,7 @@ function shouldBlockOnPendingDispatch(filePath, pipelineDir) {
   if (!state) return { block: false };
   const pending = findLivePendingBlock(state, resolveHandshakeTimeoutMs());
   if (!pending) return { block: false };
-  if (isInsidePipelineDirs(filePath, pipelineDir)) return { block: false };
+  if (isExemptPath(filePath, pipelineDir)) return { block: false };
   const lock = getActiveLock(pipelineDir);
   if (lock && getActiveExecWindow(pipelineDir, lock.session_id)) return { block: false };
   const id = (typeof pending.gate_id === 'string' && pending.gate_id) ||
@@ -656,7 +685,7 @@ function shouldBlockWithoutApprovedPlan(filePath, pipelineDir) {
   if (state === CORRUPT_SENTINEL) return corruptResult(filePath, pipelineDir);
   if (!state) return { block: false };
   if (!planGateArmedFromState(state)) return { block: false };
-  if (isInsidePipelineDirs(filePath, pipelineDir)) return { block: false };
+  if (isExemptPath(filePath, pipelineDir)) return { block: false };
   const lock = getActiveLock(pipelineDir);
   if (lock && getActiveExecWindow(pipelineDir, lock.session_id)) return { block: false };
   return { block: true, reason: `PLAN_GATE_ACTIVE: ${buildPlanGateMessage()}` };
@@ -728,4 +757,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, openExecWindow, closeExecWindow, findPairingEntry, appendAuditEntry, shouldBlockOnPendingDispatch, buildDispatchBlockMessage, findActiveSentinelState, discoverStatePath, findLivePendingBlock, resolveHandshakeTimeoutMs, shouldBlockWithoutApprovedPlan, buildPlanGateMessage, planGateArmedFromState, detectShellWrite, isDispatchPending, isPlanGateArmed, CORRUPT_SENTINEL, MAX_TTL_MINUTES, PAIRING_TOLERANCE_MS, STALE_HEARTBEAT_THRESHOLD_MS, STALE_HEARTBEAT_MS /* deprecated alias, removal scheduled for v5.4.0 */ };
+module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, openExecWindow, closeExecWindow, findPairingEntry, appendAuditEntry, shouldBlockOnPendingDispatch, buildDispatchBlockMessage, findActiveSentinelState, discoverStatePath, findLivePendingBlock, resolveHandshakeTimeoutMs, shouldBlockWithoutApprovedPlan, buildPlanGateMessage, planGateArmedFromState, detectShellWrite, isDispatchPending, isPlanGateArmed, isPlanFile, isExemptPath, CORRUPT_SENTINEL, MAX_TTL_MINUTES, PAIRING_TOLERANCE_MS, STALE_HEARTBEAT_THRESHOLD_MS, STALE_HEARTBEAT_MS /* deprecated alias, removal scheduled for v5.4.0 */ };

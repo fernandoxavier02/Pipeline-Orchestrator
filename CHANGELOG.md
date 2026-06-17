@@ -5,6 +5,19 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.2.1] - 2026-06-17 — Plan-Mode deadlock fix (PATCH)
+
+The v8.2.0 deterministic Plan-Mode gate exempted only `.pipeline/`. But the harness writes the Plan-Mode plan file to `~/.claude/plans/` (or `$CLAUDE_CONFIG_DIR/plans`), OUTSIDE `.pipeline/`. Since the gate arms in Phase 0 and the controller writes the plan in Phase 1.5 (before approval), the gate **deadlocked Plan Mode in every real MEDIA/COMPLEXA/Spec run** — the plan file could not be written at all. Found by live dogfood: the very run porting the gate to OpenCode hit the deadlock when writing its own plan.
+
+### Fixed
+- `.claude/hooks/edit-guard-hook.cjs`: new `isPlanFile()` (detects the harness plan dir via `$CLAUDE_CONFIG_DIR/plans`, `os.homedir()/.claude/plans`, or any `.claude/plans/` path segment) + `isExemptPath()` (= `isInsidePipelineDirs` OR `isPlanFile`). The three preventive-lock exemption sites (`shouldBlockWithoutApprovedPlan`, `shouldBlockOnPendingDispatch`, `corruptResult`) now use `isExemptPath`. Writing the plan is planning, not production code.
+- Production code outside `.pipeline/` and the plan dir stays blocked (regression-tested). No other lock behavior changed.
+
+### Tests
+- New `.claude/hooks/__tests__/plan-mode-exemption.test.cjs` (EX1–EX5, RED→GREEN): plan-file write allowed while armed (plain path, `$CLAUDE_CONFIG_DIR`, and dispatch-lock variant); production code still blocked. Hook+unit suite 168/168; full project suite shows no new failures (4 pre-existing Langfuse + the known flaky F07).
+
+Lockstep 9 surfaces → 8.2.1. Iron Law: change limited to `.claude/hooks/edit-guard-hook.cjs` + its test + lockstep.
+
 ## [8.2.0] - 2026-06-17 — Deterministic Plan-Mode gate + hardened write locks (MINOR)
 
 Closes the root cause the user demanded: **no production code is written in a pipeline run until an APPROVED plan is registered in the state** — enforced by code, in all code-writing workflows, not by prose. Also hardens the v8.1.0 dispatch lock against the 3 critical escapes an independent adversarial review found (v8.1.0 had shipped vulnerable).
