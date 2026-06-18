@@ -1,6 +1,6 @@
 # Gate System Reference
 
-> **SSOT** for gate definitions — hardness taxonomy and the 43-gate registry. `commands/pipeline.md` Grep-redirects here when it needs the full table with trigger conditions and recovery actions. Operational audit mechanics (Phase Transition Summary block template, Gate Decision Log JSONL format + parse/sanitization rules) live in `references/audit-trail.md` — they evolve independently from gate definitions. If you change gate hardness levels or registry rows, update this file; downstream tooling parses it.
+> **SSOT** for gate definitions — hardness taxonomy and the 47-gate registry. `commands/pipeline.md` Grep-redirects here when it needs the full table with trigger conditions and recovery actions. Operational audit mechanics (Phase Transition Summary block template, Gate Decision Log JSONL format + parse/sanitization rules) live in `references/audit-trail.md` — they evolve independently from gate definitions. If you change gate hardness levels or registry rows, update this file; downstream tooling parses it.
 
 ---
 
@@ -91,6 +91,17 @@ These 8 events are emitted by the spec-authoring workflow (`step-01c-ideation`, 
 | SPEC_AMENDED | AUDIT | spec-controller re-sealed an amended spec (`spec_version` incremented). | Append informational entry (CONFIRMED). | None — amendment recorded. |
 
 **AUDIT hardness:** new level in the taxonomy as of v6.2.0. Informational only — never blocks, never asks, never penalises confidence. Exists so observability events have a first-class gate row rather than masquerading as SOFT skipped/COMPLETED entries.
+
+### Spec-authoring enforcement gates (v8.5.0)
+
+These 4 events are emitted by the deterministic /spec authoring enforcement force-back (P1-P5): the seal-gate (`spec-seal-guard.cjs`), the per-step authoring tracker, the sealed-spec→implementation handoff guard (`dispatch-guard.cjs` `handleSealedSpecImplementation`, `final-validator`), and the structural parallel dispatcher (`parallel-dispatch-gate.cjs`). All 4 are **AUDIT** — informational only, never mandatory — so the "Mandatory Gates by Complexity" table is UNCHANGED (F1 preserved). They are written to `protocol-events.jsonl` via `appendProtocolEvent` (NOT `gate-decisions.jsonl`), so they never enter the `lib/contracts/gate-decision.cjs` canonical vocabulary.
+
+| Gate | Hardness | Trigger | Action | Recovery |
+|------|----------|---------|--------|----------|
+| SPEC_AUTHORING_INCOMPLETE | AUDIT | `spec-seal-guard.cjs` intercepts a `run-seal.cjs` invocation whose sentinel shows `spec_review_done !== true` (review loop did not converge). | Append informational entry to `protocol-events.jsonl`. | None — informational; the seal-gate `sealSpecRun()` preconditions are the hard stop. |
+| SPEC_AUTHORING_STEP_BYPASS | AUDIT | A spec-authoring step advanced without its `spec_authoring_progress[step]` stamp recorded by `record-spec-step.cjs`. | Append informational entry to `protocol-events.jsonl`. | None — informational; surfaces a skipped authoring step. |
+| SPEC_CONTRACT_DISCIPLINE_MISSING | AUDIT | `dispatch-guard.cjs` `handleSealedSpecImplementation` / `final-validator` see a sealed `implementation_contract` whose `required_impl_gates[]` are not all satisfied before implementation dispatch. | Append informational entry to `protocol-events.jsonl`; `final-validator` downgrades GO → CONDITIONAL. | Satisfy the required implementation gates (TDD_APPROVAL, PLAN_REJECTED, ADVERSARIAL_GATE) before dispatch. |
+| PARALLEL_DISPATCH_VIOLATION | AUDIT | `parallel-dispatch-gate.cjs` sees an out-of-group `Agent` spawn while a `parallel_dispatch_expected` group is armed. | Append informational entry to `protocol-events.jsonl`; warn-first (deny only under `PIPELINE_PARALLEL_ENFORCEMENT=deny`). | None by default — dispatch the whole group in a single message to honor the parallelism contract. |
 
 **Rules (definitions only — operational write mechanics are in `references/audit-trail.md`):**
 1. When a SOFT gate is skipped, the decision MUST be logged with `decision: "SKIPPED"`. The `final-validator` MUST check this log and factor skipped gates into the GO/CONDITIONAL/NO-GO decision. (Write path mechanics: see `references/audit-trail.md`.)

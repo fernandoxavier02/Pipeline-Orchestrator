@@ -55,6 +55,33 @@ At run allocation, before any authoring step:
 
 **Terminal guard:** a spec run is complete when `notes.options.spec_sealed == true` — NOT when `step_completed >= N`. At run allocation, stamp `notes.options.controller_type = "spec"` so the brainstorm-controller's `step_completed >= 8` terminal guard never mistakes a mid-review-loop spec run for a completed brainstorm run. On `--resume`, recover from the manifest + the `notes.options` flags (`controller_type`, `alternatives_done`, `ideation_done`, `interrogator_done`, `spec_review_done`, `spec_sealed`); missing flags are treated as auto-skipped/not-done per the substrate convention.
 
+## Per-step authoring-progress stamping (MANDATORY — seal-gate evidence)
+
+Before advancing from each step, stamp that step's outcome into the run's signed `sentinel-state.json` via the CLI — exactly like the `record-plan-gate.cjs` arm/approve calls you already make through Bash. This is what lets the seal-gate (the `spec-seal-guard` hook and `sealSpecRun()` preconditions) verify the brainstorm actually grew step-by-step rather than jumping straight to a seal:
+
+```
+node scripts/record-spec-step.cjs $PIPELINE_DOC_PATH <step> done
+```
+
+When a step self-skips per its own auto-skip rule (e.g. step 1b/1c auto-skip for mechanical tasks, or step 4 validate-gap skipped with no git history), stamp `auto-skipped` instead of `done`. Stamp AFTER the step completes and BEFORE you dispatch the next step, one call per step, using this exact step→name mapping (closed vocabulary; the script rejects any other name):
+
+| Step | record-spec-step name | Stamp when |
+|---|---|---|
+| 0 | `intake` | intake recorded |
+| 1 | `explore` | clarification synthesis recorded |
+| 1b | `alternatives` | done, or `auto-skipped` if the agent self-skipped |
+| 1c | `ideation` | done, or `auto-skipped` if the agent self-skipped |
+| 1d | `interrogator` | DESIGN_INTERROGATION recorded |
+| 2/3 | `requirements` | spec-init + spec-requirements done |
+| 4 | (none) | validate-gap has no own progress key; its effect lands on `research` |
+| 5 | `design` | spec-design done (writes research.md) |
+| 5 | `research` | stamp `done` once research.md exists; `auto-skipped` if validate-gap was skipped and you wrote the minimal stub in Step 8 |
+| 6/7 | `tasks` | validate-design converged + spec-tasks done |
+| 8 (per round) | `review-round` | one stamp per completed critic round |
+| 8 (final) | `converged` | stamp `done` when the review loop converges (no CRITICAL/HIGH) |
+
+The stamping is idempotent (re-stamping the same step overwrites cleanly), so a `--resume` that re-enters a step and re-stamps it is harmless. A run that never stamps any step keeps no `spec_authoring_progress` field and is treated as a non-spec run — back-compat is preserved.
+
 ## Step 1d — forced, proportional design-interrogator (input adapter)
 
 The design-interrogator natively expects `ORCHESTRATOR_DECISION + INFORMATION_GATE` inputs and emits a mandatory `PLAN_MODE_REQUEST`. The brainstorm flow produces neither input. Build the **adapter payload** from what you have:
@@ -75,7 +102,20 @@ Dispatch the interrogator forced-on regardless of complexity (this is the unbrea
 4. Re-run the critic.
 5. On each COMPLETED critic re-run, append a `SPEC_REVIEW_FINDINGS` audit event to `pipeline-runs/<run_id>/gate-decisions.jsonl` via the substrate writer (`lib/gate-decision-writer.cjs`): `gate: "SPEC_REVIEW_FINDINGS"`, `decision` = the round result (`TRIGGERED` when the round surfaced findings, `CONFIRMED` when the round came back clean), `detail` = counts by severity for that round (e.g. `attempt=2 critical=0 high=1 medium=3 low=0`). This is the observable signal the fidelity-reporter's authoring yardstick counts — one line per completed round, written AFTER the round finishes and BEFORE the attempt counter is persisted, so `--resume` cannot double-emit.
 - **Bound:** `notes.options.max_review_attempts` (default 3 — aligns with the project's canonical fix-loop bound).
-- **Convergence:** seal only when the critic returns no CRITICAL/HIGH. If the user REJECTS a correction for a CRITICAL/HIGH finding → **non-convergence**: stop and present the open findings; never auto-seal over a rejected critical finding. "Accept as advisory" applies only to MEDIUM/LOW. On the final clean (or accepted) critic run, set `notes.options.spec_review_done = true` and `notes.options.spec_review_attempts = <N>` before sealing — these are the observable fields a test asserts on.
+- **Convergence:** seal only when the critic returns no CRITICAL/HIGH. If the user REJECTS a correction for a CRITICAL/HIGH finding → **non-convergence**: stop and present the open findings; never auto-seal over a rejected critical finding. "Accept as advisory" applies only to MEDIUM/LOW. On the final clean (or accepted) critic run, set `notes.options.spec_review_done = true` and `notes.options.spec_review_attempts = <N>` before sealing — these are the observable fields a test asserts on. Also stamp the per-step progress for this round and the convergence: `node scripts/record-spec-step.cjs $PIPELINE_DOC_PATH review-round done` after each completed critic round, and `node scripts/record-spec-step.cjs $PIPELINE_DOC_PATH converged done` once the loop converges, before advancing to Step 9.
+- **Convergence stamp → signed sentinel (v8.5.0, B3 — P3 seal gate):** the `record-spec-step.cjs $PIPELINE_DOC_PATH converged done` call sets `spec_review_converged: true` in the run's **signed** `sentinel-state.json` (merged into the existing state, re-signed via the substrate's signer — `writeSignedState`, the same SSOT used by `record-plan-gate.cjs`; the HMAC covers the whole object so the new field is signed automatically). This is the field `sealSpecRun()`'s 4th pre-condition verifies before it will seal: the seal blocks unless `spec_review_converged === true` is present in a sentinel whose signature **verifies** — a corrupt/unsigned/tampered sentinel is NOT trusted as converged. So the convergence stamp MUST land (and re-sign) before you call `sealSpecRun` in Step 9, or the seal returns `{ ok:false, missing:['spec_review_converged'] }`.
+- **Implementation contract → spec.json + signed sentinel (v8.5.0, B3 — P3):** on the SAME final-clean convergence stamp, also write the `implementation_contract` object into BOTH the sealed `spec.json` and the signed `sentinel-state.json` (merged + re-signed alongside `spec_review_converged`). This is the handoff contract that Batch B4 (`dispatch-guard` / `pipeline-controller` Phase 0 / `final-validator`) consumes to recognize a sealed spec and enforce its implementation gates. Use exactly this shape (the field is additive and back-compat — its absence on a legacy run means "not a sealed spec"):
+
+  ```jsonc
+  "implementation_contract": {
+    "sealed": true,
+    "ready_for_implementation": true,
+    "required_impl_gates": ["TDD_APPROVAL", "ADVERSARIAL_BLOCK", "ADVERSARIAL_LOOP_CHECKPOINT"],
+    "spec_dir": "01-spec"
+  }
+  ```
+
+  `spec_dir` is the run-relative directory holding the five sealed artifacts (always `01-spec` in the current layout). `required_impl_gates[]` are the implementation gates B4 will require to be satisfied before an implementation dispatch is allowed against this sealed spec.
 - **Idempotency:** increment the attempt counter only AFTER a completed critic re-run, persisted before the next dispatch — so `--resume` cannot double-count.
 - **Crash recovery:** corrections are destructive; on `--resume` mid-loop use the substrate's destructive-step recovery (prompt re-apply/overwrite vs. skip), never blind re-application.
 

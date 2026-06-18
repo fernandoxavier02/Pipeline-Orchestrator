@@ -110,6 +110,8 @@ DIFF_DISCIPLINE_INPUT:
 
 **CRITICAL:** Spawn all THREE reviewers (or all applicable, per the Step 1 table) in a SINGLE message with multiple Agent tool calls. This ensures true parallelism and independent context. SSOT for the discipline contract: `references/implementation-discipline.md`.
 
+**Parallel group (`group_id` / `batch_mode`, v8.5.0).** These reviewers are a known-parallel set. Tag each member's DISPATCH_REQUEST with the same `group_id: review-batch-<N>` and `batch_mode: parallel`. The parent ARMS the group by writing a signed `parallel_dispatch_expected = { group_id, dispatch_ids: [adversarial-batch, architecture-reviewer, diff-discipline-reviewer], armed_ts }` into the run's sentinel-state BEFORE spawning the group in one message. The `parallel-dispatch-gate` hook is warn-first: a serial dispatch is recorded as `PARALLEL_DISPATCH_VIOLATION` (AUDIT) but allowed by default. Omitting `group_id` keeps legacy serial behavior — additive only.
+
 ### Step 3: Consolidate Results
 
 Wait for ALL reviewers to complete, then merge findings:

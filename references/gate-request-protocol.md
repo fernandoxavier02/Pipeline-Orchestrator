@@ -94,8 +94,23 @@ prompt: |
   <full prompt text, multiline, verbatim — the parent passes this through>
 context_for_parent: |
   <optional notes for the parent: why this dispatch, what the result is used for>
+group_id: <string>       # optional — present when this dispatch belongs to a parallel group
+batch_mode: parallel     # optional — only valid value: "parallel"; absence = legacy serial behavior
 === END DISPATCH_REQUEST ===
 ```
+
+**Parallel groups (`group_id` / `batch_mode`, v8.5.0, optional + additive).** When an
+emitter wants a set of dispatches to run concurrently, it tags each member with the
+same `group_id` and `batch_mode: parallel`, and the parent ARMS the group by writing a
+signed `parallel_dispatch_expected = { group_id, dispatch_ids[], armed_ts }` marker into
+the run's sentinel-state BEFORE spawning all members in a single message. The
+`parallel-dispatch-gate` hook observes this and is **warn-first** — a serial dispatch of
+an armed group is recorded as `PARALLEL_DISPATCH_VIOLATION` (AUDIT) but allowed by
+default (parallelism is an efficiency concern, not correctness); hard enforcement is
+opt-in via `PIPELINE_PARALLEL_ENFORCEMENT=deny`. **Back-compat:** a single
+`DISPATCH_REQUEST` without a `group_id` behaves exactly as today — legacy serial behavior,
+unchanged. The two fields are purely additive; older blocks and older parents that ignore
+them are unaffected.
 
 If `target_kind: skill`, the subagent SHOULD prefer to dispatch the skill itself directly (Skill tool works in subagents). Only emit DISPATCH_REQUEST for skills when the dispatch must be observed/audited by the parent for some reason.
 

@@ -103,6 +103,8 @@ QUALITY_REVIEW_INPUT:
 
 **CRITICAL:** All 3 MUST be spawned in a SINGLE message with 3 parallel Agent tool calls. Do NOT use `adversarial-batch`, `architecture-reviewer`, or `executor-quality-reviewer` here — those agents run WITH context and are reserved for per-batch / per-task reviews. The final adversarial review is the only place the three `adversarial-*` context-independent scanners run together.
 
+**Parallel group (`group_id` / `batch_mode`, v8.5.0).** These 3 scanners are a known-parallel set. Tag each member's DISPATCH_REQUEST with the same `group_id: final-adversarial-<run>` and `batch_mode: parallel`. The parent ARMS the group by writing a signed `parallel_dispatch_expected = { group_id, dispatch_ids: [security, architecture, quality], armed_ts }` into the run's sentinel-state BEFORE spawning all 3 in one message. The `parallel-dispatch-gate` hook is warn-first: a serial dispatch is recorded as `PARALLEL_DISPATCH_VIOLATION` (AUDIT) but allowed by default. Omitting `group_id` keeps legacy serial behavior — additive only.
+
 ---
 
 ## PROCESS

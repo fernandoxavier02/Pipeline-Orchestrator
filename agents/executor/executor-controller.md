@@ -146,6 +146,8 @@ target_name: pipeline-orchestrator:executor:executor-implementer-task
 prompt: |
   TASK_ID: <M1>
   ...
+group_id: batch-<N>-parallel
+batch_mode: parallel
 === END DISPATCH_REQUEST ===
 
 === DISPATCH_REQUEST v1 ===
@@ -155,9 +157,13 @@ target_name: pipeline-orchestrator:executor:executor-implementer-task
 prompt: |
   TASK_ID: <M2>
   ...
+group_id: batch-<N>-parallel
+batch_mode: parallel
 === END DISPATCH_REQUEST ===
 STATUS: AWAITING_DISPATCH_RESULTS [batch-<N>-task-<M1>-implementer, batch-<N>-task-<M2>-implementer]
 ```
+
+**Parallel group (`group_id` / `batch_mode`, v8.5.0).** When a batch is `parallel_eligible: true`, the N parallel implementer DISPATCH_REQUEST blocks share one `group_id: batch-<N>-parallel` and `batch_mode: parallel`. The parent ARMS the group by writing a signed `parallel_dispatch_expected = { group_id, dispatch_ids: [all task implementer ids], armed_ts }` into the run's sentinel-state BEFORE spawning the group in a single message. The `parallel-dispatch-gate` hook is warn-first: a serial dispatch of an armed group is recorded as `PARALLEL_DISPATCH_VIOLATION` (AUDIT) but allowed by default (parallelism is efficiency, not correctness). Serial dispatch (no `batch_metadata`, `parallel_eligible: false`/absent) omits `group_id` entirely — legacy behavior, additive only.
 
 **Rules:**
 - Only when `parallel_eligible: true` in batch_metadata. If batch_metadata is absent, `parallel_eligible: false`, **or `parallel_eligible` is absent/undefined within a batch entry**, fall through to serial dispatch (Step 1a → 1b). When `parallel_eligible` is absent from a batch entry, emit `WARN: parallel_eligible absent in batch <N> — defaulting to serial dispatch` to the pipeline trace before falling through. This converts the implicit JS falsy behavior into an explicit, observable contract.

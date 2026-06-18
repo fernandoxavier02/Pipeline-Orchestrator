@@ -180,7 +180,9 @@ console.log('=== F33 deterministic STEP 1.7 brainstorm bypass hook (v7.14.0 B2) 
 {
   const dp = makeDocPath();
   writeSentinel(dp, '__CORRUPT__');
+  process.env.PIPELINE_SPEC_AUTHORING_ENFORCEMENT = 'warn'; // isolate the sealed-spec handler (B4/v8.5.0) — S5 tests the brainstorm fail-open, not the sealed-spec handoff
   const r = dispatch(dp, EXECUTOR, 'execute phase 2', 'warn');
+  delete process.env.PIPELINE_SPEC_AUTHORING_ENFORCEMENT;
   const ok = r.decision === null && r.status === 0;
   record('F33-S5: corrupt sentinel + warn -> allow, no crash (fail-open)', ok,
     `decision=${JSON.stringify(r.decision)} status=${r.status}`);

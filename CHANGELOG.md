@@ -2,6 +2,30 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.5.0] - 2026-06-18 — Deterministic /spec authoring enforcement force-back (MINOR)
+
+Deterministic /spec authoring enforcement force-back (P1-P5): seal-gate (`sealSpecRun()` 4 pre-seal checks + `spec-seal-guard.cjs` hook), `record-spec-step.cjs` writer + per-step stamping, review-convergence gate, code-produced `implementation_contract` + sealed-spec→implementation handoff guard (`dispatch-guard` `handleSealedSpecImplementation`, `final-validator` SPEC_CONTRACT_DISCIPLINE_MISSING, `pipeline-controller` Phase 0), structural parallel-dispatch (`DISPATCH_REQUEST` `group_id`/`batch_mode` + `parallel-dispatch-gate.cjs`). 4 AUDIT gates; Iron Law F1 table unchanged. New `tests/regression/v8.5.0/` F1-F6.
+
+### Added
+- `lib/run-seal.cjs` (P1): `sealSpecRun()` gains 4 pre-seal preconditions — `spec_review_done`, the 4 required artifacts (`requirements.md`/`design.md`/`tasks.md`/`spec.json`), `research.md` existence, and `spec_review_converged` in the sentinel-state. All return the canonical `{ok:false, error:'sealSpecRun: …'}` shape; legacy runs without a spec manifest pass fail-open.
+- `.claude/hooks/spec-seal-guard.cjs` (NEW, P1): PreToolUse `Bash|PowerShell` hook that intercepts `run-seal.cjs` invocations and denies (env `PIPELINE_SPEC_AUTHORING_ENFORCEMENT=deny`) / emits `SPEC_AUTHORING_INCOMPLETE` when the sentinel shows the review loop did not converge. Fail-open on any extraction/read failure.
+- `scripts/record-spec-step.cjs` (NEW, P2): `recordSpecStep(pipelineDocPath, step, status)` merges `spec_authoring_progress[step]` into the signed sentinel-state (closed vocabulary of 9 steps × {done, auto-skipped}); CLI entry. `spec-controller` Steps 1-9 stamp each step; emits `SPEC_AUTHORING_STEP_BYPASS` on a skipped step.
+- `.claude/hooks/parallel-dispatch-gate.cjs` (NEW, P5): PreToolUse `Agent` hook enforcing the armed `parallel_dispatch_expected` group; warn-first (`PARALLEL_DISPATCH_VIOLATION`), deny only under `PIPELINE_PARALLEL_ENFORCEMENT=deny`. Fail-open on every parse/read/verify error.
+- `tests/regression/v8.5.0/` F1-F6 covering seal preconditions, per-step recording, review convergence, the implementation_contract handoff, parallel dispatch, and this registration + lockstep batch.
+
+### Changed
+- `agents/core/spec-controller.md`, `agents/core/pipeline-controller.md`, `agents/core/final-validator.md`, `.claude/hooks/dispatch-guard.cjs` (P3/P4): code-produced `implementation_contract` (sealed, `required_impl_gates[]`, `spec_dir`) written at review convergence; sealed-spec→implementation dispatch guarded; `final-validator` downgrades GO → CONDITIONAL and emits `SPEC_CONTRACT_DISCIPLINE_MISSING` when required gates are unsatisfied; `pipeline-controller` Phase 0 detects a sealed contract and forces `type=Spec`.
+- `references/gate-request-protocol.md` + the 3 parallel-emitting agents (`final-adversarial-orchestrator`, `review-orchestrator`, `executor-controller`) (P5): `DISPATCH_REQUEST` gains optional `group_id` + `batch_mode: parallel` (absent = legacy serial behavior).
+- `references/gates.md`: new "Spec-authoring enforcement gates (v8.5.0)" subsection lists the 4 new AUDIT gates; registry header count 43 → 47. The "Mandatory Gates by Complexity" table is byte-identical (23 rows, F1 preserved). The 4 AUDIT names go to `protocol-events.jsonl`, never `lib/contracts/gate-decision.cjs`.
+- `hooks/hooks.json`: registers `spec-seal-guard.cjs` (Bash|PowerShell) + `parallel-dispatch-gate.cjs` (Agent); SessionStart banner declares v8.5.0.
+- `.claude/hooks/parallel-dispatch-gate.cjs` (folded B5 minors): `armed_ts` is validated against an ISO-8601 prefix regex before `Date.parse` (CRYPTO-1, fail-open otherwise); group-member leaf matches require the spawned `subagent_type` to be namespaced `pipeline-orchestrator:` so a third-party agent with a colliding leaf is NOT treated as in-group (INPUT-1, mirrors dispatch-guard).
+
+### Codex parity
+- The 2 new hooks have NO `.codex/hooks/` mirror by design — only the langfuse/stop hooks mirror to `.codex`; `dispatch-guard.cjs` itself has no codex mirror, so neither do these.
+
+### Version lockstep (9 surfaces)
+- `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` (version + `source.ref`), `package.json`, `lib/index.cjs`, `CLAUDE.md`, `README.md` (version + gates badge 47), `CHANGELOG.md`, `.cursor-plugin/plugin.json`, `hooks/hooks.json` banner — all at 8.5.0. `tests/regression/v7.1.0/F7_version_sync.cjs` bumped (VERSION=8.5.0, PREV=8.4.0).
+
 ## [8.4.0] - 2026-06-18 — Spec-workflow telemetry/fidelity bridge (MINOR)
 
 Makes the `/pipeline-orchestrator:spec` authoring workflow (spec-controller, v8.0.0) leave a MEASURABLE telemetry/fidelity/Langfuse trail. An audit-heavy run with 4 real subagents found (AUDIT-001..006) that spec runs live in `pipeline-runs/<run_id>/` but the telemetry layer (stop-hook, langfuse-hook, fidelity-reporter) only discovers runs via `.pipeline/active-run.json` → `sentinel-state.json` or by scanning `.pipeline/docs/` — so spec runs were invisible (zero run-log entries; REST query confirmed 50 Langfuse traces, 0 spec) and the fidelity yardstick used the wrong (processing) gate set. Fix is ADDITIVE: it teaches the spec workflow to leave the trail the existing fast-path already knows how to read — it does NOT move runs, change the `.pipeline/docs/` scan, or touch the Mandatory Gates table (Iron Law preserved).

@@ -132,6 +132,39 @@ brainstorm step silently, the failure mode the 2026-06-12 audit caught (4 events
    subject to this check. This matches the `STEP_1_7_QUALIFYING` predicate in
    `lib/fidelity-reporter.cjs` (kept in lockstep via a SYNC comment there).
 
+### Step 1c-contract: Sealed-spec implementation_contract discipline (v8.5.0)
+
+For a run DERIVED FROM A SEALED SPEC — one whose verified sentinel-state carries
+`implementation_contract.sealed === true` — the implementation handoff is only
+legitimate once every gate named in `implementation_contract.required_impl_gates[]`
+has been satisfied. A sealed-spec-derived run that reaches Pa de Cal WITHOUT that
+evidence implemented against the spec before its contract discipline was met — the
+failure mode the B4 handoff layer closes. Before issuing the final decision, verify
+contract discipline:
+
+1. Read the run's verified sentinel-state (`{PIPELINE_DOC_PATH}/sentinel-state.json`
+   via the HMAC-verifying reader). If it carries no `implementation_contract`, or
+   the contract is not `sealed`, this check does NOT apply — skip it (back-compat:
+   non-spec / legacy runs have no contract).
+2. If `implementation_contract.sealed === true` AND `required_impl_gates[]` is
+   non-empty, cross-check each required gate against the `gate-decisions.jsonl`
+   entries already parsed in Step 1b. A gate counts as satisfied when at least one
+   line names it with a decision other than `BLOCKED` / `REJECTED` / `NOT_TRIGGERED`.
+3. If ANY required gate is unsatisfied, emit an
+   `event: "SPEC_CONTRACT_DISCIPLINE_MISSING"` line to
+   `{PIPELINE_DOC_PATH}/protocol-events.jsonl` (schema per
+   `references/gate-request-protocol.md` — the `event:` field, AUDIT hardness),
+   with a `detail` naming the run and the unsatisfied gate(s).
+   This is **NOT a new registered gate**: the 35-gate registry, `references/gates.md`
+   and the Inline Invariants stay untouched (`gate_registry_modification` is a
+   forbidden change type), mirroring the `ADVERSARIAL_EVIDENCE_MISSING` pattern.
+   Then **downgrade the verdict from GO to CONDITIONAL** (NOT NO-GO) with the note
+   "spec contract discipline missing — required_impl_gates unsatisfied for <run>".
+4. A run whose required gates are all satisfied (or that has an empty
+   `required_impl_gates[]`) does NOT downgrade. A sentinel that cannot be read /
+   verified is treated as "contract not provable" and does NOT downgrade here (the
+   B4 dispatch-guard already governs the live handoff; this is the closeout audit).
+
 ### Step 1c: Read Confidence Score
 
 If a CONFIDENCE score is available from the pipeline:

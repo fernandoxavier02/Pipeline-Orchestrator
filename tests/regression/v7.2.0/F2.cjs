@@ -26,13 +26,13 @@
  *                      named ATDD_STEP_1B_BYPASS in the Gate Registry sub-
  *                      tables (AUDIT-class events are implicit in the
  *                      hardness taxonomy, no row needed).
- *   F2-S6 REGRESSION — cross-check: 22-row Mandatory table count AND the
- *                      registry sub-table aggregate count both unchanged
- *                      (defense-in-depth against an accidental row add).
+ *   F2-S6 REGRESSION — cross-check: 23-row Mandatory table count AND the
+ *                      registry sub-table aggregate count both at the current
+ *                      baseline (defense-in-depth against an accidental row add).
  *
  * Production code under test:
  *   - agents/quality/quality-gate-router.md (Step 1b bypass logging insertion)
- *   - references/gates.md                   (invariant 22-row + 27-row tables)
+ *   - references/gates.md                   (invariant 23-row Mandatory + 47-row Registry)
  */
 
 const fs = require('node:fs');
@@ -136,7 +136,7 @@ test('F2-S5: references/gates.md Mandatory table has 23 rows (post-Patch-2 basel
 });
 
 // ---------- F2-S6 REGRESSION ----------
-test('F2-S6: cross-check — 23-row Mandatory count AND aggregate Gate Registry count (33) both at post-Patch-2 baseline (defense-in-depth)', () => {
+test('F2-S6: cross-check — 23-row Mandatory count AND aggregate Gate Registry count (47) both at the current baseline (defense-in-depth)', () => {
   // Baseline bumped in Patch 2 / v7.1.2 — STATE_FILE_INIT_FAIL added one row
   // to Mandatory (22 → 23) AND one row to the Gate Registry base sub-table
   // (32 → 33). The defense-in-depth invariant asserted here is unchanged
@@ -149,13 +149,16 @@ test('F2-S6: cross-check — 23-row Mandatory count AND aggregate Gate Registry 
 
   const registrySection = extractSection(md, 'Gate Registry');
   const registryRows = parseAllTableDataRows(registrySection);
-  // The Gate Registry now aggregates 43 data rows across its 5 sub-tables
-  // (18 base + 6 spec + 4 routing + 7 brainstorm + 8 spec-authoring = 43) post-v8.0.0.
+  // The Gate Registry now aggregates 47 data rows across its sub-tables
+  // (18 base + 6 spec + 4 routing + 7 brainstorm + 8 spec-authoring + 4 spec-authoring-enforcement = 47) post-v8.5.0.
   // v8.0.0 added the 8 spec-authoring telemetry gates (IDEATION_*, DESIGN_INTERROGATOR_FORCED,
-  // SPEC_REVIEW_FINDINGS, SPEC_SEALED, SPEC_AMENDED) — all AUDIT/SOFT, none mandatory, so the
-  // Mandatory Gates table stays at 23. No UNAUTHORIZED row may have been added beyond these.
-  assert.equal(registryRows.length, 43,
-    `Gate Registry aggregate row count must be 43 (got ${registryRows.length}) — no UNAUTHORIZED row may have been added beyond the v8.0.0 spec-authoring gates`);
+  // SPEC_REVIEW_FINDINGS, SPEC_SEALED, SPEC_AMENDED); v8.5.0 added 4 spec-authoring enforcement
+  // AUDIT gates (SPEC_AUTHORING_INCOMPLETE, SPEC_AUTHORING_STEP_BYPASS,
+  // SPEC_CONTRACT_DISCIPLINE_MISSING, PARALLEL_DISPATCH_VIOLATION) — all AUDIT/SOFT, none
+  // mandatory, so the Mandatory Gates table stays at 23. No UNAUTHORIZED row may have been added
+  // beyond these.
+  assert.equal(registryRows.length, 47,
+    `Gate Registry aggregate row count must be 47 (got ${registryRows.length}) — no UNAUTHORIZED row may have been added beyond the v8.5.0 spec-authoring enforcement gates`);
 });
 
 console.log('');

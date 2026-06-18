@@ -736,6 +736,335 @@ function handleBrainstormDispatch(target, kind) {
   return false;
 }
 
+// ── v8.5.0 B4: implementation_contract handoff enforcement ───────────────────
+//
+// When a spec-authoring run SEALS (spec-controller Step 8 convergence stamp), it
+// writes a signed `implementation_contract` into sentinel-state:
+//   { sealed:true, ready_for_implementation:true,
+//     required_impl_gates:[...], spec_dir:'01-spec' }
+// The handoff to implementation must NOT proceed until those required gates have
+// been satisfied. This handler mirrors handleBrainstormDispatch: when an
+// implementation/Phase-2 target is dispatched over a run whose VERIFIED contract
+// is sealed but whose required_impl_gates are NOT all present in
+// gate-decisions.jsonl, emit an AUDIT SPEC_CONTRACT_DISCIPLINE_MISSING event and
+// (under PIPELINE_SPEC_AUTHORING_ENFORCEMENT=deny) return a corrective deny.
+//
+// SECURITY (B1 CRYPTO-1 lesson, honored here): a forged/unsigned/tampered
+// sentinel MUST NOT be trusted as a real sealed contract. The contract is honored
+// ONLY when the sentinel's HMAC signature VERIFIES. An unsigned/tampered state in
+// warn-first is treated as "no trustworthy contract" (allow); in deny it depends
+// on whether the state was readable at all (see below).
+//
+// FAIL POSTURE (B1 BL-1/BL-2 lesson — absent vs corrupt are different):
+//   - sentinel ABSENT/UNREADABLE (cannot read the file at all): under deny →
+//     fail-CLOSED (deny + AUDIT); under warn → fail-OPEN (allow). This mirrors
+//     handleBrainstormDispatch's unreadable-state branch.
+//   - sentinel READABLE but signature does NOT verify: do not trust the contract
+//     (B1 CRYPTO-1). Treat as "no enforceable contract" → allow (the forged
+//     contract is ignored rather than acted upon). An AUDIT breadcrumb records
+//     the withheld trust.
+//   - sentinel READABLE + VERIFIED + contract.sealed !== true: not a sealed run →
+//     allow (back-compat: legacy runs have no contract).
+//   - sentinel READABLE + VERIFIED + sealed + required_impl_gates empty/absent →
+//     allow (no gates required = nothing to enforce; back-compat).
+
+// ARCH-B4-002 (anti-drift cross-reference): the required implementation-gate list
+// that this handler enforces is OWNED by lib/run-seal.cjs:REQUIRED_IMPL_GATES
+// (the SSOT for the literal ['TDD_APPROVAL','ADVERSARIAL_BLOCK',
+// 'ADVERSARIAL_LOOP_CHECKPOINT']). This hook intentionally does NOT hardcode that
+// list — at runtime it reads the ACTUAL required_impl_gates[] from the signed
+// sentinel's implementation_contract (see sealedSpecGatesSatisfied below), which
+// run-seal stamped from that same constant. If you need to change the gate set,
+// edit lib/run-seal.cjs:REQUIRED_IMPL_GATES — never duplicate it here.
+//
+// ARCH-B4-004 (fail-closed rationale): SEALED_SPEC_IMPL_FALLBACK is a DELIBERATE
+// fail-closed embedded constant — same design as BRAINSTORM_FALLBACK above. If the
+// (future) external roster registry is missing/unreadable, target detection MUST
+// still work so deleting/corrupting a registry can never silently disable the
+// sealed-spec handoff enforcement. This embedded copy is the floor, not an
+// optimization (cross-ref the brainstorm fallback rationale at BRAINSTORM_FALLBACK).
+//
+// Implementation/Phase-2 dispatch targets the sealed-spec handoff guard watches.
+// Kept SEPARATE from the brainstorm roster (per the plan's roster-overlap risk
+// note): these are the agents that actually implement against a sealed spec.
+const SEALED_SPEC_IMPL_FALLBACK = Object.freeze({
+  fqns: new Set([
+    'pipeline-orchestrator:executor:executor-controller',
+    'pipeline-orchestrator:executor:executor-implementer-task',
+    'pipeline-orchestrator:executor:type-specific:feature-implementer',
+  ]),
+  leaves: new Set([
+    'executor-controller',
+    'executor-implementer-task',
+    'feature-implementer',
+  ]),
+  // BL-3 (v8.5.0): 'audit-' is INTENTIONALLY excluded. The audit variants are
+  // report-only (they never write code and never satisfy implementation gates), so
+  // dispatching an audit against a sealed spec is not an implementation handoff and
+  // must NOT be enforced as one. The brainstorm roster includes 'audit-' because
+  // brainstorm gates ALL Phase-2 work; this handoff guard gates only real impl.
+  skillPrefixes: ['feature-', 'bugfix-', 'user-story-', 'ux-sim-', 'spec-'],
+});
+
+function isSealedSpecImplTarget(target, kind) {
+  if (!target) return false;
+  if (kind === 'Skill') {
+    // Namespace guard mirroring isBrainstormTarget: a colon-bearing name is a
+    // target ONLY in the pipeline-orchestrator namespace; a bare leaf is ours.
+    if (target.includes(':') && !target.startsWith('pipeline-orchestrator:')) return false;
+    const name = target.includes(':') ? target.split(':').pop() : target;
+    return SEALED_SPEC_IMPL_FALLBACK.skillPrefixes.some((pre) => name.startsWith(pre));
+  }
+  const leaf = target.split(':').pop();
+  return SEALED_SPEC_IMPL_FALLBACK.fqns.has(target)
+    || (SEALED_SPEC_IMPL_FALLBACK.leaves.has(leaf) && target.startsWith('pipeline-orchestrator:'));
+}
+
+// Are every required gate present + non-rejected in gate-decisions.jsonl?
+// A gate is "satisfied" when at least one line names it with a decision that is
+// not BLOCKED/REJECTED (any of APPROVED/CONFIRMED/TRIGGERED/DISPATCHED/etc. count
+// as the gate having been exercised toward satisfaction). Unreadable / malformed
+// gate-decisions.jsonl → treat as NO gates satisfied (conservative).
+function sealedSpecGatesSatisfied(docPath, requiredGates) {
+  if (!Array.isArray(requiredGates) || requiredGates.length === 0) return true;
+  const satisfied = new Set();
+  try {
+    const raw = fs.readFileSync(path.join(docPath, 'gate-decisions.jsonl'), 'utf8');
+    for (const line of raw.split(/\r?\n/)) {
+      const t = line.trim();
+      if (!t) continue;
+      let obj;
+      try { obj = JSON.parse(t); } catch { continue; }
+      if (!obj || typeof obj !== 'object') continue;
+      const g = typeof obj.gate === 'string' ? obj.gate : '';
+      const d = typeof obj.decision === 'string' ? obj.decision.toUpperCase() : '';
+      if (!g) continue;
+      if (d === 'BLOCKED' || d === 'REJECTED' || d === 'NOT_TRIGGERED') continue;
+      satisfied.add(g);
+    }
+  } catch { /* unreadable → nothing satisfied */ }
+  return requiredGates.every((g) => satisfied.has(g));
+}
+
+// INT-1 (v8.5.0): a sealed implementation_contract lives in the PRIOR
+// spec-authoring run's sentinel. The pipeline-controller's Step 0.5 is SUPPOSED
+// to propagate it into the current run's sentinel during a prose step — but if
+// that prose step is skipped, the current sentinel carries NO contract and this
+// guard would fail-OPEN (allow every Phase 2 dispatch with zero enforcement).
+// To make enforcement DETERMINISTIC and not prose-contingent, when the current
+// run carries no contract we look up the prior sealed run DIRECTLY, the same way
+// Step 0.5 and STEP 1.7 do: via the PREP_RUN_ID slug.
+//
+// PREP_RUN_ID resolution (deterministic, hook-reachable sources, in priority):
+//   1. the CURRENT run's signed sentinel step_1_7.prep_run_id (the SSOT the
+//      controller writes before any Phase 2 dispatch — buildStep17StateBlock);
+//   2. env PIPELINE_PREP_RUN_ID (explicit operator/runtime override);
+//   3. the dispatch prompt's anchored `PREP_RUN_ID=<slug>` line (column-0
+//      anchored, same anti-injection posture as the PLAN_MODE_RESULTS check).
+// The prior run is a SIBLING of the current run dir:
+//   dirname(PIPELINE_DOC_PATH)/<PREP_RUN_ID>/sentinel-state.json
+// (run-directory.cjs lays runs out as <root>/pipeline-runs/<run_id>/, and
+// PIPELINE_DOC_PATH is the current run's absPath, so its parent IS pipeline-runs).
+//
+// SECURITY (B1 CRYPTO-1, INT-2): the prior contract is honored ONLY when the
+// prior sentinel is SIGNED+verified (valid && !unsigned). A forged / unsigned /
+// tampered / unreadable prior is treated as NO contract (fail-OPEN), exactly like
+// the current-run path. The slug is charset-validated before it touches the
+// filesystem so it can never escape the runs root.
+const _PREP_SLUG_RE = /^[A-Za-z0-9._-]{1,128}$/;
+
+function resolvePrepRunId(docPath, currentState, prompt) {
+  // 1) current sentinel step_1_7.prep_run_id (SSOT)
+  if (currentState && typeof currentState === 'object'
+      && currentState.step_1_7 && typeof currentState.step_1_7 === 'object'
+      && typeof currentState.step_1_7.prep_run_id === 'string'
+      && _PREP_SLUG_RE.test(currentState.step_1_7.prep_run_id)) {
+    return currentState.step_1_7.prep_run_id;
+  }
+  // 2) env override
+  const envPrep = (process.env.PIPELINE_PREP_RUN_ID || '').trim();
+  if (envPrep && _PREP_SLUG_RE.test(envPrep)) return envPrep;
+  // 3) anchored PREP_RUN_ID=<slug> in the dispatch prompt (column-0 anchored)
+  if (typeof prompt === 'string') {
+    const m = /^PREP_RUN_ID=([A-Za-z0-9._-]{1,128})\b/m.exec(prompt);
+    if (m && m[1]) return m[1];
+  }
+  return null;
+}
+
+// Read the PRIOR sealed run's VERIFIED contract, or null if none is enforceable.
+// docPath = current run dir (PIPELINE_DOC_PATH). Returns the contract object only
+// when the prior sentinel is SIGNED+verified and carries a sealed contract.
+function readPriorSealedContract(docPath, prepRunId) {
+  try {
+    // The prior run is a sibling: dirname(currentRunDir)/<prepRunId>/.
+    const runsRoot = path.dirname(path.resolve(docPath));
+    const priorRunDir = path.join(runsRoot, prepRunId);
+    // Containment guard: the resolved prior dir MUST stay directly under runsRoot
+    // (the slug regex already forbids separators, but resolve+check is belt-and-
+    // suspenders against odd inputs).
+    if (path.dirname(priorRunDir) !== runsRoot) return null;
+    const priorSentinel = path.join(priorRunDir, 'sentinel-state.json');
+    if (!fs.existsSync(priorSentinel)) return null;
+    if (!stateSigner || typeof stateSigner.readVerifiedState !== 'function') return null;
+    const hmacStrict = process.env.PIPELINE_HMAC_STRICT === 'true';
+    const { state, verification } = stateSigner.readVerifiedState(priorSentinel, {
+      key: stateSigner.readHmacKey(),
+      strict: hmacStrict,
+    });
+    // B1 CRYPTO-1 + INT-2: trust the prior contract ONLY when SIGNED+verified.
+    if (!verification || verification.valid !== true || verification.unsigned === true) {
+      return null;
+    }
+    const c = (state && state.implementation_contract && typeof state.implementation_contract === 'object'
+      && !Array.isArray(state.implementation_contract)) ? state.implementation_contract : null;
+    if (!c || c.sealed !== true) return null;
+    return c;
+  } catch {
+    return null; // unreadable / parse error / verify threw → no enforceable contract
+  }
+}
+
+// Returns true when the hook has emitted a deny decision (caller must exit).
+function handleSealedSpecImplementation(target, kind, prompt) {
+  // ARCH-B4-001 / BL-2 (v8.5.0): default is DENY, matching the deterministic
+  // enforcement posture of the sibling handlers (handleBrainstormDispatch +
+  // handlePlanModeDispatch both default to deny since v8.3.0). The user wants real
+  // enforcement, not warn. Deny only fires when a VERIFIED sealed contract has
+  // UNSATISFIED gates — all the fail-open-on-no-evidence branches below (no run
+  // context, not a target, unsigned/forged contract, not sealed, no required
+  // gates, gates satisfied) still ALLOW. Set PIPELINE_SPEC_AUTHORING_ENFORCEMENT=warn
+  // to downgrade to a non-blocking stderr nudge.
+  const enforce = String(process.env.PIPELINE_SPEC_AUTHORING_ENFORCEMENT || 'deny').toLowerCase();
+  const docPath = (process.env.PIPELINE_DOC_PATH || '').trim();
+  if (!docPath) return false; // no run context → out of scope
+  if (!isSealedSpecImplTarget(target, kind)) return false; // not a handoff target
+
+  // Read sentinel-state.json. ABSENT/UNREADABLE → fail-CLOSED under deny,
+  // fail-OPEN under warn (B1 BL-1/BL-2: an unreadable sentinel cannot prove the
+  // gates were satisfied, so deny refuses the handoff; warn lets it through).
+  let state;
+  try {
+    state = JSON.parse(fs.readFileSync(path.join(docPath, 'sentinel-state.json'), 'utf8'));
+  } catch {
+    if (enforce === 'deny') {
+      appendProtocolEvent(docPath, {
+        event: 'SPEC_CONTRACT_DISCIPLINE_MISSING', agent: 'dispatch-guard', phase: 'pre-dispatch',
+        detail: 'sentinel-state.json unreadable under enforcement=deny — cannot confirm required_impl_gates satisfied',
+        decided_by: 'dispatch-guard',
+      });
+      console.log(JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'deny',
+          permissionDecisionReason:
+            '[SPEC_CONTRACT] sentinel-state.json is unreadable/corrupt and ' +
+            'PIPELINE_SPEC_AUTHORING_ENFORCEMENT=deny — cannot confirm the sealed spec\'s ' +
+            'required_impl_gates were satisfied. Restore a valid run state (or set enforcement ' +
+            'to warn) before dispatching implementation.',
+        },
+      }));
+      return true; // fail-closed deny
+    }
+    return false; // fail-open allow (warn / default)
+  }
+  if (!state || typeof state !== 'object' || Array.isArray(state)) return false;
+
+  // SECURITY (B1 CRYPTO-1): do NOT trust a forged/unsigned/tampered contract. The
+  // contract is enforceable ONLY when the HMAC signature verifies. Mirror the
+  // brainstorm handler's two-tier consumption: unsigned tolerated in warn-first
+  // (block treated as untrusted → allow); tampered → AUDIT breadcrumb + untrusted.
+  let stateTrusted = true;
+  if (stateSigner && typeof stateSigner.verifyState === 'function') {
+    const hmacStrict = process.env.PIPELINE_HMAC_STRICT === 'true';
+    let verification;
+    try {
+      verification = stateSigner.verifyState(state, {
+        key: stateSigner.readHmacKey(),
+        strict: hmacStrict,
+      });
+    } catch {
+      verification = { valid: false, reason: 'verification threw' };
+    }
+    // INT-2 (v8.5.0, B1 CRYPTO lesson applied UNIFORMLY): a state is trustworthy
+    // as a real sealed contract ONLY when its HMAC signature VERIFIES *and* it is
+    // SIGNED. Under migration mode (PIPELINE_HMAC_STRICT unset) an UNSIGNED state
+    // returns { valid:true, unsigned:true } — honoring it would let an attacker
+    // who can write an UNSIGNED sentinel forge an implementation_contract that
+    // this guard would treat as authoritative. spec-seal-guard.cjs already rejects
+    // verification.unsigned===true; match that here. Withhold trust on either a
+    // failed verification OR an unsigned state.
+    if (!verification.valid || verification.unsigned === true) {
+      appendProtocolEvent(docPath, {
+        event: 'SPEC_CONTRACT_DISCIPLINE_MISSING', agent: 'dispatch-guard', phase: 'pre-dispatch',
+        detail: sanitizeForReason(
+          `implementation_contract trust withheld: ${verification.unsigned === true
+            ? 'unsigned sentinel not authoritative'
+            : verification.reason}`,
+          200,
+        ),
+        decided_by: 'dispatch-guard',
+      });
+      // A forged/unsigned contract must NOT be acted on as if it were a real
+      // sealed contract. Treat it as "no enforceable contract": allow the
+      // dispatch (the contract is ignored), never deny on an untrusted contract.
+      stateTrusted = false;
+    }
+  }
+  if (!stateTrusted) return false;
+
+  let contract = (state.implementation_contract && typeof state.implementation_contract === 'object'
+    && !Array.isArray(state.implementation_contract)) ? state.implementation_contract : null;
+
+  // INT-1 (v8.5.0): enforcement must NOT depend on the controller's prose Step 0.5
+  // having propagated the contract into THIS run's sentinel. When the current run
+  // carries no sealed contract, look up the PRIOR sealed run directly via
+  // PREP_RUN_ID and use ITS verified contract. This removes the sole dependence on
+  // prose propagation — the hook can find the sealed contract from the source run
+  // even if propagation was skipped. Fail-OPEN remains the posture only when NO
+  // sealed contract is found in EITHER location (genuine non-spec run).
+  if (!contract || contract.sealed !== true) {
+    const prepRunId = resolvePrepRunId(docPath, state, prompt);
+    const priorContract = prepRunId ? readPriorSealedContract(docPath, prepRunId) : null;
+    if (!priorContract) return false; // no contract here OR in the prior run → allow (back-compat)
+    contract = priorContract; // enforce the prior sealed run's verified contract
+  }
+
+  const requiredGates = Array.isArray(contract.required_impl_gates) ? contract.required_impl_gates : [];
+  // Absent/empty required_impl_gates → nothing to enforce (back-compat allow).
+  if (requiredGates.length === 0) return false;
+
+  if (sealedSpecGatesSatisfied(docPath, requiredGates)) return false; // gates met → allow
+
+  // Gates unsatisfied: emit the AUDIT event, then warn (default) or deny.
+  const leaf = sanitizeForReason(kind === 'Skill' ? target : target.split(':').pop(), 80);
+  const gatesSafe = sanitizeForReason(requiredGates.join(','), 160);
+  appendProtocolEvent(docPath, {
+    event: 'SPEC_CONTRACT_DISCIPLINE_MISSING', agent: leaf, phase: 'pre-dispatch',
+    detail: `${leaf} dispatched against a sealed spec with unsatisfied required_impl_gates [${gatesSafe}]`.slice(0, 200),
+    decided_by: 'dispatch-guard',
+  });
+  if (enforce === 'deny') {
+    console.log(JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: 'PreToolUse',
+        permissionDecision: 'deny',
+        permissionDecisionReason:
+          `[SPEC_CONTRACT] ${leaf} was dispatched against a SEALED spec but its ` +
+          `required_impl_gates [${gatesSafe}] are not all satisfied in gate-decisions.jsonl. ` +
+          `Satisfy the required implementation gates before dispatching implementation, ` +
+          `or set PIPELINE_SPEC_AUTHORING_ENFORCEMENT=warn.`,
+      },
+    }));
+    return true; // deny
+  }
+  // warn escape only (PIPELINE_SPEC_AUTHORING_ENFORCEMENT=warn): nudge via stderr,
+  // do not block. ARCH-B4-001 / BL-2: default flipped warn->deny — a bypass is now
+  // DENIED unless warn is set explicitly to downgrade.
+  process.stderr.write(`[SPEC_CONTRACT_WARN] dispatch-guard: ${leaf} dispatched against a sealed spec with unsatisfied required_impl_gates [${gatesSafe}] (default is now deny; this warn fired because PIPELINE_SPEC_AUTHORING_ENFORCEMENT=warn — set PIPELINE_SPEC_AUTHORING_ENFORCEMENT=warn to downgrade)\n`);
+  return false;
+}
+
 function handleInput(raw) {
   // 1. Parse stdin. Empty or unparseable → fail-open (do not block user workflows).
   let input;
@@ -757,6 +1086,12 @@ function handleInput(raw) {
     // it reaches the audit write / deny payload (Agent leaves are well under 64).
     const subagent = (typeof toolInput.subagent_type === 'string') ? toolInput.subagent_type : '';
     if (subagent.length <= 128 && handleBrainstormDispatch(subagent, 'Agent')) return process.exit(0);
+    // v8.5.0 B4: implementation_contract handoff enforcement runs AFTER the
+    // brainstorm handler (per the plan's handleInput wiring). INT-1: pass the
+    // dispatch prompt so the handler can recover PREP_RUN_ID from an anchored
+    // line when neither the sentinel nor env carries it.
+    const agentPrompt = (typeof toolInput.prompt === 'string') ? toolInput.prompt : '';
+    if (subagent.length <= 128 && handleSealedSpecImplementation(subagent, 'Agent', agentPrompt)) return process.exit(0);
     if (handleAgentEnforcement(toolInput)) return process.exit(0);
     return process.exit(0); // Agent calls are otherwise out of scope for the legacy Skill→FQN map
   }
@@ -775,6 +1110,16 @@ function handleInput(raw) {
   // variants (feature-*, bugfix-*, ... dispatched via Skill). Runs before the
   // leaf→FQN collision check so a deny short-circuits cleanly.
   if (skillName && skillName.length <= 128 && handleBrainstormDispatch(skillName, 'Skill')) {
+    return process.exit(0);
+  }
+
+  // 3.6. v8.5.0 B4: implementation_contract handoff enforcement for Phase 2 skill
+  // variants dispatched via Skill — runs after the brainstorm handler, same as
+  // the Agent path. INT-1: a Skill dispatch has no `prompt`; pass `args` (when a
+  // string) so an anchored PREP_RUN_ID line there can still be recovered. The
+  // primary sources (current sentinel step_1_7.prep_run_id, env) work regardless.
+  const skillArgs = (typeof toolInput.args === 'string') ? toolInput.args : '';
+  if (skillName && skillName.length <= 128 && handleSealedSpecImplementation(skillName, 'Skill', skillArgs)) {
     return process.exit(0);
   }
 

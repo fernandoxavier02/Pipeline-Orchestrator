@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 'use strict';
 // F2 (v8.0.0) — the 8 spec-authoring telemetry events are registered consistently
-// across the gate SSOT and BOTH Inline-Invariants copies, at the 43 count, with the
+// across the gate SSOT and BOTH Inline-Invariants copies, with the registry count
+// rolled to 47 in v8.5.0 (+4 spec-authoring enforcement AUDIT gates), and the
 // Mandatory Gates by Complexity table left UNCHANGED (Iron Law).
 const fs = require('node:fs');
 const path = require('node:path');
@@ -15,7 +16,7 @@ const EVENTS = ['IDEATION_PROPOSED', 'IDEATION_ACCEPTED', 'IDEATION_REJECTED', '
   'DESIGN_INTERROGATOR_FORCED', 'SPEC_REVIEW_FINDINGS', 'SPEC_SEALED', 'SPEC_AMENDED'];
 const SURFACES = ['references/gates.md', 'commands/pipeline.md', 'agents/core/pipeline-controller.md'];
 
-console.log('=== F2 v8.0.0 event-registry sync (35 -> 43) ===');
+console.log('=== F2 v8.0.0 event-registry sync (35 -> 43 -> 47) ===');
 
 for (const surface of SURFACES) {
   test(`${surface} registers all 8 spec-authoring events`, () => {
@@ -24,10 +25,10 @@ for (const surface of SURFACES) {
   });
 }
 
-test('the registry count moved to 43 in all three surfaces', () => {
-  assert.match(read('references/gates.md'), /43-gate registry/, 'gates.md header = 43');
-  assert.match(read('commands/pipeline.md'), /\(43 total/, 'pipeline.md inline = 43');
-  assert.match(read('agents/core/pipeline-controller.md'), /\(43 total/, 'pipeline-controller.md inline = 43');
+test('the registry count moved to 47 in all three surfaces', () => {
+  assert.match(read('references/gates.md'), /47-gate registry/, 'gates.md header = 47');
+  assert.match(read('commands/pipeline.md'), /\(47 total/, 'pipeline.md inline = 47');
+  assert.match(read('agents/core/pipeline-controller.md'), /\(47 total/, 'pipeline-controller.md inline = 47');
 });
 
 test('the new events are AUDIT/SOFT only — the Mandatory Gates by Complexity table is UNTOUCHED (Iron Law)', () => {
