@@ -277,12 +277,53 @@ function findStateFileByRunId(docsRoot, runId) {
 }
 
 /**
+ * findPointerRunOutsideDocs — v8.4.0 (W2). Pointer-first discovery tier, GATED
+ * to pipeline-runs/ paths only. Mirrors the stop-hook pointer fast-path so a
+ * sealed spec-authoring run (which lives under pipeline-runs/, NOT .pipeline/docs,
+ * and finishes pipeline_active:false) is still discoverable by the Langfuse hook.
+ *
+ * Returns the absolute sentinel-state.json path or null. Honors the same SEC
+ * guards as stop-hook: size cap, freshness window (uncomputable age = stale),
+ * containment inside the project tree, and PIPELINE_RUN_ID agreement. Crucially
+ * it ONLY returns paths OUTSIDE <cwd>/.pipeline/docs/ — the docs scan tiers below
+ * keep their byte-identical legacy semantics.
+ */
+function findPointerRunOutsideDocs(cwd) {
+  try {
+    if (typeof cwd !== 'string' || !path.isAbsolute(cwd)) return null;
+    const ptrPath = path.join(cwd, '.pipeline', 'active-run.json');
+    if (!fs.existsSync(ptrPath)) return null;
+    if (fs.statSync(ptrPath).size > 4096) return null; // SEC: size cap
+    const ptr = JSON.parse(fs.readFileSync(ptrPath, 'utf8'));
+    const docPath = ptr && typeof ptr.pipeline_doc_path === 'string' ? ptr.pipeline_doc_path : '';
+    if (!docPath) return null;
+    const age = ptr && typeof ptr.updated_at === 'string' ? (Date.now() - Date.parse(ptr.updated_at)) : NaN;
+    if (!(Number.isFinite(age) && age >= 0 && age < 24 * 3600 * 1000)) return null; // freshness
+    const cwdGuard = path.resolve(cwd) + path.sep;
+    const resolvedDoc = path.resolve(docPath);
+    if (!resolvedDoc.startsWith(cwdGuard)) return null; // containment
+    const envRunId = (process.env.PIPELINE_RUN_ID || '').trim();
+    if (envRunId && ptr.run_id !== envRunId) return null; // run_id agreement
+    // GATE: only pipeline-runs/ paths (OUTSIDE .pipeline/docs/) use this tier.
+    const docsRootResolved = path.resolve(path.join(cwd, '.pipeline', 'docs')) + path.sep;
+    if (resolvedDoc.startsWith(docsRootResolved)) return null;
+    const sf = path.join(resolvedDoc, 'sentinel-state.json');
+    return fs.existsSync(sf) ? sf : null;
+  } catch (_e) {
+    return null; // pointer unreadable — fall through to the docs scans
+  }
+}
+
+/**
  * readSentinelData — discover the active run's sentinel-state.json and surface
  * the fields the trace/span metadata needs (BUG 3, v7.9.3). Discovery follows
  * a fixed precedence so every separately-spawned hook process of one run lands
  * on the SAME sentinel:
  *   (1) PIPELINE_DOC_PATH — the env var points DIRECTLY at the run folder; its
  *       sentinel-state.json wins over everything (highest precedence).
+ *   (1b) pointer (v8.4.0, W2) — <cwd>/.pipeline/active-run.json, GATED to
+ *       pipeline-runs/ paths only (sealed spec-authoring runs). Honors freshness
+ *       + containment + run_id agreement; never touches .pipeline/docs paths.
  *   (2) PIPELINE_RUN_ID — scan <cwd>/.pipeline/docs for the run folder whose
  *       sentinel run_id matches the env var.
  *   (3) mtime fallback — the most-recently-touched sentinel under
@@ -300,6 +341,11 @@ function readSentinelData() {
     if (docPath) {
       const candidate = path.join(docPath, 'sentinel-state.json');
       if (fs.existsSync(candidate)) { best = candidate; usedDir = docPath; }
+    }
+    // (1b) v8.4.0 (W2): pointer-first tier, gated to pipeline-runs/ paths only.
+    if (!best) {
+      const byPointer = findPointerRunOutsideDocs(process.cwd());
+      if (byPointer) { best = byPointer; usedDir = path.dirname(byPointer); }
     }
     // (2) PIPELINE_RUN_ID folder match under <cwd>/.pipeline/docs.
     if (!best) {

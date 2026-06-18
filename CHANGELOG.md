@@ -2,6 +2,23 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.4.0] - 2026-06-18 — Spec-workflow telemetry/fidelity bridge (MINOR)
+
+Makes the `/pipeline-orchestrator:spec` authoring workflow (spec-controller, v8.0.0) leave a MEASURABLE telemetry/fidelity/Langfuse trail. An audit-heavy run with 4 real subagents found (AUDIT-001..006) that spec runs live in `pipeline-runs/<run_id>/` but the telemetry layer (stop-hook, langfuse-hook, fidelity-reporter) only discovers runs via `.pipeline/active-run.json` → `sentinel-state.json` or by scanning `.pipeline/docs/` — so spec runs were invisible (zero run-log entries; REST query confirmed 50 Langfuse traces, 0 spec) and the fidelity yardstick used the wrong (processing) gate set. Fix is ADDITIVE: it teaches the spec workflow to leave the trail the existing fast-path already knows how to read — it does NOT move runs, change the `.pipeline/docs/` scan, or touch the Mandatory Gates table (Iron Law preserved).
+
+### Added
+- `lib/run-seal.cjs` (NEW): `sealSpecRun(runDir, {variant, grade})` updates the manifest (new `sealed` status, phase 3, step 9, `spec_lifecycle_completed`, `notes.options.spec_sealed`/`controller_type`), closes the run's sentinel-state (`pipeline_active:false`, re-signed), and appends a `SPEC_SEALED` line to `gate-decisions.jsonl`. Idempotent + fail-safe, with a `node lib/run-seal.cjs <runDir> --variant spec-authoring` CLI entry (rejects non-absolute runDir).
+- `tests/regression/v8.4.0/F6_spec_telemetry_bridge.cjs` (17 sub-tests) covering allocate→discover→seal→score end-to-end, the HMAC-gated authoring yardstick, the tampered-signature fallback, and the CLI.
+
+### Changed
+- `lib/run-directory.cjs` `allocate()`: after publishing `PIPELINE_RUN_ID`, fail-safely writes `.pipeline/active-run.json` (atomic temp+rename) + a signed `sentinel-state.json` in the run dir — the telemetry bridge that makes pipeline-runs/ runs discoverable.
+- `.claude/hooks/stop-hook.cjs` + `.claude/hooks/langfuse-hook.cjs` (+ `.codex/` mirrors): discover a SEALED (`pipeline_active:false`) run pointed-to by `active-run.json` when it lies OUTSIDE `.pipeline/docs/` (a pipeline-runs/ run), so a just-sealed spec run is logged once (dedup via existing `shouldAppendRunLogEntry`). The authoring fidelity yardstick is only honored when the sentinel's HMAC verifies (a forged/unsigned sentinel falls back to the larger, safe legacy set).
+- `lib/fidelity-reporter.cjs`: `mandatorySetFor(complexity, type, variant)` is flow-aware — authoring runs (exact allowlist `{spec-authoring, spec-author}`) score against `[SPEC_SEALED, SPEC_REVIEW_FINDINGS]`; processing variants (spec-light/heavy/audit-only) keep the existing set. `lib/run-manifest.cjs` adds the `sealed` status + exports `notesToObject`.
+- `agents/core/spec-controller.md`: Step 0 stamps `controller_type=spec` + notes the bridge files; Step 8 appends `SPEC_REVIEW_FINDINGS` per critic round; Step 9 calls `sealSpecRun` (manifest no longer left stale, AUDIT-004).
+
+### Adversarial review (3 zero-context reviewers, 3 rounds → converged, no CRITICAL/HIGH)
+- Round 1 caught the ship-blocker: the authoring yardstick was never threaded into the stop-hook teardown path (`ensureFidelityReport`/`buildRunLogEntry`), so it would never fire on a real run — fixed (FIX-A). Plus exact-allowlist hardening (yardstick hijack), atomic pointer write, CLI entry, sanitization, audit recovery. Round 2 raised the unverified-variant downgrade (HMAC-gated, FIX-K). Round 3 closed the last MEDIUM/LOW (lib-level absolute-path guard, fail-closed). Full suite 142/4 (4 pre-existing Langfuse env), F6 17/17, F3 3/3; `.codex` mirrors byte-identical. Dogfood: built BY the pipeline with real subagents (2 implementers + 4 fix passes + 7 adversarial reviews).
+
 ## [8.3.0] - 2026-06-17 — Obrigar o dispatch de subagentes (MINOR)
 
 Deterministic enforcement that the parent orchestrator must DISPATCH subagents instead of doing the work inline. Closes audit finding AUDIT-001/SEC-001 (the root cause behind runs with 0 gates and no protocol-events): Plan-Mode and Brainstorm enforcement defaulted to `warn` (logged but allowed), and the dispatch-pending lock only covered file WRITES — a parent that simply kept working inline (reads, reasoning, shell) was never stopped.

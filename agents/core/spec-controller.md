@@ -29,6 +29,12 @@ Full protocol schema: `references/gate-request-protocol.md`.
 
 **Parent contract (required):** the emit-and-hoist relay only closes if your dispatching parent implements the GATE/DISPATCH/PLAN_MODE handler — the `skills/spec/SKILL.md` entry skill does. If any future orchestrator dispatches this controller, it MUST implement the same handler, or child agents (explore, ideation, interrogator) will hang at `AWAITING_PLAN_MODE_RESULTS` with no fallback.
 
+## Step 0 — allocation (telemetry bridge)
+
+At run allocation, before any authoring step:
+- Stamp `notes.options.controller_type = "spec"` on the manifest (this is the same flag the terminal-guard prose below depends on — make it an explicit Step-0 write, not an afterthought).
+- The shared substrate's allocator (`lib/run-directory.cjs` `RunDirectory.allocate`) now ALSO writes the telemetry-bridge pointer `.pipeline/active-run.json` and a signed `sentinel-state.json` inside the run dir for every `pipeline-runs/` run. These two files are what let the stop-hook / langfuse-hook / fidelity-reporter discover and account for a sealed spec run. **Do NOT delete or overwrite them** during the authoring steps — they make the run measurable. The seal step (Step 9) closes the sentinel-state; nothing earlier should touch it.
+
 ## Step table (own sequence; terminal guard keyed on `spec_sealed`)
 
 | Step | Phase | Agent / Skill | Notes |
@@ -67,6 +73,7 @@ Dispatch the interrogator forced-on regardless of complexity (this is the unbrea
 2. Escalate findings to the user via `GATE_REQUEST`, **batched by severity/group** (prefer one `multi_select` gate per group) to bound interaction depth per iteration — accept correction / reject / accept-as-advisory for MEDIUM/LOW.
 3. Apply approved corrections to `design.md`/`tasks.md` (this is a DESTRUCTIVE append/edit).
 4. Re-run the critic.
+5. On each COMPLETED critic re-run, append a `SPEC_REVIEW_FINDINGS` audit event to `pipeline-runs/<run_id>/gate-decisions.jsonl` via the substrate writer (`lib/gate-decision-writer.cjs`): `gate: "SPEC_REVIEW_FINDINGS"`, `decision` = the round result (`TRIGGERED` when the round surfaced findings, `CONFIRMED` when the round came back clean), `detail` = counts by severity for that round (e.g. `attempt=2 critical=0 high=1 medium=3 low=0`). This is the observable signal the fidelity-reporter's authoring yardstick counts — one line per completed round, written AFTER the round finishes and BEFORE the attempt counter is persisted, so `--resume` cannot double-emit.
 - **Bound:** `notes.options.max_review_attempts` (default 3 — aligns with the project's canonical fix-loop bound).
 - **Convergence:** seal only when the critic returns no CRITICAL/HIGH. If the user REJECTS a correction for a CRITICAL/HIGH finding → **non-convergence**: stop and present the open findings; never auto-seal over a rejected critical finding. "Accept as advisory" applies only to MEDIUM/LOW. On the final clean (or accepted) critic run, set `notes.options.spec_review_done = true` and `notes.options.spec_review_attempts = <N>` before sealing — these are the observable fields a test asserts on.
 - **Idempotency:** increment the attempt counter only AFTER a completed critic re-run, persisted before the next dispatch — so `--resume` cannot double-count.
@@ -76,8 +83,8 @@ Dispatch the interrogator forced-on regardless of complexity (this is the unbrea
 
 On clean/accepted review:
 1. Set `spec.json`: `phase: "sealed"`, all `approvals.*.approved = true`, `ready_for_implementation: true`, `spec_version: 1` (or increment on amend), `sealed_at`, and a `sealed_spec` pointer `{ run_dir, artifacts:[the five filenames] }`. (`phase` is the SSOT; `ready_for_implementation` is derived. No content hashes — deferred to the R8 follow-up gate.)
-2. Append a `SPEC_SEALED` audit event (decision `CONFIRMED`, label in `detail`) via the substrate writer.
-3. Set `notes.options.spec_sealed = true`.
+2. Call the substrate seal action via its CLI: `node lib/run-seal.cjs <runDir> --variant spec-authoring --grade <grade>` (exact signature; `--decision` defaults to `SEALED`). The CLI prints the JSON result and exits non-zero on `{ ok:false }`, so a failed seal is observable. **Canonical authoring variant:** the variant you pass MUST be `spec-authoring` (the historical alias `spec-author` is also accepted). This exact string is what the fidelity-reporter's `isAuthoringVariant` allowlist matches to select the 2-gate authoring yardstick — any other string keeps the legacy processing SPEC set, so do not invent a variant here. One call performs ALL THREE substrate writes **sequentially and idempotently** (they are not a single filesystem-atomic transaction — each of the three files is written independently; a crash between them is recovered by re-running the idempotent seal): it updates `manifest.yaml` to `status: "sealed"` (phase 3, step 9, `spec_lifecycle_completed: true`, `type: "Spec"`, `notes.options.{spec_sealed, controller_type}`), re-signs the run's `sentinel-state.json` closed (`pipeline_active: false`, `type: "Spec"`, `pipeline_variant: "spec-authoring"`, `final_decision: "SEALED"`), and appends the idempotent `SPEC_SEALED` audit line (`gate: "SPEC_SEALED"`, decision `CONFIRMED`, label in `detail`) to `gate-decisions.jsonl`. This replaces the old "manually append `SPEC_SEALED`" prose and FIXES the stale-manifest defect (AUDIT-004): without this call the manifest stayed at its pre-seal status while spec.json said sealed. The spec.json sealing in step 1 is still done by the controller; `sealSpecRun` owns the manifest + sentinel + gate-line. The `SPEC_SEALED` line is written once even on a second seal (idempotent).
+3. `sealSpecRun` already sets `notes.options.spec_sealed = true` on the manifest; the controller does not need a separate write.
 4. **Print the voice scorecard** (R11): a spoken-friendly line — requirement count, number of user decisions, number of review findings caught-and-fixed.
 5. **STOP.** Do NOT hand off to implementation. Tell the user the exact command to run later to implement (`/pipeline-orchestrator:pipeline` over the sealed spec dir).
 

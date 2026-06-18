@@ -153,6 +153,15 @@ function findActiveRunFolder(cwd) {
           if (fs.existsSync(sf)) {
             const st = JSON.parse(fs.readFileSync(sf, 'utf8'));
             if (!st || st.pipeline_active !== false) return resolvedDoc;
+            // v8.4.0 (W2): a SEALED spec-authoring run lives OUTSIDE .pipeline/docs/
+            // (under pipeline-runs/) and finishes with pipeline_active:false. It
+            // must still be logged ONCE — so when the pointer targets a path that
+            // is NOT inside .pipeline/docs/, return it even though it is inactive.
+            // Runs inside .pipeline/docs/ keep the byte-identical legacy behavior
+            // (inactive -> fall through to the docs scan). Existing run-log dedup
+            // (shouldAppendRunLogEntry by run_id) guarantees "once".
+            const docsRootResolved = path.resolve(path.join(cwd, '.pipeline', 'docs')) + path.sep;
+            if (!resolvedDoc.startsWith(docsRootResolved)) return resolvedDoc;
             reason = 'inactive';
           } else { reason = 'broken_path'; }
         }
@@ -244,6 +253,55 @@ function readTailLines(filePath, n) {
 }
 
 /**
+ * FIX-K (v8.4.0): authoring-variant trust gate.
+ *
+ * FIX-A made the teardown path honor a ROOT-level `pipeline_variant` to pick the
+ * (smaller) AUTHORING yardstick — only 2 mandatory gates instead of the full
+ * processing set. But the sentinel is read with raw JSON (no HMAC check), so a
+ * forged/unsigned sentinel could set `pipeline_variant:'spec-authoring'` purely
+ * to SHRINK a real processing run's mandatory gate count and inflate fidelity.
+ *
+ * Defense: a `pipeline_variant` is only allowed to REDUCE the mandatory set (the
+ * authoring set) when the sentinel's HMAC signature VERIFIES. Legit authoring
+ * runs always write a SIGNED sentinel (run-directory bridge + sealSpecRun via
+ * writeSignedState), so they still verify and keep the 2-gate set. On verify
+ * failure (or unsigned), the authoring variant is DROPPED and the run falls back
+ * to the legacy type/complexity classification — the larger, SAFE set.
+ *
+ * Backward-compatible + soft-fail: if the signer module or key is unavailable,
+ * we PRESERVE current behavior (return true) rather than hard-fail the hook —
+ * the broader stop-hook contract is that teardown never blocks.
+ */
+function authoringVariantAllowed(sentinel) {
+  try {
+    const signerPath = path.join(PLUGIN_ROOT_STOP, 'lib', 'sentinel-state-signer.cjs');
+    if (!fs.existsSync(signerPath)) return true; // signer unavailable — preserve behavior
+    let verifyState, readHmacKey;
+    // eslint-disable-next-line global-require
+    try { ({ verifyState, readHmacKey } = require(signerPath)); } catch (_e) { return true; }
+    if (typeof verifyState !== 'function' || typeof readHmacKey !== 'function') return true;
+    const key = readHmacKey();
+    if (!key) return true; // no key available — cannot verify; preserve behavior
+    const res = verifyState(sentinel, { key, strict: false });
+    // Only a POSITIVELY-valid signature unlocks the authoring downgrade. An
+    // unsigned state (res.unsigned) or a key-unavailable advisory pass does NOT
+    // count — those must fall back to the safe legacy set.
+    return !!(res && res.valid === true && !res.unsigned && !res.key_unavailable);
+  } catch (e) {
+    // FIX-Q (v8.4.0): an UNEXPECTED exception in the trust check fails CLOSED.
+    // Previously this returned true, silently granting the authoring downgrade
+    // (smaller mandatory-gate set) whenever the verify path threw for a reason we
+    // did not anticipate — a fail-OPEN security hole. We now drop the authoring
+    // variant (return false → safe legacy/larger set) and surface the error.
+    // NOTE: the documented keyless / unsigned / key-unavailable fallbacks above
+    // intentionally still return true to preserve behavior on installs without an
+    // HMAC key; only this genuine-unexpected-exception branch flips to false.
+    warn(`authoringVariantAllowed unexpected error (failing closed): ${e && e.message ? e.message : 'unknown'}`);
+    return false;
+  }
+}
+
+/**
  * Read classification (type/complexity/variant) from a sentinel object.
  *
  * SSOT for the sentinel-derived part of the D2 classification cascade:
@@ -252,14 +310,38 @@ function readTailLines(filePath, n) {
  * the full precedence stays od.* > cl.* > session.* exactly as before.
  *
  * Pure: no fs, no I/O. Returns nulls when nothing is found.
+ *
+ * FIX-K (v8.4.0): when `trustAuthoring` is false, a ROOT-level authoring
+ * `pipeline_variant` (the only variant that shrinks the yardstick) is dropped so
+ * an unverified sentinel cannot downgrade the mandatory gate count. The
+ * non-root variant sources (orchestrator_decision / classification) are not
+ * dropped: they are part of the legacy classification and do not, on their own,
+ * select the authoring set without ALSO being an authoring string — and the only
+ * production writer of an authoring variant is the SIGNED root field.
  */
-function readClassification(sentinel) {
+function readClassification(sentinel, trustAuthoring = true) {
   const s = sentinel || {};
   const od = s.orchestrator_decision || {};
   const cl = s.classification_post_orchestrator || s.classification || {};
-  const type = od.type || od.task_type || cl.type || null;
-  const complexity = od.complexity || cl.complexity || null;
-  const variant = od.pipeline_variant || od.variant || cl.pipeline_variant || cl.variant || null;
+  // FIX-A.1 (v8.4.0): a SEALED spec-authoring run carries `pipeline_variant` at
+  // the ROOT of the sentinel (written by lib/run-seal.cjs sealSpecRun) and
+  // `controller_type='spec'` in the manifest notes — NOT under
+  // orchestrator_decision/classification. Without a root-level fallback the
+  // authoring variant was invisible at teardown, so the authoring yardstick
+  // never fired on the production stop-hook path (the core bug). Read the root
+  // `pipeline_variant` last, after the existing precedence, so processing runs
+  // are unchanged.
+  const type = od.type || od.task_type || cl.type
+    || s.type || null;
+  const complexity = od.complexity || cl.complexity
+    || (typeof s.complexity === 'string' ? s.complexity : null)
+    || null;
+  // FIX-K: only consider the root pipeline_variant when the sentinel is trusted.
+  const rootVariant = (trustAuthoring && typeof s.pipeline_variant === 'string')
+    ? s.pipeline_variant : null;
+  const variant = od.pipeline_variant || od.variant || cl.pipeline_variant || cl.variant
+    || rootVariant
+    || null;
   return { type, complexity, variant };
 }
 
@@ -301,7 +383,14 @@ function ensureFidelityReport(runFolder, repoRoot, sentinel) {
       try { priorMdText = fs.readFileSync(mdPath, 'utf8'); } catch (_e) { priorMdText = null; }
     }
 
-    const { type, complexity } = readClassification(sentinel);
+    // FIX-A.2 (v8.4.0): thread `variant` so generateFidelityReport applies the
+    // authoring yardstick on the production teardown path. Previously only
+    // type+complexity were extracted, so a sealed spec-authoring run was scored
+    // against the legacy processing SPEC set even though its sentinel carries
+    // the authoring variant.
+    // FIX-K (v8.4.0): the authoring variant is only honored when the sentinel's
+    // HMAC verifies; a forged/unsigned sentinel cannot shrink the yardstick.
+    const { type, complexity, variant } = readClassification(sentinel, authoringVariantAllowed(sentinel));
 
     const fidelityReporterPath = path.join(PLUGIN_ROOT_STOP, 'lib', 'fidelity-reporter.cjs');
     if (!fs.existsSync(fidelityReporterPath)) return;
@@ -315,6 +404,7 @@ function ensureFidelityReport(runFolder, repoRoot, sentinel) {
       complexity,
       type,
       repoRoot,
+      variant,
       runId: path.basename(runFolder),
     });
     if (res && res.ok !== true) {
@@ -379,24 +469,38 @@ function buildRunLogEntry(runFolder, repoRoot) {
   // classification_post_orchestrator / classification shapes (via the shared
   // readClassification helper), then session as the final fallback. Precedence
   // stays byte-equivalent to the prior inline chain: od.* > cl.* > session.*.
-  const cls = readClassification(sentinel);
+  // FIX-K (v8.4.0): the authoring variant is only honored when the sentinel's
+  // HMAC verifies, so total_gates_expected cannot be shrunk by a forged sentinel
+  // (and stays in lockstep with the same gate in fidelity-report.json).
+  const cls = readClassification(sentinel, authoringVariantAllowed(sentinel));
   const type = cls.type || session.type || null;
   const complexity = cls.complexity || session.complexity || null;
   const variant = cls.variant || session.variant || null;
 
-  // D1 — gates expected: lazy-load MANDATORY_GATES_BY_COMPLEXITY from
-  // lib/fidelity-reporter.cjs resolved relative to the plugin root (NOT the
-  // payload cwd), matching the run-log require pattern below. Soft-fail to null.
+  // D1 — gates expected: use the SAME yardstick the fidelity-report uses, so the
+  // run-log's total_gates_expected can never disagree with fidelity-report.json.
+  // FIX-A.3 (v8.4.0): the prior code recomputed the gate count locally from
+  // MANDATORY_GATES_BY_COMPLEXITY and IGNORED the variant, so an authoring run
+  // got the full processing count here while fidelity-report.json (which threads
+  // the variant) got the 2-gate authoring count. Reuse mandatorySetFor —
+  // exported from lib/fidelity-reporter.cjs as the SSOT — with the threaded
+  // variant. Lazy-required relative to the plugin root, soft-fail to null.
+  // (`variant` is the threaded classification variant resolved above.)
   const fidelityReporterPath = path.join(PLUGIN_ROOT_STOP, 'lib', 'fidelity-reporter.cjs');
-  let MANDATORY_GATES_BY_COMPLEXITY = null;
+  let mandatorySetFor = null;
   if (fs.existsSync(fidelityReporterPath)) {
     // eslint-disable-next-line global-require
-    try { ({ MANDATORY_GATES_BY_COMPLEXITY } = require(fidelityReporterPath)); } catch (_e) { /* soft-fail */ }
+    try { ({ mandatorySetFor } = require(fidelityReporterPath)); } catch (_e) { /* soft-fail */ }
   }
-  const mandatoryBase = (MANDATORY_GATES_BY_COMPLEXITY && MANDATORY_GATES_BY_COMPLEXITY[complexity]) || null;
-  const specExtra = (type === 'Spec' && MANDATORY_GATES_BY_COMPLEXITY && MANDATORY_GATES_BY_COMPLEXITY.SPEC)
-    ? MANDATORY_GATES_BY_COMPLEXITY.SPEC.length : 0;
-  const gatesExpected = mandatoryBase ? (mandatoryBase.length + specExtra) : null;
+  let gatesExpected = null;
+  if (typeof mandatorySetFor === 'function') {
+    const set = mandatorySetFor(complexity, type, variant);
+    // FIX-N (v8.4.0): an EMPTY yardstick is a bug (unknown complexity, no
+    // authoring variant), NOT a run that legitimately expects 0 gates — so an
+    // empty set reads as "expected unknown" (null), never literal 0. A non-empty
+    // set (including the authoring set) keeps its real length.
+    gatesExpected = set && set.length > 0 ? set.length : null;
+  }
 
   // D1 — fidelity score: read from persisted fidelity-report.json. null when
   // absent or non-numeric.
@@ -735,4 +839,4 @@ if (require.main === module) {
   }, 5000).unref();
 }
 
-module.exports = { handleStop, buildRunLogEntry, ensureFidelityReport, readClassification, shouldAppendRunLogEntry, findActiveRunFolder, langfuseFlushAndCleanup };
+module.exports = { handleStop, buildRunLogEntry, ensureFidelityReport, readClassification, authoringVariantAllowed, shouldAppendRunLogEntry, findActiveRunFolder, langfuseFlushAndCleanup };
