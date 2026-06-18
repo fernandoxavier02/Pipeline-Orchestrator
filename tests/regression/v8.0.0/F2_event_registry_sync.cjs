@@ -24,10 +24,10 @@ for (const surface of SURFACES) {
   });
 }
 
-test('the registry count moved to 43 in all three surfaces', () => {
-  assert.match(read('references/gates.md'), /43-gate registry/, 'gates.md header = 43');
-  assert.match(read('commands/pipeline.md'), /\(43 total/, 'pipeline.md inline = 43');
-  assert.match(read('agents/core/pipeline-controller.md'), /\(43 total/, 'pipeline-controller.md inline = 43');
+test('the registry count moved to 44 in all three surfaces', () => {
+  assert.match(read('references/gates.md'), /44-gate registry/, 'gates.md header = 44');
+  assert.match(read('commands/pipeline.md'), /\(44 total/, 'pipeline.md inline = 44');
+  assert.match(read('agents/core/pipeline-controller.md'), /\(44 total/, 'pipeline-controller.md inline = 44');
 });
 
 test('the new events are AUDIT/SOFT only — the Mandatory Gates by Complexity table is UNTOUCHED (Iron Law)', () => {

@@ -110,8 +110,8 @@ test('F2-S5: references/gates.md Mandatory table has 23 rows (post-Patch-2 basel
   const mandatorySection = extractSection(md, 'Mandatory Gates by Complexity');
   assert.ok(mandatorySection, '"Mandatory Gates by Complexity" section not found');
   const mandatoryRows = parseTableDataRows(mandatorySection);
-  assert.equal(mandatoryRows.length, 23,
-    `expected 23 data rows in "Mandatory Gates by Complexity" table, got ${mandatoryRows.length}`);
+  assert.equal(mandatoryRows.length, 24,
+    `expected 24 data rows in "Mandatory Gates by Complexity" table, got ${mandatoryRows.length}`);
 
   // Adversarial review followup MEDIUM #5: assert the +1 row is specifically
   // STATE_FILE_INIT_FAIL, not some other unauthorized row that happens to
@@ -144,7 +144,7 @@ test('F2-S6: cross-check — 23-row Mandatory count AND aggregate Gate Registry 
   const md = read(GATES_MD);
   const mandatorySection = extractSection(md, 'Mandatory Gates by Complexity');
   const mandatoryRows = parseTableDataRows(mandatorySection);
-  assert.equal(mandatoryRows.length, 23,
+  assert.equal(mandatoryRows.length, 24,
     `Mandatory Gates row count must be 23 (got ${mandatoryRows.length})`);
 
   const registrySection = extractSection(md, 'Gate Registry');
@@ -154,8 +154,8 @@ test('F2-S6: cross-check — 23-row Mandatory count AND aggregate Gate Registry 
   // v8.0.0 added the 8 spec-authoring telemetry gates (IDEATION_*, DESIGN_INTERROGATOR_FORCED,
   // SPEC_REVIEW_FINDINGS, SPEC_SEALED, SPEC_AMENDED) — all AUDIT/SOFT, none mandatory, so the
   // Mandatory Gates table stays at 23. No UNAUTHORIZED row may have been added beyond these.
-  assert.equal(registryRows.length, 43,
-    `Gate Registry aggregate row count must be 43 (got ${registryRows.length}) — no UNAUTHORIZED row may have been added beyond the v8.0.0 spec-authoring gates`);
+  assert.equal(registryRows.length, 44,
+    `Gate Registry aggregate row count must be 44 (got ${registryRows.length}) — no UNAUTHORIZED row may have been added beyond the v8.0.0 spec-authoring gates`);
 });
 
 console.log('');

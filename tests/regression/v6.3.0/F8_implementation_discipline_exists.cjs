@@ -97,10 +97,16 @@ test('has Bootstrap section mentioning self-applying behavior', () => {
     'expected mention of self-applying behavior');
 });
 
-test('mentions interaction with 23-Gate Mandatory Table', () => {
+test('mentions interaction with the Mandatory Gates Table', () => {
   const content = readTarget();
-  assert.ok(/23[\s\-]?Gate.*(Mandatory|Table)|Mandatory.*23[\s\-]?Gate/i.test(content),
-    'expected reference to 23-Gate Mandatory Table interaction');
+  // The pinned count moved 23 -> 24 in v8.6.0 (ADVERSARIAL_LOOP_BREAKER row added
+  // in lockstep with lib/fidelity-reporter.cjs MANDATORY_GATES_BY_COMPLEXITY).
+  // Pin to 24 EXACTLY (mirrors F1/F2/D7) so a regression back to 23 is caught.
+  // The generic "Interaction with the Mandatory Gates Table" heading still
+  // satisfies the requirement when no numeric count is present.
+  assert.ok(
+    /\b24[\s-]?Gate.*(Mandatory|Table)|Mandatory.*\b24[\s-]?Gate|Interaction with the Mandatory Gates Table/i.test(content),
+    'expected reference to the Mandatory Gates Table interaction (24-Gate count pinned exactly)');
 });
 
 test('mentions ADVERSARIAL_BLOCK interaction with max=3 vs max=5', () => {

@@ -123,8 +123,8 @@ test('F1-S5: references/gates.md "Mandatory Gates by Complexity" table still has
   const mandatorySection = extractSection(md, 'Mandatory Gates by Complexity');
   assert.ok(mandatorySection, '"Mandatory Gates by Complexity" section not found in references/gates.md');
   const mandatoryRows = parseTableDataRows(mandatorySection);
-  assert.equal(mandatoryRows.length, 23,
-    `expected 23 data rows in "Mandatory Gates by Complexity" table, got ${mandatoryRows.length}`);
+  assert.equal(mandatoryRows.length, 24,
+    `expected 24 data rows in "Mandatory Gates by Complexity" table, got ${mandatoryRows.length}`);
 
   // Adversarial review followup MEDIUM #5: bare cardinality is not enough —
   // a future patch could swap STATE_FILE_INIT_FAIL for another row and the

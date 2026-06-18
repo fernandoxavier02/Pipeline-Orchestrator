@@ -163,14 +163,14 @@ test('D7-S7: RULES 1-9 preserved with original labels (no rename / no removal)',
 });
 
 // ---------- D7-S8 EDGE ----------
-test('D7-S8: references/gates.md has 23 gate registry rows (post-Patch-2; BOUNDED_CONTEXT_MISSING not registered)', () => {
+test('D7-S8: references/gates.md has 24 gate registry rows (v8.6.0 +ADVERSARIAL_LOOP_BREAKER; BOUNDED_CONTEXT_MISSING not registered)', () => {
   const md = read(GATES_MD);
   // Baseline bumped from 22 → 23 in Patch 2 / v7.1.2 (STATE_FILE_INIT_FAIL).
   // The BOUNDED_CONTEXT_MISSING invariant asserted below is unchanged.
   const section = extractSection(md, 'Mandatory Gates by Complexity');
   const dataRows = parseTableDataRows(section);
-  assert.equal(dataRows.length, 23,
-    `expected 23 gate rows in Mandatory Gates table, got ${dataRows.length}`);
+  assert.equal(dataRows.length, 24,
+    `expected 24 gate rows in Mandatory Gates table, got ${dataRows.length}`);
   // And BOUNDED_CONTEXT_MISSING must NOT be a row name in gates.md
   const isBcRow = dataRows.some((row) =>
     Object.values(row).some((v) => /BOUNDED_CONTEXT_MISSING/.test(v)));

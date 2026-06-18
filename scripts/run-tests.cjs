@@ -83,6 +83,11 @@ const CATEGORIES = {
   regression: { default: true,  required: true,  discover: (root) => discoverRegression(root) },
   hooks:      { default: true,  required: true,  discover: (root) => discoverFlat(root, path.join('.claude', 'hooks', '__tests__'), /\.test\.cjs$/) },
   unit:       { default: true,  required: true,  discover: (root) => discoverFlat(root, path.join('tests', 'unit'), /\.test\.(js|cjs)$/) },
+  // tests/contracts holds cross-surface drift contracts (e.g. the SIMPLES-inclusive
+  // Phase 1.5 trigger-string rule). It was previously ORPHAN — never run by the
+  // standard gate — letting drift accumulate silently, same failure mode that put
+  // tests/unit under the sweep. Empty dir = skip (never fail); per-test timeout applies.
+  contracts:  { default: true,  required: false, discover: (root) => discoverFlat(root, path.join('tests', 'contracts'), /\.test\.cjs$/) },
   packaging:  { default: true,  required: false, discover: (root) => discoverFlat(root, path.join('tests', 'packaging'), /\.test\.cjs$/) },
   watchdog:   { default: true,  required: false, discover: (root) => discoverFlat(root, path.join('tests', 'watchdog'), /\.test\.cjs$/) },
   // v8.0.2: the Paperclip flow-mirror engine (the handoff-stall fix) lived

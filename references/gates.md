@@ -1,6 +1,6 @@
 # Gate System Reference
 
-> **SSOT** for gate definitions — hardness taxonomy and the 43-gate registry. `commands/pipeline.md` Grep-redirects here when it needs the full table with trigger conditions and recovery actions. Operational audit mechanics (Phase Transition Summary block template, Gate Decision Log JSONL format + parse/sanitization rules) live in `references/audit-trail.md` — they evolve independently from gate definitions. If you change gate hardness levels or registry rows, update this file; downstream tooling parses it.
+> **SSOT** for gate definitions — hardness taxonomy and the 44-gate registry. `commands/pipeline.md` Grep-redirects here when it needs the full table with trigger conditions and recovery actions. Operational audit mechanics (Phase Transition Summary block template, Gate Decision Log JSONL format + parse/sanitization rules) live in `references/audit-trail.md` — they evolve independently from gate definitions. If you change gate hardness levels or registry rows, update this file; downstream tooling parses it.
 
 ---
 
@@ -30,6 +30,7 @@ Each gate has a formal **hardness** level that determines enforcement behavior:
 | COMPLEXITY_GATE | **SOFT** | User overrides classifier (`--simples` on COMPLEXA task, etc.) OR classifier confidence below threshold | **ASK** — confirm override or accept classifier | User confirms override (logged) or accepts classification |
 | STOP_RULE | **CIRCUIT_BREAKER** | 2 consecutive failures | **STOP pipeline** | Escalate to user |
 | FIX_LOOP_EXHAUSTED | **CIRCUIT_BREAKER** | 3 fix attempts failed | **STOP pipeline** | Propose alternatives |
+| ADVERSARIAL_LOOP_BREAKER | **CIRCUIT_BREAKER** | Outer review-cycle counter `adversarial_loop_count` reaches 4. It increments by 1 each time a review cycle completes without a CLEAN adversarial result (inner `adversarial_block_attempts` hit max 3 in that cycle); increment happens before the comparison. When it reaches 4, four full review→fix→re-review cycles (4 × 3 = 12 fix attempts) have run without success and the 5th adversarial review fires this gate instead of a 5th fix cycle. Distinct from `FIX_LOOP_EXHAUSTED` (which counts per-finding fix attempts) — this counts full adversarial review→fix→re-review cycles per batch. | **STOP pipeline** — fire the escape: DIAGNOSE-THEN-REIMPLEMENT (review-orchestrator reads prior `04-adversarial-batch-*.md` reports, then spawns executor-fix with `mode: REIMPLEMENT`), once per batch. | Escape resolves (CLEAN re-review) → return to normal flow; escape fails OR `escape_used` already true → fire `FIX_LOOP_EXHAUSTED` (hard stop, existing behavior). |
 | STALE_CONTEXT | **SOFT** (HARD if COMPLEXA + sensitive domain) | `/pipeline continue` with context > 24h. See `references/stale-thresholds.md` for nomenclature (STALE_SPAWN 5min, STALE_HEARTBEAT 10min, STALE_CONTEXT 24h are three distinct concepts) | **ASK** — revalidate? | Re-run Phase 0 or proceed |
 | MICRO_GATE_GAP | **HARD** | Per-task missing info | **STOP** task | Report gap, ask user |
 | CHECKPOINT_FAIL | **HARD** | Build/test fails | Return to executor | Fix and re-validate |
@@ -112,14 +113,15 @@ These 8 events are emitted by the spec-authoring workflow (`step-01c-ideation`, 
 | CHECKPOINT_FAIL | ✓ | ✓ | ✓ |  |
 | COMPLEXITY_GATE | ✓ | ✓ | ✓ |  |
 | CLOSEOUT_CONFIRM | ✓ | ✓ | ✓ |  |
-| PLAN_REJECTED |  | ✓ | ✓ |  |
+| PLAN_REJECTED | ✓ | ✓ | ✓ |  |
 | MICRO_GATE_GAP |  | ✓ | ✓ |  |
-| ADVERSARIAL_GATE |  | ✓ | ✓ |  |
-| ADVERSARIAL_BLOCK |  | ✓ | ✓ |  |
+| ADVERSARIAL_GATE | ✓ | ✓ | ✓ |  |
+| ADVERSARIAL_BLOCK | ✓ | ✓ | ✓ |  |
 | STOP_RULE |  | ✓ | ✓ |  |
 | FINAL_ADVERSARIAL_GATE |  |  | ✓ |  |
 | FINAL_ADVERSARIAL_REWORK |  |  | ✓ |  |
-| FIX_LOOP_EXHAUSTED |  |  | ✓ |  |
+| FIX_LOOP_EXHAUSTED | ✓ | ✓ | ✓ |  |
+| ADVERSARIAL_LOOP_BREAKER | ✓ | ✓ | ✓ |  |
 | ADVERSARIAL_GATE_MANDATORY |  |  | ✓ |  |
 | SSOT_CONFLICT |  |  | ✓ |  |
 | STALE_CONTEXT |  |  | ✓ |  |
@@ -131,12 +133,12 @@ These 8 events are emitted by the spec-authoring workflow (`step-01c-ideation`, 
 | ADVERSARIAL_LOOP_CHECKPOINT |  |  |  | ✓ |
 
 **Counts:**
-- SIMPLES: 6 (the structural minimum: every code-changing run needs state-file init + intake validation + TDD approval + checkpoint signal + complexity confirmation + closeout)
-- MEDIA: 11 (SIMPLES set + planning gate + per-task micro-gate + adversarial pair + stop rule)
-- COMPLEXA: 17 (MEDIA set + final adversarial pair + fix-loop circuit breaker + mandatory adversarial domain trigger + SSOT/STALE invariants)
+- SIMPLES: 11 (the structural minimum + universal plan/adversarial guardrails: state-file init + intake validation + TDD approval + checkpoint signal + complexity confirmation + closeout + plan-rejected + adversarial pair + fix-loop circuit breaker + adversarial-loop-breaker. Since v8.6.0, every code-changing SIMPLES run also requires planning + adversarial review + the loop guardrails.)
+- MEDIA: 13 (full SIMPLES set — including the fix-loop circuit breaker — plus per-task micro-gate + stop rule)
+- COMPLEXA: 18 (MEDIA set + final adversarial pair + mandatory adversarial domain trigger + SSOT/STALE invariants)
 - Spec (+): +6 when `type=Spec`, regardless of complexity (the Wave 5 spec-pipeline gates from the registry above)
 
-**Cumulative rule:** higher complexity SUPERSETS lower complexity. Anything mandatory for SIMPLES is mandatory for MEDIA and COMPLEXA. Anything mandatory for MEDIA is mandatory for COMPLEXA. Spec (+) gates are additive on top of whatever complexity bucket applies.
+**Cumulative rule:** higher complexity SUPERSETS lower complexity. Anything mandatory for SIMPLES is mandatory for MEDIA and COMPLEXA; anything mandatory for MEDIA is mandatory for COMPLEXA. In particular `FIX_LOOP_EXHAUSTED` — the ultimate fallback hard-stop — is mandatory for SIMPLES, so it is mandatory for MEDIA and COMPLEXA too. Spec (+) gates are additive on top of whatever complexity bucket applies.
 
 ---
 

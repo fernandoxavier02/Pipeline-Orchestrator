@@ -2,7 +2,7 @@
 
 > **SSOT** for scope control, minimal-diff discipline, anti-overengineering rules, dependency/config/contract/migration restrictions, test integrity, and evidence requirements that every code-changing batch must respect. Agents `plan-architect`, `executor-implementer-task`, `architecture-reviewer`, and `diff-discipline-reviewer` cross-reference this file. Introduced in v6.3.0.
 
-This document is **referenced** by agents but does **not** add a new row to the 23-gate Mandatory Table in `references/gates.md`. Enforcement is structural — agents read these rules and emit their own verdicts. The discipline layer is additive across existing checkpoints (`MICRO-GATE`, `ADVERSARIAL_GATE`, `CHECKPOINT_FAIL`); it does **not** introduce a new gate.
+This document is **referenced** by agents but does **not** add a new row to the 24-gate Mandatory Table in `references/gates.md`. Enforcement is structural — agents read these rules and emit their own verdicts. The discipline layer is additive across existing checkpoints (`MICRO-GATE`, `ADVERSARIAL_GATE`, `CHECKPOINT_FAIL`); it does **not** introduce a new gate.
 
 ---
 
@@ -192,14 +192,14 @@ The combination is intentional: prose alone is insufficient because LLMs can be 
 
 ---
 
-## Interaction with the 23-Gate Mandatory Table
+## Interaction with the Mandatory Gates Table
 
-`references/gates.md` defines a 23-row Mandatory Gates by Complexity table (pinned by `tests/regression/v6.1.0/F1_gates_mandatory_section.cjs`). The discipline layer **does not** add a row to this table. Specifically:
+`references/gates.md` defines the Mandatory Gates by Complexity table (24 rows as of v8.6.0; pinned by `tests/regression/v6.1.0/F1_gates_mandatory_section.cjs`). The discipline layer **does not** add a row to this table. Specifically:
 
 - The Diff Discipline Reviewer is a **new agent**, not a new gate. Agents are listed in `references/team-registry.md`; gates are in `references/gates.md`.
 - The `REJECTED` verdict from Diff Discipline triggers an internal fix loop that **reuses** the existing `ADVERSARIAL_BLOCK` machinery (return to implementer, re-run review). It does not register as a distinct gate row.
 - The `NEEDS_REDUCTION` verdict logs a `SOFT` event to `gate-decisions.jsonl` under the `DIFF_DISCIPLINE_NEEDS_REDUCTION` topic, but this is a telemetry event in the existing `ADVERSARIAL_GATE` (SOFT) row, not a new row.
-- F1 invariant: 23 Mandatory rows. F14 invariant (added in v6.3.0): 35 Registry rows. The discipline layer preserves both counts.
+- F1 invariant: 24 Mandatory rows (as of v8.6.0). F14 invariant (added in v6.3.0): 44 Registry rows (as of v8.6.0). The discipline layer preserves both counts — it adds neither a Mandatory row nor a Registry row.
 
 This is by design — the user constraint when commissioning v6.3.0 was explicit: "no new gate added to the registry". The discipline layer is enforced **structurally** by agents reading this SSOT and the per-plan `CHANGE_CONTRACT`, not by adding a new control-flow gate.
 

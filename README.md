@@ -13,7 +13,7 @@
 <p align="center"><strong>The governance layer between your spec and your production code — now with first-class observability.</strong></p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-8.4.0-7C3AED?style=for-the-badge&logo=git&logoColor=white" alt="Version" />
+  <img src="https://img.shields.io/badge/version-8.6.0-7C3AED?style=for-the-badge&logo=git&logoColor=white" alt="Version" />
   <img src="https://img.shields.io/badge/agents-20-0EA5E9?style=for-the-badge" alt="Agents" />
   <img src="https://img.shields.io/badge/gates-43_(23_mandatory)-22C55E?style=for-the-badge" alt="Gates" />
   <img src="https://img.shields.io/badge/observability-Langfuse_Cloud-FF6B6B?style=for-the-badge&logo=opentelemetry&logoColor=white" alt="Observability" />
@@ -92,7 +92,7 @@ Every batch is reviewed by three parallel agents that never saw what the impleme
 
 The three are spawned in a *single* parent message with three Agent tool calls — guaranteed parallel, guaranteed independent. No sequential contamination, no shared context. Each loads only the checklists it needs. **This is what kills confirmation bias.**
 
-### 4. Gate Hierarchy — 23 mandatory checkpoints with formal hardness types
+### 4. Gate Hierarchy — 24 mandatory checkpoints with formal hardness types
 
 Gates are not ceremonial checkboxes. Each has a defined hardness that determines exactly how it behaves:
 
@@ -104,7 +104,7 @@ Gates are not ceremonial checkboxes. Each has a defined hardness that determines
 | **SOFT** | Recommended but skippable with explicit acknowledgment. Every skip is logged with a confidence penalty. |
 | **AUDIT** (v6.2+) | Informational telemetry. Never blocks, never asks. Used for observability events that need first-class audit-trail entries. |
 
-The full 35-row registry (23 mandatory + 12 contextual/soft) lives in [`references/gates.md`](references/gates.md). The 23-row Mandatory Gates by Complexity table is invariant — pinned by regression test `F1_gates_mandatory_section.cjs`, which fails the build if anyone changes the count.
+The full 44-row registry lives in [`references/gates.md`](references/gates.md). The 24-row Mandatory Gates by Complexity table is kept in lockstep with the `MANDATORY_GATES_BY_COMPLEXITY` constant in `lib/fidelity-reporter.cjs` — the regression test `F1_gates_mandatory_section.cjs` parses the table and fails the build if the two ever disagree, so any intentional change to the table (like the v8.6.0 row addition) must update the constant in the same commit.
 
 ### 5. Glass-Box Audit Trail — Every decision is recorded *and now streamable*
 
@@ -518,7 +518,7 @@ Every phase transition crosses at least one gate. Each gate has a defined hardne
 | **SOFT** | 9 | Recommended but skippable with explicit acknowledgment. Every skip is logged with a confidence penalty. |
 | **AUDIT** (v6.2+) | 6 | Informational telemetry. Never blocks, never asks. First-class audit-trail rows. |
 
-Full registry in [`references/gates.md`](references/gates.md). Audit-trail invariants in [`references/audit-trail.md`](references/audit-trail.md). The 23-row Mandatory Gates by Complexity sub-table is pinned by regression test `F1` — adding a 24th row fails the build.
+Full registry in [`references/gates.md`](references/gates.md). Audit-trail invariants in [`references/audit-trail.md`](references/audit-trail.md). The 24-row Mandatory Gates by Complexity sub-table is pinned by regression test `F1` — the test parses the table and the `MANDATORY_GATES_BY_COMPLEXITY` constant in `lib/fidelity-reporter.cjs` and fails the build if they disagree, so the table is only ever changed in lockstep with the constant (as in the v8.6.0 row addition); the F1 guardian enforces that consistency rather than freezing the count.
 
 ---
 

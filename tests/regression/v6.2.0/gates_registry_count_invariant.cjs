@@ -67,12 +67,12 @@ function parseTableDataRows(sectionMd) {
 
 function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 
-test('S1: Mandatory Gates by Complexity table has 23 rows (post-Patch-2 baseline)', () => {
+test('S1: Mandatory Gates by Complexity table has 24 rows (v8.6.0 +ADVERSARIAL_LOOP_BREAKER)', () => {
   // Baseline bumped from 22 → 23 in Patch 2 / v7.1.2 (STATE_FILE_INIT_FAIL).
   const section = extractSection(md, 'Mandatory Gates by Complexity');
   const rows = parseTableDataRows(section);
-  assert.equal(rows.length, 23,
-    `expected 23 gate rows, got ${rows.length}`);
+  assert.equal(rows.length, 24,
+    `expected 24 gate rows, got ${rows.length}`);
 });
 
 test('S2: no row name contains DIFF_DISCIPLINE / SCOPE_LOCK / CHANGE_CONTRACT / IMPLEMENTATION_DISCIPLINE', () => {

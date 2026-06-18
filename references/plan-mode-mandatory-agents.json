@@ -1,6 +1,6 @@
 {
   "$schema_note": "AUDIT-002 (v7.11.0): machine-readable SSOT for the PLAN_MODE_MANDATORY_AGENTS roster. The prose table in agents/core/pipeline-controller.md cites this file; tests (F20) and the dispatch-guard hook (PLAN_MODE_BYPASS detection, AUDIT-001) read it at runtime instead of re-parsing prose. Update HERE when the roster changes — the prose table and the per-agent Step-0 clauses must be kept in sync (see do_not_touch in docs/audits/2026-06-11-enforcement-variants-audit).",
-  "version": "7.11.0",
+  "version": "8.6.0",
   "substantive_output_markers": [
     "IMPLEMENTATION_PLAN",
     "DIAGNOSTIC_REPORT",
