@@ -5,6 +5,18 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [8.2.2] - 2026-06-17 — detectShellWrite back-port (PATCH)
+
+Back-ports the OpenCode v0.2.0 `detectShellWrite` hardening into the canonical edit-guard — audit finding A1 from the 2026-06-17 ecosystem audit. The fix had landed in OpenCode but not here, so the canonical Plan-Mode/dispatch terminal guard still let a terminal write slip through while armed.
+
+### Fixed
+- `.claude/hooks/edit-guard-hook.cjs::detectShellWrite`: (1) numbered-fd redirect to a file (`echo x 2> src/f.cjs`, `1> out`) is now detected — the redirect regex left side `[^0-9&]` became `[^&]` (only true fd-dups `>&`/`2>&1` stay excluded, via the right side); (2) WRITE_CMDS expanded with `touch|mkdir|rm|rmdir|unlink|shred`, `curl|wget -o/-O`, `tar -x`, `unzip|gunzip|bsdtar|7z`, `git checkout|apply|stash|restore|clean|reset`, `[gm]?awk -i inplace`, `python -m`, `Remove-Item`; (3) verbs now tested on the QUOTE-STRIPPED string (kills the `echo "cp ..."` false positive); (4) heredoc moved out of WRITE_CMDS and tested on the RAW command (so `<<'EOF'` survives stripping).
+
+### Tests
+- New `.claude/hooks/__tests__/detect-shell-write-backport.test.cjs` (BP1–BP5, RED→GREEN). Hook+unit suite 173/173; full suite no new failures (4 pre-existing Langfuse + flaky F07).
+
+Lockstep 9 surfaces → 8.2.2. Iron Law: change limited to `detectShellWrite` + its test + lockstep.
+
 ## [8.2.1] - 2026-06-17 — Plan-Mode deadlock fix (PATCH)
 
 The v8.2.0 deterministic Plan-Mode gate exempted only `.pipeline/`. But the harness writes the Plan-Mode plan file to `~/.claude/plans/` (or `$CLAUDE_CONFIG_DIR/plans`), OUTSIDE `.pipeline/`. Since the gate arms in Phase 0 and the controller writes the plan in Phase 1.5 (before approval), the gate **deadlocked Plan Mode in every real MEDIA/COMPLEXA/Spec run** — the plan file could not be written at all. Found by live dogfood: the very run porting the gate to OpenCode hit the deadlock when writing its own plan.

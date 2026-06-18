@@ -585,24 +585,33 @@ function detectShellWrite(command) {
   // Strip quoted substrings so a '>' inside quotes (grep 'a>b', echo "x > y") is NOT read as a
   // redirect — fixes the false-positive that blocked benign reads. Redirect check runs on stripped.
   const stripped = command.replace(/'[^']*'/g, "''").replace(/"[^"]*"/g, '""');
-  // > / >> / >| redirect to a path; left char not digit/& (so 2>&1 and >& fd-dups are excluded).
-  if (/[^0-9&]>>?\|?[ \t]*[^&\s|>]/.test(stripped)) return true;
-  // Write-capable command verbs (checked on the raw command). Conservative while a lock is armed —
-  // includes interpreter -e/-c evals (node/perl/ruby/php/python) and PowerShell write cmdlets, to
-  // close the node -e / Start-Process / iex evasions.
+  // Redirect to a path. Left side `[^&]` excludes only fd-dups (`>&`); a numbered redirect to a file
+  // (`2> f`, `1> f`) IS a write and is caught (v8.2.2 — back-port of the OpenCode A1 fix). Right side
+  // `[^&\s|>]` still excludes `2>&1`.
+  if (/[^&]>>?\|?[ \t]*[^&\s|>]/.test(stripped)) return true;
+  // Heredoc on the RAW command (quote-stripping would erase a quoted delimiter like <<'EOF').
+  if (/<<-?[ \t]*['"]?[A-Za-z_]/.test(command)) return true;
+  // Write-capable command verbs (on the STRIPPED string, so a verb inside quotes is not a false
+  // positive — e.g. echo "cp x"). Includes file-creating verbs, download-to-file, archive extract,
+  // VCS overwrite, interpreter -e/-c/-m evals, and PowerShell write cmdlets.
   const WRITE_CMDS = [
     /\btee\b/,
     /\bsed\b[^|;]*\s-i\b/,
-    /\b(cp|mv|dd|truncate|install|rsync|ln)\b/,
-    /<<-?[ \t]*['"]?[A-Za-z_]/,                                  // heredoc
+    /\b(cp|mv|dd|truncate|install|rsync|ln|touch|mkdir|rm|rmdir|unlink|shred)\b/,
+    /\b(curl|wget)\b[^|;]*\s-{1,2}[oO]\b/,
+    /\btar\b[^|;]*\s-?-?x/,
+    /\b(unzip|gunzip|bsdtar|7z)\b/,
+    /\bgit\b[^|;]*\s(checkout|apply|stash|restore|clean|reset)\b/,
+    /\b[gm]?awk\b[^|;]*-i[ \t]*inplace/,
     /\bnode\b[^|;]*\s(?:-e|--eval)\b/,
-    /\b(?:python[0-9.]*|perl|ruby|php)\b[^|;]*\s-[ecrI]\b/,
-    /\b(?:Set-Content|Out-File|Add-Content|New-Item|Set-Item|Start-Process|Invoke-Expression|iex)\b/i,
+    /\bpython[0-9.]*\b[^|;]*\s-(?:[ecrI]|m)\b/,
+    /\b(?:perl|ruby|php)\b[^|;]*\s-[ecrI]\b/,
+    /\b(?:Set-Content|Out-File|Add-Content|New-Item|Set-Item|Start-Process|Invoke-Expression|iex|Remove-Item)\b/i,
     /\[\s*IO\.File\s*\]::Write/i,
     /\beval\b/,
     /\bBASH_ENV\b/,
   ];
-  return WRITE_CMDS.some((re) => re.test(command));
+  return WRITE_CMDS.some((re) => re.test(stripped));
 }
 
 // State-only checks (no path) used by the terminal-write guard.
