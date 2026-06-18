@@ -110,8 +110,8 @@ test('F2-S5: references/gates.md Mandatory table has 23 rows (post-Patch-2 basel
   const mandatorySection = extractSection(md, 'Mandatory Gates by Complexity');
   assert.ok(mandatorySection, '"Mandatory Gates by Complexity" section not found');
   const mandatoryRows = parseTableDataRows(mandatorySection);
-  assert.equal(mandatoryRows.length, 23,
-    `expected 23 data rows in "Mandatory Gates by Complexity" table, got ${mandatoryRows.length}`);
+  assert.equal(mandatoryRows.length, 24,
+    `expected 24 data rows in "Mandatory Gates by Complexity" table, got ${mandatoryRows.length}`);
 
   // Adversarial review followup MEDIUM #5: assert the +1 row is specifically
   // STATE_FILE_INIT_FAIL, not some other unauthorized row that happens to
@@ -144,21 +144,21 @@ test('F2-S6: cross-check — 23-row Mandatory count AND aggregate Gate Registry 
   const md = read(GATES_MD);
   const mandatorySection = extractSection(md, 'Mandatory Gates by Complexity');
   const mandatoryRows = parseTableDataRows(mandatorySection);
-  assert.equal(mandatoryRows.length, 23,
-    `Mandatory Gates row count must be 23 (got ${mandatoryRows.length})`);
+  assert.equal(mandatoryRows.length, 24,
+    `Mandatory Gates row count must be 24 (got ${mandatoryRows.length})`);
 
   const registrySection = extractSection(md, 'Gate Registry');
   const registryRows = parseAllTableDataRows(registrySection);
-  // The Gate Registry now aggregates 47 data rows across its sub-tables
-  // (18 base + 6 spec + 4 routing + 7 brainstorm + 8 spec-authoring + 4 spec-authoring-enforcement = 47) post-v8.5.0.
+  // The Gate Registry now aggregates 48 data rows across its sub-tables
+  // (19 base + 6 spec + 4 routing + 7 brainstorm + 8 spec-authoring + 4 spec-authoring-enforcement = 48).
   // v8.0.0 added the 8 spec-authoring telemetry gates (IDEATION_*, DESIGN_INTERROGATOR_FORCED,
   // SPEC_REVIEW_FINDINGS, SPEC_SEALED, SPEC_AMENDED); v8.5.0 added 4 spec-authoring enforcement
   // AUDIT gates (SPEC_AUTHORING_INCOMPLETE, SPEC_AUTHORING_STEP_BYPASS,
-  // SPEC_CONTRACT_DISCIPLINE_MISSING, PARALLEL_DISPATCH_VIOLATION) — all AUDIT/SOFT, none
-  // mandatory, so the Mandatory Gates table stays at 23. No UNAUTHORIZED row may have been added
-  // beyond these.
-  assert.equal(registryRows.length, 47,
-    `Gate Registry aggregate row count must be 47 (got ${registryRows.length}) — no UNAUTHORIZED row may have been added beyond the v8.5.0 spec-authoring enforcement gates`);
+  // SPEC_CONTRACT_DISCIPLINE_MISSING, PARALLEL_DISPATCH_VIOLATION); v8.6.0 added 1 Core gate
+  // (ADVERSARIAL_LOOP_BREAKER, base 18→19) which is mandatory, taking the Mandatory table to 24.
+  // No UNAUTHORIZED row may have been added beyond these.
+  assert.equal(registryRows.length, 48,
+    `Gate Registry aggregate row count must be 48 (got ${registryRows.length}) — no UNAUTHORIZED row may have been added beyond the v8.5.0 enforcement + v8.6.0 loop-breaker gates`);
 });
 
 console.log('');

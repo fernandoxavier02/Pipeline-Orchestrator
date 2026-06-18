@@ -46,7 +46,7 @@ test('references/gates.md exists', () => {
   assert.ok(fs.existsSync(TARGET), `expected file at ${TARGET}`);
 });
 
-test('Gate Registry section contains 47 data rows (Core 18 + Spec 6 + Routing 4 + Brainstorm 7 + Spec-authoring 8 + Spec-authoring-enforcement 4) post-v8.5.0', () => {
+test('Gate Registry section contains 48 data rows (Core 19 + Spec 6 + Routing 4 + Brainstorm 7 + Spec-authoring 8 + Spec-authoring-enforcement 4) post-v8.6.0 merge of v8.5.0+v8.6.0', () => {
   // Bumped from 32 → 35: +1 STATE_FILE_INIT_FAIL (Patch 2 / v7.1.2, Core),
   // +1 PROTOCOL_HANDSHAKE_TIMEOUT (Patch 3 / v7.1.2, Core),
   // +1 STRICT_SPEC_REJECTION (Patch 4 / v7.1.2, Routing).
@@ -54,18 +54,21 @@ test('Gate Registry section contains 47 data rows (Core 18 + Spec 6 + Routing 4 
   // 43 → 47: +4 spec-authoring enforcement AUDIT gates (v8.5.0) —
   // SPEC_AUTHORING_INCOMPLETE, SPEC_AUTHORING_STEP_BYPASS,
   // SPEC_CONTRACT_DISCIPLINE_MISSING, PARALLEL_DISPATCH_VIOLATION.
+  // 47 → 48: +1 ADVERSARIAL_LOOP_BREAKER (v8.6.0, Core 18→19). The v8.6.0
+  // branch forked off v8.4.0 (43) and was merged on top of v8.5.0 (47),
+  // so the final registry is 47 + 1 = 48.
   const content = fs.readFileSync(TARGET, 'utf8');
   const rows = countDataRowsBetween(content, /^##\s+Gate Registry\s*$/m, /^##\s+Mandatory Gates by Complexity\s*$/m);
-  assert.equal(rows, 47, `expected 47 data rows in Gate Registry section, got ${rows}`);
+  assert.equal(rows, 48, `expected 48 data rows in Gate Registry section, got ${rows}`);
 });
 
-test('Mandatory Gates by Complexity section contains 23 data rows (post-Patch-2 baseline)', () => {
+test('Mandatory Gates by Complexity section contains 24 data rows (v8.6.0 +ADVERSARIAL_LOOP_BREAKER)', () => {
   // Bumped from 22 → 23 in Patch 2 / v7.1.2 (STATE_FILE_INIT_FAIL is mandatory
   // across SIMPLES/MEDIA/COMPLEXA). PROTOCOL_HANDSHAKE_TIMEOUT is registered
   // in the Gate Registry but is conditional, not in the Mandatory table.
   const content = fs.readFileSync(TARGET, 'utf8');
   const rows = countDataRowsBetween(content, /^##\s+Mandatory Gates by Complexity\s*$/m, /^##\s+\S/m);
-  assert.equal(rows, 23, `expected 23 data rows in Mandatory section, got ${rows}`);
+  assert.equal(rows, 24, `expected 24 data rows in Mandatory section, got ${rows}`);
 });
 
 console.log('');

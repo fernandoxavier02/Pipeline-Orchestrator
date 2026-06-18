@@ -53,13 +53,14 @@ test('Mandatory section has a table with SIMPLES / MEDIA / COMPLEXA columns', ()
   assert.ok(/COMPLEXA/.test(section), 'missing COMPLEXA column');
 });
 
-test('Mandatory table has exactly 23 gate rows (one per gate name)', () => {
-  // Bumped from 22 to 23 in Patch 2 / v7.1.2 — STATE_FILE_INIT_FAIL added as
-  // phase-0 hard precondition gate, mandatory across SIMPLES/MEDIA/COMPLEXA.
+test('Mandatory table has exactly 24 gate rows (one per gate name)', () => {
+  // Bumped from 22 to 23 in Patch 2 / v7.1.2 — STATE_FILE_INIT_FAIL added.
+  // Bumped from 23 to 24 in v8.6.0 — ADVERSARIAL_LOOP_BREAKER added (CIRCUIT_BREAKER),
+  // mandatory across SIMPLES/MEDIA/COMPLEXA (deliberate Iron Law change).
   const content = fs.readFileSync(path.join(ROOT, 'references/gates.md'), 'utf8');
   const section = extractSection(content, 'Mandatory Gates by Complexity');
   const dataRows = parseTableDataRows(section);
-  assert.equal(dataRows.length, 23, `expected 23 gate rows in table, got ${dataRows.length}`);
+  assert.equal(dataRows.length, 24, `expected 24 gate rows in table, got ${dataRows.length}`);
 });
 
 test('lib/fidelity-reporter.cjs exports MANDATORY_GATES_BY_COMPLEXITY object', () => {

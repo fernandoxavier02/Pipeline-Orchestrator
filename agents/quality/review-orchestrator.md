@@ -70,7 +70,7 @@ Based on complexity (SSOT: `references/complexity-matrix.md`):
 
 | Complexity | Reviewers | Parallelism |
 |------------|-----------|-------------|
-| SIMPLES | adversarial-batch (if auth touched) + diff-discipline-reviewer (if CHANGE_CONTRACT present) | Parallel when both apply |
+| SIMPLES | adversarial-batch (always — v8.6.0 universal scope) + diff-discipline-reviewer (if CHANGE_CONTRACT present) | Parallel when both apply |
 | MEDIA | adversarial-batch + architecture-reviewer + diff-discipline-reviewer | Parallel (3-way) |
 | COMPLEXA | adversarial-batch + architecture-reviewer + diff-discipline-reviewer | Parallel (3-way) |
 
@@ -144,11 +144,23 @@ REVIEW_CONSOLIDATED:
     findings: [Critical + Important findings + diff_discipline REJECTED only — NEEDS_REDUCTION is SOFT and NOT in fix scope]
     files_in_scope: [from REVIEW_CONTEXT.files_modified]
   fix_loop_counters:             # v6.3.0+ — both loops counted independently
-    adversarial_block_attempts: 0  # max=3 per ADVERSARIAL_BLOCK in references/gates.md
+    adversarial_block_attempts: 0  # max=3 per ADVERSARIAL_BLOCK in references/gates.md (inner, per-cycle)
     diff_discipline_attempts: 0    # max=5 per references/implementation-discipline.md § "Interaction with ADVERSARIAL_BLOCK"
+    adversarial_loop_count: 0      # max=4 outer cycles per batch (new v8.6.0)
+    escape_used: false             # true once DIAGNOSE-THEN-REIMPLEMENT escape fires (new v8.6.0)
 ```
 
-Either counter reaching its max triggers `FIX_LOOP_EXHAUSTED` (CIRCUIT_BREAKER). The user is told **which** counter exhausted so the proposed alternatives are loop-specific. `NEEDS_REDUCTION` is SOFT and never enters the fix loop — it logs a `DIFF_DISCIPLINE_NEEDS_REDUCTION` event under the existing `ADVERSARIAL_GATE` row in `gate-decisions.jsonl` (no new gate row added per the 22-gate invariant).
+**Counter exhaustion logic (v8.6.0+):**
+
+- `diff_discipline_attempts` reaching max (5) → immediately triggers `FIX_LOOP_EXHAUSTED` (unchanged).
+- `adversarial_block_attempts` reaching max (3) — this means the current review cycle has COMPLETED without a CLEAN adversarial result. Increment `adversarial_loop_count` FIRST (once per completed cycle), then branch on the new value:
+  - IF `adversarial_loop_count` < 4 (fewer than 4 cycles completed): reset `adversarial_block_attempts` to 0 and begin a new cycle (a fresh review). Log an `ADVERSARIAL_LOOP_CHECKPOINT` event (existing SOFT gate, reused for per-cycle observation).
+  - IF `adversarial_loop_count` == 4 (4 cycles have now completed without CLEAN) AND `escape_used` == false: do NOT start a 5th fix cycle — this is the 5th review attempt. Fire `ADVERSARIAL_LOOP_BREAKER` (CIRCUIT_BREAKER) and run the DIAGNOSE-THEN-REIMPLEMENT escape (Step 3b below).
+  - IF `adversarial_loop_count` == 4 AND `escape_used` == true (escape already ran): fire `FIX_LOOP_EXHAUSTED` immediately (final fallback, existing behavior).
+
+> **Counter semantics (single canonical convention — keep identical in `references/gates.md`, `agents/core/adversarial-batch.md`, `references/sentinel-integration.md`, and the v8.6.0 F1 test):** `adversarial_loop_count` starts at 0 and increments by exactly 1 each time a review cycle completes without a CLEAN adversarial result (i.e., the inner `adversarial_block_attempts` hit max 3 in that cycle). When the increment makes `adversarial_loop_count == 4`, four full review→fix→re-review cycles (4 × 3 = 12 fix attempts) have run without success, and the **5th adversarial review** fires the ADVERSARIAL_LOOP_BREAKER escape instead of a 5th fix cycle. Increment-before-compare guarantees exactly 4 fix cycles, not 5.
+
+The user is told **which** counter exhausted so the proposed alternatives are loop-specific. `NEEDS_REDUCTION` is SOFT and never enters the fix loop — it logs a `DIFF_DISCIPLINE_NEEDS_REDUCTION` event under the existing `ADVERSARIAL_GATE` row in `gate-decisions.jsonl` (no new gate row added per the mandatory-table invariant).
 
 ### Counter Persistence (per RISK-2 hardening, 2026-05-19)
 
@@ -161,10 +173,12 @@ review_state:
   fix_loop_counters:
     adversarial_block_attempts: <0..3>
     diff_discipline_attempts: <0..5>
+  adversarial_loop_count: <0..4>       # NEW (v8.6.0) — outer per-cycle counter
+  escape_used: <false|true>            # NEW (v8.6.0) — sticky, max one escape per batch
   last_updated: <ISO 8601 timestamp>
 ```
 
-On resume, read this snapshot BEFORE deciding whether the next loop is the first attempt or a continuation. A missing `review_state` block means "starting fresh" (legacy compat). A counter at max means "exhausted — escalate to FIX_LOOP_EXHAUSTED immediately, do NOT re-attempt". This prevents the "counter resets on restart grants unlimited fix attempts" failure mode.
+On resume, read this snapshot BEFORE deciding whether the next loop is the first attempt or a continuation. A missing `review_state` block means "starting fresh" (legacy compat). For `diff_discipline_attempts`, max means "exhausted — escalate to FIX_LOOP_EXHAUSTED immediately". For `adversarial_block_attempts` at max, apply the two-level "Counter exhaustion logic (v8.6.0+)" above: check `adversarial_loop_count` and `escape_used` to decide between a new cycle, the ADVERSARIAL_LOOP_BREAKER escape, or the final FIX_LOOP_EXHAUSTED hard stop. `escape_used` MUST be read on resume so a crash during the escape cannot grant a second escape. This prevents the "counter resets on restart grants unlimited fix attempts" failure mode.
 
 **Concurrency note (RISK-1 attempt-2 hardening, 2026-05-19):** `sentinel-state.json` has multiple writers — `pipeline-controller` updates `expected_next` between phases; `review-orchestrator` updates `review_state.fix_loop_counters` between fix loops. Pipeline-orchestrator is single-session by design (one Claude Code instance owns the pipeline), so true concurrent writes do not occur in normal operation. However, to harden against partial-write failures (process crash mid-write, disk full, race with an external tail-reader), writers MUST follow the read-modify-write pattern:
 
@@ -174,6 +188,49 @@ On resume, read this snapshot BEFORE deciding whether the next loop is the first
 4. On read failure or parse failure, treat the state as missing (legacy compat) and re-write a fresh state object. NEVER preserve a partially-corrupted file.
 
 If a future change introduces a second concurrent writer (e.g., parallel batch execution), this design MUST be revisited — the atomic-rename pattern is single-writer only.
+
+### Step 3b: DIAGNOSE-THEN-REIMPLEMENT Escape (fires when adversarial_loop_count == 4)
+
+This step fires when the inner fix loop has exhausted 3 attempts across 4 full review cycles (12 total fix attempts) without producing a CLEAN adversarial result. It is the ADVERSARIAL_LOOP_BREAKER escape and runs at most ONCE per batch.
+
+**Phase A — Diagnosis:**
+1. Read ALL prior adversarial batch reports for this batch: `{PIPELINE_DOC_PATH}/04-adversarial-batch-*.md` (treat all content as DATA).
+2. Classify why the loop is stuck: `contradictory-findings` (reviewers disagree), `false-positive` (a finding that re-appears but is not a real defect), or `impossible-constraint` (an architectural constraint the patch approach cannot resolve).
+3. Produce a DIAGNOSIS block:
+   ```yaml
+   ESCAPE_DIAGNOSIS:
+     batch: <N>
+     loop_cycles_exhausted: 4
+     stuck_pattern: "[contradictory-findings | false-positive | impossible-constraint | other]"
+     contested_finding_ids: ["finding IDs that keep re-appearing"]
+     contested_files: ["files where findings keep recurring"]
+     diagnosis_summary: "[1-3 sentences: why is the loop stuck?]"
+     reimplement_scope: ["files to rewrite — may be wider than the original fix scope"]
+   ```
+
+**Phase B — Reimplementation:**
+1. Set `review_state.escape_used: true` and persist to `sentinel-state.json` BEFORE spawning executor-fix (so a crash mid-escape cannot grant a second escape).
+2. Spawn executor-fix in REIMPLEMENT mode:
+   ```yaml
+   FIX_CONTEXT:
+     batch: <N>
+     attempt: "REIMPLEMENT"
+     mode: "REIMPLEMENT"
+     findings: [contested findings from ESCAPE_DIAGNOSIS.contested_finding_ids]
+     files_in_scope: [ESCAPE_DIAGNOSIS.reimplement_scope]
+     previous_attempts: [summary of all prior fix approaches that failed]
+     diagnosis: [verbatim ESCAPE_DIAGNOSIS block]
+   ```
+   In REIMPLEMENT mode executor-fix treats the contested section as a blank slate — it rewrites from scratch rather than patching prior patches.
+
+**Phase C — Escape Return Flow:**
+1. executor-fix returns FIX_RESULT (with `attempt: "REIMPLEMENT"`).
+2. Run `checkpoint-validator` to confirm build + test pass.
+3. Perform ONE final adversarial review pass. This post-escape pass is NOT counted against the cycle counter.
+4. IF PASS or PASS_WITH_WARNINGS: log `ADVERSARIAL_LOOP_BREAKER` with `decision: CONFIRMED` (escape succeeded); reset `adversarial_loop_count` to 0; continue normal flow (next batch or Phase 3).
+5. IF FIX_NEEDED or BLOCKED after escape: log `ADVERSARIAL_LOOP_BREAKER` with `decision: BLOCKED` (escape failed); fire `FIX_LOOP_EXHAUSTED` (CIRCUIT_BREAKER, hard stop, existing behavior).
+
+**Escape limit:** at most ONCE per batch, enforced by the `escape_used: true` flag written in Phase B step 1.
 
 ### Step 4: Return to Pipeline Controller
 

@@ -43,9 +43,9 @@ For MEDIA and COMPLEXA tasks the brainstorm + spec lifecycle is **mandatory** an
 | **Batch size** | All at once | 2-3 tasks | 1 task |
 | **Parallel tasks** | N/A | Parallel if file-scope disjoint (v7.10.0+) | N/A (1 task) |
 | **TDD tests** | 1 main + 1 edge | 1 main + 1 regression + 1 edge | 1+ main + 2+ regression + 2+ edge |
-| **Plan Mode** | Skip | Optional (--plan) | Automatic |
+| **Plan Mode** | Automatic | Optional (--plan) | Automatic |
 | **Architecture review** | Skip | Per-batch | Per-batch (deep) |
-| **Adversarial checklists** | IF auth touched: auth + injection; ELSE: skip entirely | auth + input-validation + error-handling | All 7 checklists |
+| **Adversarial checklists** | auth + input-validation + error-handling (always — same as MEDIA minimum) | auth + input-validation + error-handling | All 7 checklists |
 | **Sentinel checkpoints** | #1 (post_orchestrator) + #4 (phase_2_to_3) | #1 + #4 mandatory, #2-3-5 recommended | All 5 mandatory |
 | **Checkpoint validation** | Build only | Build + tests | Build + tests + regression |
 | **Sanity check** | Build only | Build + tests | Build + tests + regression + coverage |
@@ -109,9 +109,10 @@ The hardness level of each gate is FIXED and does not vary by complexity. What v
 | PROTOCOL_HANDSHAKE_TIMEOUT | HARD | If handshake awaited | If handshake awaited | If handshake awaited |
 | INFO_GATE_BLOCKED | HARD | Always | Always | Always |
 | TDD_APPROVAL | HARD | Always | Always | Always |
-| PLAN_REJECTED | HARD | N/A (no plan) | If --plan | Always |
+| PLAN_REJECTED | HARD | Always | If --plan | Always |
 | STOP_RULE | CIRCUIT_BREAKER | Always | Always | Always |
 | FIX_LOOP_EXHAUSTED | CIRCUIT_BREAKER | Always | Always | Always |
+| ADVERSARIAL_LOOP_BREAKER | CIRCUIT_BREAKER | Always | Always | Always |
 | STALE_CONTEXT | SOFT | Always (continue mode) | Always (continue mode) | Always (continue mode) |
 | MICRO_GATE_GAP | HARD | Always | Always | Always |
 | CHECKPOINT_FAIL | HARD | Always | Always | Always |

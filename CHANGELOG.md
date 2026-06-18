@@ -2,6 +2,22 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.6.0] - 2026-06-18 — Adversarial loop-breaker + universal SIMPLES scope (MINOR)
+
+Replaces the per-batch adversarial fix loop's "stop on the 3rd failure" model with a bounded two-level guardrail and a self-healing escape, and makes plan mode + adversarial review universal (including SIMPLES).
+
+**New gate `ADVERSARIAL_LOOP_BREAKER` (CIRCUIT_BREAKER).** The existing inner counter (`adversarial_block_attempts`, max 3 per cycle) is now nested inside a new outer counter (`adversarial_loop_count`, max 4 cycles per batch). When the inner counter hits 3 without a CLEAN adversarial result, the review cycle has completed without success: the orchestrator increments the outer counter FIRST, then branches (increment-before-compare). If the new value is < 4 it resets the inner counter and starts a new cycle; when the increment makes it == 4 (4 full cycles = 12 fix attempts done), the 5th adversarial review fires `ADVERSARIAL_LOOP_BREAKER` and runs the DIAGNOSE-THEN-REIMPLEMENT escape instead of a 5th fix cycle. The escape (review-orchestrator Step 2b) reads the prior `04-adversarial-batch-*.md` reports, classifies why the loop is stuck (contradictory-findings / false-positive / impossible-constraint), then dispatches `executor-fix` in a new `mode: REIMPLEMENT` that rewrites the contested section from a blank slate rather than patching prior patches. After a checkpoint and ONE final adversarial pass: PASS → return to normal flow; FAIL or escape already used (`escape_used` sticky flag) → `FIX_LOOP_EXHAUSTED` hard stop. The escape runs at most once per batch.
+
+**Universal scope (SIMPLES).** Plan mode now runs automatically for SIMPLES (the `--no-plan` override is logged but ignored, same as COMPLEXA), and adversarial review is now mandatory for SIMPLES (auth + input-validation + error-handling minimum — the "skip entirely" loophole is removed). The SIMPLES mandatory gate set grows 6 → 11 (adds PLAN_REJECTED, ADVERSARIAL_GATE, ADVERSARIAL_BLOCK, FIX_LOOP_EXHAUSTED, ADVERSARIAL_LOOP_BREAKER); MEDIA 11 → 13 (+FIX_LOOP_EXHAUSTED, +ADVERSARIAL_LOOP_BREAKER, per the cumulative rule); COMPLEXA 17 → 18 (+ADVERSARIAL_LOOP_BREAKER). Gate registry header 43 → 44; Mandatory Gates by Complexity table 23 → 24 rows.
+
+**Deliberate Iron Law change.** The F1 Mandatory-Gates invariant is intentionally updated this release (gates.md table ↔ fidelity-reporter.cjs constant in lockstep). The cumulative superset rule is preserved with no exceptions: because `FIX_LOOP_EXHAUSTED` is now mandatory for SIMPLES, it is mandatory for MEDIA and COMPLEXA too.
+
+**State.** `sentinel-state.json` `review_state` gains `adversarial_loop_count` and `escape_used` (both reset on batch change), documented in references/sentinel-integration.md.
+
+**Tests.** New `tests/regression/v8.6.0/F1_adversarial_loop_breaker.cjs` (17 scenarios, GREEN). F7 version-sync rolled to 8.6.0 / prev 8.4.0; the phase-1-5-trigger canonical fixture updated for universal SIMPLES plan mode.
+
+**Surfaces touched:** references/gates.md, lib/fidelity-reporter.cjs, references/sentinel-integration.md, agents/quality/review-orchestrator.md, agents/core/adversarial-batch.md, agents/executor/executor-fix.md, commands/pipeline.md, agents/core/pipeline-controller.md, references/complexity-matrix.md, references/plan-mode-mandatory-agents.json, plus the 8 version-lockstep surfaces. Branched off 8.4.0 — must be rebased over the in-flight 8.5.0 that lives only on `main`. No `.codex` mirror needed (only langfuse/stop hooks mirror, and neither references adversarial logic). `lib/contracts/gate-decision.cjs` carries no gate-name allowlist, so no edit was required there.
+
 ## [8.5.0] - 2026-06-18 — Deterministic /spec authoring enforcement force-back (MINOR)
 
 Deterministic /spec authoring enforcement force-back (P1-P5): seal-gate (`sealSpecRun()` 4 pre-seal checks + `spec-seal-guard.cjs` hook), `record-spec-step.cjs` writer + per-step stamping, review-convergence gate, code-produced `implementation_contract` + sealed-spec→implementation handoff guard (`dispatch-guard` `handleSealedSpecImplementation`, `final-validator` SPEC_CONTRACT_DISCIPLINE_MISSING, `pipeline-controller` Phase 0), structural parallel-dispatch (`DISPATCH_REQUEST` `group_id`/`batch_mode` + `parallel-dispatch-gate.cjs`). 4 AUDIT gates; Iron Law F1 table unchanged. New `tests/regression/v8.5.0/` F1-F6.

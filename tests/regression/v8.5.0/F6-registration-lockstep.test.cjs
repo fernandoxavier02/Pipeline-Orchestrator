@@ -24,7 +24,9 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 
 const ROOT = path.resolve(__dirname, '../../..');
-const VERSION = '8.5.0';
+// Rolled to 8.6.0 when feat/adversarial-loop-breaker (v8.6.0) was merged on top
+// of this v8.5.0 release. The 9 version surfaces now all declare 8.6.0.
+const VERSION = '8.6.0';
 const GATES_MD = path.join(ROOT, 'references', 'gates.md');
 const HOOKS_JSON = path.join(ROOT, 'hooks', 'hooks.json');
 const GATE_DECISION_CONTRACT = path.join(ROOT, 'lib', 'contracts', 'gate-decision.cjs');
@@ -56,8 +58,12 @@ test('B6-S1: gates.md has the "Spec-authoring enforcement gates (v8.5.0)" subsec
   }
 });
 
-// ---- B6-S2 (main, GUARD) — F1 Mandatory Gates table stays 23 rows ----------
-test('B6-S2: the Mandatory Gates by Complexity table still has exactly 23 data rows (Iron Law)', () => {
+// ---- B6-S2 (main, GUARD) — F1 Mandatory Gates table count -------------------
+// v8.5.0 kept this at 23 (its 4 new gates were AUDIT, never mandatory). The
+// v8.6.0 merge deliberately added ADVERSARIAL_LOOP_BREAKER to the Mandatory
+// table (its "Deliberate Iron Law change"), taking it to 24. The guard is
+// "match the current pinned count", so it now asserts 24.
+test('B6-S2: the Mandatory Gates by Complexity table has exactly 24 data rows (post-v8.6.0 merge)', () => {
   const md = read(GATES_MD);
   // Isolate the table under "## Mandatory Gates by Complexity".
   const startIdx = md.indexOf('## Mandatory Gates by Complexity');
@@ -69,11 +75,11 @@ test('B6-S2: the Mandatory Gates by Complexity table still has exactly 23 data r
   const tableEnd = after.indexOf('**Counts:**');
   const tableBlock = tableEnd !== -1 ? after.slice(0, tableEnd) : after;
   const rows = tableBlock.split(/\r?\n/).filter((l) => /^\|/.test(l) && /✓/.test(l));
-  assert.equal(rows.length, 23, `expected exactly 23 mandatory-gate data rows, got ${rows.length}`);
+  assert.equal(rows.length, 24, `expected exactly 24 mandatory-gate data rows, got ${rows.length}`);
 });
 
-// ---- B6-S3 (main) — version 8.5.0 across the 9 surfaces --------------------
-test('B6-S3: version "8.5.0" is present across all 9 version surfaces', () => {
+// ---- B6-S3 (main) — version across the 9 surfaces (8.6.0 post-merge) -------
+test('B6-S3: the canonical version is present across all 9 version surfaces', () => {
   // 1. .claude-plugin/plugin.json
   const plugin = JSON.parse(read(path.join(ROOT, '.claude-plugin/plugin.json')));
   assert.equal(plugin.version, VERSION, `plugin.json version = ${plugin.version}`);

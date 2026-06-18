@@ -48,6 +48,32 @@ Initial state:
 }
 ```
 
+### review_state sub-key (added at runtime by review-orchestrator)
+
+During Phase 2 per-batch review, the review-orchestrator writes a `review_state`
+sub-key into `sentinel-state.json` before every re-dispatch to executor-fix:
+
+```json
+"review_state": {
+  "batch": 0,
+  "fix_loop_counters": {
+    "adversarial_block_attempts": 0,
+    "diff_discipline_attempts": 0
+  },
+  "adversarial_loop_count": 0,
+  "escape_used": false,
+  "last_updated": "<ISO 8601>"
+}
+```
+
+Fields:
+- `adversarial_block_attempts`: inner per-fix-attempt counter (max 3). Resets to 0 at the start of each new review cycle.
+- `diff_discipline_attempts`: diff-discipline fix counter (max 5). Independent of the adversarial loop.
+- `adversarial_loop_count`: outer per-cycle counter (max 4). Starts at 0 and increments by 1 each time a review cycle completes without a CLEAN adversarial result (the inner counter reached its max of 3 in that cycle). Increment happens BEFORE the comparison: when the increment makes it `== 4`, four full review→fix→re-review cycles (4 × 3 = 12 fix attempts) have run and the 5th adversarial review fires `ADVERSARIAL_LOOP_BREAKER` instead of a 5th fix cycle. Resets to 0 on batch change.
+- `escape_used`: sticky boolean. Set `true` once the DIAGNOSE-THEN-REIMPLEMENT escape (ADVERSARIAL_LOOP_BREAKER) fires. Prevents a second escape within the same batch.
+
+Reset rule: when `review_state.batch` changes, the entire `review_state` block is reset (all counters to 0, `escape_used: false`). The new `adversarial_loop_count` and `escape_used` fields follow the same per-batch reset already used for the inner counters.
+
 ### Update Pattern (before EVERY agent spawn)
 
 Before each Agent tool call, the controller MUST update sentinel-state.json via the Write tool:

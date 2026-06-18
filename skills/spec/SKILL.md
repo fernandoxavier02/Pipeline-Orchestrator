@@ -29,9 +29,22 @@ Agent(
 
 The controller returns a `SPEC AUTHORING COMPLETE` block. Show it to the user **verbatim**.
 
-## Achado #7 GATE/DISPATCH/PLAN_MODE handler
+## Achado #7 GATE_REQUEST handler (2026-05-07+, v5.2.0-rc.2+)
 
-When the dispatched `spec-controller` (or anything it transitively dispatches) returns a tool result containing `=== GATE_REQUEST v1 ===`, `=== DISPATCH_REQUEST v1 ===`, or `=== PLAN_MODE_REQUEST v1 ===` ending with `STATUS: AWAITING_*`, you (the parent main LLM) MUST process it per `references/gate-request-protocol.md`: parse each block; for `GATE_REQUEST` call `AskUserQuestion`; for `DISPATCH_REQUEST` invoke the named `Agent`/`Skill`; for `PLAN_MODE_REQUEST` enter read-only plan mode, research, and return results; aggregate into `GATE_RESPONSES`/`DISPATCH_RESULTS`/`PLAN_MODE_RESULTS`; re-dispatch the controller with them prepended. Repeat until it emits `SPEC AUTHORING COMPLETE`. Never silently default; malformed blocks → ask the user how to proceed.
+When the dispatched `spec-controller` (or any subagent it transitively dispatches via DISPATCH_REQUEST) returns a tool result containing `=== GATE_REQUEST v1 ===`, `=== DISPATCH_REQUEST v1 ===`, or `=== PLAN_MODE_REQUEST v1 ===` blocks AND ends with `STATUS: AWAITING_GATE_RESPONSES` / `AWAITING_DISPATCH_RESULTS` / `AWAITING_PLAN_MODE_RESULTS`, the parent main LLM MUST process them per `references/gate-request-protocol.md`:
+
+1. Parse each block out of the tool result.
+2. For `GATE_REQUEST`: invoke `AskUserQuestion` with the parsed question + options.
+3. For `DISPATCH_REQUEST` with `target_kind: agent`: invoke `Agent(subagent_type, description, prompt)`.
+4. For `DISPATCH_REQUEST` with `target_kind: skill`: invoke `Skill(skill: target_name)`.
+5. For `PLAN_MODE_REQUEST`: invoke `EnterPlanMode`, conduct read-only research, exit with plan.
+6. Aggregate responses/results into `GATE_RESPONSES` / `DISPATCH_RESULTS` / `PLAN_MODE_RESULTS` YAML payloads.
+7. Re-dispatch the SAME subagent with the original prompt PLUS payloads prepended.
+8. Repeat 1-7 until the subagent emits its terminal block (`SPEC AUTHORING COMPLETE`) without AWAITING_*.
+
+Append every block emission and every response to `{PIPELINE_DOC_PATH}/protocol-events.jsonl` (NOT `gate-decisions.jsonl`). Named gates ALSO get a canonical `gate-decisions.jsonl` entry with `decided_by: user` referencing the protocol event id. See `references/gate-request-protocol.md` "gate_id → canonical gate mapping" for the full table.
+
+**Never silently default.** Malformed blocks → present to user via your own `AskUserQuestion` ("malformed block — investigate, retry, or abort?"); do NOT guess.
 
 > **Re-dispatch = a FRESH `Agent()` call**, not a live-agent resume. The controller recovers its full state from the run-dir on disk (manifest + `notes.options` + artifacts), so re-dispatching loses nothing. Do **NOT** use `SendMessage`, and do **NOT** try to "continue/resume the same live agent" — this protocol is **stateless per dispatch by design**, and `SendMessage` is **never** part of it. If you conclude you need `SendMessage` to return a result to a waiting subagent (e.g. one stuck at `AWAITING_DISPATCH_RESULTS`), you have mis-read the protocol: re-dispatch instead. (Aside: even where it exists, `SendMessage` is a deferred tool loadable via `ToolSearch` — its apparent absence is never a reason to abandon a run.)
 

@@ -350,11 +350,11 @@ test('Scenario 3a: v4.12.0 has exactly 15 inline gates', () => {
   );
 });
 
-test('Scenario 3b: live pipeline.md has exactly 47 inline gates (synced with references/gates.md registry in v8.5.0 spec-authoring enforcement)', () => {
+test('Scenario 3b: live pipeline.md has exactly 48 inline gates (synced with references/gates.md registry; v8.5.0 enforcement + v8.6.0 ADVERSARIAL_LOOP_BREAKER)', () => {
   assert.equal(
     getInlineGatesFromPipeline('4.13.0').length,
-    47,
-    'live pipeline.md must expose 47 inline gates (35 prior baseline + 8 v8.0.0 spec-authoring: IDEATION_PROPOSED/ACCEPTED/REJECTED/SKIPPED, DESIGN_INTERROGATOR_FORCED, SPEC_REVIEW_FINDINGS, SPEC_SEALED, SPEC_AMENDED + 4 v8.5.0 spec-authoring enforcement: SPEC_AUTHORING_INCOMPLETE, SPEC_AUTHORING_STEP_BYPASS, SPEC_CONTRACT_DISCIPLINE_MISSING, PARALLEL_DISPATCH_VIOLATION)'
+    48,
+    'live pipeline.md must expose 48 inline gates (35 prior baseline + 8 v8.0.0 spec-authoring + 4 v8.5.0 spec-authoring enforcement: SPEC_AUTHORING_INCOMPLETE, SPEC_AUTHORING_STEP_BYPASS, SPEC_CONTRACT_DISCIPLINE_MISSING, PARALLEL_DISPATCH_VIOLATION + 1 v8.6.0 ADVERSARIAL_LOOP_BREAKER CIRCUIT_BREAKER)'
   );
 });
 
