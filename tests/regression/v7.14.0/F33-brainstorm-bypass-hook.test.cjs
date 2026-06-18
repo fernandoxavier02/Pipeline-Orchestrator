@@ -12,7 +12,7 @@
 // plus references/step-1-7-enforcement.json (D4) that does NOT exist yet, so
 // every scenario is RED until B2 lands.
 //
-//   S1  MEDIA/COMPLEXA sentinel WITHOUT step_1_7 -> BRAINSTORM_BYPASS + allow (warn default)
+//   S1  MEDIA/COMPLEXA WITHOUT step_1_7, explicit warn escape -> BRAINSTORM_BYPASS + allow (v8.3.0: default is deny — see F36)
 //   S2  same, PIPELINE_BRAINSTORM_ENFORCEMENT=deny -> permission deny referencing STEP 1.7
 //   S3  sentinel WITH a valid step_1_7 block       -> ZERO BRAINSTORM_BYPASS (happy path)
 //   S4  SIMPLES sentinel WITHOUT step_1_7          -> ZERO event (SIMPLES exempt)
@@ -125,16 +125,17 @@ function step17(branch) {
 
 console.log('=== F33 deterministic STEP 1.7 brainstorm bypass hook (v7.14.0 B2) ===');
 
-// S1 — MEDIA without step_1_7 -> BRAINSTORM_BYPASS + allow (warn default)
+// S1 — MEDIA without step_1_7 under explicit warn escape -> BRAINSTORM_BYPASS + allow
+// (v8.3.0: default flipped warn->deny; warn is now the opt-in escape — deny-default proven in F36)
 {
   const dp = makeDocPath();
   writeSentinel(dp, { orchestrator_decision: { type: 'Feature', complexity: 'MEDIA' } });
-  const r = dispatch(dp, EXECUTOR, 'execute phase 2');
+  const r = dispatch(dp, EXECUTOR, 'execute phase 2', 'warn');
   const ev = events(dp);
   const ok = r.decision === null
     && ev.some((e) => e.event === 'BRAINSTORM_BYPASS')
     && /BRAINSTORM_WARN/.test(r.stderr);
-  record('F33-S1: MEDIA without step_1_7 -> BRAINSTORM_BYPASS + warn (allow)', ok,
+  record('F33-S1: MEDIA without step_1_7 under PIPELINE_BRAINSTORM_ENFORCEMENT=warn -> BRAINSTORM_BYPASS + warn (allow)', ok,
     `decision=${JSON.stringify(r.decision)} stderrHasWarn=${/BRAINSTORM_WARN/.test(r.stderr)} events=${ev.map((e) => e.event).join(',')}`);
 }
 
@@ -175,10 +176,11 @@ console.log('=== F33 deterministic STEP 1.7 brainstorm bypass hook (v7.14.0 B2) 
 }
 
 // S5 — corrupt sentinel + warn -> allow, no crash (fail-open)
+// (v8.3.0: warn is now explicit since the default flipped to deny — see S6 for corrupt+deny=fail-closed)
 {
   const dp = makeDocPath();
   writeSentinel(dp, '__CORRUPT__');
-  const r = dispatch(dp, EXECUTOR, 'execute phase 2');
+  const r = dispatch(dp, EXECUTOR, 'execute phase 2', 'warn');
   const ok = r.decision === null && r.status === 0;
   record('F33-S5: corrupt sentinel + warn -> allow, no crash (fail-open)', ok,
     `decision=${JSON.stringify(r.decision)} status=${r.status}`);
@@ -212,12 +214,13 @@ console.log('=== F33 deterministic STEP 1.7 brainstorm bypass hook (v7.14.0 B2) 
 // enforced, but a third-party plugin skill sharing the prefix is NOT denied.
 {
   // (a) Our own variant skill, in-scope MEDIA without step_1_7 -> BRAINSTORM_BYPASS.
+  // (v8.3.0: warn escape to assert detection+allow; deny-default proven in F36 and S8c below)
   const dpOurs = makeDocPath();
   writeSentinel(dpOurs, { orchestrator_decision: { type: 'Feature', complexity: 'MEDIA' } });
-  const rOurs = dispatchSkill(dpOurs, 'pipeline-orchestrator:feature-light');
+  const rOurs = dispatchSkill(dpOurs, 'pipeline-orchestrator:feature-light', 'warn');
   const evOurs = events(dpOurs);
   const okOurs = rOurs.decision === null && evOurs.some((e) => e.event === 'BRAINSTORM_BYPASS');
-  record('F33-S8a: pipeline-orchestrator feature-* skill -> BRAINSTORM_BYPASS (enforced)', okOurs,
+  record('F33-S8a: pipeline-orchestrator feature-* skill under warn -> BRAINSTORM_BYPASS (detected)', okOurs,
     `decision=${JSON.stringify(rOurs.decision)} events=${evOurs.map((e) => e.event).join(',')}`);
 
   // (b) Third-party plugin skill sharing the 'feature-' prefix -> NOT enforced.

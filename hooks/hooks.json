@@ -104,6 +104,15 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/edit-guard-hook.cjs\""
           }
         ]
+      },
+      {
+        "matcher": ".*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/dispatch-pending-gate.cjs\""
+          }
+        ]
       }
     ]
   }

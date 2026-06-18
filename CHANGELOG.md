@@ -2,6 +2,27 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.3.0] - 2026-06-17 — Obrigar o dispatch de subagentes (MINOR)
+
+Deterministic enforcement that the parent orchestrator must DISPATCH subagents instead of doing the work inline. Closes audit finding AUDIT-001/SEC-001 (the root cause behind runs with 0 gates and no protocol-events): Plan-Mode and Brainstorm enforcement defaulted to `warn` (logged but allowed), and the dispatch-pending lock only covered file WRITES — a parent that simply kept working inline (reads, reasoning, shell) was never stopped.
+
+### Changed
+- `.claude/hooks/dispatch-guard.cjs`: PLAN_MODE and BRAINSTORM enforcement default flipped `warn` → `deny` (~lines 411, 590). The first dispatch is always allowed; only a boundary-bypassing re-dispatch is denied. `PIPELINE_PLAN_MODE_ENFORCEMENT=warn` / `PIPELINE_BRAINSTORM_ENFORCEMENT=warn` remain the explicit opt-in escape.
+
+### Added
+- `.claude/hooks/dispatch-pending-gate.cjs` (NEW): a PreToolUse gate that, while a protocol handshake (DISPATCH/GATE/PLAN_MODE_REQUEST) is pending+live in the sentinel-state, BLOCKS any parent work tool (Read/Edit/Write/Bash/Grep/Glob/WebFetch/MCP/…) — closing the "inline work without writing" hole. Only the resolution passes: an `Agent` spawn that targets the pending block OR carries a DISPATCH_RESULTS/GATE_RESPONSES/PLAN_MODE_RESULTS payload, plus AskUserQuestion/EnterPlanMode/Task*/TodoWrite. Deadlock-proof exemptions: valid exec-window, `.pipeline/` paths, expired pending (timeout recovery), and absent/corrupt state (fail-open). Default `deny`; escape `PIPELINE_DISPATCH_INLINE_ENFORCEMENT=warn` (logs INLINE_WORK_BLOCKED). Registered in hooks.json with a catch-all matcher; reuses edit-guard-hook state-discovery (SSOT). `edit-guard-hook.cjs` now exports `getActiveLock`.
+
+### Tests
+- New `tests/regression/v8.3.0/F36-deny-default-enforcement.test.cjs` (4) and `F37-dispatch-pending-gate.test.cjs` (18, incl. the SEC-1 wrong-Agent bypass + MCP-tool block surfaced by the adversarial review). F29/F33 updated to the new contract (warn is now the explicit escape). Hook+unit suite 185/185; full suite no new failures (4 pre-existing Langfuse + flaky F07).
+
+### Adversarial review (3 zero-context reviewers) — fixed
+- SEC-1 (HIGH): `Agent` is no longer unconditionally allowed — only resolution dispatches pass (closes the wrong-Agent bypass). SEC-3/RISK-1 (HIGH): matcher widened to catch-all so MCP tools cannot slip through. Plus QUAL-1 (SSOT claim), CLAR-1 (tool string-guard), SEC-8 (detail sanitization), and test-coverage gaps.
+
+### Follow-ups (documented, non-blocking)
+- SEC-6: `dispatch-guard` clears pending on bypass, allowing one "fresh" retry before re-detecting — harden to a sticky bypass flag. SEC-2/SEC-4: scope the cleanup-orphan-vs-authoritative-corrupt window and the exec-window read-tool exemption. ARCH-1/2/3 (REC-1): extract a shared `lib/sentinel-state-inspector.cjs` kernel so the gate depends on a kernel, not on the sibling guard. Port the new gate's logic to Cursor/OpenCode.
+
+Lockstep 9 surfaces → 8.3.0.
+
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 

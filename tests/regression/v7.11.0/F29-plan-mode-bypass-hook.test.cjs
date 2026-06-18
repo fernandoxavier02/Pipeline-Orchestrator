@@ -8,7 +8,7 @@
 // effect on protocol-events.jsonl + the permission decision:
 //   S1  mandatory agent, 1st dispatch, no PLAN_MODE_RESULTS -> PLAN_MODE_DISPATCH_PENDING + allow
 //   S2  mandatory agent, dispatch WITH PLAN_MODE_RESULTS     -> clears pending, no bypass event
-//   S3  mandatory agent re-dispatched without results        -> PLAN_MODE_BYPASS + allow (warn default)
+//   S3  mandatory agent re-dispatched, explicit warn escape   -> PLAN_MODE_BYPASS + allow (v8.3.0: default is deny; warn is opt-in — see F36)
 //   S4  same re-dispatch under PIPELINE_PLAN_MODE_ENFORCEMENT=deny -> deny decision
 //   S5  non-mandatory agent                                  -> no event, allow
 //   S6  roster is read from the JSON SSOT (rename in JSON changes detection)
@@ -85,16 +85,17 @@ console.log('=== F29 deterministic Plan Mode bypass hook (v7.11.0 B4) ===');
     `events=${ev.map((e) => e.event).join(',')}`);
 }
 
-// S3 — re-dispatch without results -> bypass + allow (warn default)
+// S3 — re-dispatch under explicit warn escape -> bypass + allow
+// (v8.3.0: default flipped warn->deny; warn is now the opt-in escape — deny-default proven in F36-S1)
 {
   const dp = makeDocPath();
-  dispatch(dp, FQN, 'first dispatch');           // pending
-  const r = dispatch(dp, FQN, 'second dispatch, still no payload'); // bypass
+  dispatch(dp, FQN, 'first dispatch', 'warn');           // pending
+  const r = dispatch(dp, FQN, 'second dispatch, still no payload', 'warn'); // bypass
   const ev = events(dp);
   const ok = r.decision === null
     && ev.some((e) => e.event === 'PLAN_MODE_BYPASS' && e.agent === 'audit-intake')
     && /PLAN_MODE_WARN/.test(r.stderr);
-  record('F29-S3: re-dispatch without results -> PLAN_MODE_BYPASS + warn (allow)', ok,
+  record('F29-S3: re-dispatch under PIPELINE_PLAN_MODE_ENFORCEMENT=warn -> PLAN_MODE_BYPASS + warn (allow)', ok,
     `decision=${JSON.stringify(r.decision)} stderrHasWarn=${/PLAN_MODE_WARN/.test(r.stderr)} events=${ev.map((e) => e.event).join(',')}`);
 }
 

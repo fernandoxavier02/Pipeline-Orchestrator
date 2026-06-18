@@ -408,7 +408,7 @@ function handlePlanModeDispatch(toolInput) {
   // Log-amplification guard (R2 follow-up): clear pending after the first bypass so
   // a pathological re-dispatch loop emits ONE bypass event, not one per dispatch.
   clearPending(docPath, leaf);
-  const enforce = String(process.env.PIPELINE_PLAN_MODE_ENFORCEMENT || 'warn').toLowerCase();
+  const enforce = String(process.env.PIPELINE_PLAN_MODE_ENFORCEMENT || 'deny').toLowerCase();
   if (enforce === 'deny') {
     console.log(JSON.stringify({
       hookSpecificOutput: {
@@ -422,8 +422,9 @@ function handlePlanModeDispatch(toolInput) {
     }));
     return true; // deny
   }
-  // warn-first (default): nudge the controller via stderr, do not block.
-  process.stderr.write(`[PLAN_MODE_WARN] dispatch-guard: ${leaf} re-dispatched without PLAN_MODE_RESULTS (set PIPELINE_PLAN_MODE_ENFORCEMENT=deny to block)\n`);
+  // warn escape only (PIPELINE_PLAN_MODE_ENFORCEMENT=warn): nudge via stderr, do not block.
+  // v8.3.0 (AUDIT-001): default flipped warn->deny — a bypass is now DENIED unless warn is set explicitly.
+  process.stderr.write(`[PLAN_MODE_WARN] dispatch-guard: ${leaf} re-dispatched without PLAN_MODE_RESULTS (default is now deny; this warn fired because PIPELINE_PLAN_MODE_ENFORCEMENT=warn)\n`);
   return false;
 }
 
@@ -587,7 +588,7 @@ function isBrainstormTarget(target, kind) {
 // `target` is the subagent_type (Agent) or skill name (Skill); `kind` selects
 // the matching strategy.
 function handleBrainstormDispatch(target, kind) {
-  const enforce = String(process.env.PIPELINE_BRAINSTORM_ENFORCEMENT || 'warn').toLowerCase();
+  const enforce = String(process.env.PIPELINE_BRAINSTORM_ENFORCEMENT || 'deny').toLowerCase();
   const docPath = (process.env.PIPELINE_DOC_PATH || '').trim();
   if (!docPath) return false; // no run context → out of scope
   if (!isBrainstormTarget(target, kind)) return false; // not an enforcement target
