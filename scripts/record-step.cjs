@@ -95,7 +95,54 @@ function recordFixAttempt(pipelineDocPath) {
   return { ok: true, fix_loop_attempts: prev + 1 };
 }
 
-module.exports = { recordStep, recordFixAttempt, STEP_VOCAB };
+// Increments state.batch_checkpoints_done (signed). Called by the stamp hook on
+// each checkpoint-validator completion. Together with recordBatchReview it feeds
+// the per-batch adversarial-review gate (lib/batch-review-guard.cjs), which DENIES
+// advancing to the next batch boundary / closure while reviews lag checkpoints.
+function recordBatchCheckpoint(pipelineDocPath) {
+  return bumpCounter(pipelineDocPath, 'batch_checkpoints_done');
+}
+
+// Increments state.batch_reviews_done (signed). Called by the stamp hook on each
+// review-orchestrator (per-batch adversarial coordinator) completion.
+//
+// CLAMP (adversarial HIGH fix): a review only counts against a PENDING checkpoint.
+// reviews can never exceed checkpoints, which BINDS each review to a batch and
+// kills the "bank a second review on batch 1 to satisfy the gate for an unreviewed
+// batch 2" desync. With the gate requiring reviews>=checkpoints, this enforces
+// strict alternation: every checkpointed batch needs its own review before the
+// next checkpoint or closure. A review with no pending checkpoint is a no-op.
+function recordBatchReview(pipelineDocPath) {
+  if (typeof pipelineDocPath !== 'string' || !pipelineDocPath) return { ok: false, error: 'pipelineDocPath required' };
+  const safe = resolveSafeStatePath(pipelineDocPath);
+  if (!safe.ok) return safe;
+  let state;
+  try { state = readState(safe.statePath); } catch (err) { return { ok: false, error: err.message }; }
+  const reviews = Number.isFinite(state.batch_reviews_done) ? state.batch_reviews_done : 0;
+  const checkpoints = Number.isFinite(state.batch_checkpoints_done) ? state.batch_checkpoints_done : 0;
+  if (reviews >= checkpoints) return { ok: true, clamped: true, batch_reviews_done: reviews };
+  const merged = { ...state, batch_reviews_done: reviews + 1, updated_at: new Date().toISOString() };
+  try { writeSignedState(safe.statePath, merged); }
+  catch (err) { return { ok: false, error: `failed to write signed state: ${err.message}` }; }
+  return { ok: true, batch_reviews_done: reviews + 1 };
+}
+
+// Shared read-merge-resign counter bump (mirrors recordFixAttempt). Pure I/O;
+// returns {ok,...} and never throws to the caller path.
+function bumpCounter(pipelineDocPath, field) {
+  if (typeof pipelineDocPath !== 'string' || !pipelineDocPath) return { ok: false, error: 'pipelineDocPath required' };
+  const safe = resolveSafeStatePath(pipelineDocPath);
+  if (!safe.ok) return safe;
+  let state;
+  try { state = readState(safe.statePath); } catch (err) { return { ok: false, error: err.message }; }
+  const prev = Number.isFinite(state[field]) ? state[field] : 0;
+  const merged = { ...state, [field]: prev + 1, updated_at: new Date().toISOString() };
+  try { writeSignedState(safe.statePath, merged); }
+  catch (err) { return { ok: false, error: `failed to write signed state: ${err.message}` }; }
+  return { ok: true, [field]: prev + 1 };
+}
+
+module.exports = { recordStep, recordFixAttempt, recordBatchCheckpoint, recordBatchReview, STEP_VOCAB };
 
 if (require.main === module) {
   const [docPath, step] = process.argv.slice(2);

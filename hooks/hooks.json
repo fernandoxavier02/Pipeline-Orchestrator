@@ -91,6 +91,10 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/gate-log-gate.cjs\""
+          },
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/batch-review-gate.cjs\""
           }
         ]
       },

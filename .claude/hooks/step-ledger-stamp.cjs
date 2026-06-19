@@ -80,6 +80,18 @@ function stamp(payload) {
     return;
   }
 
+  // Per-batch adversarial-review counters (deterministic batch-review gate).
+  // Additive side-effects — these agents may ALSO be governed steps below, so we
+  // bump the counter and fall through to normal step stamping. Two independent
+  // `if`s (not else-if): the comment promises fall-through, and decoupling them
+  // removes a latent hazard if GOVERNED ever overlaps a future agent name.
+  if (leaf === 'checkpoint-validator' && typeof recorder.recordBatchCheckpoint === 'function') {
+    try { recorder.recordBatchCheckpoint(docDir); } catch { /* fail-silent */ }
+  }
+  if (leaf === 'review-orchestrator' && typeof recorder.recordBatchReview === 'function') {
+    try { recorder.recordBatchReview(docDir); } catch { /* fail-silent */ }
+  }
+
   const wf = state.workflow_key || (state.task_type === 'Spec' ? 'Spec' : 'FULL');
   const step = ledger.stepForAgent(wf, leaf);
   if (!step) return; // ungoverned agent → nothing to stamp
