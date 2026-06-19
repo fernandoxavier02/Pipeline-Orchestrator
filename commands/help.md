@@ -1,5 +1,5 @@
 ---
-description: "Cardápio do plugin pipeline-orchestrator: explica os 13 comandos em linguagem simples — o que cada um faz, quando usar, exemplo, e as opções (flags) de cada um. Não executa nada, só exibe o guia."
+description: "Cardápio do plugin pipeline-orchestrator: explica os comandos em linguagem simples — o que cada um faz, quando usar, exemplo, e as opções (flags) de cada um. Não executa nada, só exibe o guia."
 allowed-tools: Read
 ---
 
@@ -11,10 +11,10 @@ Este plugin é uma linha de montagem para trabalho de software. Você descreve u
 
 Existem dois jeitos de usar:
 
-- **Aqui na sua máquina** — você acompanha em tempo real, responde às perguntas e aprova cada passo. São os comandos `pipeline` e `brainstorm`.
+- **Aqui na sua máquina** — você acompanha em tempo real, responde às perguntas e aprova cada passo. São o comando guarda-chuva `pipeline`, o `brainstorm`, e um atalho direto pra cada tipo de tarefa (conserto de bug, funcionalidade, auditoria, experiência do usuário, e outros).
 - **Nos robôs do servidor (Paperclip)** — você monta a tarefa, despacha pra um servidor remoto, e os robôs tocam sozinhos. Você acompanha por um painel na internet. São os comandos que começam com `paperclip-`.
 
-São 13 comandos no total. Abaixo, cada um explicado.
+Os comandos se dividem em três famílias: os que rodam na sua máquina, os que despacham pro servidor, e dois de configuração. Abaixo, cada um explicado.
 
 ---
 
@@ -59,6 +59,33 @@ Exemplo: `/pipeline-orchestrator:brainstorm quero um sistema de cupons de descon
 
 ### `/pipeline-orchestrator:help`
 É este guia que você está lendo. Lista e explica todos os comandos. Não tem opções.
+
+---
+
+## Atalhos locais por tipo de tarefa
+
+Estes também rodam na sua máquina, igual ao `pipeline` — a diferença é que cada um já entra direto no tipo de tarefa certo, sem o classificador precisar adivinhar. São o espelho local dos comandos do servidor: o mesmo trabalho, mas aqui, com você acompanhando e aprovando cada passo. Use quando você já sabe que tipo de tarefa é e quer ir direto ao ponto. Quase todos aceitam `--light` (mais rápido) ou `--heavy` (mais minucioso); sem flag, ele mesmo decide o tamanho.
+
+### `/pipeline-orchestrator:bugfix`
+Conserta um defeito. Vai pelo caminho completo: escreve o teste que prova o conserto antes de mexer no código, implementa, revisa de forma crítica e fecha com o veredito. Mexe no código de verdade. Aceita `--light` / `--heavy`.
+
+### `/pipeline-orchestrator:feature`
+Constrói uma funcionalidade nova quando você já tem a história e os critérios do que ela precisa fazer. Mexe no código. Aceita `--light` / `--heavy`.
+
+### `/pipeline-orchestrator:user-story`
+A mesma coisa que a funcionalidade nova, mas quando você descreve em forma de história — "como cliente, quero redefinir a senha pelo e-mail". Ele tira da frase os critérios do que precisa funcionar e constrói. Mexe no código. Aceita `--light` / `--heavy`.
+
+### `/pipeline-orchestrator:audit`
+Examina um pedaço do sistema e entrega um relatório de riscos e problemas. Só leitura, não mexe em nada. Aceita `--light` / `--heavy`.
+
+### `/pipeline-orchestrator:ux-sim`
+Simula como diferentes tipos de pessoa usariam o produto e aponta onde elas travariam. Só leitura, nunca mexe no código. Aceita `--light` / `--heavy`.
+
+### `/pipeline-orchestrator:review`
+Confere uma tarefa já implementada contra aquilo que tinha sido combinado pra ela — se está completa, dentro do escopo e com prova de que funciona — e diz se pode ser dada como pronta. Só leitura. Você passa a identificação da tarefa.
+
+### `/pipeline-orchestrator:spec`
+Escreve a especificação completa de uma ideia do zero: clareia o que você quer, propõe melhorias, interroga o desenho, monta os requisitos, o desenho e a lista de tarefas, passa por uma revisão crítica e sela o documento. Ele para aí, não constrói nada. Use `--amend` pra mexer numa especificação já selada. Pra construir a partir de uma especificação que já existe, são outros três atalhos: a versão leve, a pesada e a de só-auditoria.
 
 ---
 
