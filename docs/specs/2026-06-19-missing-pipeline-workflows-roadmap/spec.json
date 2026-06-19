@@ -1,0 +1,39 @@
+{
+  "feature_name": "missing-pipeline-workflows-roadmap",
+  "created_at": "2026-06-19T13:00:00Z",
+  "updated_at": "2026-06-19T15:11:00Z",
+  "language": "en",
+  "phase": "sealed",
+  "ready_for_implementation": true,
+  "spec_version": 1,
+  "sealed_at": "2026-06-19T15:11:00Z",
+  "meta_spec": true,
+  "subject": "pipeline-orchestrator plugin (v8.7.0)",
+  "complexity": "MEDIA",
+  "type": "Spec",
+  "deliverable": "design roadmap — documents future work, implements nothing",
+  "run_id": "004-mqkxowia7e6ed19b4807-spec-missing-pipeline-workflows-roadmap",
+  "approvals": {
+    "requirements": { "generated": true, "approved": true },
+    "design": { "generated": true, "approved": true },
+    "tasks": { "generated": true, "approved": true }
+  },
+  "implementation_contract": {
+    "sealed": true,
+    "ready_for_implementation": true,
+    "required_impl_gates": ["TDD_APPROVAL", "ADVERSARIAL_BLOCK", "ADVERSARIAL_LOOP_CHECKPOINT"],
+    "spec_dir": "01-spec"
+  },
+  "sealed_spec": {
+    "run_dir": "pipeline-runs/004-mqkxowia7e6ed19b4807-spec-missing-pipeline-workflows-roadmap",
+    "artifacts": ["requirements.md", "design.md", "tasks.md", "research.md", "spec.json"]
+  },
+  "metadata": {
+    "complexity": "MEDIA",
+    "authoring_run_dir": "pipeline-runs/004-mqkxowia7e6ed19b4807-spec-missing-pipeline-workflows-roadmap",
+    "iron_law": "additive-only; existing Mandatory Gates table + Gate Registry untouched; all new gates documented as PROPOSED additive entries",
+    "substrate": ".cjs hooks + .md agents/skills/commands (NO TypeScript)",
+    "spec_review_attempts": 2,
+    "review_findings_fixed": 11
+  }
+}
