@@ -1,0 +1,54 @@
+#!/usr/bin/env node
+'use strict';
+
+// =============================================================================
+// pipeline-arm-writer.cjs — v8.7.0 (UserPromptSubmit)
+// =============================================================================
+// Deterministically ARMS the pipeline the instant a /pipeline command is
+// submitted: classifies the workflow in code and writes the arm-pending marker.
+// pipeline-arm-gate.cjs (PreToolUse) then denies substantive work until the run
+// is armed. UserPromptSubmit CANNOT deny — its sole job here is to WRITE the
+// marker (the deterministic state the gate enforces) and surface the detected
+// workflow to the operator. NEVER blocks the prompt; fail-open on any error.
+// =============================================================================
+
+let arm = null;
+try { arm = require('../../lib/pipeline-arm.cjs'); } catch { arm = null; }
+
+let input = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', (c) => { input += c; });
+process.stdin.on('end', () => {
+  try {
+    let prompt = '';
+    let cwd = process.cwd();
+    try {
+      const d = JSON.parse(input || '{}');
+      prompt = d.prompt || d.input || d.text || d.message || '';
+      if (typeof d.cwd === 'string' && d.cwd) cwd = d.cwd;
+    } catch { prompt = (input || '').trim(); }
+
+    let marker = null;
+    if (arm && typeof arm.writeArmPending === 'function') {
+      try { marker = arm.writeArmPending(cwd, prompt); } catch { marker = null; }
+    }
+
+    if (marker) {
+      process.stdout.write(JSON.stringify({
+        continue: true,
+        systemMessage:
+          `⛔ PIPELINE ARMADO (determinístico) — workflow=${marker.workflow}. ` +
+          `Trabalho real (Edit/Write/Bash/subagente genérico) está BLOQUEADO até o run ser armado: ` +
+          `crie {PIPELINE_DOC_PATH}/sentinel-state.json com pipeline_active:true, ` +
+          `ou inicie o workflow despachando um agente pipeline-orchestrator:. ` +
+          `Leitura (Read/Grep/Glob) e perguntas seguem liberadas.`,
+      }));
+    } else {
+      process.stdout.write(JSON.stringify({ continue: true }));
+    }
+  } catch {
+    process.stdout.write(JSON.stringify({ continue: true }));
+  }
+});
+
+module.exports = {};

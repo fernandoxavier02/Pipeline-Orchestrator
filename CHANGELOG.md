@@ -2,6 +2,27 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.7.0] - 2026-06-18 — Deterministic enforcement layer: arm-gate + step-ledger + loop-cap + gate-log (MINOR)
+
+Closes the 2026-06-18 root-cause audit: the pipeline's enforcement all keyed off a `sentinel-state.json` that the LLM had to VOLUNTARILY create — the front-door UserPromptSubmit hook can only print a reminder, never deny — so any `/pipeline` invocation could be handled inline with zero enforcement (observed live: the controller treated `/pipeline` as a Q&A and never armed a run). v8.7.0 adds the deterministic, code-enforced layer that makes the agent unable to do real work until a run is armed and run in order. Built and validated BY the pipeline with real spawned subagents.
+
+### Added (TDD RED→GREEN; 12 new regression suites tests/regression/v8.7.0/ F1–F12)
+- `lib/pipeline-workflow-classifier.cjs` — deterministic workflow detection from the `/pipeline` prompt; explicit type flags beat keyword heuristic; `review-only`/`diagnostic` guarded by `isPipelineInvocation`.
+- `lib/pipeline-arm.cjs` + `.claude/hooks/pipeline-arm-writer.cjs` (UserPromptSubmit) — write an arm-pending marker (classified workflow) on `/pipeline`.
+- `.claude/hooks/pipeline-arm-gate.cjs` (PreToolUse) — DENIES substantive work (Edit/Write/Bash/generic Agent) while a pipeline is requested-but-unarmed; reads/questions/.pipeline-writes/pipeline-agent-spawns stay free; default deny; TTL floored; deny reason sanitized; fail-open on missing/corrupt/discovery-absent.
+- `lib/step-ledger.cjs` + `.claude/hooks/step-ledger-gate.cjs` (PreToolUse) + `.claude/hooks/step-ledger-stamp.cjs` (PostToolUse) + `scripts/record-step.cjs` — phase-order enforcement: each governed agent's completion stamps its step into the HMAC-signed state; out-of-order spawns denied. HMAC verified before trust/re-sign (no forged-state laundering). Default deny.
+- `lib/fix-loop.cjs` (+ wiring in step-ledger gate/stamp) — deterministic fix-loop cap (default 3): denies the (max+1)th `executor-fix`; in-state `fix_loop_max` can only LOWER the cap. Default deny.
+- `lib/gate-log-guard.cjs` + `.claude/hooks/gate-log-gate.cjs` (PreToolUse) — gate-logging enforcement: a phase-transition agent is gated until the prior phase's required `gate-decisions.jsonl` entries exist (executor-controller←TDD_APPROVAL, final-validator←ADVERSARIAL_GATE). Default warn (rollout).
+- `.claude/hooks/sentinel-hook.cjs` — `expected_next` may now be an ARRAY (sanctioned parallel review fan-out); single-string behavior unchanged.
+
+### Validation (multi-agent, in-pipeline)
+2 adversarial review rounds (6 zero-context reviewers — security/architecture/quality — run in parallel) + 3 `executor-fix` passes. Found+fixed 2 CRITICAL (forged-state laundering; step-ledger warn-default) and HIGH (review-only/diagnostic misclassification, unclamped fix_loop_max, fail-closed arm-gate, negative-TTL disable, deny-reason injection); all 6 re-confirmed closed in the final review. Suite: 120 pass / 4 fail (the 4 = pre-existing Langfuse env baseline).
+
+### Known follow-ups (tracked, non-blocking)
+- HIGH: `REQUIRED_GATES_BEFORE` vs `AGENT_STEP_MAP` are two order maps without a single source (F12 pins the subset relationship; derive-from-one is post-ship); `final-validator` on COMPLEXA should require `FINAL_ADVERSARIAL_GATE` (gate-log is complexity-blind today).
+- HIGH: denial opacity — up to ~8 PreToolUse hooks on an Agent spawn; document order + which deny wins.
+- MEDIUM: extract a shared resolve-active-run module (4 hooks discover state 3 ways); Spec/brainstorm have step manifests but no agent map (ungoverned); flip gate-log default warn→deny after dogfood.
+
 ## [8.6.0] - 2026-06-18 — Adversarial loop-breaker + universal SIMPLES scope (MINOR)
 
 Replaces the per-batch adversarial fix loop's "stop on the 3rd failure" model with a bounded two-level guardrail and a self-healing escape, and makes plan mode + adversarial review universal (including SIMPLES).

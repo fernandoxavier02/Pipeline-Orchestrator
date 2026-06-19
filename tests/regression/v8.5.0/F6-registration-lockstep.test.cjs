@@ -24,9 +24,10 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 
 const ROOT = path.resolve(__dirname, '../../..');
-// Rolled to 8.6.0 when feat/adversarial-loop-breaker (v8.6.0) was merged on top
-// of this v8.5.0 release. The 9 version surfaces now all declare 8.6.0.
-const VERSION = '8.6.0';
+// Rolled forward each lockstep release (like F7's VERSION pin). Bumped to 8.7.0
+// for the deterministic-enforcement layer release. The 9 version surfaces all
+// declare 8.7.0.
+const VERSION = '8.7.0';
 const GATES_MD = path.join(ROOT, 'references', 'gates.md');
 const HOOKS_JSON = path.join(ROOT, 'hooks', 'hooks.json');
 const GATE_DECISION_CONTRACT = path.join(ROOT, 'lib', 'contracts', 'gate-decision.cjs');

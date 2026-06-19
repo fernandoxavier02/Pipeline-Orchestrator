@@ -1,0 +1,99 @@
+#!/usr/bin/env node
+'use strict';
+
+// =============================================================================
+// step-ledger-stamp.cjs — v8.7.0 (PostToolUse:Agent)
+// =============================================================================
+// Deterministic stamping: when a GOVERNED agent finishes, record its step into
+// the run's signed state.step_ledger — WITHOUT the LLM having to remember. This
+// is the partner of step-ledger-gate.cjs (PreToolUse): the gate enforces order,
+// this stamp records completion, so the next phase's agent is unlocked only
+// after the current one actually ran. NEVER blocks (PostToolUse can't anyway)
+// and never throws — telemetry-grade fail-silent.
+// =============================================================================
+
+const fs = require('node:fs');
+const path = require('node:path');
+
+let eg = null;
+try { eg = require('./edit-guard-hook.cjs'); } catch { eg = null; }
+let ledger = null;
+try { ledger = require('../../lib/step-ledger.cjs'); } catch { ledger = null; }
+let recorder = null;
+try { recorder = require('../../scripts/record-step.cjs'); } catch { recorder = null; }
+let signer = null;
+try { signer = require('../../lib/sentinel-state-signer.cjs'); } catch { signer = null; }
+
+function resolveDocFromEnv(cwd) {
+  const env = (process.env.PIPELINE_DOC_PATH || '').trim();
+  if (!env) return null;
+  return path.isAbsolute(env) ? env : path.resolve(cwd || process.cwd(), env);
+}
+
+function readStateAt(docDir) {
+  let state;
+  try { state = JSON.parse(fs.readFileSync(path.join(docDir, 'sentinel-state.json'), 'utf8')); }
+  catch { return null; }
+  // SEC-1: never TRUST (and never let record-step RE-SIGN) a state whose
+  // signature is PRESENT but INVALID — an attacker could pre-write a forged
+  // signed state and have us launder it. Mirror edit-guard-hook's posture:
+  // a present-but-invalid signature is fail-silent; unsigned/key-unavailable
+  // stays tolerated (migration). Verify-failure (signer absent / throw) is
+  // tolerated so the stamp degrades to the prior behaviour, never harder.
+  if (signer && typeof signer.verifyState === 'function') {
+    let v;
+    try { v = signer.verifyState(state, { key: signer.readHmacKey() }); }
+    catch { v = { valid: true }; }
+    if (v && v.valid === false && v.unsigned !== true && v.key_unavailable !== true) return null;
+  }
+  return state;
+}
+
+function stamp(payload) {
+  if (!ledger || !recorder || typeof recorder.recordStep !== 'function') return;
+  if (!payload || payload.tool_name !== 'Agent') return;
+  const cwd = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd();
+
+  // Resolve the run dir + state: PIPELINE_DOC_PATH wins; else discover via state.
+  let docDir = resolveDocFromEnv(cwd);
+  let state = docDir ? readStateAt(docDir) : null;
+  if (!state && eg && typeof eg.findActiveSentinelState === 'function') {
+    try {
+      const s = eg.findActiveSentinelState(cwd);
+      if (s && s !== eg.CORRUPT_SENTINEL) {
+        state = s;
+        if (typeof s.pipeline_doc_path === 'string' && s.pipeline_doc_path) {
+          docDir = path.isAbsolute(s.pipeline_doc_path) ? s.pipeline_doc_path : path.resolve(cwd, s.pipeline_doc_path);
+        }
+      }
+    } catch { /* fail-silent */ }
+  }
+  if (!state || state.pipeline_active !== true || !docDir) return;
+
+  const leaf = String((payload.tool_input || {}).subagent_type || '').split(':').pop();
+
+  // executor-fix completion → increment the fix-loop counter (deterministic cap).
+  if (leaf === 'executor-fix') {
+    if (typeof recorder.recordFixAttempt === 'function') {
+      try { recorder.recordFixAttempt(docDir); } catch { /* fail-silent */ }
+    }
+    return;
+  }
+
+  const wf = state.workflow_key || (state.task_type === 'Spec' ? 'Spec' : 'FULL');
+  const step = ledger.stepForAgent(wf, leaf);
+  if (!step) return; // ungoverned agent → nothing to stamp
+
+  try { recorder.recordStep(docDir, step); } catch { /* fail-silent */ }
+}
+
+if (require.main === module) {
+  let s = '';
+  process.stdin.on('data', (c) => { s += c; });
+  process.stdin.on('end', () => {
+    try { stamp(JSON.parse(s)); } catch { /* ignore */ }
+    process.exit(0);
+  });
+}
+
+module.exports = { stamp };

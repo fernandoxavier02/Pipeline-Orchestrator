@@ -475,11 +475,20 @@ function handleInput(raw) {
     return process.exit(2); // hard block — stderr fed to Claude
   }
 
-  // 11. Compare target vs expected_next (ALWAYS runs, even if stale)
-  const expected = (state.expected_next || '').toLowerCase();
+  // 11. Compare target vs expected_next (ALWAYS runs, even if stale).
+  // expected_next may be a single agent (serial — the common case) OR an array
+  // of agents (a SANCTIONED parallel fan-out, e.g. the final adversarial
+  // reviewers which the spec REQUIRES to run simultaneously). A spawn is allowed
+  // if it matches ANY entry (exact leaf or full-type suffix). Single-string
+  // behavior is unchanged (the array is just [str]).
+  const expectedList = (Array.isArray(state.expected_next) ? state.expected_next : [state.expected_next])
+    .map((e) => String(e || '').toLowerCase())
+    .filter((e) => e.length > 0);
   const target = agentName.toLowerCase();
+  const agentTypeLc = agentType.toLowerCase();
+  const matched = expectedList.some((exp) => target === exp || agentTypeLc.endsWith(exp));
 
-  if (target === expected) {
+  if (matched) {
     // MATCH → allow (with stale warning if applicable)
     if (staleWarning) {
       const output = {
@@ -492,11 +501,6 @@ function handleInput(raw) {
       console.log(JSON.stringify(output));
     }
     return process.exit(0);
-  }
-
-  // 12. Check if this is a known alias or partial match
-  if (expected && agentType.toLowerCase().endsWith(expected)) {
-    return process.exit(0); // suffix match → allow
   }
 
   // 13. DIVERGENCE — deny with reason
