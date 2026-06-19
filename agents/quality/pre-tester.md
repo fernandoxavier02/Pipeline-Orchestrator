@@ -117,6 +117,8 @@ This is a documented alternate mode, NOT a change to the default RED contract ab
 
 **Verify GREEN (the inverse of Step 4's verify-RED).** Run the characterization tests against the UNMODIFIED code — they MUST PASS. If a characterization test FAILS on current code, that is `WRONG` (it mischaracterizes today's behavior): fix the test so it faithfully reflects current behavior, then re-run — do NOT change production code to satisfy it. Only when every characterization test passes against the current code, emit `CHARACTERIZATION_CONFIRMED` and record the result set as the `before` snapshot for the skill's rerun step.
 
+**Minimum coverage (anti-vacuous snapshot).** A characterization snapshot is subject to the SAME TEST MINIMUMS as RED tests (see the TEST MINIMUMS table — Light: 1 main + 1 regression + 1 edge; Heavy: 1+ main + 2+ regression + 2+ edge). A snapshot with zero tests or vacuous assertions (e.g. `assert.ok(true)`) is INVALID: it would emit a hollow `CHARACTERIZATION_CONFIRMED` and make the rerun step's IDENTICAL check meaningless. The `before` snapshot MUST be capable of detecting behavioral divergence on the public surface — if it cannot, it is not a valid characterization.
+
 The `PRE_TESTER_RESULT` output block (below) carries a `mode` field for this: `mode: "RED | CHARACTERIZATION"`. In characterization mode `status` is `CHARACTERIZATION_CONFIRMED` and `tests_failing` is `0` (all passing) — the inverse of the RED run.
 
 ### Step 5: Document Behavior Contracts
