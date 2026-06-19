@@ -70,7 +70,9 @@ function stamp(payload) {
   }
   if (!state || state.pipeline_active !== true || !docDir) return;
 
-  const leaf = String((payload.tool_input || {}).subagent_type || '').split(':').pop();
+  // .trim() keeps this parser IDENTICAL to the gate's (batch-review-gate.cjs) so a
+  // trailing-space subagent_type can't desync which leaf the stamp vs the gate sees.
+  const leaf = String((payload.tool_input || {}).subagent_type || '').split(':').pop().trim();
 
   // executor-fix completion → increment the fix-loop counter (deterministic cap).
   if (leaf === 'executor-fix') {

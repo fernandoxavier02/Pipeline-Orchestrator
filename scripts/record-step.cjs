@@ -18,6 +18,18 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { writeSignedState, verifyState, readHmacKey } = require(path.join(__dirname, '..', 'lib', 'sentinel-state-signer.cjs'));
 const { STEP_MANIFESTS } = require(path.join(__dirname, '..', 'lib', 'step-ledger.cjs'));
+const { withLock } = require(path.join(__dirname, '..', 'lib', 'exclusive-lock.cjs'));
+
+// Runs a read-merge-resign critical section under a cross-process exclusive lock
+// on the state file. Without it, two concurrent stampers (checkpoint + review +
+// step, or a retry) each read the same `prev`, each write `prev+1`, and ONE
+// increment is silently lost. A lost checkpoint increment desyncs the batch-review
+// gate in the UNSAFE direction (it later allows an unreviewed batch). Lock failure
+// under persistent contention degrades to a soft {ok:false} instead of throwing.
+function lockedStateUpdate(statePath, fn) {
+  try { return withLock(statePath, fn); }
+  catch (err) { return { ok: false, error: `state lock failed: ${err && err.message}` }; }
+}
 
 const STEP_VOCAB = new Set(Object.values(STEP_MANIFESTS).flat());
 
@@ -62,22 +74,24 @@ function recordStep(pipelineDocPath, step) {
   const safe = resolveSafeStatePath(pipelineDocPath);
   if (!safe.ok) return safe;
 
-  let state;
-  try { state = readState(safe.statePath); } catch (err) { return { ok: false, error: err.message }; }
+  return lockedStateUpdate(safe.statePath, () => {
+    let state;
+    try { state = readState(safe.statePath); } catch (err) { return { ok: false, error: err.message }; }
 
-  if (Object.keys(state).length === 0 && !fs.existsSync(safe.statePath)) {
-    const manifestPath = path.join(safe.resolvedDoc, 'manifest.yaml');
-    if (fs.existsSync(manifestPath)) return { ok: false, error: 'sentinel-state.json missing from an initialized run dir' };
-  }
+    if (Object.keys(state).length === 0 && !fs.existsSync(safe.statePath)) {
+      const manifestPath = path.join(safe.resolvedDoc, 'manifest.yaml');
+      if (fs.existsSync(manifestPath)) return { ok: false, error: 'sentinel-state.json missing from an initialized run dir' };
+    }
 
-  const prev = Array.isArray(state.step_ledger) ? state.step_ledger : [];
-  const ledger = prev.includes(step) ? prev.slice() : [...prev, step]; // idempotent append
+    const prev = Array.isArray(state.step_ledger) ? state.step_ledger : [];
+    const ledger = prev.includes(step) ? prev.slice() : [...prev, step]; // idempotent append
 
-  const merged = { ...state, step_ledger: ledger, updated_at: new Date().toISOString() };
-  try { writeSignedState(safe.statePath, merged); }
-  catch (err) { return { ok: false, error: `failed to write signed state: ${err.message}` }; }
+    const merged = { ...state, step_ledger: ledger, updated_at: new Date().toISOString() };
+    try { writeSignedState(safe.statePath, merged); }
+    catch (err) { return { ok: false, error: `failed to write signed state: ${err.message}` }; }
 
-  return { ok: true, step, step_ledger: ledger };
+    return { ok: true, step, step_ledger: ledger };
+  });
 }
 
 // Increments state.fix_loop_attempts (signed). Called by the stamp hook on each
@@ -86,13 +100,15 @@ function recordFixAttempt(pipelineDocPath) {
   if (typeof pipelineDocPath !== 'string' || !pipelineDocPath) return { ok: false, error: 'pipelineDocPath required' };
   const safe = resolveSafeStatePath(pipelineDocPath);
   if (!safe.ok) return safe;
-  let state;
-  try { state = readState(safe.statePath); } catch (err) { return { ok: false, error: err.message }; }
-  const prev = Number.isFinite(state.fix_loop_attempts) ? state.fix_loop_attempts : 0;
-  const merged = { ...state, fix_loop_attempts: prev + 1, updated_at: new Date().toISOString() };
-  try { writeSignedState(safe.statePath, merged); }
-  catch (err) { return { ok: false, error: `failed to write signed state: ${err.message}` }; }
-  return { ok: true, fix_loop_attempts: prev + 1 };
+  return lockedStateUpdate(safe.statePath, () => {
+    let state;
+    try { state = readState(safe.statePath); } catch (err) { return { ok: false, error: err.message }; }
+    const prev = Number.isFinite(state.fix_loop_attempts) ? state.fix_loop_attempts : 0;
+    const merged = { ...state, fix_loop_attempts: prev + 1, updated_at: new Date().toISOString() };
+    try { writeSignedState(safe.statePath, merged); }
+    catch (err) { return { ok: false, error: `failed to write signed state: ${err.message}` }; }
+    return { ok: true, fix_loop_attempts: prev + 1 };
+  });
 }
 
 // Increments state.batch_checkpoints_done (signed). Called by the stamp hook on
@@ -116,30 +132,35 @@ function recordBatchReview(pipelineDocPath) {
   if (typeof pipelineDocPath !== 'string' || !pipelineDocPath) return { ok: false, error: 'pipelineDocPath required' };
   const safe = resolveSafeStatePath(pipelineDocPath);
   if (!safe.ok) return safe;
-  let state;
-  try { state = readState(safe.statePath); } catch (err) { return { ok: false, error: err.message }; }
-  const reviews = Number.isFinite(state.batch_reviews_done) ? state.batch_reviews_done : 0;
-  const checkpoints = Number.isFinite(state.batch_checkpoints_done) ? state.batch_checkpoints_done : 0;
-  if (reviews >= checkpoints) return { ok: true, clamped: true, batch_reviews_done: reviews };
-  const merged = { ...state, batch_reviews_done: reviews + 1, updated_at: new Date().toISOString() };
-  try { writeSignedState(safe.statePath, merged); }
-  catch (err) { return { ok: false, error: `failed to write signed state: ${err.message}` }; }
-  return { ok: true, batch_reviews_done: reviews + 1 };
+  return lockedStateUpdate(safe.statePath, () => {
+    let state;
+    try { state = readState(safe.statePath); } catch (err) { return { ok: false, error: err.message }; }
+    const reviews = Number.isFinite(state.batch_reviews_done) ? state.batch_reviews_done : 0;
+    const checkpoints = Number.isFinite(state.batch_checkpoints_done) ? state.batch_checkpoints_done : 0;
+    if (reviews >= checkpoints) return { ok: true, clamped: true, batch_reviews_done: reviews };
+    const merged = { ...state, batch_reviews_done: reviews + 1, updated_at: new Date().toISOString() };
+    try { writeSignedState(safe.statePath, merged); }
+    catch (err) { return { ok: false, error: `failed to write signed state: ${err.message}` }; }
+    return { ok: true, batch_reviews_done: reviews + 1 };
+  });
 }
 
 // Shared read-merge-resign counter bump (mirrors recordFixAttempt). Pure I/O;
-// returns {ok,...} and never throws to the caller path.
+// returns {ok,...} and never throws to the caller path. Locked against concurrent
+// stampers so an increment can't be lost via interleaved read-modify-write.
 function bumpCounter(pipelineDocPath, field) {
   if (typeof pipelineDocPath !== 'string' || !pipelineDocPath) return { ok: false, error: 'pipelineDocPath required' };
   const safe = resolveSafeStatePath(pipelineDocPath);
   if (!safe.ok) return safe;
-  let state;
-  try { state = readState(safe.statePath); } catch (err) { return { ok: false, error: err.message }; }
-  const prev = Number.isFinite(state[field]) ? state[field] : 0;
-  const merged = { ...state, [field]: prev + 1, updated_at: new Date().toISOString() };
-  try { writeSignedState(safe.statePath, merged); }
-  catch (err) { return { ok: false, error: `failed to write signed state: ${err.message}` }; }
-  return { ok: true, [field]: prev + 1 };
+  return lockedStateUpdate(safe.statePath, () => {
+    let state;
+    try { state = readState(safe.statePath); } catch (err) { return { ok: false, error: err.message }; }
+    const prev = Number.isFinite(state[field]) ? state[field] : 0;
+    const merged = { ...state, [field]: prev + 1, updated_at: new Date().toISOString() };
+    try { writeSignedState(safe.statePath, merged); }
+    catch (err) { return { ok: false, error: `failed to write signed state: ${err.message}` }; }
+    return { ok: true, [field]: prev + 1 };
+  });
 }
 
 module.exports = { recordStep, recordFixAttempt, recordBatchCheckpoint, recordBatchReview, STEP_VOCAB };

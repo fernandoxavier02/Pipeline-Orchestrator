@@ -241,5 +241,72 @@ liveTest('F1-19 — LIVE: trailing-space leaf "final-validator " cannot escape g
   assert.equal(out.hookSpecificOutput && out.hookSpecificOutput.permissionDecision, 'deny', r.stdout || '(trailing-space leaf escaped governance!)');
 });
 
+// Write a PLAIN, UNSIGNED sentinel-state (no HMAC signature) + pointer. Used to
+// probe the strict-mode hardening, which must fail closed on unverifiable state.
+function seedUnsigned(root, checkpoints, reviews) {
+  const docDir = path.join(root, '.pipeline', 'docs', 'run');
+  fs.mkdirSync(docDir, { recursive: true });
+  fs.writeFileSync(path.join(docDir, 'sentinel-state.json'), JSON.stringify({
+    run_id: 'r', schema_version: 1, pipeline_active: true, task_type: 'Bug Fix',
+    pipeline_doc_path: docDir, batch_checkpoints_done: checkpoints, batch_reviews_done: reviews,
+  }));
+  fs.writeFileSync(
+    path.join(root, '.pipeline', 'active-run.json'),
+    JSON.stringify({ pipeline_doc_path: docDir, run_id: 'r', updated_at: '2026-06-19T12:00:00.000Z' }, null, 2)
+  );
+  return docDir;
+}
+
+test('F1-20 — brain: default enforce is DENY when omitted (rollout default, G1)', () => {
+  const { decideBatchReview } = require(MOD);
+  const r = decideBatchReview({ agentLeaf: 'final-validator', checkpointsDone: 1, reviewsDone: 0 });
+  assert.equal(r.decision, 'block');
+});
+
+test('F1-21 — brain: block reason states the lagging batch count (G4)', () => {
+  const { decideBatchReview } = require(MOD);
+  const r = decideBatchReview({ agentLeaf: 'checkpoint-validator', checkpointsDone: 3, reviewsDone: 1, enforce: 'deny' });
+  assert.equal(r.decision, 'block');
+  assert.match(r.reason, /3 batch/);
+  assert.match(r.reason, /só 1/);
+  assert.match(r.reason, /2 batch\(es\) sem revisão/); // lagging = 3 - 1
+});
+
+liveTest('F1-22 — LIVE: corrupt state + warn escape → allow (G3 — was untested)', (root) => {
+  const docDir = seedRun(root, 1, 0);
+  const p = path.join(docDir, 'sentinel-state.json');
+  const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
+  raw.batch_reviews_done = 999; // tamper → signature invalid → CORRUPT_SENTINEL
+  fs.writeFileSync(p, JSON.stringify(raw));
+  const r = run(
+    { tool_name: 'Agent', tool_input: { subagent_type: 'pipeline-orchestrator:core:checkpoint-validator' }, cwd: root },
+    { PIPELINE_BATCH_REVIEW_ENFORCEMENT: 'warn', PIPELINE_DOC_PATH: docDir }
+  );
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal((r.stdout || '').trim(), '', 'warn must relax even the corrupt-state branch');
+});
+
+liveTest('F1-23 — LIVE: strict mode + UNSIGNED forged state (governed) → deny UNVERIFIED (SEC-BRG-1/2)', (root) => {
+  const docDir = seedUnsigned(root, 0, 0); // forged: counters satisfy gate, but unsigned
+  const r = run(
+    { tool_name: 'Agent', tool_input: { subagent_type: 'pipeline-orchestrator:core:final-validator' }, cwd: root },
+    { PIPELINE_BATCH_REVIEW_ENFORCEMENT: 'deny', PIPELINE_HMAC_STRICT: 'true', PIPELINE_DOC_PATH: docDir }
+  );
+  assert.equal(r.status, 0, r.stderr);
+  const out = JSON.parse(r.stdout || '{}');
+  assert.equal(out.hookSpecificOutput && out.hookSpecificOutput.permissionDecision, 'deny', r.stdout || '(unsigned forged state passed under strict!)');
+  assert.match(out.hookSpecificOutput.permissionDecisionReason, /UNVERIFIED|CORRUPT/);
+});
+
+liveTest('F1-24 — LIVE: strict mode + unsigned + warn escape → allow', (root) => {
+  const docDir = seedUnsigned(root, 0, 0);
+  const r = run(
+    { tool_name: 'Agent', tool_input: { subagent_type: 'pipeline-orchestrator:core:final-validator' }, cwd: root },
+    { PIPELINE_BATCH_REVIEW_ENFORCEMENT: 'warn', PIPELINE_HMAC_STRICT: 'true', PIPELINE_DOC_PATH: docDir }
+  );
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal((r.stdout || '').trim(), '', 'warn must relax the strict-unverified branch too');
+});
+
 console.log(`\n=== F1 v8.8.0: ${pass} passed, ${fail} failed ===`);
 process.exit(fail === 0 ? 0 : 1);

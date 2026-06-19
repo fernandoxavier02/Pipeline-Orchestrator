@@ -154,5 +154,42 @@ liveTest('F2-7 — REAL stamp hook bumps batch_reviews_done on review-orchestrat
   assert.equal(readState(docDir).batch_reviews_done, 1, 'real stamp hook should bump batch_reviews_done for review-orchestrator');
 });
 
+liveTest('F2-8 — recordBatchReview/Checkpoint REFUSE an invalidly-signed state (G6)', (root) => {
+  const docDir = seedRun(root);
+  REC.recordBatchCheckpoint(docDir); // c=1 via the valid signed path
+  // If signing is inactive in this env (no HMAC key), the refusal path does not
+  // apply — unsigned states are tolerated by design. Skip rather than false-pass.
+  const v = verifyState(readState(docDir), { key: readHmacKey() });
+  if (v.unsigned || v.key_unavailable) return;
+  // Tamper a SIGNED field so the signature no longer matches → must be refused.
+  const p = path.join(docDir, 'sentinel-state.json');
+  const raw = JSON.parse(fs.readFileSync(p, 'utf8'));
+  raw.batch_checkpoints_done = 50; // forge
+  fs.writeFileSync(p, JSON.stringify(raw));
+  const before = fs.readFileSync(p, 'utf8');
+  const r1 = REC.recordBatchReview(docDir);
+  const r2 = REC.recordBatchCheckpoint(docDir);
+  assert.equal(r1.ok, false, 'recordBatchReview must refuse an invalidly-signed state');
+  assert.equal(r2.ok, false, 'recordBatchCheckpoint must refuse an invalidly-signed state');
+  assert.match(String(r1.error || ''), /invalidly-signed/);
+  assert.equal(fs.readFileSync(p, 'utf8'), before, 'a refused write must leave the file byte-identical');
+});
+
+liveTest('F2-9 — concurrency: K parallel checkpoint bumps lose NO increment (exclusive lock)', (root) => {
+  const docDir = seedRun(root);
+  const K = 8;
+  const REC_PATH = require.resolve('../../../scripts/record-step.cjs');
+  const workerPath = path.join(root, 'w.cjs');
+  const runnerPath = path.join(root, 'run.cjs');
+  // Worker: one checkpoint bump. Runner: launch K workers concurrently, exit when all done.
+  fs.writeFileSync(workerPath, 'const REC=require(process.argv[2]);REC.recordBatchCheckpoint(process.argv[3]);');
+  fs.writeFileSync(runnerPath,
+    "const{spawn}=require('child_process');const[r,d,k,w]=process.argv.slice(2);const K=+k;let e=0;" +
+    "for(let i=0;i<K;i++){const p=spawn(process.execPath,[w,r,d],{stdio:'ignore'});p.on('exit',()=>{if(++e===K)process.exit(0);});}");
+  const res = spawnSync(process.execPath, [runnerPath, REC_PATH, docDir, String(K), workerPath], { encoding: 'utf8', timeout: 30000 });
+  assert.equal(res.status, 0, res.stderr);
+  assert.equal(readState(docDir).batch_checkpoints_done, K, `expected exactly ${K} increments under the lock (fewer = lost update)`);
+});
+
 console.log(`\n=== F2 v8.8.0: ${pass} passed, ${fail} failed ===`);
 process.exit(fail === 0 ? 0 : 1);

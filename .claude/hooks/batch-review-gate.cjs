@@ -28,6 +28,8 @@ let eg = null;
 try { eg = require('./edit-guard-hook.cjs'); } catch { eg = null; }
 let guard = null;
 try { guard = require('../../lib/batch-review-guard.cjs'); } catch { guard = null; }
+let signer = null;
+try { signer = require('../../lib/sentinel-state-signer.cjs'); } catch { signer = null; }
 
 function decide(payload) {
   if (!guard || typeof guard.decideBatchReview !== 'function') return { decision: 'allow' };
@@ -64,6 +66,30 @@ function decide(payload) {
         `são confiáveis e o spawn de ${leaf} é BLOQUEADO. Recrie/re-assine o estado pelo ` +
         'controller (lib/sentinel-state-signer.cjs) antes de avançar ou fechar.',
     };
+  }
+
+  // SEC-BRG-1/2/3 (adversarial fix): under HMAC strict mode, a governed spawn must
+  // run against a CRYPTOGRAPHICALLY VERIFIED state. An unsigned or key-unavailable
+  // state is trusted by findActiveSentinelState (migration tolerance) and would let
+  // a hand-forged state satisfy the counters and flip pipeline_active. Strict is
+  // opt-in (PIPELINE_HMAC_STRICT=true) so unsigned/legacy dev runs are NOT
+  // deadlocked by default; enforced/production runs should set it. Mirrors the
+  // sentinel-hook strict posture.
+  if (process.env.PIPELINE_HMAC_STRICT === 'true' && signer && typeof signer.verifyState === 'function') {
+    let v;
+    try { v = signer.verifyState(state, { key: signer.readHmacKey(), strict: true }); }
+    catch { v = { valid: false }; }
+    if (!v || v.valid !== true) {
+      if (String(enforce).toLowerCase() === 'warn') return { decision: 'allow', warn: true };
+      return {
+        decision: 'block',
+        reason:
+          'BATCH_REVIEW_STATE_UNVERIFIED: modo estrito (PIPELINE_HMAC_STRICT) exige um ' +
+          'sentinel-state assinado e verificado; este run não passou (não-assinado, chave ' +
+          `ausente ou assinatura inválida), então o spawn de ${leaf} é BLOQUEADO. Rode o ` +
+          'pipeline com o estado assinado pelo controller.',
+      };
+    }
   }
 
   if (state.pipeline_active !== true) return { decision: 'allow' };
