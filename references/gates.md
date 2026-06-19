@@ -1,6 +1,6 @@
 # Gate System Reference
 
-> **SSOT** for gate definitions — hardness taxonomy and the 48-gate registry. `commands/pipeline.md` Grep-redirects here when it needs the full table with trigger conditions and recovery actions. Operational audit mechanics (Phase Transition Summary block template, Gate Decision Log JSONL format + parse/sanitization rules) live in `references/audit-trail.md` — they evolve independently from gate definitions. If you change gate hardness levels or registry rows, update this file; downstream tooling parses it.
+> **SSOT** for gate definitions — hardness taxonomy and the 49-gate registry. `commands/pipeline.md` Grep-redirects here when it needs the full table with trigger conditions and recovery actions. Operational audit mechanics (Phase Transition Summary block template, Gate Decision Log JSONL format + parse/sanitization rules) live in `references/audit-trail.md` — they evolve independently from gate definitions. If you change gate hardness levels or registry rows, update this file; downstream tooling parses it.
 
 ---
 
@@ -41,6 +41,7 @@ Each gate has a formal **hardness** level that determines enforcement behavior:
 | CLOSEOUT_CONFIRM | **SOFT** | Push+PR or Discard | **PAUSE** — confirm | User confirms |
 | STATE_FILE_INIT_FAIL | **CIRCUIT_BREAKER** | `Write` of `{PIPELINE_DOC_PATH}/sentinel-state.json` fails at Phase 0 init (any IO error — permission, disk full, invalid path, read-only fs, signer raise) | **STOP pipeline** before any Agent spawn / DISPATCH_REQUEST | Fix IO root cause (permission, disk, path, parent dir); user re-runs pipeline |
 | PROTOCOL_HANDSHAKE_TIMEOUT | **HARD** | A `GATE_REQUEST` / `DISPATCH_REQUEST` / `PLAN_MODE_REQUEST` block emitted by a subagent (information-gate, plan-architect, etc.) is not answered by the parent within the handshake window (default 30 minutes; configurable via `PIPELINE_HANDSHAKE_TIMEOUT_MS` env var). Indicates the parent did not implement the protocol, the AskUserQuestion handler was absent, or the session was abandoned mid-flight. | **STOP pipeline**; emit gate entry; return partial PIPELINE COMPLETE with status `PROTOCOL_HANDSHAKE_TIMEOUT` | Fix parent handler (verify gate-request-protocol parsing wired); user re-invokes pipeline once the handler is restored |
+| REFACTOR_SCOPE_LOCK | **HARD** | Refactor pipeline step 4 — before the first file touch: validates the `IMPLEMENTATION_PLAN.CHANGE_CONTRACT` plan-block (reused as-is) exists and is signed; a proposed change in the forbidden column (new public API surface, changed error codes, changed output format, changed side-effects) aborts the run. Workflow-specific (Refactor only); NOT mandatory-by-complexity. | **BLOCK** refactor execution until the signed CHANGE_CONTRACT plan-block is verified; ABORT if a forbidden change is proposed | Re-run plan-architect with a correct CHANGE_CONTRACT carrying the signed-off flag and no forbidden change; or re-scope the work to Feature / Bug Fix |
 
 ### Spec pipeline gates (Wave 5-spec, v4.13.0)
 

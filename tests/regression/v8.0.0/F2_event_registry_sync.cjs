@@ -16,7 +16,7 @@ const EVENTS = ['IDEATION_PROPOSED', 'IDEATION_ACCEPTED', 'IDEATION_REJECTED', '
   'DESIGN_INTERROGATOR_FORCED', 'SPEC_REVIEW_FINDINGS', 'SPEC_SEALED', 'SPEC_AMENDED'];
 const SURFACES = ['references/gates.md', 'commands/pipeline.md', 'agents/core/pipeline-controller.md'];
 
-console.log('=== F2 v8.0.0 event-registry sync (35 -> 43 -> 47) ===');
+console.log('=== F2 v8.0.0 event-registry sync (35 -> 43 -> 47 -> 48 -> 49) ===');
 
 for (const surface of SURFACES) {
   test(`${surface} registers all 8 spec-authoring events`, () => {
@@ -25,10 +25,10 @@ for (const surface of SURFACES) {
   });
 }
 
-test('the registry count moved to 48 in all three surfaces', () => {
-  assert.match(read('references/gates.md'), /48-gate registry/, 'gates.md header = 48');
-  assert.match(read('commands/pipeline.md'), /\(48 total/, 'pipeline.md inline = 48');
-  assert.match(read('agents/core/pipeline-controller.md'), /\(48 total/, 'pipeline-controller.md inline = 48');
+test('the registry count moved to 49 in all three surfaces', () => {
+  assert.match(read('references/gates.md'), /49-gate registry/, 'gates.md header = 49');
+  assert.match(read('commands/pipeline.md'), /\(49 total/, 'pipeline.md inline = 49');
+  assert.match(read('agents/core/pipeline-controller.md'), /\(49 total/, 'pipeline-controller.md inline = 49');
 });
 
 test('the new events are AUDIT/SOFT only — the Mandatory Gates by Complexity table is UNTOUCHED (Iron Law)', () => {

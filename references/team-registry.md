@@ -12,6 +12,8 @@
 | Feature | - | light | feature-vertical-slice-planner -> feature-implementer | none | feature-integration-validator | code-changing |
 | User Story | - | heavy | (same as Feature heavy) | none | - | code-changing |
 | User Story | - | light | (same as Feature light) | none | feature-integration-validator | code-changing |
+| Refactor | - | heavy | pre-tester (characterization mode) -> [executor-implementer-task] -> pre-tester (characterization rerun) -> [adversarial-security-scanner ‖ adversarial-architecture-critic ‖ adversarial-quality-reviewer] | adversarial-security-scanner + adversarial-architecture-critic + adversarial-quality-reviewer | - | code-changing |
+| Refactor | - | light | pre-tester (characterization mode) -> [executor-implementer-task] -> pre-tester (characterization rerun) | none | adversarial-security-scanner, adversarial-architecture-critic, adversarial-quality-reviewer | code-changing |
 | UX Simulation | - | heavy | [ux-simulator ‖ ux-accessibility-auditor] -> ux-qa-validator | ux-simulator + ux-accessibility-auditor | - | report-only |
 | UX Simulation | - | light | ux-simulator -> ux-qa-validator | none | ux-accessibility-auditor | report-only |
 | Audit | no adversarial keywords | heavy | audit-intake -> audit-domain-analyzer -> audit-compliance-checker -> audit-risk-matrix-generator | none | - | report-only |

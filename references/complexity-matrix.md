@@ -59,6 +59,7 @@ For MEDIA and COMPLEXA tasks the brainstorm + spec lifecycle is **mandatory** an
 |-------------------|---------|-------|----------|
 | **Bug Fix** | DIRETO | bugfix-light | bugfix-heavy |
 | **Feature** | DIRETO | feature-light | feature-heavy |
+| **Refactor** | DIRETO | refactor-light | refactor-heavy |
 | **User Story** | DIRETO | user-story-light | user-story-heavy |
 | **Audit** | DIRETO | audit-light | audit-heavy |
 | **UX Simulation** | DIRETO | ux-sim-light | ux-sim-heavy |

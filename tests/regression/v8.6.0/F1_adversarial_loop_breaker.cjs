@@ -66,11 +66,11 @@ test('S1 — gates.md registry row ADVERSARIAL_LOOP_BREAKER exists with CIRCUIT_
   );
 });
 
-test('S2 — gates.md header reads "48-gate" registry (v8.5.0 enforcement + v8.6.0 loop-breaker merge)', () => {
+test('S2 — gates.md header reads "49-gate" registry (v8.5.0 enforcement + v8.6.0 loop-breaker merge + v8.8.0 REFACTOR_SCOPE_LOCK)', () => {
   const content = read('references/gates.md');
   const m = content.match(/(\d+)-gate registr/i);
   assert.ok(m, 'no "N-gate registry" header line found');
-  assert.equal(Number(m[1]), 48, `header says ${m[1]}-gate registry, expected 48`);
+  assert.equal(Number(m[1]), 49, `header says ${m[1]}-gate registry, expected 49`);
 });
 
 test('S3 — Mandatory Gates by Complexity table has 24 data rows', () => {

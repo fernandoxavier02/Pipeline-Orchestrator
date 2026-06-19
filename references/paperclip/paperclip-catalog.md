@@ -21,6 +21,8 @@
 
 > **v8.0.0 (2026-06-15):** três cargos novos do fluxo de **spec-authoring** — `spec-controller` (core), `brainstorm-step-01c-ideation` (brainstorm) e `spec-adversarial-critic` (executor-type-specific). O fluxo de spec-authoring CRIA e SELA uma spec do zero; os cargos legados `spec-format-gate` / `spec-content-reviewer` / `spec-post-impl-validator` continuam servindo o fluxo de **spec-processing** (validar uma spec já existente). Ver `PAPERCLIP-SPEC-WORKFLOW.md` §AUTHORING vs §PROCESSING.
 
+> **v8.8.0 (2026-06-19):** novo fluxo de **Refactor** (`PAPERCLIP-REFACTOR-WORKFLOW.md` + comando `/pipeline-orchestrator:paperclip-refactor`) — reorganiza código sem mudar o comportamento visível, travado por um contrato de mudança assinado (REFACTOR_SCOPE_LOCK) e provado por um snapshot de characterization antes/depois. **ZERO cargos novos:** reusa `plan-architect` (contrato), `pre-tester` em modo characterization (snapshots), `executor-fix` (diff mínimo) e o trio adversarial existente (heavy). A contagem de 50 cargos permanece — o Refactor é um workflow novo, não um agente novo.
+
 ### Contagem por protocolo emitido
 
 | Protocolo | Quantidade | Observação |

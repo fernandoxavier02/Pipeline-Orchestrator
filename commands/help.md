@@ -75,6 +75,13 @@ Constrói uma funcionalidade nova quando você já tem a história e os critéri
 ### `/pipeline-orchestrator:user-story`
 A mesma coisa que a funcionalidade nova, mas quando você descreve em forma de história — "como cliente, quero redefinir a senha pelo e-mail". Ele tira da frase os critérios do que precisa funcionar e constrói. Mexe no código. Aceita `--light` / `--heavy`.
 
+### `/pipeline-orchestrator:refactor`
+Arruma a arrumação do código sem mudar o que ele faz por fora. Serve pra quando o programa funciona certo, mas a tripa dele está bagunçada e difícil de mexer — você quer reorganizar, renomear, separar em pedaços menores, sem que o comportamento visível mude em nada.
+
+Antes de tocar em qualquer linha, ele fecha um "contrato de mudança": o que pode mexer e o que é proibido mexer (nada de mudar o que o programa entrega por fora). Esse contrato vira uma trava — se algum passo tentar furar a regra, o trabalho para na hora.
+
+Pra provar que não quebrou nada, ele roda os testes que olham o comportamento de fora antes de começar e de novo no fim; os dois resultados têm que bater igualzinho. Tem versão leve (uma arrumação pequena num só lugar) e pesada (arrumação que cruza vários lugares, com uma revisão crítica final). Use quando quiser limpar a casa com rede de segurança.
+
 ### `/pipeline-orchestrator:audit`
 Examina um pedaço do sistema e entrega um relatório de riscos e problemas. Só leitura, não mexe em nada. Aceita `--light` / `--heavy`.
 

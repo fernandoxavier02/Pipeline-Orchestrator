@@ -149,16 +149,17 @@ test('F2-S6: cross-check — 23-row Mandatory count AND aggregate Gate Registry 
 
   const registrySection = extractSection(md, 'Gate Registry');
   const registryRows = parseAllTableDataRows(registrySection);
-  // The Gate Registry now aggregates 48 data rows across its sub-tables
-  // (19 base + 6 spec + 4 routing + 7 brainstorm + 8 spec-authoring + 4 spec-authoring-enforcement = 48).
+  // The Gate Registry now aggregates 49 data rows across its sub-tables
+  // (20 base + 6 spec + 4 routing + 7 brainstorm + 8 spec-authoring + 4 spec-authoring-enforcement = 49).
   // v8.0.0 added the 8 spec-authoring telemetry gates (IDEATION_*, DESIGN_INTERROGATOR_FORCED,
   // SPEC_REVIEW_FINDINGS, SPEC_SEALED, SPEC_AMENDED); v8.5.0 added 4 spec-authoring enforcement
   // AUDIT gates (SPEC_AUTHORING_INCOMPLETE, SPEC_AUTHORING_STEP_BYPASS,
   // SPEC_CONTRACT_DISCIPLINE_MISSING, PARALLEL_DISPATCH_VIOLATION); v8.6.0 added 1 Core gate
-  // (ADVERSARIAL_LOOP_BREAKER, base 18→19) which is mandatory, taking the Mandatory table to 24.
-  // No UNAUTHORIZED row may have been added beyond these.
-  assert.equal(registryRows.length, 48,
-    `Gate Registry aggregate row count must be 48 (got ${registryRows.length}) — no UNAUTHORIZED row may have been added beyond the v8.5.0 enforcement + v8.6.0 loop-breaker gates`);
+  // (ADVERSARIAL_LOOP_BREAKER, base 18→19) which is mandatory, taking the Mandatory table to 24;
+  // v8.8.0 added 1 Core gate (REFACTOR_SCOPE_LOCK, base 19→20, HARD, workflow-specific — NOT
+  // mandatory-by-complexity, so the Mandatory table STAYS at 24). No UNAUTHORIZED row beyond these.
+  assert.equal(registryRows.length, 49,
+    `Gate Registry aggregate row count must be 49 (got ${registryRows.length}) — no UNAUTHORIZED row may have been added beyond the v8.5.0 enforcement + v8.6.0 loop-breaker + v8.8.0 REFACTOR_SCOPE_LOCK gates`);
 });
 
 console.log('');

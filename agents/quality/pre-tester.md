@@ -99,6 +99,26 @@ If tests PASS immediately:
 - Report this to executor-controller
 - The task may not need implementation
 
+### Step 4b: Characterization Mode (Refactor workflow — thin-wrapper, additive)
+
+This is a documented alternate mode, NOT a change to the default RED contract above. When this agent is dispatched by the Refactor skill (`skills/refactor-light` / `skills/refactor-heavy`, step 3) with `mode: characterization`, the one expectation that flips is the pass/fail direction — and nothing else. Everything in Steps 1-3 (read scenarios, detect framework, write tests in GIVEN/WHEN/THEN) is unchanged.
+
+**Why this mode exists.** A refactor must NOT change observable behavior. To prove that, the same tests are run before any edit (this mode) and after the last edit (the skill's characterization-rerun step). Identical public-behavior results across the two runs are the proof of behavior preservation. There is nothing to "implement" — the behavior already exists — so a RED test would be the wrong tool.
+
+**The one inversion (vs. the default RED contract):**
+
+| Aspect | Default (RED phase) | Characterization mode |
+|--------|---------------------|-----------------------|
+| Expected result | **Tests MUST FAIL** (behavior not yet implemented) | **Tests MUST PASS** (capture current behavior) |
+| Purpose | Drive new behavior into existence | Photograph existing behavior for a before/after comparison |
+| Status emitted | `RED_CONFIRMED` | `CHARACTERIZATION_CONFIRMED` |
+
+**Binding (CRITICAL — public-surface only).** Characterization tests bind ONLY to the PUBLIC surface of the CHANGE_CONTRACT allowed-files (exported names, signatures, error codes, output formats, side-effects). Internal coverage-only tests are EXCLUDED from the snapshot, because a restructure may legitimately move or rename internal tests; forcing those to be identical would block legitimate cleanup.
+
+**Verify GREEN (the inverse of Step 4's verify-RED).** Run the characterization tests against the UNMODIFIED code — they MUST PASS. If a characterization test FAILS on current code, that is `WRONG` (it mischaracterizes today's behavior): fix the test so it faithfully reflects current behavior, then re-run — do NOT change production code to satisfy it. Only when every characterization test passes against the current code, emit `CHARACTERIZATION_CONFIRMED` and record the result set as the `before` snapshot for the skill's rerun step.
+
+The `PRE_TESTER_RESULT` output block (below) carries a `mode` field for this: `mode: "RED | CHARACTERIZATION"`. In characterization mode `status` is `CHARACTERIZATION_CONFIRMED` and `tests_failing` is `0` (all passing) — the inverse of the RED run.
+
 ### Step 5: Document Behavior Contracts
 
 For each test, document what it verifies:
@@ -128,10 +148,11 @@ BEHAVIOR_CONTRACT:
 
 ```yaml
 PRE_TESTER_RESULT:
-  status: "[RED_CONFIRMED | ALREADY_PASSING | ERROR]"
+  mode: "RED | CHARACTERIZATION"  # default RED; CHARACTERIZATION only when dispatched by the Refactor skill (Step 4b)
+  status: "[RED_CONFIRMED | CHARACTERIZATION_CONFIRMED | ALREADY_PASSING | ERROR]"
   test_files_created: ["list"]
   tests_total: [N]
-  tests_failing: [N]  # should equal tests_total
+  tests_failing: [N]  # RED mode: should equal tests_total. CHARACTERIZATION mode: should be 0 (all passing)
   behavior_contracts: []
   test_command: "[command to run tests]"
 ```

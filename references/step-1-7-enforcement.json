@@ -8,6 +8,7 @@
     "audit-",
     "user-story-",
     "ux-sim-",
+    "refactor-",
     "spec-"
   ],
   "targets": [
