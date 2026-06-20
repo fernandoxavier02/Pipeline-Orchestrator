@@ -74,7 +74,12 @@ function decide(payload) {
   // batch that was checkpointed but whose verdict was NEVER recorded green — that
   // was the "skip the checkpoint entirely and close clean" hole. Report-only runs
   // (no checkpoints) are unaffected. A recorded `fail` is already caught by A1.
-  if (leaf === 'final-validator') {
+  // OPT-IN (PIPELINE_REQUIRE_GREEN_CLOSE=true): batch_checkpoints_done is stamped
+  // unconditionally, but last_checkpoint_verdict is only populated once the
+  // checkpoint-validator PRODUCER emits checkpoint-verdict.json. Until producers are
+  // wired this rule would deadlock closure (checkpoints>0, verdict null), so it is
+  // OFF by default and activates only when the operator opts in (producers present).
+  if (leaf === 'final-validator' && process.env.PIPELINE_REQUIRE_GREEN_CLOSE === 'true') {
     const checkpoints = Number.isFinite(state.batch_checkpoints_done) ? state.batch_checkpoints_done : 0;
     const lv = typeof state.last_checkpoint_verdict === 'string' ? state.last_checkpoint_verdict : null;
     if (checkpoints > 0 && lv !== 'pass') {

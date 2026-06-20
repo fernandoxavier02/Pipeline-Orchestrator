@@ -214,25 +214,30 @@ liveTest('F1-16 — REAL stamp hook reads checkpoint-verdict.json and records (f
   assert.equal(st.consecutive_checkpoint_failures, 1);
 });
 
-liveTest('F1-17 — LIVE: cannot CLOSE with a checkpointed batch that never went green (A1b)', (root) => {
-  // checkpoints happened but no verdict ever recorded (null) → final-validator BLOCKED.
+const GREEN = { PIPELINE_REQUIRE_GREEN_CLOSE: 'true' };
+liveTest('F1-17 — LIVE (opt-in): cannot CLOSE with a checkpointed batch that never went green (A1b)', (root) => {
   const docDir = seedRun(root, { batch_checkpoints_done: 1 });
-  const r = gate(root, docDir, 'final-validator');
+  const r = gate(root, docDir, 'final-validator', GREEN);
   assert.equal(r.status, 0, r.stderr);
   const out = JSON.parse(r.stdout || '{}');
   assert.equal(out.hookSpecificOutput && out.hookSpecificOutput.permissionDecision, 'deny', r.stdout || '(closed without a green checkpoint!)');
   assert.match(out.hookSpecificOutput.permissionDecisionReason, /CHECKPOINT_NOT_GREEN/);
 });
-liveTest('F1-18 — LIVE: report-only (zero checkpoints) can close; green checkpoint can close', (root) => {
-  // no checkpoints at all → report-only → allow
+liveTest('F1-18 — LIVE (opt-in): report-only (zero checkpoints) closes; green checkpoint closes', (root) => {
   let docDir = seedRun(root, { batch_checkpoints_done: 0 });
-  let r = gate(root, docDir, 'final-validator');
+  let r = gate(root, docDir, 'final-validator', GREEN);
   assert.equal((r.stdout || '').trim(), '', 'report-only must close');
-  // a recorded green checkpoint → allow
   fs.rmSync(path.join(root, '.pipeline'), { recursive: true, force: true });
   docDir = seedRun(root, { batch_checkpoints_done: 2, last_checkpoint_verdict: 'pass' });
-  r = gate(root, docDir, 'final-validator');
+  r = gate(root, docDir, 'final-validator', GREEN);
   assert.equal((r.stdout || '').trim(), '', 'green checkpoint must close');
+});
+liveTest('F1-18b — LIVE: DEFAULT (opt-in OFF) never deadlocks closure on an absent verdict (adversarial fix)', (root) => {
+  // Release-critical guarantee: with producers unwired, a checkpointed-but-no-verdict run
+  // must STILL close by default (no PIPELINE_REQUIRE_GREEN_CLOSE) — no deadlock.
+  const docDir = seedRun(root, { batch_checkpoints_done: 3 });
+  const r = gate(root, docDir, 'final-validator'); // no GREEN flag
+  assert.equal((r.stdout || '').trim(), '', 'default mode must NOT deadlock closure');
 });
 
 console.log(`\n=== F1 v8.9.0: ${pass} passed, ${fail} failed ===`);

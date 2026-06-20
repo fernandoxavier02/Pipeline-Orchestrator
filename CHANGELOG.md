@@ -2,6 +2,25 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.9.0] - 2026-06-20 — Flow-determinism gates Wave 1+2: red-build / STOP_RULE / sensitive-domain + generic phase-verdict (A1-A9) (MINOR)
+
+Converts prompt-only pipeline flow rules into deterministic DENY gates (consumer side; progressive activation).
+
+### Wave 1
+- **A1 checkpoint-verdict** — deny advancing (review-orchestrator/final-validator) while the last build/test verdict is RED. `lib/checkpoint-verdict.cjs` + `.claude/hooks/checkpoint-verdict-gate.cjs`.
+- **A2/A3 STOP_RULE** — deny advancing after 2 consecutive checkpoint/sanity fails. `lib/consecutive-failure-counter.cjs`.
+- **A4 sensitive-domain** — auth/crypto/payment/data-model touch makes the adversarial review mandatory (warn escape denied). `lib/domain-scanner.cjs` + `lib/batch-review-guard.cjs` sensitive flag.
+
+### Wave 2
+- **A5-A9 generic phase-verdict gate** — SSOT conflict, info-gate blocked, plan rejected, open final CRITICAL, and NO-GO each deny the correct downstream agent. `lib/phase-verdict-guard.cjs` + `.claude/hooks/phase-verdict-gate.cjs`.
+
+### Plumbing & safety
+- `recordCheckpointVerdict` / `recordDomainsTouched` / `recordPhaseVerdict` in `scripts/record-step.cjs` (closed allowlist, anti-injection, under the exclusive-lock) + `step-ledger-stamp.cjs` verdict-file wiring.
+- Gates **fail-OPEN** until the producing agent emits its verdict file (progressive activation as producers are wired); the A1b close-on-green rule is **opt-in** via `PIPELINE_REQUIRE_GREEN_CLOSE` so the default flow never deadlocks.
+- Per-wave + FINAL adversarial review (3 zero-context reviewers): plural-evasion in the domain scanner fixed (`sessions/`, `payments/`, `credentials/`); A1b closeout deadlock removed; overwrite-is-the-corrective-path documented.
+
+Tests `tests/regression/v8.9.0/` F1-F3 (39 green); full suite 176/180 (4 pre-existing Langfuse env failures). Iron Law preserved (`hooks/`,`lib/`,`scripts/`,`tests/` only; Mandatory Gates table + Registry untouched; no TypeScript). Lockstep 9 surfaces.
+
 ## [8.8.0] - 2026-06-20 — Determinism enforcement hardening: gate-log deny default, governed fail-closed, REFACTOR_SCOPE_LOCK write-time hook, bare /refactor skill, signed arm-pending marker (MINOR)
 
 Closes the 2026-06-19 flow-determinism audit findings AUDIT-001 through AUDIT-007. Six remediation batches, each TDD RED→GREEN with its own regression test under `tests/regression/v8.8.0/` (F3–F9):
