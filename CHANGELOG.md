@@ -2,6 +2,19 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.8.0] - 2026-06-20 — Determinism enforcement hardening: gate-log deny default, governed fail-closed, REFACTOR_SCOPE_LOCK write-time hook, bare /refactor skill, signed arm-pending marker (MINOR)
+
+Closes the 2026-06-19 flow-determinism audit findings AUDIT-001 through AUDIT-007. Six remediation batches, each TDD RED→GREEN with its own regression test under `tests/regression/v8.8.0/` (F3–F9):
+
+- **B1 (AUDIT-001):** `gate-log-gate.cjs` enforcement default flips `warn` → `deny` for governed leaves — a missing required gate now blocks rather than only warning.
+- **B2 (AUDIT-003):** `step-ledger-gate.cjs`, `gate-log-gate.cjs`, and `dispatch-pending-gate.cjs` now fail **CLOSED** on a corrupt (tampered-HMAC) sentinel-state for GOVERNED actions, reaching parity with `batch-review-gate.cjs`. Absent state stays fail-open (absent ≠ corrupt); warn escape still relaxes; ungoverned actions never deadlock. A documenting comment marks the intentional front-door fail-OPEN exception in `pipeline-arm-gate.cjs`.
+- **B3 (AUDIT-002):** new write-time enforcement in `scope-lock-hook.cjs` — the FIRST production write under a `refactor-light`/`refactor-heavy` run is denied until `REFACTOR_SCOPE_LOCK` is recorded in `gate-decisions.jsonl` (env escape `PIPELINE_REFACTOR_SCOPE_LOCK_ENFORCEMENT=warn`; `.pipeline/` always exempt; governed-fail-closed per AUDIT-003). The two refactor `SKILL.md` files and `lib/step-ledger.cjs` header now credit this code-level hook.
+- **B4 (AUDIT-006):** new bare routing skill `skills/refactor/SKILL.md` (mirrors `skills/bugfix/SKILL.md`) — routes `--light`/`--heavy` and delegates flagless input to the controller with `PRE_CLASSIFIED_TYPE=Refactor`; no `steps/` folder.
+- **B5 (AUDIT-007):** `lib/pipeline-arm.cjs::writeArmPending` now HMAC-signs the arm-pending marker via the existing sentinel-state signer (SSOT); `pipeline-arm-gate.cjs` verifies it and treats a tampered marker as not-armed. Unsigned markers tolerated by default; `PIPELINE_HMAC_STRICT=true` rejects unsigned too.
+- **B6 (AUDIT-005):** version bump 8.7.0 → 8.8.0 across the lockstep surfaces (this entry).
+
+Iron Law preserved: the `references/gates.md` Mandatory Gates by Complexity table and Gate Registry are UNTOUCHED — the new behavior lives entirely in the existing enforcement hooks and the additive refactor skill. No TypeScript; `.cjs` + `.md` only.
+
 ## [8.7.0] - 2026-06-18 — Deterministic enforcement layer: arm-gate + step-ledger + loop-cap + gate-log (MINOR)
 
 Closes the 2026-06-18 root-cause audit: the pipeline's enforcement all keyed off a `sentinel-state.json` that the LLM had to VOLUNTARILY create — the front-door UserPromptSubmit hook can only print a reminder, never deny — so any `/pipeline` invocation could be handled inline with zero enforcement (observed live: the controller treated `/pipeline` as a Q&A and never armed a run). v8.7.0 adds the deterministic, code-enforced layer that makes the agent unable to do real work until a run is armed and run in order. Built and validated BY the pipeline with real spawned subagents.

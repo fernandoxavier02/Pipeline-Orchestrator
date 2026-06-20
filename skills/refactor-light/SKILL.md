@@ -13,7 +13,7 @@ stop_rule_max_failures: 2
 
 # Refactor Light Workflow (8 prescriptive steps)
 
-This skill executes a deterministic 8-step procedure for SIMPLES/MEDIA refactors — restructuring code without changing what it does from the outside. The procedure is **non-negotiable**: order is locked, execution mode per step is locked, and gates cannot be skipped. The signature gate `REFACTOR_SCOPE_LOCK` (HARD) fires at step 4, before the first file is touched.
+This skill executes a deterministic 8-step procedure for SIMPLES/MEDIA refactors — restructuring code without changing what it does from the outside. The procedure is **non-negotiable**: order is locked, execution mode per step is locked, and gates cannot be skipped. The signature gate `REFACTOR_SCOPE_LOCK` (HARD) fires at step 4, before the first file is touched. As of v8.8.0 this is enforced at the code level: the `scope-lock-hook` denies the first production write (outside `.pipeline/`) on a refactor run until `REFACTOR_SCOPE_LOCK` is recorded in `gate-decisions.jsonl` — so the gate is no longer prose-only, it is a write-time backstop.
 
 The mental model is behavior preservation: capture the public behavior in characterization tests BEFORE any edit (step 3), restructure under a signed scope contract (steps 4-5), then re-run the same tests and require an IDENTICAL verdict (step 6). The structural template is `skills/bugfix-light/SKILL.md` (same 8-step shape, same enforcement rules); the difference is that refactor proves "nothing changed" instead of "the bug is fixed".
 

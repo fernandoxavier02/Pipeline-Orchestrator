@@ -16,7 +16,7 @@
 //  - VERIFIES the signed sentinel-state (a present-but-invalid HMAC signature is
 //    NOT trusted — matches the SEC-1 fix posture in step-ledger-stamp);
 //  - ungoverned agents (those not in REQUIRED_GATES_BEFORE) always allowed;
-//  - default ROLLOUT mode = warn (escape/promote via PIPELINE_GATE_LOG_ENFORCEMENT);
+//  - default enforcement = deny (escape to warn via PIPELINE_GATE_LOG_ENFORCEMENT=warn);
 //  - missing trail file → fail-open (treated as no gates logged is NOT done; an
 //    absent trail means we cannot prove the negative safely, so we fail-open);
 //  - fail-open on missing/corrupt state or any error.
@@ -44,12 +44,37 @@ function decide(payload) {
   // forged signed state cannot be laundered into a "valid active run" (SEC-1).
   let state;
   try { state = eg && eg.findActiveSentinelState(dir); } catch { return { decision: 'allow' }; }
-  if (!state || (eg && state === eg.CORRUPT_SENTINEL)) return { decision: 'allow' };
-  if (state.pipeline_active !== true) return { decision: 'allow' };
+  // Split the two cases (AUDIT-003, D3): a genuinely-ABSENT state means there is no
+  // run → stay open. An authoritatively-CORRUPT state (unreadable / tampered HMAC)
+  // must FAIL CLOSED for a GOVERNED leaf, mirroring batch-review-gate.cjs. The
+  // present-but-invalid-signature case is already mapped to CORRUPT_SENTINEL by
+  // findActiveSentinelState (so a forged signed state can't be laundered).
+  if (!state) return { decision: 'allow' };
 
   const ti = payload.tool_input || {};
   const leaf = String(ti.subagent_type || '').split(':').pop();
+  // SEC-5: an empty leaf (e.g. subagent_type "anything:" → leaf === "") is UNGOVERNED
+  // by construction → allow. This guard runs BEFORE the corrupt-state branch, so an
+  // ambiguous empty type cannot silently bypass the fail-closed path either: it is
+  // explicitly allowed (no over-block), with unambiguous intent.
   if (!leaf) return { decision: 'allow' };
+
+  const enforce = process.env.PIPELINE_GATE_LOG_ENFORCEMENT || 'deny';
+  if (eg && state === eg.CORRUPT_SENTINEL) {
+    // "GOVERNED" = the leaf has a required-before gate set. Ungoverned → never deadlock.
+    const governed = guard.REQUIRED_GATES_BEFORE
+      && Object.prototype.hasOwnProperty.call(guard.REQUIRED_GATES_BEFORE, leaf);
+    if (!governed) return { decision: 'allow' };
+    if (String(enforce).toLowerCase() === 'warn') return { decision: 'allow', warn: true };
+    return {
+      decision: 'block',
+      reason:
+        'GATE_LOG_STATE_CORRUPT: o sentinel-state assinado deste run não passa na ' +
+        'verificação de integridade (HMAC), então a trilha de gates não é confiável e o ' +
+        `spawn de ${leaf} é BLOQUEADO. Recrie/re-assine o estado pelo controller antes de avançar.`,
+    };
+  }
+  if (state.pipeline_active !== true) return { decision: 'allow' };
 
   // Resolve the run dir to find gate-decisions.jsonl (PIPELINE_DOC_PATH wins).
   let docDir = (process.env.PIPELINE_DOC_PATH || '').trim();
@@ -71,7 +96,7 @@ function decide(payload) {
   return guard.decideGateLog({
     agentLeaf: leaf,
     loggedGates,
-    enforce: process.env.PIPELINE_GATE_LOG_ENFORCEMENT || 'warn',
+    enforce: process.env.PIPELINE_GATE_LOG_ENFORCEMENT || 'deny',
   });
 }
 

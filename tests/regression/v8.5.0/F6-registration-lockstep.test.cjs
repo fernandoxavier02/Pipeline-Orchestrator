@@ -24,10 +24,10 @@ const path = require('node:path');
 const assert = require('node:assert/strict');
 
 const ROOT = path.resolve(__dirname, '../../..');
-// Rolled forward each lockstep release (like F7's VERSION pin). Bumped to 8.7.0
-// for the deterministic-enforcement layer release. The 9 version surfaces all
-// declare 8.7.0.
-const VERSION = '8.7.0';
+// Rolled forward each lockstep release (like F7's VERSION pin). Bumped to 8.8.0
+// for the determinism-enforcement-hardening release. The 9 version surfaces all
+// declare 8.8.0.
+const VERSION = '8.8.0';
 const GATES_MD = path.join(ROOT, 'references', 'gates.md');
 const HOOKS_JSON = path.join(ROOT, 'hooks', 'hooks.json');
 const GATE_DECISION_CONTRACT = path.join(ROOT, 'lib', 'contracts', 'gate-decision.cjs');

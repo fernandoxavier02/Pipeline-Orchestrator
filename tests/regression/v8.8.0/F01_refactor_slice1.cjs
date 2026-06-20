@@ -79,8 +79,11 @@ const MANDATORY_TABLE_SHA256 = '77213f530ece8eb0ffbcb680406125ad87ff69d1efced544
 //   registry + skills only; it does not touch enforcement hook code).
 const HOOK_FORCE_SHA256 = '92d331524fb2110a5a56ebbcbcd8aee00174944fda0063554e8ebefd1955aa7e';
 const HOOK_DISPATCH_SHA256 = 'c11bb9ca1e69960805e469fb580c131075cbe9a70803edf38ea06aa635317456';
-// S6: no mid-slice version bump — the lockstep bump happens at slice close.
-const PINNED_VERSION = '8.7.0';
+// S6: the lockstep bump happens at slice close. The v8.8.0 determinism-
+// enforcement-hardening release (AUDIT-001..007, B6) is that slice close, so the
+// manifests now legitimately read 8.8.0; the hook byte-identity guard below is
+// unaffected (Slice 1 still did not touch enforcement hook code).
+const PINNED_VERSION = '8.8.0';
 
 // The three refactor entry-point names that Slice 1 introduces.
 const REFACTOR_NAMES = ['refactor', 'refactor-light', 'refactor-heavy'];

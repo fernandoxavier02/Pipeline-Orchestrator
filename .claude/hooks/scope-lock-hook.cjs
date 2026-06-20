@@ -36,6 +36,21 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+// AUDIT-002 (D2): the refactor-scope-lock check needs the run's variant + the
+// gate trail. State discovery / exemption / corrupt-detection are reused from
+// edit-guard-hook.cjs (SSOT) — never re-implemented here. Optional require so a
+// missing module degrades to "no refactor enforcement" (fail-OPEN), not a crash.
+let eg = null;
+try { eg = require('./edit-guard-hook.cjs'); } catch { eg = null; }
+
+// ARCH-1 (SSOT/DRY): the gate-trail parser is the AUTHORITATIVE one in
+// lib/gate-log-guard.cjs — never re-implemented here. We pass state.run_id as the
+// optional `wantRunId` to preserve the exact run-scoping behavior the prior local
+// copy had. Optional require so a missing module degrades to "no refactor
+// enforcement" (fail-OPEN), consistent with the edit-guard-hook require above.
+let gateLogGuard = null;
+try { gateLogGuard = require('../../lib/gate-log-guard.cjs'); } catch { gateLogGuard = null; }
+
 // IRON LAW: this hook never writes, never deletes. Only reads + emits
 // permissionDecision. (READ_ONLY phantom constant removed per QUAL-2 attempt 2;
 // the guarantee is enforced by the test asserting absence of writeFileSync /
@@ -168,7 +183,134 @@ function matchesPattern(target, pattern) {
   return t === p || t.endsWith('/' + p);
 }
 
-function checkScope(toolName, toolInput, contract) {
+// ---- AUDIT-002 (D2): refactor-scope-lock --------------------------------------
+// Resolve the variant of the active run. Prefer the signed sentinel-state
+// (state.pipeline_variant / state.variant); fall back to the active session lock.
+function activeRunVariant(state, dir) {
+  if (state && typeof state === 'object') {
+    if (typeof state.pipeline_variant === 'string' && state.pipeline_variant) return state.pipeline_variant;
+    if (typeof state.variant === 'string' && state.variant) return state.variant;
+  }
+  // Lock fallback (the surface the existing scope-lock hook already reads).
+  try {
+    const sessionsDir = path.join(dir, '.pipeline', 'sessions');
+    if (!fs.existsSync(sessionsDir)) return null;
+    const now = Date.now();
+    let best = null;
+    for (const f of fs.readdirSync(sessionsDir)) {
+      if (!f.endsWith('.lock')) continue;
+      let lock;
+      try { lock = JSON.parse(fs.readFileSync(path.join(sessionsDir, f), 'utf8')); } catch { continue; }
+      if (!lock || lock.status !== 'active') continue;
+      if (typeof lock.expires_at === 'number' && lock.expires_at <= now) continue;
+      const v = (typeof lock.pipeline_variant === 'string' && lock.pipeline_variant)
+        || (typeof lock.variant === 'string' && lock.variant) || null;
+      if (v) { best = v; break; }
+    }
+    return best;
+  } catch { return null; }
+}
+
+// Resolve the gate-decisions.jsonl dir (PIPELINE_DOC_PATH wins → state.pipeline_doc_path).
+// Mirrors gate-log-gate.cjs.
+function resolveGateTrailDir(state, dir) {
+  let docDir = (process.env.PIPELINE_DOC_PATH || '').trim();
+  if (docDir) return path.isAbsolute(docDir) ? docDir : path.resolve(dir, docDir);
+  if (state && typeof state.pipeline_doc_path === 'string' && state.pipeline_doc_path) {
+    return path.isAbsolute(state.pipeline_doc_path)
+      ? state.pipeline_doc_path
+      : path.resolve(dir, state.pipeline_doc_path);
+  }
+  return null;
+}
+
+// Parse gate-decisions.jsonl → Set of logged `gate` names.
+//
+// ARCH-1 (SSOT/DRY): this is NOT a local re-implementation — it delegates to the
+// authoritative lib/gate-log-guard.parseLoggedGates(text, wantRunId). The shared
+// parser owns both the base parse AND the optional run-scoping below.
+//
+// SEC-3 (run-scoping): the REFACTOR_SCOPE_LOCK trail check must not be satisfied by
+// a STALE / RECYCLED entry from a PRIOR run that happens to share the trail file.
+// Two complementary defenses:
+//   (1) PATH-scoping (here): resolveGateTrailDir resolves THIS run's
+//       gate-decisions.jsonl (PIPELINE_DOC_PATH → state.pipeline_doc_path), never an
+//       arbitrary one — so we only ever read the active run's trail.
+//   (2) run_id-scoping (the shared parser): gate-decision-writer stamps each entry
+//       with a `run_id` correlation field. We pass state.run_id as `wantRunId`; an
+//       entry stamped with a DIFFERENT run_id is dropped, while an entry WITHOUT a
+//       run_id (legacy/manual) is still counted — path-scoping (defense 1) already
+//       bounds it to this run's trail, so we stay backward-compatible and never
+//       over-block a legitimately-recorded gate.
+//
+// If the shared module failed to load (gateLogGuard === null), return an empty Set
+// so the refactor check degrades to "not-yet-recorded" → defers in warn / blocks in
+// deny exactly as an absent trail would; never throws.
+function parseLoggedGates(jsonlText, wantRunId) {
+  if (!gateLogGuard || typeof gateLogGuard.parseLoggedGates !== 'function') return new Set();
+  return gateLogGuard.parseLoggedGates(jsonlText, wantRunId);
+}
+
+// The D2 check. Returns { allow:false, reason } to BLOCK, or null to defer to the
+// rest of checkScope. Only fires for a refactor-* run writing a production file
+// (outside .pipeline/) when REFACTOR_SCOPE_LOCK has not yet been recorded.
+function checkRefactorScopeLock(targetPath, dir) {
+  if (!eg || typeof eg.findActiveSentinelState !== 'function') return null; // can't enforce → defer
+  if (typeof dir !== 'string' || !dir) return null;
+
+  let state;
+  try { state = eg.findActiveSentinelState(dir); } catch { return null; }
+  // No run → not a refactor-scope concern. CORRUPT → we can't read the variant, so
+  // we cannot positively identify a refactor run here; edit-guard-hook owns the
+  // corrupt-state fail-closed for production writes (corruptResult), so we defer.
+  if (!state || (eg.CORRUPT_SENTINEL && state === eg.CORRUPT_SENTINEL)) return null;
+
+  const variant = activeRunVariant(state, dir);
+  if (!variant || !/^refactor-/.test(variant)) return null; // non-refactor → defer
+
+  // Production file? Reuse edit-guard's exemption (.pipeline/ + Plan-Mode plan file).
+  try { if (eg.isExemptPath && eg.isExemptPath(targetPath, dir)) return null; } catch { /* */ }
+
+  const trailDir = resolveGateTrailDir(state, dir);
+  // SEC-3: run-scope the trail. The path is already this run's (resolveGateTrailDir),
+  // and we additionally drop any entry stamped with a DIFFERENT run_id (stale/recycled
+  // gate-decisions.jsonl from a prior run cannot satisfy THIS run's scope lock).
+  const wantRunId = (state && typeof state.run_id === 'string' && state.run_id) ? state.run_id : null;
+  let logged = new Set();
+  if (trailDir) {
+    try { logged = parseLoggedGates(fs.readFileSync(path.join(trailDir, 'gate-decisions.jsonl'), 'utf8'), wantRunId); }
+    catch { logged = new Set(); } // absent/unreadable trail → treat as not-yet-recorded
+  }
+  if (logged.has('REFACTOR_SCOPE_LOCK')) return null; // scope contract signed (this run) → defer
+
+  const enforce = String(process.env.PIPELINE_REFACTOR_SCOPE_LOCK_ENFORCEMENT || 'deny').toLowerCase();
+  if (enforce === 'warn') return null; // warn mode → allow (defer to the rest of checkScope)
+
+  return {
+    allow: false,
+    reason:
+      'REFACTOR_SCOPE_LOCK not recorded — refactor must sign the scope contract before the first production write. ' +
+      `target "${targetPath}" is a production file on a ${variant} run, but REFACTOR_SCOPE_LOCK is absent from ` +
+      'gate-decisions.jsonl. Run step 4 (the REFACTOR_SCOPE_LOCK gate) to sign the CHANGE_CONTRACT before editing code. ' +
+      'See references/gates.md → REFACTOR_SCOPE_LOCK.',
+  };
+}
+
+function checkScope(toolName, toolInput, contract, dir) {
+  // Extract target path early — both the refactor-scope-lock check and the
+  // contract check need it. (Write/Edit/MultiEdit use file_path; NotebookEdit
+  // uses notebook_path.)
+  const earlyTarget =
+    (toolInput && (toolInput.file_path || toolInput.notebook_path || toolInput.path)) || null;
+
+  // AUDIT-002 (D2): refactor-scope-lock fires BEFORE the contract allow/forbid
+  // checks — a refactor's first production write is denied until REFACTOR_SCOPE_LOCK
+  // is recorded, independent of (and ahead of) any CHANGE_CONTRACT in the lock.
+  if (earlyTarget) {
+    const refactorBlock = checkRefactorScopeLock(earlyTarget, dir);
+    if (refactorBlock) return refactorBlock;
+  }
+
   // contract may be null (no active contract → permissive)
   if (!contract) return { allow: true };
 
@@ -178,8 +320,7 @@ function checkScope(toolName, toolInput, contract) {
   }
 
   // Extract target path from tool input (Write uses file_path, Edit uses file_path, MultiEdit uses file_path)
-  const targetPath =
-    (toolInput && (toolInput.file_path || toolInput.notebook_path || toolInput.path)) || null;
+  const targetPath = earlyTarget;
   if (!targetPath) return { allow: true, reason: 'no target path resolvable' };
 
   // forbidden_files takes precedence over allowed_files.
@@ -247,7 +388,11 @@ function main() {
   }
 
   const contract = readActiveContract(getPipelineDocPath());
-  const result = checkScope(toolName, parsed.tool_input || {}, contract);
+  // The refactor-scope-lock check (D2) discovers the run via the project root.
+  // Prefer the payload cwd (where .pipeline/ lives); fall back to the env/cwd
+  // convention used for the contract lookup.
+  const dir = (typeof parsed.cwd === 'string' && parsed.cwd) ? parsed.cwd : getPipelineDocPath();
+  const result = checkScope(toolName, parsed.tool_input || {}, contract, dir);
 
   if (result.allow) {
     process.stdout.write(JSON.stringify({
@@ -269,6 +414,9 @@ module.exports = {
   matchesPattern,
   normalisePath,
   readActiveContract,
+  checkRefactorScopeLock,
+  activeRunVariant,
+  parseLoggedGates,
 };
 
 if (require.main === module) {

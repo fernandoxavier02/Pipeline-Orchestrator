@@ -23,6 +23,13 @@ let eg = null;
 try { eg = require('./edit-guard-hook.cjs'); } catch { eg = null; }
 let ledger = null;
 try { ledger = require('../../lib/step-ledger.cjs'); } catch { ledger = null; }
+// Used only by the CORRUPT-state fail-closed branch (AUDIT-003, D3): when the state
+// is unreadable we cannot read the step ledger, so we fall back to the conservative
+// phase-transition set (the genuine workflow-advancing agents) to decide whether the
+// spawn is GOVERNED enough to fail closed. Reusing this SSOT keeps step-ledger and
+// gate-log in agreement about which agents are real phase transitions.
+let gateLogGuard = null;
+try { gateLogGuard = require('../../lib/gate-log-guard.cjs'); } catch { gateLogGuard = null; }
 let fixLoop = null;
 let FIX_LOOP_DEFAULT_MAX = 3;
 try {
@@ -47,11 +54,45 @@ function decide(payload) {
 
   let state;
   try { state = eg && eg.findActiveSentinelState(dir); } catch { return { decision: 'allow' }; }
-  if (!state || (eg && state === eg.CORRUPT_SENTINEL)) return { decision: 'allow' };
+  // Split the two cases (AUDIT-003, D3): a genuinely-ABSENT state means there is no
+  // run → stay open. An authoritatively-CORRUPT state (unreadable / tampered HMAC)
+  // for a GOVERNED action must FAIL CLOSED — a one-byte tamper must not be able to
+  // neutralize the gate. Mirrors batch-review-gate.cjs (the existing fail-closed
+  // consumer). "GOVERNED" here = the agent maps to a step in AGENT_STEP_MAP.
+  if (!state) return { decision: 'allow' };
+  const enforce = process.env.PIPELINE_STEP_LEDGER_ENFORCEMENT || 'deny';
+  if (eg && state === eg.CORRUPT_SENTINEL) {
+    const ti0 = payload.tool_input || {};
+    const leaf0 = String(ti0.subagent_type || '').split(':').pop();
+    // SEC-5: an empty leaf (e.g. subagent_type "anything:" → leaf === "") is
+    // UNGOVERNED by construction — there is no agent to govern. Make that explicit
+    // here (rather than relying on the REQUIRED_GATES_BEFORE lookup missing the ''
+    // key) so the corrupt-state branch cannot be silently bypassed by an ambiguous
+    // empty type: it is allowed (no over-block), but the intent is unambiguous.
+    if (!leaf0) return { decision: 'allow' };
+    // GOVERNED for the fail-closed branch = a genuine phase-transition agent. With an
+    // unreadable ledger we cannot compute "missing prerequisites", so we only fail
+    // closed for the conservative phase-transition set (the same agents gate-log
+    // governs), NOT every AGENT_STEP_MAP entry — otherwise an early-phase spawn like
+    // plan-architect on a corrupt state would deadlock the recovery path.
+    const governed = gateLogGuard && gateLogGuard.REQUIRED_GATES_BEFORE
+      && Object.prototype.hasOwnProperty.call(gateLogGuard.REQUIRED_GATES_BEFORE, leaf0);
+    if (!governed) return { decision: 'allow' }; // ungoverned → never deadlock
+    if (String(enforce).toLowerCase() === 'warn') return { decision: 'allow', warn: true };
+    return {
+      decision: 'block',
+      reason:
+        'STEP_LEDGER_STATE_CORRUPT: o sentinel-state assinado deste run não passa na ' +
+        'verificação de integridade (HMAC), então o ledger de passos não é confiável e o ' +
+        `spawn de ${leaf0} é BLOQUEADO. Recrie/re-assine o estado pelo controller antes de avançar.`,
+    };
+  }
   if (state.pipeline_active !== true) return { decision: 'allow' };
 
   const ti = payload.tool_input || {};
   const leaf = String(ti.subagent_type || '').split(':').pop();
+  // SEC-5: empty leaf → ungoverned → allow (explicit, unambiguous early return).
+  if (!leaf) return { decision: 'allow' };
 
   // Fix-loop cap (independent of the step ledger): deny the (max+1)th executor-fix.
   if (leaf === 'executor-fix' && fixLoop && typeof fixLoop.decideFixLoop === 'function') {

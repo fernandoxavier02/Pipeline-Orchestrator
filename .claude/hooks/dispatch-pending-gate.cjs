@@ -118,16 +118,51 @@ function decideInlineGate(payload) {
 
   let state;
   try { state = eg.findActiveSentinelState(dir); } catch { return { decision: 'allow' }; }
-  // Sem estado OU estado ilegível → fail-OPEN (estado ausente/corrupto não é
-  // evidência de handshake pendente; espelha o T11 da dispatch-pending-lock).
-  if (!state || state === eg.CORRUPT_SENTINEL) return { decision: 'allow' };
+  // Split the two cases (AUDIT-003, D3): a genuinely-ABSENT state is NOT evidence of
+  // a pending handshake → fail-OPEN. But an authoritatively-CORRUPT state (unreadable
+  // / tampered HMAC) must FAIL CLOSED for a GOVERNED work action — otherwise a one-byte
+  // tamper neutralizes the inline-work lock. We cannot read pending_blocks from a
+  // corrupt state, so "GOVERNED" here = a substantive work action that is NOT a
+  // resolution/control tool, NOT exec-window-authorized, and NOT a .pipeline/ artifact
+  // (exactly the carve-outs the live-handshake path already grants). Conservative:
+  // only the otherwise-blockable work action fails closed; everything else stays open.
+  if (!state) return { decision: 'allow' };
+  const tool = typeof payload.tool_name === 'string' ? payload.tool_name : '(unknown)';
+  if (state === eg.CORRUPT_SENTINEL) {
+    if (ALWAYS_ALLOW_TOOLS.has(tool)) return { decision: 'allow' };
+    // A resolution Agent (carries a resolution marker) is always allowed — but with no
+    // readable pending block we can only honor the marker-based branch, not the
+    // dispatch-id match. RESOLUTION_MARKERS is the safe subset.
+    if (payload.tool_name === 'Agent') {
+      const ti0 = payload.tool_input || {};
+      const prompt0 = typeof ti0.prompt === 'string' ? ti0.prompt : '';
+      if (RESOLUTION_MARKERS.some((m) => prompt0.includes(m))) return { decision: 'allow' };
+    }
+    try {
+      const lock = eg.getActiveLock(dir);
+      if (lock && eg.getActiveExecWindow(dir, lock.session_id)) return { decision: 'allow' };
+    } catch { /* segue */ }
+    const fp0 = payload.tool_input && payload.tool_input.file_path;
+    if (typeof fp0 === 'string') {
+      try { if (eg.isExemptPath(fp0, dir)) return { decision: 'allow' }; } catch { /* */ }
+    }
+    const enforce0 = String(process.env.PIPELINE_DISPATCH_INLINE_ENFORCEMENT || 'deny').toLowerCase();
+    if (enforce0 === 'warn') return { decision: 'allow', warn: true };
+    return {
+      decision: 'block',
+      reason:
+        'DISPATCH_PENDING_STATE_CORRUPT: o sentinel-state assinado deste run não passa na ' +
+        'verificação de integridade (HMAC), então não dá para provar que NÃO há handshake ' +
+        `pendente — a ferramenta de trabalho '${tool}' é BLOQUEADA (fail-closed). Recrie/re-assine ` +
+        'o estado pelo controller, ou resolva via Agent de resolução / AskUserQuestion / EnterPlanMode.',
+    };
+  }
 
   let pending;
   try { pending = eg.findLivePendingBlock(state, eg.resolveHandshakeTimeoutMs()); } catch { return { decision: 'allow' }; }
   if (!pending) return { decision: 'allow' }; // nenhum handshake vivo → nada a obrigar
 
   // Há um handshake VIVO. Só resolução/controle + isenções passam.
-  const tool = typeof payload.tool_name === 'string' ? payload.tool_name : '(unknown)';
   if (ALWAYS_ALLOW_TOOLS.has(tool)) return { decision: 'allow' };
   if (isResolutionAgent(payload, pending)) return { decision: 'allow' };
 
