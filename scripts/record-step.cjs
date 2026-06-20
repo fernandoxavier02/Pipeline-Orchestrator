@@ -163,7 +163,59 @@ function bumpCounter(pipelineDocPath, field) {
   });
 }
 
-module.exports = { recordStep, recordFixAttempt, recordBatchCheckpoint, recordBatchReview, STEP_VOCAB };
+// Records the checkpoint/sanity verdict (audit A1 + A2 + A3). Sets
+// last_checkpoint_verdict and maintains consecutive_checkpoint_failures (++ on a
+// FAIL, reset to 0 on a PASS). The checkpoint-verdict gate reads BOTH: A1 blocks
+// advancing while the last verdict is fail; A2/A3 circuit-break at 2 consecutive
+// fails. Locked + signed; a no-op on an unrecognizable verdict (can't tell → don't
+// fabricate a red/green).
+function recordCheckpointVerdict(pipelineDocPath, rawVerdict) {
+  const { normalizeVerdict } = require(path.join(__dirname, '..', 'lib', 'checkpoint-verdict.cjs'));
+  const verdict = normalizeVerdict(rawVerdict);
+  if (verdict !== 'pass' && verdict !== 'fail') return { ok: true, skipped: 'unknown-verdict' };
+  if (typeof pipelineDocPath !== 'string' || !pipelineDocPath) return { ok: false, error: 'pipelineDocPath required' };
+  const safe = resolveSafeStatePath(pipelineDocPath);
+  if (!safe.ok) return safe;
+  return lockedStateUpdate(safe.statePath, () => {
+    let state;
+    try { state = readState(safe.statePath); } catch (err) { return { ok: false, error: err.message }; }
+    const prevFails = Number.isFinite(state.consecutive_checkpoint_failures) ? state.consecutive_checkpoint_failures : 0;
+    const merged = {
+      ...state,
+      last_checkpoint_verdict: verdict,
+      consecutive_checkpoint_failures: verdict === 'fail' ? prevFails + 1 : 0,
+      updated_at: new Date().toISOString(),
+    };
+    try { writeSignedState(safe.statePath, merged); }
+    catch (err) { return { ok: false, error: `failed to write signed state: ${err.message}` }; }
+    return { ok: true, last_checkpoint_verdict: verdict, consecutive_checkpoint_failures: merged.consecutive_checkpoint_failures };
+  });
+}
+
+// Records the SENSITIVE domains a batch touched (audit A4). Runs the path-based
+// domain-scanner over the changed-file list and UNIONs the result into
+// state.domains_touched (accumulates across the run — safe-biased: once a run
+// touched a sensitive domain with reviews lagging, the batch-review gate denies the
+// `warn` skip-escape until reviews catch up). Locked + signed.
+function recordDomainsTouched(pipelineDocPath, paths) {
+  const { scanDomains } = require(path.join(__dirname, '..', 'lib', 'domain-scanner.cjs'));
+  const domains = scanDomains(Array.isArray(paths) ? paths : []);
+  if (typeof pipelineDocPath !== 'string' || !pipelineDocPath) return { ok: false, error: 'pipelineDocPath required' };
+  const safe = resolveSafeStatePath(pipelineDocPath);
+  if (!safe.ok) return safe;
+  return lockedStateUpdate(safe.statePath, () => {
+    let state;
+    try { state = readState(safe.statePath); } catch (err) { return { ok: false, error: err.message }; }
+    const prev = Array.isArray(state.domains_touched) ? state.domains_touched : [];
+    const merged = [...new Set([...prev, ...domains])].sort();
+    const out = { ...state, domains_touched: merged, updated_at: new Date().toISOString() };
+    try { writeSignedState(safe.statePath, out); }
+    catch (err) { return { ok: false, error: `failed to write signed state: ${err.message}` }; }
+    return { ok: true, domains_touched: merged };
+  });
+}
+
+module.exports = { recordStep, recordFixAttempt, recordBatchCheckpoint, recordBatchReview, recordCheckpointVerdict, recordDomainsTouched, STEP_VOCAB };
 
 if (require.main === module) {
   const [docPath, step] = process.argv.slice(2);

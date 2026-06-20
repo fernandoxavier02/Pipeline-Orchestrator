@@ -94,10 +94,14 @@ function decide(payload) {
 
   if (state.pipeline_active !== true) return { decision: 'allow' };
 
+  // A4: sensitive-domain batches make the review mandatory (no warn skip).
+  const domains = Array.isArray(state.domains_touched) ? state.domains_touched : [];
   return guard.decideBatchReview({
     agentLeaf: leaf,
     checkpointsDone: Number.isFinite(state.batch_checkpoints_done) ? state.batch_checkpoints_done : 0,
     reviewsDone: Number.isFinite(state.batch_reviews_done) ? state.batch_reviews_done : 0,
+    sensitive: domains.length > 0,
+    domains,
     enforce,
   });
 }

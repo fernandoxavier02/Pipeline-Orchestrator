@@ -94,6 +94,30 @@ function stamp(payload) {
     try { recorder.recordBatchReview(docDir); } catch { /* fail-silent */ }
   }
 
+  // Checkpoint/sanity verdict (audit A1 + A2 + A3). The checkpoint-validator /
+  // sanity-checker writes its build/test result to {docDir}/checkpoint-verdict.json
+  // ({ verdict: 'pass'|'fail' }); we record it into signed state (last verdict +
+  // consecutive-failure counter) so the checkpoint-verdict gate can deny advancing
+  // while RED or after N consecutive fails. Fail-silent if the file is absent.
+  if ((leaf === 'checkpoint-validator' || leaf === 'sanity-checker') && typeof recorder.recordCheckpointVerdict === 'function') {
+    try {
+      const raw = fs.readFileSync(path.join(docDir, 'checkpoint-verdict.json'), 'utf8');
+      recorder.recordCheckpointVerdict(docDir, JSON.parse(raw));
+    } catch { /* no verdict file / unreadable → fail-silent (verdict stays unknown) */ }
+  }
+
+  // Sensitive-domain detection (audit A4). The checkpoint writes the batch's
+  // changed-file list to {docDir}/batch-files.json; the scanner records which
+  // sensitive domains were touched so the batch-review gate can make the review
+  // mandatory. Fail-silent if absent.
+  if (leaf === 'checkpoint-validator' && typeof recorder.recordDomainsTouched === 'function') {
+    try {
+      const raw = fs.readFileSync(path.join(docDir, 'batch-files.json'), 'utf8');
+      const files = JSON.parse(raw);
+      recorder.recordDomainsTouched(docDir, Array.isArray(files) ? files : (files && files.files));
+    } catch { /* no batch-files list → fail-silent */ }
+  }
+
   const wf = state.workflow_key || (state.task_type === 'Spec' ? 'Spec' : 'FULL');
   const step = ledger.stepForAgent(wf, leaf);
   if (!step) return; // ungoverned agent → nothing to stamp
