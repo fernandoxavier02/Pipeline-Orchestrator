@@ -118,6 +118,25 @@ function stamp(payload) {
     } catch { /* no batch-files list → fail-silent */ }
   }
 
+  // Phase verdicts (audit A5-A9). Each producing agent drops a small verdict file;
+  // the stamp records it into signed state (validated by the recorder's allowlist)
+  // so the phase-verdict gate can deny a downstream spawn. Fail-silent if absent.
+  const VERDICT_FILES = {
+    'task-orchestrator': { file: 'ssot-verdict.json', field: 'ssot_status' },
+    'information-gate': { file: 'info-gate-verdict.json', field: 'info_gate' },
+    'plan-architect': { file: 'plan-verdict.json', field: 'plan_status' },
+    'final-adversarial-orchestrator': { file: 'final-review-verdict.json', field: 'final_review_verdict' },
+    'final-validator': { file: 'final-decision.json', field: 'final_decision' },
+  };
+  if (VERDICT_FILES[leaf] && typeof recorder.recordPhaseVerdict === 'function') {
+    try {
+      const { file, field } = VERDICT_FILES[leaf];
+      const obj = JSON.parse(fs.readFileSync(path.join(docDir, file), 'utf8'));
+      const value = (obj && (obj[field] != null ? obj[field] : obj.verdict));
+      recorder.recordPhaseVerdict(docDir, field, value);
+    } catch { /* no verdict file / unreadable → fail-silent */ }
+  }
+
   const wf = state.workflow_key || (state.task_type === 'Spec' ? 'Spec' : 'FULL');
   const step = ledger.stepForAgent(wf, leaf);
   if (!step) return; // ungoverned agent → nothing to stamp

@@ -215,7 +215,39 @@ function recordDomainsTouched(pipelineDocPath, paths) {
   });
 }
 
-module.exports = { recordStep, recordFixAttempt, recordBatchCheckpoint, recordBatchReview, recordCheckpointVerdict, recordDomainsTouched, STEP_VOCAB };
+// Records a PHASE VERDICT (audit A5-A9) into signed state. The field + value are
+// validated against a closed allowlist (anti-injection — an agent can't write an
+// arbitrary field/value into the signed state to flip a gate). The phase-verdict
+// gate reads these. Locked + signed.
+const PHASE_VERDICT_FIELDS = {
+  ssot_status: ['ok', 'conflict'],
+  info_gate: ['clear', 'resolved', 'blocked'],
+  plan_status: ['approved', 'adjusted', 'rejected'],
+  final_review_verdict: ['clean', 'critical_open'],
+  final_decision: ['GO', 'CONDITIONAL', 'NO-GO', 'NO_GO', 'NOGO'],
+};
+function recordPhaseVerdict(pipelineDocPath, field, value) {
+  if (typeof field !== 'string' || !Object.prototype.hasOwnProperty.call(PHASE_VERDICT_FIELDS, field)) {
+    return { ok: false, error: `unknown verdict field: ${capped(field)}` };
+  }
+  const val = String(value == null ? '' : value).trim();
+  if (!PHASE_VERDICT_FIELDS[field].includes(val)) {
+    return { ok: false, error: `invalid value for ${field}: ${capped(val)}` };
+  }
+  if (typeof pipelineDocPath !== 'string' || !pipelineDocPath) return { ok: false, error: 'pipelineDocPath required' };
+  const safe = resolveSafeStatePath(pipelineDocPath);
+  if (!safe.ok) return safe;
+  return lockedStateUpdate(safe.statePath, () => {
+    let state;
+    try { state = readState(safe.statePath); } catch (err) { return { ok: false, error: err.message }; }
+    const merged = { ...state, [field]: val, updated_at: new Date().toISOString() };
+    try { writeSignedState(safe.statePath, merged); }
+    catch (err) { return { ok: false, error: `failed to write signed state: ${err.message}` }; }
+    return { ok: true, [field]: val };
+  });
+}
+
+module.exports = { recordStep, recordFixAttempt, recordBatchCheckpoint, recordBatchReview, recordCheckpointVerdict, recordDomainsTouched, recordPhaseVerdict, PHASE_VERDICT_FIELDS, STEP_VOCAB };
 
 if (require.main === module) {
   const [docPath, step] = process.argv.slice(2);
