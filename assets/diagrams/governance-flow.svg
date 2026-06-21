@@ -1,181 +1,143 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 900" width="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="100%" font-family="'Segoe UI', Inter, system-ui, sans-serif">
   <defs>
-    <linearGradient id="gfBg" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#0d1117"/>
-      <stop offset="100%" stop-color="#161b22"/>
+      <stop offset="100%" stop-color="#0a0e1a"/>
     </linearGradient>
-    <pattern id="gfGrid" width="40" height="40" patternUnits="userSpaceOnUse">
-      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#30363d" stroke-width="0.6" opacity="0.3"/>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#30363d" stroke-width="0.5" opacity="0.22"/>
     </pattern>
-    <filter id="gfGlow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="3" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <linearGradient id="shieldGrad" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e1b4b"/>
+      <stop offset="100%" stop-color="#0c0a1f"/>
+    </linearGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#000" flood-opacity="0.6"/>
     </filter>
-    <filter id="gfShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#000" flood-opacity="0.7"/>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
-    <marker id="gfArrow" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="9" markerHeight="9" orient="auto">
+    <!-- Shield shape -->
+    <symbol id="shield" viewBox="0 0 100 120">
+      <path d="M 50 4 L 92 20 L 92 64 Q 92 96 50 116 Q 8 96 8 64 L 8 20 Z"/>
+    </symbol>
+    <marker id="arrow" viewBox="0 0 12 12" refX="10" refY="6" markerWidth="8" markerHeight="8" orient="auto">
       <path d="M 0 0 L 12 6 L 0 12 z" fill="#7C3AED"/>
-    </marker>
-    <marker id="gfArrowGreen" viewBox="0 0 12 12" refX="11" refY="6" markerWidth="9" markerHeight="9" orient="auto">
-      <path d="M 0 0 L 12 6 L 0 12 z" fill="#22C55E"/>
     </marker>
   </defs>
 
-  <rect width="1400" height="900" fill="url(#gfBg)" rx="14"/>
-  <rect width="1400" height="900" fill="url(#gfGrid)" rx="14"/>
+  <rect width="1280" height="720" fill="url(#bg)" rx="14"/>
+  <rect width="1280" height="720" fill="url(#grid)" rx="14"/>
 
-  <!-- TITLE -->
-  <text x="700" y="72" text-anchor="middle" fill="#f0f6fc" font-size="44" font-weight="800" letter-spacing="1.5" font-family="'Segoe UI',system-ui,sans-serif">Pipeline Orchestrator — Governance Flow</text>
-  <text x="700" y="112" text-anchor="middle" fill="#8b949e" font-size="22" font-family="'Segoe UI',system-ui,sans-serif">Five anchors that prevent the drift problem on the left</text>
-  <line x1="380" y1="132" x2="1020" y2="132" stroke="#7C3AED" stroke-width="3" opacity="0.55">
-    <animate attributeName="opacity" values="0.55;1;0.55" dur="3s" repeatCount="indefinite"/>
-  </line>
+  <!-- Title -->
+  <text x="640" y="56" text-anchor="middle" fill="#F0F6FC" font-size="34" font-weight="800" letter-spacing="0.5">Defense in Depth — Five Anchors</text>
+  <text x="640" y="88" text-anchor="middle" fill="#8B949E" font-size="17">Each anchor is independent. Failures in one do not propagate. Together they hold long sessions on contract.</text>
 
-  <!-- ===== TOP ROW: PLAN → CONTRACT → IMPLEMENT → SCOPE LOCK → BATCH ===== -->
+  <!-- Flow track -->
+  <line x1="80" y1="360" x2="1200" y2="360" stroke="#30363d" stroke-width="2" stroke-dasharray="2 6"/>
+  <!-- Moving pulse along the track -->
+  <circle cx="80" cy="360" r="5" fill="#A78BFA">
+    <animate attributeName="cx" values="80;1200;80" dur="12s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0;1;1;1;0" dur="12s" repeatCount="indefinite"/>
+  </circle>
 
-  <!-- STAGE 1: PLAN -->
-  <g>
-    <rect x="40" y="200" width="220" height="160" rx="12" fill="#1e1b4b" stroke="#7C3AED" stroke-width="3" filter="url(#gfShadow)"/>
-    <text x="150" y="234" text-anchor="middle" fill="#C4B5FD" font-size="14" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">STAGE 1</text>
-    <text x="150" y="276" text-anchor="middle" fill="#f0f6fc" font-size="24" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">PLAN-ARCHITECT</text>
-    <text x="150" y="312" text-anchor="middle" fill="#a5b4fc" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">Read-only research</text>
-    <text x="150" y="334" text-anchor="middle" fill="#a5b4fc" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">+ task breakdown</text>
+  <!-- 5 Shields -->
+  <!-- Shield 1: CHANGE_CONTRACT -->
+  <g transform="translate(160,210)">
+    <use href="#shield" width="140" height="168" fill="url(#shieldGrad)" stroke="#22C55E" stroke-width="2.5" filter="url(#soft)"/>
+    <text x="70" y="42" text-anchor="middle" fill="#86EFAC" font-size="12" font-weight="800" letter-spacing="2">ANCHOR 1</text>
+    <text x="70" y="74" text-anchor="middle" fill="#F0F6FC" font-size="16" font-weight="800">CHANGE</text>
+    <text x="70" y="94" text-anchor="middle" fill="#F0F6FC" font-size="16" font-weight="800">CONTRACT</text>
+    <text x="70" y="124" text-anchor="middle" fill="#bbf7d0" font-size="11.5">allowed_files</text>
+    <text x="70" y="140" text-anchor="middle" fill="#bbf7d0" font-size="11.5">diff_budget</text>
+    <text x="70" y="156" text-anchor="middle" fill="#bbf7d0" font-size="11.5">forbidden_types</text>
+    <!-- node on track -->
+    <circle cx="70" cy="150" r="0" />
+  </g>
+  <circle cx="230" cy="360" r="9" fill="#22C55E" stroke="#0d1117" stroke-width="3" filter="url(#glow)"/>
+
+  <!-- Shield 2: SCOPE LOCK -->
+  <g transform="translate(390,210)">
+    <use href="#shield" width="140" height="168" fill="url(#shieldGrad)" stroke="#0EA5E9" stroke-width="2.5" filter="url(#soft)"/>
+    <text x="70" y="42" text-anchor="middle" fill="#7DD3FC" font-size="12" font-weight="800" letter-spacing="2">ANCHOR 2</text>
+    <text x="70" y="74" text-anchor="middle" fill="#F0F6FC" font-size="16" font-weight="800">SCOPE LOCK</text>
+    <text x="70" y="94" text-anchor="middle" fill="#F0F6FC" font-size="16" font-weight="800">CHECK</text>
+    <text x="70" y="124" text-anchor="middle" fill="#bae6fd" font-size="11.5">PreToolUse hook</text>
+    <text x="70" y="140" text-anchor="middle" fill="#bae6fd" font-size="11.5">before every Write</text>
+    <text x="70" y="156" text-anchor="middle" fill="#bae6fd" font-size="11.5">/ Edit / Bash</text>
+  </g>
+  <circle cx="460" cy="360" r="9" fill="#0EA5E9" stroke="#0d1117" stroke-width="3" filter="url(#glow)"/>
+
+  <!-- Shield 3: ADVERSARIAL -->
+  <g transform="translate(620,210)">
+    <use href="#shield" width="140" height="168" fill="url(#shieldGrad)" stroke="#A78BFA" stroke-width="2.5" filter="url(#soft)"/>
+    <text x="70" y="42" text-anchor="middle" fill="#C4B5FD" font-size="12" font-weight="800" letter-spacing="2">ANCHOR 3</text>
+    <text x="70" y="74" text-anchor="middle" fill="#F0F6FC" font-size="16" font-weight="800">ADVERSARIAL</text>
+    <text x="70" y="94" text-anchor="middle" fill="#F0F6FC" font-size="16" font-weight="800">REVIEW</text>
+    <text x="70" y="124" text-anchor="middle" fill="#ddd6fe" font-size="11.5">3 parallel reviewers</text>
+    <text x="70" y="140" text-anchor="middle" fill="#ddd6fe" font-size="11.5">zero context</text>
+    <text x="70" y="156" text-anchor="middle" fill="#ddd6fe" font-size="11.5">per batch</text>
+  </g>
+  <circle cx="690" cy="360" r="9" fill="#A78BFA" stroke="#0d1117" stroke-width="3" filter="url(#glow)"/>
+
+  <!-- Shield 4: GATES -->
+  <g transform="translate(850,210)">
+    <use href="#shield" width="140" height="168" fill="url(#shieldGrad)" stroke="#F59E0B" stroke-width="2.5" filter="url(#soft)"/>
+    <text x="70" y="42" text-anchor="middle" fill="#FBBF24" font-size="12" font-weight="800" letter-spacing="2">ANCHOR 4</text>
+    <text x="70" y="74" text-anchor="middle" fill="#F0F6FC" font-size="16" font-weight="800">GATE</text>
+    <text x="70" y="94" text-anchor="middle" fill="#F0F6FC" font-size="16" font-weight="800">HIERARCHY</text>
+    <text x="70" y="124" text-anchor="middle" fill="#fde68a" font-size="11.5">49 gates</text>
+    <text x="70" y="140" text-anchor="middle" fill="#fde68a" font-size="11.5">5 hardness levels</text>
+    <text x="70" y="156" text-anchor="middle" fill="#fde68a" font-size="11.5">deterministic deny</text>
+  </g>
+  <circle cx="920" cy="360" r="9" fill="#F59E0B" stroke="#0d1117" stroke-width="3" filter="url(#glow)"/>
+
+  <!-- Shield 5: AUDIT TRAIL -->
+  <g transform="translate(1080,210)">
+    <use href="#shield" width="140" height="168" fill="url(#shieldGrad)" stroke="#EC4899" stroke-width="2.5" filter="url(#soft)"/>
+    <text x="70" y="42" text-anchor="middle" fill="#F472B6" font-size="12" font-weight="800" letter-spacing="2">ANCHOR 5</text>
+    <text x="70" y="74" text-anchor="middle" fill="#F0F6FC" font-size="16" font-weight="800">GLASS-BOX</text>
+    <text x="70" y="94" text-anchor="middle" fill="#F0F6FC" font-size="16" font-weight="800">AUDIT TRAIL</text>
+    <text x="70" y="124" text-anchor="middle" fill="#fbcfe8" font-size="11.5">TRACE.md + JSONL</text>
+    <text x="70" y="140" text-anchor="middle" fill="#fbcfe8" font-size="11.5">HMAC-signed</text>
+    <text x="70" y="156" text-anchor="middle" fill="#fbcfe8" font-size="11.5">+ Langfuse Cloud</text>
+  </g>
+  <circle cx="1150" cy="360" r="9" fill="#EC4899" stroke="#0d1117" stroke-width="3" filter="url(#glow)"/>
+
+  <!-- Flow labels under track -->
+  <g font-size="13" font-weight="700" fill="#8B949E" text-anchor="middle" letter-spacing="1">
+    <text x="115" y="400">SPEC</text>
+    <text x="345" y="400">PLAN</text>
+    <text x="575" y="400">CODE</text>
+    <text x="805" y="400">REVIEW</text>
+    <text x="1035" y="400">VALIDATE</text>
+    <text x="1190" y="400">SHIP</text>
   </g>
 
-  <!-- ANCHOR 1: CHANGE_CONTRACT -->
-  <g>
-    <rect x="305" y="180" width="240" height="200" rx="12" fill="#0c2117" stroke="#22C55E" stroke-width="3" filter="url(#gfShadow)">
-      <animate attributeName="stroke-width" values="3;4.5;3" dur="4s" repeatCount="indefinite"/>
-    </rect>
-    <text x="425" y="214" text-anchor="middle" fill="#86EFAC" font-size="14" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">ANCHOR 1</text>
-    <text x="425" y="252" text-anchor="middle" fill="#f0f6fc" font-size="22" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">CHANGE_CONTRACT</text>
-    <text x="425" y="282" text-anchor="middle" fill="#bbf7d0" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">allowed_files</text>
-    <text x="425" y="302" text-anchor="middle" fill="#bbf7d0" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">forbidden_files</text>
-    <text x="425" y="322" text-anchor="middle" fill="#bbf7d0" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">diff_budget</text>
-    <text x="425" y="342" text-anchor="middle" fill="#bbf7d0" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">forbidden_change_types</text>
-    <text x="425" y="368" text-anchor="middle" fill="#86EFAC" font-size="13" font-style="italic" font-family="'Segoe UI',system-ui,sans-serif">declared before code starts</text>
+  <!-- Bottom: the confidence verdict -->
+  <g transform="translate(640,520)">
+    <rect x="-380" y="0" width="760" height="120" rx="14" fill="#161b22" stroke="#30363d" stroke-width="1.5" filter="url(#soft)"/>
+    <text x="0" y="34" text-anchor="middle" fill="#8B949E" font-size="13" font-weight="700" letter-spacing="2">EVERY RUN ENDS WITH A NUMBER</text>
+    <g transform="translate(-250,72)">
+      <rect x="-70" y="-22" width="140" height="44" rx="8" fill="#0c1a14" stroke="#22C55E" stroke-width="1.5"/>
+      <text x="0" y="7" text-anchor="middle" font-size="16" font-weight="800" fill="#34D399">GO ≥ 0.80</text>
+    </g>
+    <g transform="translate(0,72)">
+      <rect x="-90" y="-22" width="180" height="44" rx="8" fill="#231b06" stroke="#F59E0B" stroke-width="1.5"/>
+      <text x="0" y="7" text-anchor="middle" font-size="16" font-weight="800" fill="#FBBF24">CONDITIONAL ≥ 0.60</text>
+    </g>
+    <g transform="translate(250,72)">
+      <rect x="-70" y="-22" width="140" height="44" rx="8" fill="#2a1018" stroke="#EF4444" stroke-width="1.5"/>
+      <text x="0" y="7" text-anchor="middle" font-size="16" font-weight="800" fill="#F87171">NO-GO &lt; 0.60</text>
+    </g>
   </g>
 
-  <!-- arrow plan → contract -->
-  <path d="M 260 280 L 305 280" stroke="#7C3AED" stroke-width="3" fill="none" marker-end="url(#gfArrow)" filter="url(#gfGlow)"/>
-
-  <!-- STAGE 2: IMPLEMENT -->
-  <g>
-    <rect x="590" y="200" width="220" height="160" rx="12" fill="#1e1b4b" stroke="#7C3AED" stroke-width="3" filter="url(#gfShadow)"/>
-    <text x="700" y="234" text-anchor="middle" fill="#C4B5FD" font-size="14" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">STAGE 2</text>
-    <text x="700" y="276" text-anchor="middle" fill="#f0f6fc" font-size="24" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">IMPLEMENTER</text>
-    <text x="700" y="312" text-anchor="middle" fill="#a5b4fc" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">Writes code in batches</text>
-    <text x="700" y="334" text-anchor="middle" fill="#a5b4fc" font-size="13" font-family="'Segoe UI',system-ui,sans-serif">(1 task / batch on COMPLEXA)</text>
+  <!-- Corner accents -->
+  <g stroke="#7C3AED" stroke-width="2" fill="none" opacity="0.55">
+    <path d="M 24 24 L 24 56 M 24 24 L 56 24"/>
+    <path d="M 1256 24 L 1256 56 M 1256 24 L 1224 24"/>
+    <path d="M 24 696 L 24 664 M 24 696 L 56 696"/>
+    <path d="M 1256 696 L 1256 664 M 1256 696 L 1224 696"/>
   </g>
-
-  <!-- arrow contract → implementer -->
-  <path d="M 545 280 L 590 280" stroke="#7C3AED" stroke-width="3" fill="none" marker-end="url(#gfArrow)" filter="url(#gfGlow)"/>
-
-  <!-- ANCHOR 2: SCOPE LOCK CHECK -->
-  <g>
-    <rect x="855" y="180" width="240" height="200" rx="12" fill="#0c2117" stroke="#22C55E" stroke-width="3" filter="url(#gfShadow)">
-      <animate attributeName="stroke-width" values="3;4.5;3" dur="4s" begin="1s" repeatCount="indefinite"/>
-    </rect>
-    <text x="975" y="214" text-anchor="middle" fill="#86EFAC" font-size="14" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">ANCHOR 2</text>
-    <text x="975" y="252" text-anchor="middle" fill="#f0f6fc" font-size="22" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">SCOPE LOCK CHECK</text>
-    <text x="975" y="282" text-anchor="middle" fill="#bbf7d0" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">Fires before every Write/Edit</text>
-    <text x="975" y="302" text-anchor="middle" fill="#bbf7d0" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">5 contract checks</text>
-    <text x="975" y="322" text-anchor="middle" fill="#bbf7d0" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">Read remains free</text>
-    <text x="975" y="342" text-anchor="middle" fill="#bbf7d0" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">Violation → STOP + ASK</text>
-    <text x="975" y="368" text-anchor="middle" fill="#86EFAC" font-size="13" font-style="italic" font-family="'Segoe UI',system-ui,sans-serif">JS hook + agent prompt</text>
-  </g>
-
-  <!-- arrow implementer → scope lock -->
-  <path d="M 810 280 L 855 280" stroke="#7C3AED" stroke-width="3" fill="none" marker-end="url(#gfArrow)" filter="url(#gfGlow)"/>
-
-  <!-- BATCH OUTPUT -->
-  <g>
-    <rect x="1140" y="220" width="220" height="120" rx="12" fill="#1f2937" stroke="#7C3AED" stroke-width="2.5" filter="url(#gfShadow)"/>
-    <text x="1250" y="252" text-anchor="middle" fill="#C4B5FD" font-size="14" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">BATCH</text>
-    <text x="1250" y="288" text-anchor="middle" fill="#f0f6fc" font-size="20" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">CODE EMITTED</text>
-    <text x="1250" y="316" text-anchor="middle" fill="#a5b4fc" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">tests passing locally</text>
-  </g>
-
-  <!-- arrow scope lock → batch -->
-  <path d="M 1095 280 L 1140 280" stroke="#7C3AED" stroke-width="3" fill="none" marker-end="url(#gfArrow)" filter="url(#gfGlow)"/>
-
-  <!-- ===== MIDDLE ROW: 3-WAY PARALLEL REVIEW ===== -->
-
-  <g>
-    <rect x="40" y="450" width="1320" height="240" rx="12" fill="#0c2117" stroke="#22C55E" stroke-width="3" filter="url(#gfShadow)">
-      <animate attributeName="stroke-width" values="3;4.5;3" dur="4s" begin="2s" repeatCount="indefinite"/>
-    </rect>
-    <text x="700" y="486" text-anchor="middle" fill="#86EFAC" font-size="16" font-weight="800" letter-spacing="2.5" font-family="'Segoe UI',system-ui,sans-serif">ANCHOR 3 — ADVERSARIAL REVIEW (3 PARALLEL AGENTS, ZERO IMPLEMENTATION CONTEXT)</text>
-
-    <!-- Reviewer 1: SECURITY -->
-    <rect x="80" y="510" width="400" height="160" rx="10" fill="#1a0f2e" stroke="#EC4899" stroke-width="2.5" filter="url(#gfShadow)"/>
-    <text x="280" y="540" text-anchor="middle" fill="#F9A8D4" font-size="14" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">REVIEWER 1 — SECURITY</text>
-    <text x="280" y="572" text-anchor="middle" fill="#f0f6fc" font-size="20" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">adversarial-batch</text>
-    <text x="280" y="608" text-anchor="middle" fill="#fbcfe8" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">auth bypass · injection</text>
-    <text x="280" y="630" text-anchor="middle" fill="#fbcfe8" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">race conditions · OWASP</text>
-    <text x="280" y="652" text-anchor="middle" fill="#fbcfe8" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">sensitive data exposure</text>
-
-    <!-- Reviewer 2: ARCHITECTURE -->
-    <rect x="500" y="510" width="400" height="160" rx="10" fill="#0e1f33" stroke="#0EA5E9" stroke-width="2.5" filter="url(#gfShadow)"/>
-    <text x="700" y="540" text-anchor="middle" fill="#7DD3FC" font-size="14" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">REVIEWER 2 — ARCHITECTURE</text>
-    <text x="700" y="572" text-anchor="middle" fill="#f0f6fc" font-size="20" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">architecture-reviewer</text>
-    <text x="700" y="608" text-anchor="middle" fill="#bae6fd" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">pattern compliance · SOLID</text>
-    <text x="700" y="630" text-anchor="middle" fill="#bae6fd" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">KISS · DRY · unrelated refactor</text>
-    <text x="700" y="652" text-anchor="middle" fill="#bae6fd" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">public contract drift</text>
-
-    <!-- Reviewer 3: DISCIPLINE (NEW v6.3.0) -->
-    <rect x="920" y="510" width="400" height="160" rx="10" fill="#1a2e1a" stroke="#22C55E" stroke-width="2.5" filter="url(#gfShadow)">
-      <animate attributeName="stroke-width" values="2.5;4;2.5" dur="3s" repeatCount="indefinite"/>
-    </rect>
-    <text x="1120" y="540" text-anchor="middle" fill="#86EFAC" font-size="14" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">REVIEWER 3 — DISCIPLINE (v6.3.0)</text>
-    <text x="1120" y="572" text-anchor="middle" fill="#f0f6fc" font-size="19" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">diff-discipline-reviewer</text>
-    <text x="1120" y="608" text-anchor="middle" fill="#bbf7d0" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">scope · minimal diff</text>
-    <text x="1120" y="630" text-anchor="middle" fill="#bbf7d0" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">over-engineering</text>
-    <text x="1120" y="652" text-anchor="middle" fill="#bbf7d0" font-size="15" font-family="'Segoe UI',system-ui,sans-serif">weakened tests · dep drift</text>
-  </g>
-
-  <!-- arrows: batch → 3 reviewers -->
-  <path d="M 1250 340 Q 280 400 280 505" stroke="#7C3AED" stroke-width="2.5" fill="none" marker-end="url(#gfArrow)" opacity="0.7"/>
-  <path d="M 1250 340 Q 700 400 700 505" stroke="#7C3AED" stroke-width="2.5" fill="none" marker-end="url(#gfArrow)" opacity="0.7"/>
-  <path d="M 1250 340 L 1120 505" stroke="#7C3AED" stroke-width="2.5" fill="none" marker-end="url(#gfArrow)" opacity="0.7"/>
-
-  <!-- ===== BOTTOM ROW: GATES → AUDIT → VERDICT ===== -->
-
-  <!-- ANCHOR 4: GATES -->
-  <g>
-    <rect x="80" y="750" width="380" height="120" rx="12" fill="#0c2117" stroke="#22C55E" stroke-width="2.5" filter="url(#gfShadow)"/>
-    <text x="270" y="782" text-anchor="middle" fill="#86EFAC" font-size="14" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">ANCHOR 4 — GATE HIERARCHY</text>
-    <text x="270" y="816" text-anchor="middle" fill="#f0f6fc" font-size="20" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">22 mandatory gates</text>
-    <text x="270" y="842" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="'Segoe UI',system-ui,sans-serif">MANDATORY · HARD · CIRCUIT_BREAKER · SOFT · AUDIT</text>
-    <text x="270" y="862" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="'Segoe UI',system-ui,sans-serif">registered, hardness-typed, logged</text>
-  </g>
-
-  <!-- ANCHOR 5: TRACE.md -->
-  <g>
-    <rect x="500" y="750" width="400" height="120" rx="12" fill="#0c2117" stroke="#22C55E" stroke-width="2.5" filter="url(#gfShadow)"/>
-    <text x="700" y="782" text-anchor="middle" fill="#86EFAC" font-size="14" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">ANCHOR 5 — GLASS-BOX AUDIT TRAIL</text>
-    <text x="700" y="816" text-anchor="middle" fill="#f0f6fc" font-size="19" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">TRACE.md + gate-decisions.jsonl</text>
-    <text x="700" y="842" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="'Segoe UI',system-ui,sans-serif">every classification, decision, agent dispatch</text>
-    <text x="700" y="862" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="'Segoe UI',system-ui,sans-serif">HMAC-signed · attachable to PR</text>
-  </g>
-
-  <!-- FINAL VERDICT -->
-  <g>
-    <rect x="940" y="750" width="380" height="120" rx="12" fill="#1e1b4b" stroke="#7C3AED" stroke-width="3" filter="url(#gfShadow)">
-      <animate attributeName="stroke-width" values="3;4.5;3" dur="4s" repeatCount="indefinite"/>
-    </rect>
-    <text x="1130" y="782" text-anchor="middle" fill="#C4B5FD" font-size="14" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">FINAL VERDICT</text>
-    <text x="1130" y="816" text-anchor="middle" fill="#f0f6fc" font-size="19" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">GO / CONDITIONAL / NO-GO</text>
-    <text x="1130" y="842" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="'Segoe UI',system-ui,sans-serif">objective confidence score (0.00-1.00)</text>
-    <text x="1130" y="862" text-anchor="middle" fill="#bbf7d0" font-size="14" font-family="'Segoe UI',system-ui,sans-serif">no gut-feelings, no "looks fine to me"</text>
-  </g>
-
-  <!-- decorative line connecting bottom row -->
-  <path d="M 270 745 L 1130 745" stroke="#22C55E" stroke-width="2" fill="none" opacity="0.35" stroke-dasharray="4,6"/>
-  <!-- review row → verdict -->
-  <path d="M 700 690 L 700 750" stroke="#22C55E" stroke-width="3" fill="none" marker-end="url(#gfArrowGreen)" opacity="0.7"/>
 </svg>

@@ -1,189 +1,123 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1100" width="100%">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 820" width="100%" font-family="'Segoe UI', Inter, system-ui, sans-serif">
   <defs>
-    <linearGradient id="archBg" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#0d1117"/>
-      <stop offset="100%" stop-color="#161b22"/>
+      <stop offset="100%" stop-color="#0a0e1a"/>
     </linearGradient>
-    <pattern id="archGrid" width="40" height="40" patternUnits="userSpaceOnUse">
-      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#30363d" stroke-width="0.6" opacity="0.3"/>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#30363d" stroke-width="0.5" opacity="0.22"/>
     </pattern>
-    <filter id="archShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#000" flood-opacity="0.7"/>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#000" flood-opacity="0.55"/>
     </filter>
-    <filter id="archGlow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="3" result="blur"/>
-      <feMerge>
-        <feMergeNode in="blur"/>
-        <feMergeNode in="SourceGraphic"/>
-      </feMerge>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="2.5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
 
-  <rect width="1200" height="1100" fill="url(#archBg)" rx="14"/>
-  <rect width="1200" height="1100" fill="url(#archGrid)" rx="14"/>
+  <rect width="1280" height="820" fill="url(#bg)" rx="14"/>
+  <rect width="1280" height="820" fill="url(#grid)" rx="14"/>
 
-  <!-- TITLE -->
-  <text x="600" y="68" text-anchor="middle" fill="#f0f6fc" font-size="44" font-weight="800" letter-spacing="1.5" font-family="'Segoe UI',system-ui,sans-serif">Agent Architecture — 20 Production Agents</text>
-  <text x="600" y="108" text-anchor="middle" fill="#8b949e" font-size="22" font-family="'Segoe UI',system-ui,sans-serif">Four layers · clean responsibility boundaries · v6.3.0</text>
-  <line x1="320" y1="128" x2="880" y2="128" stroke="#7C3AED" stroke-width="3" opacity="0.55">
-    <animate attributeName="opacity" values="0.55;1;0.55" dur="3s" repeatCount="indefinite"/>
-  </line>
+  <!-- Title -->
+  <text x="640" y="54" text-anchor="middle" fill="#F0F6FC" font-size="34" font-weight="800" letter-spacing="0.5">Agent Architecture — 20 Production Agents</text>
+  <text x="640" y="86" text-anchor="middle" fill="#8B949E" font-size="17">Four layers with clean responsibility boundaries · v8.9.0 · + type-specific variants across all paths</text>
 
-  <!-- ===== LAYER 1: CORE ORCHESTRATION ===== -->
+  <!-- Layer 1: CORE -->
   <g>
-    <rect x="40" y="170" width="1120" height="180" rx="12" fill="#1e1b4b" stroke="#7C3AED" stroke-width="3" filter="url(#archShadow)">
-      <animate attributeName="stroke-width" values="3;4.5;3" dur="4s" repeatCount="indefinite"/>
-    </rect>
-    <text x="70" y="208" fill="#7C3AED" font-size="26" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">CORE ORCHESTRATION</text>
-    <text x="70" y="234" fill="#a5b4fc" font-size="17" font-family="'Segoe UI',system-ui,sans-serif">10 agents · pipeline controller, gates, sentinel, validators</text>
-
-    <!-- 5 agents row 1 -->
-    <rect x="70" y="252" width="200" height="38" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1.5"/>
-    <text x="170" y="276" text-anchor="middle" fill="#e0e7ff" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">pipeline-controller</text>
-
-    <rect x="285" y="252" width="200" height="38" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1.5"/>
-    <text x="385" y="276" text-anchor="middle" fill="#e0e7ff" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">brainstorm-controller</text>
-
-    <rect x="500" y="252" width="200" height="38" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1.5"/>
-    <text x="600" y="276" text-anchor="middle" fill="#e0e7ff" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">task-orchestrator</text>
-
-    <rect x="715" y="252" width="200" height="38" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1.5"/>
-    <text x="815" y="276" text-anchor="middle" fill="#e0e7ff" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">information-gate</text>
-
-    <rect x="930" y="252" width="200" height="38" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1.5"/>
-    <text x="1030" y="276" text-anchor="middle" fill="#e0e7ff" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">sentinel</text>
-
-    <!-- 5 agents row 2 -->
-    <rect x="70" y="300" width="200" height="38" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1.5"/>
-    <text x="170" y="324" text-anchor="middle" fill="#e0e7ff" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">final-validator</text>
-
-    <rect x="285" y="300" width="200" height="38" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1.5"/>
-    <text x="385" y="324" text-anchor="middle" fill="#e0e7ff" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">finishing-branch</text>
-
-    <rect x="500" y="300" width="200" height="38" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1.5"/>
-    <text x="600" y="324" text-anchor="middle" fill="#e0e7ff" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">sanity-checker</text>
-
-    <rect x="715" y="300" width="200" height="38" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1.5"/>
-    <text x="815" y="324" text-anchor="middle" fill="#e0e7ff" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">checkpoint-validator</text>
-
-    <rect x="930" y="300" width="200" height="38" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1.5"/>
-    <text x="1030" y="324" text-anchor="middle" fill="#e0e7ff" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">adversarial-batch</text>
+    <rect x="40" y="120" width="1200" height="150" rx="12" fill="#1e1b4b" fill-opacity="0.35" stroke="#7C3AED" stroke-width="2.5" filter="url(#soft)"/>
+    <text x="70" y="152" fill="#A78BFA" font-size="14" font-weight="800" letter-spacing="2">LAYER 1 · CORE ORCHESTRATION</text>
+    <text x="70" y="172" fill="#8B949E" font-size="13">10 agents — the spine that classifies, plans, dispatches and validates</text>
+    <!-- 10 pills, 2 rows of 5 -->
+    <g font-size="13" font-weight="700">
+      <g transform="translate(70,192)"><rect width="200" height="30" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1"/><text x="100" y="20" text-anchor="middle" fill="#e0e7ff">pipeline-controller</text></g>
+      <g transform="translate(290,192)"><rect width="200" height="30" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1"/><text x="100" y="20" text-anchor="middle" fill="#e0e7ff">task-orchestrator</text></g>
+      <g transform="translate(510,192)"><rect width="200" height="30" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1"/><text x="100" y="20" text-anchor="middle" fill="#e0e7ff">information-gate</text></g>
+      <g transform="translate(730,192)"><rect width="200" height="30" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1"/><text x="100" y="20" text-anchor="middle" fill="#e0e7ff">sentinel</text></g>
+      <g transform="translate(950,192)"><rect width="200" height="30" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1"/><text x="100" y="20" text-anchor="middle" fill="#e0e7ff">brainstorm-controller</text></g>
+      <g transform="translate(70,232)"><rect width="200" height="30" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1"/><text x="100" y="20" text-anchor="middle" fill="#e0e7ff">spec-controller</text></g>
+      <g transform="translate(290,232)"><rect width="200" height="30" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1"/><text x="100" y="20" text-anchor="middle" fill="#e0e7ff">checkpoint-validator</text></g>
+      <g transform="translate(510,232)"><rect width="200" height="30" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1"/><text x="100" y="20" text-anchor="middle" fill="#e0e7ff">sanity-checker</text></g>
+      <g transform="translate(730,232)"><rect width="200" height="30" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1"/><text x="100" y="20" text-anchor="middle" fill="#e0e7ff">final-validator</text></g>
+      <g transform="translate(950,232)"><rect width="200" height="30" rx="6" fill="#312e81" stroke="#7C3AED" stroke-width="1"/><text x="100" y="20" text-anchor="middle" fill="#e0e7ff">finishing-branch</text></g>
+    </g>
   </g>
 
-  <!-- ===== LAYER 2: QUALITY (review + planning) ===== -->
+  <!-- connector arrow -->
+  <path d="M 640 270 L 640 290" stroke="#7C3AED" stroke-width="2" marker-end="url(#a1)"/>
+  <defs><marker id="a1" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#7C3AED"/></marker></defs>
+
+  <!-- Layer 2: QUALITY -->
   <g>
-    <rect x="40" y="380" width="1120" height="220" rx="12" fill="#3a2a0e" stroke="#F59E0B" stroke-width="3" filter="url(#archShadow)">
-      <animate attributeName="stroke-width" values="3;4.5;3" dur="4s" begin="1s" repeatCount="indefinite"/>
-    </rect>
-    <text x="70" y="418" fill="#F59E0B" font-size="26" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">QUALITY — REVIEW &amp; PLANNING</text>
-    <text x="70" y="444" fill="#fde68a" font-size="17" font-family="'Segoe UI',system-ui,sans-serif">8 agents · planning, design, review, adversarial team</text>
-
-    <rect x="70" y="462" width="200" height="38" rx="6" fill="#422006" stroke="#F59E0B" stroke-width="1.5"/>
-    <text x="170" y="486" text-anchor="middle" fill="#fde68a" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">plan-architect</text>
-
-    <rect x="285" y="462" width="200" height="38" rx="6" fill="#422006" stroke="#F59E0B" stroke-width="1.5"/>
-    <text x="385" y="486" text-anchor="middle" fill="#fde68a" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">design-interrogator</text>
-
-    <rect x="500" y="462" width="200" height="38" rx="6" fill="#422006" stroke="#F59E0B" stroke-width="1.5"/>
-    <text x="600" y="486" text-anchor="middle" fill="#fde68a" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">pre-tester</text>
-
-    <rect x="715" y="462" width="200" height="38" rx="6" fill="#422006" stroke="#F59E0B" stroke-width="1.5"/>
-    <text x="815" y="486" text-anchor="middle" fill="#fde68a" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">quality-gate-router</text>
-
-    <rect x="930" y="462" width="200" height="38" rx="6" fill="#422006" stroke="#F59E0B" stroke-width="1.5"/>
-    <text x="1030" y="486" text-anchor="middle" fill="#fde68a" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">review-orchestrator</text>
-
-    <rect x="70" y="510" width="200" height="38" rx="6" fill="#422006" stroke="#F59E0B" stroke-width="1.5"/>
-    <text x="170" y="534" text-anchor="middle" fill="#fde68a" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">architecture-reviewer</text>
-
-    <!-- NEW v6.3.0 — highlighted -->
-    <rect x="285" y="510" width="280" height="38" rx="6" fill="#0c2117" stroke="#22C55E" stroke-width="2">
-      <animate attributeName="stroke-width" values="2;3.5;2" dur="3s" repeatCount="indefinite"/>
-    </rect>
-    <text x="425" y="534" text-anchor="middle" fill="#86EFAC" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">diff-discipline-reviewer ★ NEW</text>
-
-    <rect x="580" y="510" width="270" height="38" rx="6" fill="#422006" stroke="#F59E0B" stroke-width="1.5"/>
-    <text x="715" y="534" text-anchor="middle" fill="#fde68a" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">final-adversarial-orchestrator</text>
-
-    <text x="600" y="582" text-anchor="middle" fill="#fbbf24" font-size="15" font-style="italic" font-family="'Segoe UI',system-ui,sans-serif">3 reviewers spawned in parallel from review-orchestrator — zero implementation context</text>
+    <rect x="40" y="294" width="1200" height="118" rx="12" fill="#0c1a2e" fill-opacity="0.4" stroke="#0EA5E9" stroke-width="2.5" filter="url(#soft)"/>
+    <text x="70" y="324" fill="#38BDF8" font-size="14" font-weight="800" letter-spacing="2">LAYER 2 · QUALITY · PLANNING &amp; REVIEW</text>
+    <text x="70" y="344" fill="#8B949E" font-size="13">8 agents — design interrogation, TDD scenarios, and the 3-way parallel adversarial review</text>
+    <g font-size="13" font-weight="700">
+      <g transform="translate(70,362)"><rect width="200" height="30" rx="6" fill="#0c2a45" stroke="#0EA5E9" stroke-width="1"/><text x="100" y="20" text-anchor="middle" fill="#bae6fd">plan-architect</text></g>
+      <g transform="translate(290,362)"><rect width="200" height="30" rx="6" fill="#0c2a45" stroke="#0EA5E9" stroke-width="1"/><text x="100" y="20" text-anchor="middle" fill="#bae6fd">design-interrogator</text></g>
+      <g transform="translate(510,362)"><rect width="200" height="30" rx="6" fill="#0c2a45" stroke="#0EA5E9" stroke-width="1"/><text x="100" y="20" text-anchor="middle" fill="#bae6fd">quality-gate-router</text></g>
+      <g transform="translate(730,362)"><rect width="200" height="30" rx="6" fill="#0c2a45" stroke="#0EA5E9" stroke-width="1"/><text x="100" y="20" text-anchor="middle" fill="#bae6fd">pre-tester</text></g>
+      <g transform="translate(950,362)"><rect width="200" height="30" rx="6" fill="#0c2a45" stroke="#0EA5E9" stroke-width="1"/><text x="100" y="20" text-anchor="middle" fill="#bae6fd">review-orchestrator</text></g>
+      <g transform="translate(70,372)" opacity="0"></g>
+    </g>
+    <g font-size="13" font-weight="700">
+      <g transform="translate(180,402)"><rect width="220" height="6" rx="3" fill="#0EA5E9" opacity="0.6"/></g>
+      <g transform="translate(420,398)"><rect width="220" height="26" rx="6" fill="#08233d" stroke="#0EA5E9" stroke-width="1" stroke-dasharray="3 3"/><text x="110" y="18" text-anchor="middle" fill="#7DD3FC" font-size="12">adversarial-batch ⚔</text></g>
+      <g transform="translate(660,398)"><rect width="220" height="26" rx="6" fill="#08233d" stroke="#0EA5E9" stroke-width="1" stroke-dasharray="3 3"/><text x="110" y="18" text-anchor="middle" fill="#7DD3FC" font-size="12">architecture-reviewer</text></g>
+      <g transform="translate(900,398)"><rect width="220" height="26" rx="6" fill="#08233d" stroke="#0EA5E9" stroke-width="1" stroke-dasharray="3 3"/><text x="110" y="18" text-anchor="middle" fill="#7DD3FC" font-size="12">diff-discipline-reviewer</text></g>
+    </g>
   </g>
 
-  <!-- ===== LAYER 3: EXECUTOR ===== -->
+  <path d="M 640 412 L 640 432" stroke="#7C3AED" stroke-width="2" marker-end="url(#a1)"/>
+
+  <!-- Layer 3: EXECUTOR -->
   <g>
-    <rect x="40" y="630" width="1120" height="280" rx="12" fill="#3b0a0a" stroke="#EF4444" stroke-width="3" filter="url(#archShadow)">
-      <animate attributeName="stroke-width" values="3;4.5;3" dur="4s" begin="2s" repeatCount="indefinite"/>
-    </rect>
-    <text x="70" y="668" fill="#EF4444" font-size="26" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">EXECUTOR</text>
-    <text x="70" y="694" fill="#fecaca" font-size="17" font-family="'Segoe UI',system-ui,sans-serif">6 top-level + 17 type-specific variants · per-batch implementation chain</text>
-
-    <!-- Top-level row -->
-    <text x="70" y="724" fill="#FCA5A5" font-size="14" font-weight="700" letter-spacing="1.5" font-family="'Segoe UI',system-ui,sans-serif">TOP-LEVEL (6)</text>
-
-    <rect x="70" y="734" width="170" height="36" rx="6" fill="#5b0e0e" stroke="#EF4444" stroke-width="1.5"/>
-    <text x="155" y="757" text-anchor="middle" fill="#fecaca" font-size="14" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">executor-controller</text>
-
-    <rect x="252" y="734" width="200" height="36" rx="6" fill="#5b0e0e" stroke="#EF4444" stroke-width="1.5"/>
-    <text x="352" y="757" text-anchor="middle" fill="#fecaca" font-size="14" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">executor-implementer-task</text>
-
-    <rect x="464" y="734" width="160" height="36" rx="6" fill="#5b0e0e" stroke="#EF4444" stroke-width="1.5"/>
-    <text x="544" y="757" text-anchor="middle" fill="#fecaca" font-size="14" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">executor-fix</text>
-
-    <rect x="636" y="734" width="180" height="36" rx="6" fill="#5b0e0e" stroke="#EF4444" stroke-width="1.5"/>
-    <text x="726" y="757" text-anchor="middle" fill="#fecaca" font-size="14" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">executor-spec-reviewer</text>
-
-    <rect x="828" y="734" width="200" height="36" rx="6" fill="#5b0e0e" stroke="#EF4444" stroke-width="1.5"/>
-    <text x="928" y="757" text-anchor="middle" fill="#fecaca" font-size="14" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">executor-quality-reviewer</text>
-
-    <rect x="1040" y="734" width="100" height="36" rx="6" fill="#5b0e0e" stroke="#EF4444" stroke-width="1.5"/>
-    <text x="1090" y="757" text-anchor="middle" fill="#fecaca" font-size="14" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">spec-closer</text>
-
-    <!-- Type-specific row -->
-    <text x="70" y="804" fill="#FCA5A5" font-size="14" font-weight="700" letter-spacing="1.5" font-family="'Segoe UI',system-ui,sans-serif">TYPE-SPECIFIC VARIANTS (17)</text>
-
-    <rect x="70" y="814" width="200" height="76" rx="6" fill="#2a0606" stroke="#EF4444" stroke-width="1.5"/>
-    <text x="170" y="838" text-anchor="middle" fill="#FCA5A5" font-size="14" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">FEATURE</text>
-    <text x="170" y="858" text-anchor="middle" fill="#fecaca" font-size="13" font-family="'Segoe UI',system-ui,sans-serif">slice-planner · implementer</text>
-    <text x="170" y="876" text-anchor="middle" fill="#fecaca" font-size="13" font-family="'Segoe UI',system-ui,sans-serif">integration-validator</text>
-
-    <rect x="285" y="814" width="200" height="76" rx="6" fill="#2a0606" stroke="#EF4444" stroke-width="1.5"/>
-    <text x="385" y="838" text-anchor="middle" fill="#FCA5A5" font-size="14" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">BUGFIX</text>
-    <text x="385" y="858" text-anchor="middle" fill="#fecaca" font-size="13" font-family="'Segoe UI',system-ui,sans-serif">diagnostic · root-cause</text>
-    <text x="385" y="876" text-anchor="middle" fill="#fecaca" font-size="13" font-family="'Segoe UI',system-ui,sans-serif">regression-tester</text>
-
-    <rect x="500" y="814" width="200" height="76" rx="6" fill="#2a0606" stroke="#EF4444" stroke-width="1.5"/>
-    <text x="600" y="838" text-anchor="middle" fill="#FCA5A5" font-size="14" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">AUDIT (report-only)</text>
-    <text x="600" y="858" text-anchor="middle" fill="#fecaca" font-size="13" font-family="'Segoe UI',system-ui,sans-serif">intake · domain-analyzer</text>
-    <text x="600" y="876" text-anchor="middle" fill="#fecaca" font-size="13" font-family="'Segoe UI',system-ui,sans-serif">compliance · risk-matrix</text>
-
-    <rect x="715" y="814" width="200" height="76" rx="6" fill="#2a0606" stroke="#EF4444" stroke-width="1.5"/>
-    <text x="815" y="838" text-anchor="middle" fill="#FCA5A5" font-size="14" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">UX SIM (report-only)</text>
-    <text x="815" y="858" text-anchor="middle" fill="#fecaca" font-size="13" font-family="'Segoe UI',system-ui,sans-serif">simulator · a11y-auditor</text>
-    <text x="815" y="876" text-anchor="middle" fill="#fecaca" font-size="13" font-family="'Segoe UI',system-ui,sans-serif">qa-validator</text>
-
-    <rect x="930" y="814" width="200" height="76" rx="6" fill="#2a0606" stroke="#EF4444" stroke-width="1.5"/>
-    <text x="1030" y="838" text-anchor="middle" fill="#FCA5A5" font-size="14" font-weight="800" font-family="'Segoe UI',system-ui,sans-serif">ADVERSARIAL (4)</text>
-    <text x="1030" y="858" text-anchor="middle" fill="#fecaca" font-size="13" font-family="'Segoe UI',system-ui,sans-serif">security · architecture</text>
-    <text x="1030" y="876" text-anchor="middle" fill="#fecaca" font-size="13" font-family="'Segoe UI',system-ui,sans-serif">quality · coordinator</text>
+    <rect x="40" y="436" width="1200" height="110" rx="12" fill="#0c2117" fill-opacity="0.4" stroke="#22C55E" stroke-width="2.5" filter="url(#soft)"/>
+    <text x="70" y="466" fill="#34D399" font-size="14" font-weight="800" letter-spacing="2">LAYER 3 · EXECUTOR</text>
+    <text x="70" y="486" fill="#8B949E" font-size="13">6 agents — per-task TDD implementation, fix loops, and spec/quality review</text>
+    <g font-size="13" font-weight="700">
+      <g transform="translate(70,504)"><rect width="220" height="30" rx="6" fill="#0c2e1f" stroke="#22C55E" stroke-width="1"/><text x="110" y="20" text-anchor="middle" fill="#bbf7d0">executor-controller</text></g>
+      <g transform="translate(310,504)"><rect width="220" height="30" rx="6" fill="#0c2e1f" stroke="#22C55E" stroke-width="1"/><text x="110" y="20" text-anchor="middle" fill="#bbf7d0">executor-implementer</text></g>
+      <g transform="translate(550,504)"><rect width="220" height="30" rx="6" fill="#0c2e1f" stroke="#22C55E" stroke-width="1"/><text x="110" y="20" text-anchor="middle" fill="#bbf7d0">executor-fix</text></g>
+      <g transform="translate(790,504)"><rect width="220" height="30" rx="6" fill="#0c2e1f" stroke="#22C55E" stroke-width="1"/><text x="110" y="20" text-anchor="middle" fill="#bbf7d0">executor-spec-reviewer</text></g>
+      <g transform="translate(1030,504)"><rect width="200" height="30" rx="6" fill="#0c2e1f" stroke="#22C55E" stroke-width="1"/><text x="100" y="20" text-anchor="middle" fill="#bbf7d0">spec-closer</text></g>
+    </g>
   </g>
 
-  <!-- ===== LAYER 4: BRAINSTORM STEPS ===== -->
+  <path d="M 640 546 L 640 566" stroke="#7C3AED" stroke-width="2" marker-end="url(#a1)"/>
+
+  <!-- Layer 4: TYPE-SPECIFIC + BRAINSTORM -->
   <g>
-    <rect x="40" y="940" width="1120" height="110" rx="12" fill="#0e1f33" stroke="#0EA5E9" stroke-width="3" filter="url(#archShadow)">
-      <animate attributeName="stroke-width" values="3;4.5;3" dur="4s" begin="3s" repeatCount="indefinite"/>
-    </rect>
-    <text x="70" y="978" fill="#0EA5E9" font-size="26" font-weight="800" letter-spacing="2" font-family="'Segoe UI',system-ui,sans-serif">BRAINSTORM STEPS</text>
-    <text x="70" y="1004" fill="#bae6fd" font-size="17" font-family="'Segoe UI',system-ui,sans-serif">3 step agents · pre-execution preparation (Kiro-clone integrated)</text>
-
-    <rect x="540" y="965" width="180" height="38" rx="6" fill="#0c1e2e" stroke="#0EA5E9" stroke-width="1.5"/>
-    <text x="630" y="989" text-anchor="middle" fill="#bae6fd" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">step-00-intake</text>
-
-    <rect x="730" y="965" width="180" height="38" rx="6" fill="#0c1e2e" stroke="#0EA5E9" stroke-width="1.5"/>
-    <text x="820" y="989" text-anchor="middle" fill="#bae6fd" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">step-01-explore</text>
-
-    <rect x="920" y="965" width="220" height="38" rx="6" fill="#0c1e2e" stroke="#0EA5E9" stroke-width="1.5"/>
-    <text x="1030" y="989" text-anchor="middle" fill="#bae6fd" font-size="15" font-weight="700" font-family="'Segoe UI',system-ui,sans-serif">step-01b-alternatives</text>
+    <rect x="40" y="570" width="1200" height="110" rx="12" fill="#231b06" fill-opacity="0.4" stroke="#F59E0B" stroke-width="2.5" filter="url(#soft)"/>
+    <text x="70" y="600" fill="#FBBF24" font-size="14" font-weight="800" letter-spacing="2">LAYER 4 · TYPE-SPECIFIC VARIANTS &amp; BRAINSTORM STEPS</text>
+    <text x="70" y="620" fill="#8B949E" font-size="13">feature-* · bugfix-* · audit-* · ux-* · spec-* · adversarial-* · brainstorm step-00/01/01b/01c</text>
+    <g font-size="12.5" font-weight="700">
+      <g transform="translate(70,636)"><rect width="160" height="30" rx="6" fill="#2a2008" stroke="#F59E0B" stroke-width="1"/><text x="80" y="20" text-anchor="middle" fill="#fde68a">feature ×3</text></g>
+      <g transform="translate(250,636)"><rect width="160" height="30" rx="6" fill="#2a2008" stroke="#F59E0B" stroke-width="1"/><text x="80" y="20" text-anchor="middle" fill="#fde68a">bugfix ×3</text></g>
+      <g transform="translate(430,636)"><rect width="160" height="30" rx="6" fill="#2a2008" stroke="#F59E0B" stroke-width="1"/><text x="80" y="20" text-anchor="middle" fill="#fde68a">audit ×4</text></g>
+      <g transform="translate(610,636)"><rect width="160" height="30" rx="6" fill="#2a2008" stroke="#F59E0B" stroke-width="1"/><text x="80" y="20" text-anchor="middle" fill="#fde68a">ux ×3</text></g>
+      <g transform="translate(790,636)"><rect width="160" height="30" rx="6" fill="#2a2008" stroke="#F59E0B" stroke-width="1"/><text x="80" y="20" text-anchor="middle" fill="#fde68a">spec ×3</text></g>
+      <g transform="translate(970,636)"><rect width="160" height="30" rx="6" fill="#2a2008" stroke="#F59E0B" stroke-width="1"/><text x="80" y="20" text-anchor="middle" fill="#fde68a">adversarial ×4</text></g>
+    </g>
   </g>
 
-  <!-- FOOTER -->
-  <text x="600" y="1083" text-anchor="middle" fill="#a8b3c7" font-size="16" font-style="italic" font-family="'Segoe UI',system-ui,sans-serif">Reviewers never see the implementer's reasoning. Context isolation is enforced at every spawn.</text>
+  <!-- Bottom stats bar -->
+  <g transform="translate(640,716)">
+    <rect x="-560" y="0" width="1120" height="64" rx="12" fill="#161b22" stroke="#30363d" stroke-width="1" filter="url(#soft)"/>
+    <g font-size="13" fill="#8B949E" text-anchor="middle">
+      <g transform="translate(-420,38)"><text fill="#F0F6FC" font-size="22" font-weight="800">20</text><text y="20" font-size="11" letter-spacing="1">PRODUCTION AGENTS</text></g>
+      <g transform="translate(-210,38)"><text fill="#F0F6FC" font-size="22" font-weight="800">50</text><text y="20" font-size="11" letter-spacing="1">DEFINITION FILES</text></g>
+      <g transform="translate(0,38)"><text fill="#F0F6FC" font-size="22" font-weight="800">33</text><text y="20" font-size="11" letter-spacing="1">SKILLS</text></g>
+      <g transform="translate(210,38)"><text fill="#F0F6FC" font-size="22" font-weight="800">14</text><text y="20" font-size="11" letter-spacing="1">COMMANDS</text></g>
+      <g transform="translate(420,38)"><text fill="#F0F6FC" font-size="22" font-weight="800">28</text><text y="20" font-size="11" letter-spacing="1">ENFORCEMENT HOOKS</text></g>
+    </g>
+  </g>
+
+  <!-- Corner accents -->
+  <g stroke="#7C3AED" stroke-width="2" fill="none" opacity="0.55">
+    <path d="M 24 24 L 24 56 M 24 24 L 56 24"/>
+    <path d="M 1256 24 L 1256 56 M 1256 24 L 1224 24"/>
+    <path d="M 24 796 L 24 764 M 24 796 L 56 796"/>
+    <path d="M 1256 796 L 1256 764 M 1256 796 L 1224 796"/>
+  </g>
 </svg>
