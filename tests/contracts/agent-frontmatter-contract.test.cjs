@@ -169,6 +169,71 @@ test('Phase 2 — no agent declares EnterPlanMode/ExitPlanMode in frontmatter to
   }
 });
 
+// =============================================================================
+// ADDED 2026-06-21 (T3 / REQ-LEAF-GRANT-LOCK, scenarios S3-5 + S3-6).
+//
+// The four lock tests above assert the contract against the CURRENT agent set.
+// tasks.md T3 also requires a MUTATION-VERIFY pair: prove the lock actually
+// CATCHES a violation, not just that the current set happens to be clean (a
+// permanently-true assertion that never fires is worthless). These two tests
+// reuse the exact predicate the live tests use (AGENT_TOOL_ALLOWLIST membership;
+// EnterPlanMode/ExitPlanMode exclusion) against a synthetic, in-memory agent
+// whose frontmatter violates it, and assert the predicate REJECTS it. No file is
+// written under agents/ — the mutation is a fabricated `{ file, lines }` record,
+// so the suite stays hermetic and leaves no residue.
+// =============================================================================
+
+// Re-derive the two predicates exactly as the live tests apply them, so a future
+// edit to the lock logic is mirror-checked here (drift between the live assertion
+// and the mutation-verify would itself be a finding).
+function violatesAgentToolLock(agent) {
+  const tools = toolList(agent.lines);
+  if (!tools || !tools.includes('Agent')) return false;
+  return !AGENT_TOOL_ALLOWLIST.has(field(agent.lines, 'name'));
+}
+function violatesPlanModeLock(agent) {
+  const tools = toolList(agent.lines);
+  if (!tools) return false;
+  return tools.includes('EnterPlanMode') || tools.includes('ExitPlanMode');
+}
+
+test('S3-5 [mutation-verify] a leaf granted the Agent tool but NOT allowlisted is caught', () => {
+  // Sanity: every REAL agent passes the lock (no live violation right now).
+  for (const a of agents) {
+    assert.equal(violatesAgentToolLock(a), false,
+      `${a.file} unexpectedly violates the Agent-tool lock (real-set should be clean)`);
+  }
+  // Mutation: a synthetic leaf that grants Agent without being an orchestrator.
+  const mutant = {
+    file: 'agents/executor/type-specific/fake-leaf.md',
+    lines: ['name: fake-leaf', 'description: synthetic mutant', 'tools: Read, Write, Agent'],
+  };
+  assert.equal(violatesAgentToolLock(mutant), true,
+    'the lock FAILED to catch a leaf agent granted the Agent (spawn) tool — DoD#9 hole would pass silently');
+});
+
+test('S3-6 [mutation-verify] an agent declaring EnterPlanMode is caught', () => {
+  // Sanity: no real agent declares a Plan Mode tool today.
+  for (const a of agents) {
+    assert.equal(violatesPlanModeLock(a), false,
+      `${a.file} unexpectedly declares a Plan Mode tool (real-set should be clean)`);
+  }
+  // Mutation: a synthetic agent that declares EnterPlanMode in its tools list.
+  const mutant = {
+    file: 'agents/core/fake-controller.md',
+    lines: ['name: fake-controller', 'tools: Read, Grep, EnterPlanMode'],
+  };
+  assert.equal(violatesPlanModeLock(mutant), true,
+    'the lock FAILED to catch an agent declaring EnterPlanMode — GAP-06 declaration hole would pass silently');
+  // And the ExitPlanMode twin is caught too.
+  const mutant2 = {
+    file: 'agents/core/fake-controller-2.md',
+    lines: ['name: fake-controller-2', 'tools: Read, ExitPlanMode'],
+  };
+  assert.equal(violatesPlanModeLock(mutant2), true,
+    'the lock FAILED to catch an agent declaring ExitPlanMode');
+});
+
 console.log('');
 console.log(`Summary: ${pass} pass / ${fail} fail / ${pass + fail} total`);
 process.exit(fail > 0 ? 1 : 0);
