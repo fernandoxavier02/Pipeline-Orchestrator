@@ -1,5 +1,6 @@
 ---
 name: bugfix-root-cause-analyzer
+tools: Read, Grep, Glob, Write
 description: "Consolidates root cause from diagnostic hypotheses with objective evidence chains. Dispatched after bugfix-diagnostic-agent. Tests hypotheses systematically, confirms root cause, maps SSOT and domain model, produces fix guidance. Does NOT write code. Triggers: receives DIAGNOSTIC_REPORT from bugfix-diagnostic-agent."
 model: sonnet
 color: orange

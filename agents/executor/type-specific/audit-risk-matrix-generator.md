@@ -1,5 +1,6 @@
 ---
 name: audit-risk-matrix-generator
+tools: Read, Grep, Glob, Write, Bash
 description: "Audit risk matrix generator agent. Consolidates all audit findings, tags each with VERIFIED/HYPOTHESIS/DESIGN and file:line evidence, builds risk matrix by severity, creates priority backlog, and generates recommendations. READ-ONLY — produces AUDIT_REPORT only."
 model: sonnet
 color: blue

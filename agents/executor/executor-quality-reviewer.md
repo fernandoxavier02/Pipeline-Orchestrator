@@ -1,5 +1,6 @@
 ---
 name: executor-quality-reviewer
+tools: Read, Grep, Glob, Bash
 description: "Per-task code quality reviewer subagent. Checks SOLID, KISS, DRY, YAGNI, tests, and patterns. Only runs AFTER spec-reviewer PASS. Part of the executor-controller pipeline."
 model: sonnet
 color: cyan

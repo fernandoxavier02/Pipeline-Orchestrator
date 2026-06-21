@@ -1,5 +1,6 @@
 ---
 name: executor-fix
+tools: Read, Grep, Glob, Write, Edit, Bash
 description: "Per-finding fix subagent. Applies targeted fixes within strict file scope. Two modes: normal (attempt 1-3, patch approach) and REIMPLEMENT (blank-slate rewrite of the contested section, dispatched by the DIAGNOSE-THEN-REIMPLEMENT escape). Fresh context — not the original implementer."
 model: opus
 color: yellow

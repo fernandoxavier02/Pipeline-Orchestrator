@@ -1,5 +1,6 @@
 ---
 name: executor-implementer-task
+tools: Read, Grep, Glob, Write, Edit, Bash
 description: "Per-task implementer subagent. Runs micro-gate BEFORE writing any code, then follows Iron Laws (TDD, ask-first, self-review). Part of the executor-controller pipeline. Stops immediately on information gaps."
 model: opus
 color: yellow

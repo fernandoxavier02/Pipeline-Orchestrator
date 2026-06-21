@@ -264,3 +264,20 @@ For each of the eight matrix-F rows, once a collector exists, drive the live sce
 | 12 | REQ-DEFER-MACHINE-EVIDENCE (GAP-03 matrix-F rows) | `requirements.md:125` |
 
 **Honesty rule (NFR-NO-PROSE-ENFORCEMENT, `requirements.md:171`):** record the literal command output for each PASS. A step is only "approved" with pasted evidence — never on the strength of this script's prose.
+
+---
+
+## RUN 002 — live confirmations for the newly-built (default-OFF) gates
+
+Each step CONFIRMS a fact the run-002 code builds against; each gates an ARMING decision. Run on an authenticated machine via `claude --plugin-dir .`.
+
+1. **SubagentStop fires + can block** — arm `PIPELINE_SUBAGENTSTOP_ENFORCEMENT=deny`, run a governed pipeline; make a governed agent return NO `=== PIPELINE_AGENT_RESULT_V1 ===` block. PASS = its completion is blocked with a corrective message; FAIL = it completes silently (then keep the hook default-OFF).
+2. **REQ-RESULT-EMIT emits live** — observe each of the 9 governed agents actually ends with a parseable result block in a real run (the arming precondition for #1).
+3. **agent_type correlation under parallel same-type** — spawn two same-type governed agents; confirm the commit hook never marks the still-running sibling committed (BL-1 fix) live.
+4. **updatedInput honored + parallel-hook precedence** — confirm the dispatch envelope reaches the spawned agent's prompt, and that a sibling PreToolUse:Agent deny still wins over this hook's updatedInput.
+5. **PostToolUse:Bash tool_output shape** — confirm real exit code + stdout are present in the field the machine-evidence collector reads.
+6. **Stop additionalContext key** — confirm `hookSpecificOutput.additionalContext` (vs top-level) is the key the harness feeds back to the model (the arming precondition for the Stop default-on flip).
+7. **green-close producer fires before close** — confirm `last_checkpoint_verdict` is written from real evidence before the close gate reads it (arming precondition for `PIPELINE_REQUIRE_GREEN_CLOSE=true`).
+8. **leaf-pin tool-sufficiency** — run each of the ~37 pinned agents; confirm none fails on a missing tool.
+
+Until each PASSES live, the corresponding gate stays default-OFF (the code is present and tested; arming waits for proof — fail-closed without deadlock).

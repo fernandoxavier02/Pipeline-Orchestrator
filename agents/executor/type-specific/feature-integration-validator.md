@@ -1,5 +1,6 @@
 ---
 name: feature-integration-validator
+tools: Read, Grep, Glob, Write, Edit, Bash
 description: "Validates feature integration across all layers (UI, service, data, contracts). Verifies integration points, acceptance criteria, and cross-slice consistency. Handles both Feature and User Story types."
 model: sonnet
 color: blue
