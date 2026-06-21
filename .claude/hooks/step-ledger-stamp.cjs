@@ -49,6 +49,47 @@ function readStateAt(docDir) {
   return state;
 }
 
+// DoD #6 — "no step is stamped merely because Agent returned". A governed step
+// is only stamped when the agent returned a USABLE result. We cannot prove
+// semantic success from a hook (the floor is "the agent could lie"), but we CAN
+// reject the cases that obviously did no work: an absent result, an error/
+// interrupt shape, an empty text result, or a background launch that has not
+// finished. Conservative on purpose (the exact error shape Claude Code emits is
+// runtime-specific): only clear negatives decline; any present, non-error,
+// non-async object/non-empty string is accepted, so a normal completion is not
+// wrongly dropped.
+//
+// RECOVERY (honest invariant — NOT "can never deadlock"): declining to stamp is
+// deliberately strict — preferring a false-negative (block the NEXT phase) over a
+// false-positive (let a no-op satisfy a step) is the correct bias for "agents
+// must not skip". Concretely: step-ledger-gate fails open only on an ENTIRELY
+// absent ledger; once any step is stamped, a missing prerequisite is a DENY under
+// the default deny mode. So a mis-classified real completion BLOCKS the next
+// governed spawn until the operator recovers — by re-dispatching the same agent
+// (which re-produces a usable result) or by setting PIPELINE_STAMP_REQUIRE_RESULT=off.
+// An empty/whitespace STRING is treated as no-result BY DESIGN (a governed agent
+// that produced no text did no visible work); object envelopes such as
+// {status:'completed', content:[...]} are usable. Do NOT widen NEGATIVE_STATUS
+// without live evidence of real Agent tool_response shapes.
+function hasUsableResult(toolResponse) {
+  if (toolResponse == null) return false;
+  if (typeof toolResponse === 'string') return toolResponse.trim().length > 0;
+  if (typeof toolResponse !== 'object') return false;
+  if (toolResponse.is_error === true) return false;
+  if (toolResponse.error) return false;
+  if (toolResponse.interrupted === true) return false;
+  if (toolResponse.async_launched === true) return false; // background Agent not yet complete
+  const NEGATIVE_STATUS = new Set(['error', 'failed', 'cancelled', 'canceled', 'interrupted', 'async_launched', 'running', 'in_progress', 'pending']);
+  if (typeof toolResponse.status === 'string' && NEGATIVE_STATUS.has(toolResponse.status.toLowerCase())) return false;
+  return true;
+}
+
+// Strict by default; PIPELINE_STAMP_REQUIRE_RESULT=off|0|false|no restores the
+// pre-audit legacy behaviour (stamp purely on Agent return) for rollback safety.
+function stampRequiresResult() {
+  return !/^(off|0|false|no)$/i.test(String(process.env.PIPELINE_STAMP_REQUIRE_RESULT || '').trim());
+}
+
 function stamp(payload) {
   if (!ledger || !recorder || typeof recorder.recordStep !== 'function') return;
   if (!payload || payload.tool_name !== 'Agent') return;
@@ -141,6 +182,13 @@ function stamp(payload) {
   const step = ledger.stepForAgent(wf, leaf);
   if (!step) return; // ungoverned agent → nothing to stamp
 
+  // DoD #6: do not mark the governed step complete unless the agent actually
+  // returned a usable result. A no-op / errored / still-launching agent that
+  // merely returned must NOT satisfy the ordering prerequisite for the next
+  // phase. (The verdict-bearing branches above are already result-gated by the
+  // existence of their producer verdict file; this guards the generic stamp.)
+  if (stampRequiresResult() && !hasUsableResult(payload.tool_response)) return;
+
   try { recorder.recordStep(docDir, step); } catch { /* fail-silent */ }
 }
 
@@ -153,4 +201,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { stamp };
+module.exports = { stamp, hasUsableResult, stampRequiresResult };

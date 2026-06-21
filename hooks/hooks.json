@@ -66,6 +66,15 @@
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/step-ledger-stamp.cjs\""
           }
         ]
+      },
+      {
+        "matcher": "AskUserQuestion",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/.claude/hooks/human-gate-record.cjs\""
+          }
+        ]
       }
     ],
     "PreToolUse": [

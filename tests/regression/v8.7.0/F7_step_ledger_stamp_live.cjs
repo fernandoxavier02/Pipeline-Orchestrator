@@ -7,6 +7,11 @@
 // Proves the auto-stamp end-to-end: a governed agent completion stamps its step
 // into the signed state.step_ledger; ungoverned agents and inactive runs stamp
 // nothing. This is what makes the ordering deterministic without the LLM.
+//
+// v8.9.x enforcement audit (DoD #6): a step is stamped only when the agent
+// returned a USABLE result, so the governed-completion fixtures now carry a
+// success-shaped tool_response. The "declines to stamp without a result" cases
+// live in .claude/hooks/__tests__/step-ledger-stamp-requires-result.test.cjs.
 // =============================================================================
 
 const assert = require('node:assert/strict');
@@ -46,14 +51,14 @@ console.log('=== F7 v8.7.0 — step-ledger auto-stamp live ===');
 
 test('F7-1 — governed agent completion stamps its step', (dir) => {
   seed(dir, { run_id: 'r1', pipeline_active: true, task_type: 'Bug Fix' });
-  const r = run(dir, { tool_name: 'Agent', tool_input: { subagent_type: 'pipeline-orchestrator:core:task-orchestrator' }, cwd: dir });
+  const r = run(dir, { tool_name: 'Agent', tool_input: { subagent_type: 'pipeline-orchestrator:core:task-orchestrator' }, tool_response: { ok: true }, cwd: dir });
   assert.equal(r.status, 0, r.stderr);
   assert.deepEqual(ledgerOf(dir), ['classify']);
 });
 
 test('F7-2 — second governed agent appends in order', (dir) => {
   seed(dir, { run_id: 'r1', pipeline_active: true, task_type: 'Bug Fix', step_ledger: ['classify'] });
-  run(dir, { tool_name: 'Agent', tool_input: { subagent_type: 'pipeline-orchestrator:core:information-gate' }, cwd: dir });
+  run(dir, { tool_name: 'Agent', tool_input: { subagent_type: 'pipeline-orchestrator:core:information-gate' }, tool_response: { ok: true }, cwd: dir });
   assert.deepEqual(ledgerOf(dir), ['classify', 'info-gate']);
 });
 
