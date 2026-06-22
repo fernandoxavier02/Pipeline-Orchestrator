@@ -2,6 +2,22 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.10.0] - 2026-06-21
+
+### Added
+- **SubagentStop commit point** (`.claude/hooks/subagent-stop-commit-hook.cjs`, DEFAULT-OFF): parses the agent’s real `last_assistant_message` via the strict result contract and BLOCKS completion on a missing/invalid result; 3-correction cap → `hard_failed`. Live-probe proven that the harness honors the block.
+- **9 governed agents emit `=== PIPELINE_AGENT_RESULT_V1 ===`** — the producer that makes the commit point armable.
+- **Dispatch `updatedInput` envelope** (prepend-once) on `dispatch-record-hook.cjs`; `agent_type` on the dispatch record.
+- **Machine-evidence collector** (`machine-evidence-hook.cjs`, PostToolUse:Bash|PowerShell): records the real command output + `interrupted`. Live finding: the harness exposes no structured Bash exit code, so evidence uses `interrupted` + the runner stdout summary.
+- **Stop recovery signal**: the Stop-gate block now also returns `additionalContext` (the exact next action).
+- **Leaf-spawn lock**: the `Agent` tool is granted only to the 6 genuine orchestrators; ~37 leaf agents pinned with explicit tools; a tool-sufficiency contract invariant.
+- **Green-close checkpoint-verdict producer** (`lib/checkpoint-verdict-producer.cjs`, DEFAULT-OFF): derives the verdict from real signals (runner stdout summary + `interrupted`), closing the v8.9.0 C1 null-verdict hole.
+- Full-coverage spec for the enforcement source prompt (18 phases + PLAN MODE + 22 DoD, zero GAP).
+
+### Notes
+- Every enforcing gate ships DEFAULT-OFF and arms via env (`PIPELINE_SUBAGENTSTOP_ENFORCEMENT=deny`, `PIPELINE_REQUIRE_GREEN_CLOSE=true`) — fail-closed WITHOUT deadlock. Parent-child authenticated identity stays deferred (the harness exposes no spawning-agent identity).
+- Confirmed against Claude Code 2.1.183 via a live `--settings` hook probe.
+
 ## [8.9.0] - 2026-06-20 — Flow-determinism gates Wave 1+2: red-build / STOP_RULE / sensitive-domain + generic phase-verdict (A1-A9) (MINOR)
 
 Converts prompt-only pipeline flow rules into deterministic DENY gates (consumer side; progressive activation).
