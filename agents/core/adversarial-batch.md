@@ -1,5 +1,6 @@
 ---
 name: adversarial-batch
+tools: Read, Grep, Glob, Write
 description: "Per-batch adversarial reviewer. Loads only relevant security checklists from references/checklists/. Fix loop max 3 attempts per cycle, max 4 cycles per batch — on cycle 4 attempt 3 failure the ADVERSARIAL_LOOP_BREAKER fires the DIAGNOSE-THEN-REIMPLEMENT escape via review-orchestrator. Never loops infinitely."
 model: sonnet
 color: red

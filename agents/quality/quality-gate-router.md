@@ -1,5 +1,6 @@
 ---
 name: quality-gate-router
+tools: Read, Grep, Glob, Write
 description: "Pipeline stage 2.5. Selects the correct test strategy based on pipeline type and intensity. Generates tests in PLAIN LANGUAGE for user approval BEFORE implementation. Blocks pipeline until user approves test scenarios."
 model: sonnet
 color: blue
@@ -203,3 +204,22 @@ QUALITY_GATE_APPROVED:
 ## Save Documentation
 
 Save to `{PIPELINE_DOC_PATH}/02.5-quality-gate.md`
+
+## Closing result block (REQ-RESULT-EMIT — MANDATORY)
+
+Your FINAL message MUST end with a single fenced `PIPELINE_AGENT_RESULT_V1` block so the
+SubagentStop commit point can confirm you closed on a real, parseable result (never on
+presence/absence heuristics).
+
+Rules: emit exactly ONE block as the last thing you output; use ONLY the parser's KNOWN
+governance keys (`status`, `summary`, `next_agent`, `findings`, `evidence`, `reason`,
+`detail`, `metrics`, `blocking`); `status` must be one of the closed vocabulary
+`completed | awaiting_user_gate | failed`. Your `agent_type` for correlation is this
+agent's frontmatter `name` (`quality-gate-router`) — carry it in `detail` (the parser's
+key set is closed, so do not invent an `agent_type` key). Sample:
+
+```
+=== PIPELINE_AGENT_RESULT_V1 ===
+{ "status": "awaiting_user_gate", "summary": "plain-language test scenarios generated; awaiting user approval", "next_agent": "pre-tester", "detail": "agent_type=quality-gate-router" }
+=== END PIPELINE_AGENT_RESULT_V1 ===
+```

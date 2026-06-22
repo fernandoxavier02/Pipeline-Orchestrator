@@ -1,5 +1,6 @@
 ---
 name: ux-accessibility-auditor
+tools: Read, Grep, Glob, Write
 description: "Accessibility auditor agent. Performs WCAG 2.1 AA audit, keyboard navigation check, contrast analysis, and touch target evaluation. READ-ONLY — never modifies production files. PARALLEL-capable with ux-simulator."
 model: sonnet
 color: orange

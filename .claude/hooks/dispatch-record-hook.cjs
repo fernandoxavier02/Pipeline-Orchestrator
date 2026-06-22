@@ -129,7 +129,25 @@ function writeRecord(statePath, dispatchId, record) {
   } catch { /* persistence is best-effort; never block on a write hiccup */ }
 }
 
-// Pure decision + side-effect. Returns { decision: 'allow' | 'deny', reason? }.
+// REQ-DISPATCH-ENVELOPE (T12): build the prepend-once [PIPELINE run=…] envelope line
+// and the rewritten prompt. Strips any pre-existing leading envelope line first so a
+// re-dispatch yields EXACTLY one header (never two stacked), then prepends a fresh one
+// carrying run_id / dispatch_id / phase / step / evidence summary. Single-line header;
+// CRLF-safe (splits on /\r?\n/). Returns the rewritten prompt string.
+function buildEnvelopedPrompt(originalPrompt, fields) {
+  const lines = String(originalPrompt).split(/\r?\n/);
+  // Prepend-once: drop a leading line that is already an envelope header.
+  if (lines.length > 0 && /^\[PIPELINE run=/.test(lines[0])) {
+    lines.shift();
+  }
+  const sanitize = (v) => String(v == null ? '' : v).replace(/[\r\n\]]/g, ' ').trim();
+  const header =
+    `[PIPELINE run=${sanitize(fields.run_id)} dispatch=${sanitize(fields.dispatch_id)} ` +
+    `phase=${sanitize(fields.phase)} step=${sanitize(fields.step)} evidence=${sanitize(fields.evidence)}]`;
+  return header + '\n' + lines.join('\n');
+}
+
+// Pure decision + side-effect. Returns { decision: 'allow' | 'deny', reason?, updatedInput? }.
 function decide(payload) {
   if (!payload || typeof payload !== 'object') return { decision: 'allow' };
   if (payload.tool_name !== 'Agent') return { decision: 'allow' };
@@ -179,6 +197,10 @@ function decide(payload) {
     run_id: typeof state.run_id === 'string' ? state.run_id : null,
     subagent_type: typeof ti.subagent_type === 'string' ? ti.subagent_type : null,
     target_agent_type: typeof ti.subagent_type === 'string' ? ti.subagent_type : null,
+    // REQ-DISPATCH-INDEX (T10): surface the spawned agent's type on the record so
+    // the honest per-agent_type correction limit (AC-7) can be keyed off it. Sourced
+    // from tool_input.subagent_type; PRESENT-as-null when absent (never omitted/crash).
+    agent_type: typeof ti.subagent_type === 'string' ? ti.subagent_type : null,
     status: 'pending',
     correction_attempts: 0,
     created_at: new Date().toISOString(),
@@ -189,8 +211,32 @@ function decide(payload) {
     writeRecord(statePath, dispatchId, record);
   }
 
-  // Always allow — the record writer never blocks a valid governed dispatch, and
-  // it MUST NOT emit updatedInput (envelope injection is DEFER'd).
+  // REQ-DISPATCH-ENVELOPE (T12): on this SHIPPED governed allow path, emit a
+  // prepend-once updatedInput rewriting ONLY `prompt`. Scope guards: only when
+  // tool_input is a real object AND prompt is a string. tool_input absent/non-object
+  // or non-string prompt → NO updatedInput (the exempt cases); ungoverned/absent/
+  // corrupt-governed never reach here. Every non-prompt field is carried byte-identical.
+  const tiIsObj = payload.tool_input && typeof payload.tool_input === 'object' && !Array.isArray(payload.tool_input);
+  if (tiIsObj && typeof payload.tool_input.prompt === 'string') {
+    const phase = (typeof state.current_phase === 'string' && state.current_phase) ? state.current_phase
+      : (typeof state.phase === 'string' && state.phase ? state.phase : 'unknown');
+    const step = (typeof state.current_step === 'string' && state.current_step) ? state.current_step
+      : (typeof state.step === 'string' && state.step ? state.step : 'dispatch');
+    const evidence = (typeof state.evidence_summary === 'string' && state.evidence_summary)
+      ? state.evidence_summary : 'governed-dispatch';
+    const updatedInput = Object.assign({}, payload.tool_input, {
+      prompt: buildEnvelopedPrompt(payload.tool_input.prompt, {
+        run_id: typeof state.run_id === 'string' ? state.run_id : '',
+        dispatch_id: dispatchId,
+        phase,
+        step,
+        evidence,
+      }),
+    });
+    return { decision: 'allow', updatedInput };
+  }
+
+  // Allow with no updatedInput (exempt: no tool_input object / non-string prompt).
   return { decision: 'allow' };
 }
 
@@ -211,14 +257,17 @@ if (require.main === module) {
           },
         }));
       } else {
-        // Explicit allow — a parseable decision with NO updatedInput, ever (the
-        // envelope-injection half of Phase 5 is DEFER'd).
-        process.stdout.write(JSON.stringify({
-          hookSpecificOutput: {
-            hookEventName: 'PreToolUse',
-            permissionDecision: 'allow',
-          },
-        }));
+        // Explicit allow. REQ-DISPATCH-ENVELOPE (T12): on the governed allow path
+        // carry the prepend-once updatedInput (envelope) when decide() produced one;
+        // exempt/ungoverned/absent paths produce none and emit a bare allow.
+        const hookSpecificOutput = {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'allow',
+        };
+        if (out && out.updatedInput && typeof out.updatedInput === 'object') {
+          hookSpecificOutput.updatedInput = out.updatedInput;
+        }
+        process.stdout.write(JSON.stringify({ hookSpecificOutput }));
       }
       process.exit(0);
     } catch (e) {

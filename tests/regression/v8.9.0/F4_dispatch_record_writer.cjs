@@ -348,8 +348,15 @@ liveTest('S4-5 [allow-good] no sentinel-state at all → does NOT block (ungover
   assert.notEqual(decisionOf(r), 'deny', 'absent state must never block — non-pipeline work stays free');
 });
 
-// ---- S4-6 [allow-good] valid governed → write proceeds, NO updatedInput -----
-liveTest('S4-6 [allow-good] valid governed state → write proceeds and hook emits NO updatedInput', (root) => {
+// ---- S4-6 [allow-good] valid governed → write proceeds + envelope updatedInput
+// SUPERSEDED 2026-06-21 (T12 / REQ-DISPATCH-ENVELOPE, v8.10.0): the v8.9.0 contract
+// DEFER'd envelope injection ("must NOT emit updatedInput"). Run 002 amends that
+// DEFER→IMPLEMENT: on the governed allow path with a string prompt the hook NOW emits
+// a prepend-once hookSpecificOutput.updatedInput (full coverage lives in T12). This
+// pin is updated to the new shipped contract — the record-write side effect is
+// unchanged (S4-1/S4-7 still pin it); here we assert the envelope is present and the
+// decision is still allow.
+liveTest('S4-6 [allow-good] valid governed state → write proceeds and hook emits the prepend-once envelope updatedInput (T12)', (root) => {
   assert.ok(hookExists(), `hook missing: ${HOOK} (expected RED)`);
   const { docDir } = seedSignedRun(root);
   const r = run(agentPayload(root, 'tu-valid'), { PIPELINE_DOC_PATH: docDir });
@@ -357,8 +364,12 @@ liveTest('S4-6 [allow-good] valid governed state → write proceeds and hook emi
   assert.notEqual(decisionOf(r), 'deny', 'valid governed state must not be blocked');
   const out = (() => { try { return JSON.parse(r.stdout || '{}'); } catch { return {}; } })();
   const hso = out.hookSpecificOutput || {};
-  assert.ok(!('updatedInput' in out) && !('updatedInput' in hso),
-    'the dispatch-envelope injection is DEFERRED — this task must NOT emit updatedInput');
+  const ui = out.updatedInput || hso.updatedInput;
+  assert.ok(ui && typeof ui === 'object',
+    'the governed allow path now emits updatedInput carrying the prepend-once [PIPELINE run=…] envelope (T12)');
+  assert.equal(ui.subagent_type, 'pipeline-orchestrator:executor:executor-implementer-task',
+    'updatedInput must carry every non-prompt tool_input field byte-identical (only prompt is rewritten)');
+  assert.match(String(ui.prompt), /^\[PIPELINE run=/, 'the rewritten prompt must start with one envelope header');
 });
 
 // ---- S4-7 [regression] state_version bumped by one --------------------------

@@ -1,5 +1,6 @@
 ---
 name: feature-vertical-slice-planner
+tools: Read, Grep, Glob, Write, Edit, Bash
 description: "Plans vertical slice architecture for Feature and User Story pipelines. Scopes slices, maps terrain, defines architecture approach."
 model: sonnet
 color: green

@@ -1,5 +1,6 @@
 ---
 name: bugfix-regression-tester
+tools: Read, Grep, Glob, Write, Bash
 description: "Post-fix sanity check and regression testing agent. Dispatched after the fix is implemented. Verifies symptom resolution, runs full test suite, creates regression tests, checks for adjacent breakage. MAY write test files. Triggers: receives ROOT_CAUSE_RESULT + implementation files from executor-implementer-task."
 model: haiku
 color: blue

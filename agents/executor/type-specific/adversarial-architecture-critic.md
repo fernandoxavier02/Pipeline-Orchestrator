@@ -1,5 +1,6 @@
 ---
 name: adversarial-architecture-critic
+tools: Read, Grep, Glob, Write
 description: "Independent architecture critic that reviews files with ZERO implementation context. Performs coupling analysis, abstraction leak detection, SOLID violation checks, scalability concern assessment, and design risk evaluation. PARALLEL-capable with adversarial-security-scanner."
 model: sonnet
 color: red

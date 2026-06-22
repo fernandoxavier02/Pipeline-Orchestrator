@@ -264,3 +264,35 @@ For each of the eight matrix-F rows, once a collector exists, drive the live sce
 | 12 | REQ-DEFER-MACHINE-EVIDENCE (GAP-03 matrix-F rows) | `requirements.md:125` |
 
 **Honesty rule (NFR-NO-PROSE-ENFORCEMENT, `requirements.md:171`):** record the literal command output for each PASS. A step is only "approved" with pasted evidence — never on the strength of this script's prose.
+
+---
+
+## RUN 002 — live confirmations for the newly-built (default-OFF) gates
+
+Each step CONFIRMS a fact the run-002 code builds against; each gates an ARMING decision. Run on an authenticated machine via `claude --plugin-dir .`.
+
+1. **SubagentStop fires + can block** — arm `PIPELINE_SUBAGENTSTOP_ENFORCEMENT=deny`, run a governed pipeline; make a governed agent return NO `=== PIPELINE_AGENT_RESULT_V1 ===` block. PASS = its completion is blocked with a corrective message; FAIL = it completes silently (then keep the hook default-OFF).
+2. **REQ-RESULT-EMIT emits live** — observe each of the 9 governed agents actually ends with a parseable result block in a real run (the arming precondition for #1).
+3. **agent_type correlation under parallel same-type** — spawn two same-type governed agents; confirm the commit hook never marks the still-running sibling committed (BL-1 fix) live.
+4. **updatedInput honored + parallel-hook precedence** — confirm the dispatch envelope reaches the spawned agent's prompt, and that a sibling PreToolUse:Agent deny still wins over this hook's updatedInput.
+5. **PostToolUse:Bash tool_output shape** — confirm real exit code + stdout are present in the field the machine-evidence collector reads.
+6. **Stop additionalContext key** — confirm `hookSpecificOutput.additionalContext` (vs top-level) is the key the harness feeds back to the model (the arming precondition for the Stop default-on flip).
+7. **green-close producer fires before close** — confirm `last_checkpoint_verdict` is written from real evidence before the close gate reads it (arming precondition for `PIPELINE_REQUIRE_GREEN_CLOSE=true`).
+8. **leaf-pin tool-sufficiency** — run each of the ~37 pinned agents; confirm none fails on a missing tool.
+
+Until each PASSES live, the corresponding gate stays default-OFF (the code is present and tested; arming waits for proof — fail-closed without deadlock).
+
+---
+
+## LIVE PROBE EXECUTED — RESULTS (2026-06-21, Claude Code 2.1.183, OAuth)
+
+Ran a minimal harness probe (a logging-only hook via `--settings`, no enforcement). Confirmed against the REAL installed runtime:
+
+- **PreToolUse (Agent + Bash) carries `tool_use_id`** ✓ → T12 envelope correlation VALID, arm-able.
+- **SubagentStop delivers `last_assistant_message` + `agent_id`** (no `tool_use_id`) ✓ → T13 commit point reads the right field, arm-able; correlate by agent_id/type (BL-1).
+- **Stop delivers `last_assistant_message`** ✓.
+- **FINDING — corrected the docs:** PostToolUse delivers the result in **`tool_response`**, NOT `tool_output`. And the Bash `tool_response` shape is `{stdout, stderr, interrupted, isImage, noOutputExpected}` — it carries **NO structured exit code**. The docs (and our T15/T20 first cut) were wrong.
+  - Fix shipped: `machine-evidence-hook.cjs` now reads `tool_response` (+ `tool_output` fallback) and captures `interrupted`; `exit_code` is honestly `null` (the harness exposes none — never fabricated).
+  - Fix shipped: `checkpoint-verdict-producer.cjs` re-scoped — derives the verdict from `interrupted` + the test runner's own stdout `Summary: P passed / F failed` line (and `build ok`), NOT a nonexistent exit code.
+- **Arming status:** T12 + T13 are confirmed-correct against the live harness (arm by setting `PIPELINE_SUBAGENTSTOP_ENFORCEMENT=deny` deliberately, in an observed governed run). T15 works narrower (no exit code). T20 green-close: with the repo's pre-existing env test failures present, the summary-line derivation conservatively yields 'fail' — so green-close stays default-OFF until those are cleared (correct strict-by-default behavior, no deadlock while OFF).
+- **Still unconfirmed (needs a full governed `--plugin-dir` run):** that arming T13 blocks a real non-conforming agent end-to-end, and the Stop `additionalContext` feedback key — both deferred.

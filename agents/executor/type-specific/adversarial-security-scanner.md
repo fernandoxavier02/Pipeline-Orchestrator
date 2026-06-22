@@ -1,5 +1,6 @@
 ---
 name: adversarial-security-scanner
+tools: Read, Grep, Glob, Write
 description: "Independent security scanner that reviews files with ZERO implementation context. Performs assumption analysis, malicious input testing, race condition detection, sensitive data exposure checks, and auth bypass attempts. PARALLEL-capable with adversarial-architecture-critic."
 model: sonnet
 color: red

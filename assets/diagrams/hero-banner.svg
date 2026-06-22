@@ -114,8 +114,7 @@
   </g>
 
   <!-- Title -->
-  <text x="600" y="172" text-anchor="middle" font-size="58" font-weight="800" fill="url(#title)" letter-spacing="3">PIPELINE ORCHESTRATOR</text>
-  <text x="600" y="172" text-anchor="middle" font-size="58" font-weight="800" fill="url(#shimmer)" letter-spacing="3">PIPELINE ORCHESTRATOR</text>
+  <text x="600" y="172" text-anchor="middle" font-size="58" font-weight="800" fill="#F0F6FC" letter-spacing="3">PIPELINE ORCHESTRATOR</text>
 
   <!-- Tagline -->
   <text x="600" y="214" text-anchor="middle" font-size="21" font-weight="500" fill="#C9D1D9" letter-spacing="0.6">The governance layer between your spec and your production code.</text>

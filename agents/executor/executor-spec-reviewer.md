@@ -1,5 +1,6 @@
 ---
 name: executor-spec-reviewer
+tools: Read, Grep, Glob
 description: "Per-task spec compliance reviewer subagent. Verifies implementation matches requirements. Does NOT trust the implementer's report. Part of the executor-controller pipeline."
 model: sonnet
 color: cyan

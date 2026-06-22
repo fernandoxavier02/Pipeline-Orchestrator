@@ -1,5 +1,6 @@
 ---
 name: audit-domain-analyzer
+tools: Read, Grep, Glob, Write, Bash
 description: "Audit domain analyzer agent. Performs architecture analysis, domain model mapping, SSOT verification, API contract compliance, and business rule extraction. READ-ONLY — produces DOMAIN_ANALYSIS report only."
 model: opus
 color: orange

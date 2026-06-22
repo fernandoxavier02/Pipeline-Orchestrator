@@ -1,5 +1,6 @@
 ---
 name: adversarial-quality-reviewer
+tools: Read, Grep, Glob, Write
 description: "Independent code-quality reviewer that reviews files with ZERO implementation context. Performs maintainability assessment, clarity analysis, testability check, dead-code detection, and naming/readability review. PARALLEL-capable with adversarial-security-scanner and adversarial-architecture-critic."
 model: sonnet
 color: red

@@ -1,5 +1,6 @@
 ---
 name: final-validator
+tools: Read, Grep, Glob, Write, Bash
 description: "Sixth and final pipeline agent (Pa de Cal). Consolidates results from all agents, applies proportional validation criteria, and issues final Go/No-Go decision. End of automated pipeline."
 model: sonnet
 color: magenta
@@ -323,3 +324,22 @@ PA_DE_CAL:
 ## Save Documentation
 
 Save to `{PIPELINE_DOC_PATH}/06-final.md` using the standard template.
+
+## Closing result block (REQ-RESULT-EMIT — MANDATORY)
+
+Your FINAL message MUST end with a single fenced `PIPELINE_AGENT_RESULT_V1` block so the
+SubagentStop commit point can confirm you closed on a real, parseable result (never on
+presence/absence heuristics).
+
+Rules: emit exactly ONE block as the last thing you output; use ONLY the parser's KNOWN
+governance keys (`status`, `summary`, `next_agent`, `findings`, `evidence`, `reason`,
+`detail`, `metrics`, `blocking`); `status` must be one of the closed vocabulary
+`completed | awaiting_user_gate | failed`. Your `agent_type` for correlation is this
+agent's frontmatter `name` (`final-validator`) — carry it in `detail` (the parser's key
+set is closed, so do not invent an `agent_type` key). Sample:
+
+```
+=== PIPELINE_AGENT_RESULT_V1 ===
+{ "status": "completed", "summary": "Go/No-Go issued (Pa de Cal); pipeline closed", "detail": "agent_type=final-validator" }
+=== END PIPELINE_AGENT_RESULT_V1 ===
+```

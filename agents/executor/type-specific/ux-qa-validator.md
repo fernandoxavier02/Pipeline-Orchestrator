@@ -1,5 +1,6 @@
 ---
 name: ux-qa-validator
+tools: Read, Grep, Glob, Write
 description: "UX QA validator agent. Consolidates findings from ux-simulator and ux-accessibility-auditor, tags severity, creates priority matrix and action items. READ-ONLY — never modifies production files."
 model: sonnet
 color: blue
