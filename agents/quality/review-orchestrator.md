@@ -1,5 +1,6 @@
 ---
 name: review-orchestrator
+tools: Read, Grep, Glob, Write, Agent
 description: "Per-batch review orchestrator. Spawns adversarial-batch and architecture-reviewer in PARALLEL with clean context. Consolidates findings. Spawned by pipeline.md, NOT by executor-controller — ensures zero context contamination from implementation."
 model: opus
 color: red
@@ -252,3 +253,22 @@ Return REVIEW_CONSOLIDATED. The pipeline.md handles fix dispatch (executor-fix) 
 ## SAVE DOCUMENTATION
 
 Save to `{PIPELINE_DOC_PATH}/04-review-batch-[N].md`
+
+## Closing result block (REQ-RESULT-EMIT — MANDATORY)
+
+Your FINAL message MUST end with a single fenced `PIPELINE_AGENT_RESULT_V1` block so the
+SubagentStop commit point can confirm you closed on a real, parseable result (never on
+presence/absence heuristics).
+
+Rules: emit exactly ONE block as the last thing you output; use ONLY the parser's KNOWN
+governance keys (`status`, `summary`, `next_agent`, `findings`, `evidence`, `reason`,
+`detail`, `metrics`, `blocking`); `status` must be one of the closed vocabulary
+`completed | awaiting_user_gate | failed`. Your `agent_type` for correlation is this
+agent's frontmatter `name` (`review-orchestrator`) — carry it in `detail` (the parser's
+key set is closed, so do not invent an `agent_type` key). Sample:
+
+```
+=== PIPELINE_AGENT_RESULT_V1 ===
+{ "status": "completed", "summary": "adversarial + architecture review consolidated; findings reported", "next_agent": "sanity-checker", "findings": [], "detail": "agent_type=review-orchestrator" }
+=== END PIPELINE_AGENT_RESULT_V1 ===
+```

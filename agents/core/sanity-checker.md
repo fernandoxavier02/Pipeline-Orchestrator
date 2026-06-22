@@ -1,5 +1,6 @@
 ---
 name: sanity-checker
+tools: Read, Grep, Glob, Write, Bash
 description: "Fifth pipeline agent. Runs proportional sanity checks - build only (SIMPLES), build+tests (MEDIA), build+tests+regression (COMPLEXA). Automatic flow to final-validator."
 model: haiku
 color: yellow
@@ -191,3 +192,22 @@ STATUS: AWAITING_DISPATCH_RESULTS
 - Wait for the corresponding response payload (`GATE_RESPONSES` / `PLAN_MODE_RESULTS` / `DISPATCH_RESULTS`) before continuing; do NOT proceed inline
 
 **Full protocol schema and audit trail format:** `references/gate-request-protocol.md`.
+
+## Closing result block (REQ-RESULT-EMIT — MANDATORY)
+
+Your FINAL message MUST end with a single fenced `PIPELINE_AGENT_RESULT_V1` block so the
+SubagentStop commit point can confirm you closed on a real, parseable result (never on
+presence/absence heuristics).
+
+Rules: emit exactly ONE block as the last thing you output; use ONLY the parser's KNOWN
+governance keys (`status`, `summary`, `next_agent`, `findings`, `evidence`, `reason`,
+`detail`, `metrics`, `blocking`); `status` must be one of the closed vocabulary
+`completed | awaiting_user_gate | failed`. Your `agent_type` for correlation is this
+agent's frontmatter `name` (`sanity-checker`) — carry it in `detail` (the parser's key
+set is closed, so do not invent an `agent_type` key). Sample:
+
+```
+=== PIPELINE_AGENT_RESULT_V1 ===
+{ "status": "completed", "summary": "proportional sanity checks green (build/tests/regression as applicable)", "next_agent": "final-validator", "detail": "agent_type=sanity-checker" }
+=== END PIPELINE_AGENT_RESULT_V1 ===
+```

@@ -1,5 +1,6 @@
 ---
 name: ux-simulator
+tools: Read, Grep, Glob, Write
 description: "UX Simulation agent. Creates persona matrix, simulates user journeys per persona, catalogs friction points. READ-ONLY — never modifies production files. PARALLEL-capable with ux-accessibility-auditor."
 model: sonnet
 color: green

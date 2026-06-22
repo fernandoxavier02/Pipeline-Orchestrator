@@ -81,3 +81,10 @@ Each row: the rule, why it matters, and its recommended target home.
 ## Recommendation
 
 **Defer the migration; do it as its own minimal-diff iteration, one rule at a time.** The highest-value move is **#1 (voice test)** — it is the most user-visible rule and the one most completely invisible to the installed plugin today; home it first into a shared reference plus the output-facing agents' frontmatter. **#2 (cache read-only)** is the highest-value *enforcement* move because it is fail-closeable as a hook in the existing `edit-guard` style. **#3 and #4** are lighter packaging/lockstep validators that can ride along. None of these should be bundled into the current enforcement-determinism correction — each is a separate, independently-reviewed change, consistent with NFR-MINIMAL-DIFF. Until then, these rules remain dev-doc guidance that the installed plugin does not enforce, which is the gap this recommendation names honestly.
+
+---
+
+## RUN 002 — newly buildable-DEFER items (follow-ups, each with its now-buildable path)
+- **Stop default-on flip** (REQ-DEFER-STOP-DEFAULT-ON): the recovery `additionalContext` ships; the flip needs a terminal-`completed` producer + live confirmation of the additionalContext key.
+- **DoD#7 evidence-block consumer**: the machine-evidence ledger (run 002) now exists; wiring a consumer that blocks on missing mandatory evidence via `evidenceRequired()` is the next layer.
+- **Parent-child authenticated identity**: still blocked — PreToolUse:Agent carries no spawning-agent identity; best-effort correlation ships.

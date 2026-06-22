@@ -1,5 +1,6 @@
 ---
 name: sentinel
+tools: Read, Grep, Glob, Write, Edit
 description: "Pipeline execution guardian. Validates phase sequence, orchestrator decisions, gate content, and cross-gate coherence. Blocks and auto-corrects deviations via pipeline controller. Never contaminated with implementation context."
 model: sonnet
 color: red

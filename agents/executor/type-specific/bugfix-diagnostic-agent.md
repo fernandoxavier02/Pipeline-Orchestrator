@@ -1,5 +1,6 @@
 ---
 name: bugfix-diagnostic-agent
+tools: Read, Grep, Glob, Write
 description: "Performs terrain reconnaissance and hypothesis ranking for Bug Fix pipelines. Dispatched by executor-controller when task_type is Bug Fix. Maps system architecture, traces end-to-end flow, generates ranked hypotheses. Does NOT write code. Triggers: 'bug fix', 'debug', 'investigate issue', 'diagnose problem', 'something is broken'."
 model: sonnet
 color: orange

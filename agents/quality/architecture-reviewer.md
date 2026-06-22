@@ -1,5 +1,6 @@
 ---
 name: architecture-reviewer
+tools: Read, Grep, Glob, Write
 description: "Per-batch architecture reviewer. Verifies code follows project patterns, uses existing abstractions, avoids semantic duplication, and respects naming conventions. Runs after executor-quality-reviewer in the batch flow. Loads project patterns from PROJECT_CONFIG."
 model: sonnet
 color: cyan

@@ -1,5 +1,6 @@
 ---
 name: final-adversarial-orchestrator
+tools: Read, Grep, Glob, Write, Agent
 description: "Final independent adversarial review orchestrator. Runs AFTER sanity-checker, BEFORE final-validator. Spawns 3 independent reviewers in parallel (security, architecture, quality) with ZERO prior context. Opt-in gate — user must authorize due to token cost. Recommended for all pipeline levels."
 model: opus
 color: red

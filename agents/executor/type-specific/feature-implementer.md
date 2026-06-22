@@ -1,5 +1,6 @@
 ---
 name: feature-implementer
+tools: Read, Grep, Glob, Write, Edit, Bash
 description: "Feature-aware implementation agent. Wraps executor-implementer-task with VSA constraints (per-slice TDD, minimal diff). Handles both Feature and User Story types."
 model: opus
 color: yellow

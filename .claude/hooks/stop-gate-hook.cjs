@@ -123,6 +123,35 @@ function nextActionReason(state) {
   );
 }
 
+// REQ-STOP-RECOVER (T14): the exact, reachable next action emitted as
+// hookSpecificOutput.additionalContext alongside the block reason. Names which
+// pending dispatch to resolve (if any) / which phase is incomplete, so the block is
+// a signal-and-recover (the user's intent), not a dead wall. Additive — the block
+// reason and the default-OFF arming are unchanged.
+function nextActionContext(state) {
+  const phase = (state && typeof state.current_phase === 'string') ? state.current_phase : 'the current phase';
+  let pendingNote = '';
+  try {
+    const pd = state && state.pending_dispatches && typeof state.pending_dispatches === 'object'
+      ? state.pending_dispatches : null;
+    if (pd) {
+      const open = Object.keys(pd).filter((k) => {
+        const rec = pd[k];
+        return rec && typeof rec === 'object' && rec.status !== 'committed' && rec.committed !== true;
+      });
+      if (open.length) {
+        pendingNote = ' Resolve the outstanding dispatch(es): ' + open.join(', ') + '.';
+      }
+    }
+  } catch { /* best-effort context */ }
+  return (
+    'Next action: resume the pipeline and complete the next pending step of ' + phase + '.' +
+    pendingNote +
+    ' If you truly want to end here, abort the run explicitly — the state stays recoverable. ' +
+    'Investigation and questions remain allowed.'
+  );
+}
+
 // Pure-ish decision (mutates state file on the cap path). Returns { decision }.
 function decide(payload) {
   if (!payload || typeof payload !== 'object') return { decision: 'allow' };
@@ -178,7 +207,7 @@ function decide(payload) {
     if (statePath) {
       persist(statePath, (st) => { st.continuity_attempts = thisAttempt; });
     }
-    return { decision: 'block', reason: nextActionReason(state) };
+    return { decision: 'block', reason: nextActionReason(state), additionalContext: nextActionContext(state) };
   }
 
   return { decision: 'allow' };
@@ -193,7 +222,16 @@ if (require.main === module) {
       const out = decide(payload);
       if (out && out.decision === 'block') {
         // A Stop hook signals a block via top-level `decision: "block"` + reason.
-        process.stdout.write(JSON.stringify({ decision: 'block', reason: out.reason }));
+        // REQ-STOP-RECOVER (T14): ALSO emit hookSpecificOutput.additionalContext —
+        // the exact reachable next action — so the block recovers instead of walling.
+        process.stdout.write(JSON.stringify({
+          decision: 'block',
+          reason: out.reason,
+          hookSpecificOutput: {
+            hookEventName: 'Stop',
+            additionalContext: out.additionalContext || '',
+          },
+        }));
       }
       process.exit(0);
     } catch (e) {

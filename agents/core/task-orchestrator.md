@@ -1,5 +1,6 @@
 ---
 name: task-orchestrator
+tools: Read, Grep, Glob, Write
 description: "Use this agent when ANY user request is received that needs structured execution. This is the MANDATORY entry point before any implementation work. Classifies task type (5 types), complexity (3 levels), spawns information-gate for gap detection, then presents pipeline proposal for user confirmation.\n\nExamples:\n\n<example>\nContext: User asks to fix a bug\nuser: \"Login is broken when using Google auth\"\nassistant: \"I'll use the task-orchestrator to classify this request before taking action.\"\n<commentary>\nNew user request - orchestrator MUST classify task type, severity, and select persona.\n</commentary>\n</example>\n\n<example>\nContext: User requests a new feature\nuser: \"Add a share button to the audio player\"\nassistant: \"I'll use the task-orchestrator to classify this feature request.\"\n<commentary>\nBefore implementing any feature, orchestrator classifies and routes to proper pipeline.\n</commentary>\n</example>\n\n<example>\nContext: User reports urgent production issue\nuser: \"URGENT: notifications stopped working in production\"\nassistant: \"I'll classify this as Bug Fix + COMPLEXA (production) and route to bugfix-heavy.\"\n<commentary>\nUrgent/production keywords elevate complexity, routing to heavy pipeline.\n</commentary>\n</example>"
 model: sonnet
 color: green
@@ -397,3 +398,22 @@ All subsequent agents save to the SAME folder.
 ## STOP RULE
 
 If build/test fails 2x -> STOP and analyze root cause before continuing.
+
+## Closing result block (REQ-RESULT-EMIT — MANDATORY)
+
+Your FINAL message MUST end with a single fenced `PIPELINE_AGENT_RESULT_V1` block so the
+SubagentStop commit point can confirm you closed on a real, parseable result (never on
+presence/absence heuristics). This is the producer the commit gate keys its arming on.
+
+Rules: emit exactly ONE block as the last thing you output; use ONLY the parser's KNOWN
+governance keys (`status`, `summary`, `next_agent`, `findings`, `evidence`, `reason`,
+`detail`, `metrics`, `blocking`); `status` must be one of the closed vocabulary
+`completed | awaiting_user_gate | failed`. Your `agent_type` for correlation is this
+agent's frontmatter `name` (`task-orchestrator`) — carry it in `detail` (the parser's key
+set is closed, so do not invent an `agent_type` key). Sample:
+
+```
+=== PIPELINE_AGENT_RESULT_V1 ===
+{ "status": "completed", "summary": "classification complete; pipeline proposal confirmed", "next_agent": "information-gate", "detail": "agent_type=task-orchestrator" }
+=== END PIPELINE_AGENT_RESULT_V1 ===
+```

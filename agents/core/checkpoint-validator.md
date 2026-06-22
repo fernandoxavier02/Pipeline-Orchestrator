@@ -1,5 +1,6 @@
 ---
 name: checkpoint-validator
+tools: Read, Grep, Glob, Write, Bash
 description: "Validates batch completion with build + test + optional regression. Runs after each batch in the executor phase. Enforces STOP RULE (2 consecutive failures = stop). Every claim requires command + actual output evidence."
 model: haiku
 color: blue

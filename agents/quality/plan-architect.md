@@ -1,5 +1,6 @@
 ---
 name: plan-architect
+tools: Read, Grep, Glob
 description: "Implementation planning agent. Requests Plan Mode (parent enters on its behalf) after proposal confirmation to research the codebase read-only and create a structured implementation plan. Auto for COMPLEXA, opt-in via --plan flag, skipped for SIMPLES. Presents plan to user for approval before execution begins."
 model: sonnet
 color: green
@@ -348,3 +349,22 @@ IMPLEMENTATION_PLAN:
 - **Output:** IMPLEMENTATION_PLAN with task order, file paths, and risk assessment
 - **Documentation:** Saves to `{PIPELINE_DOC_PATH}/01b-plan-architect.md`
 - **Tools required:** Read, Grep, Glob (read-only research). Plan-mode entry and user approval are delegated to the parent via the `PLAN_MODE_REQUEST` / `GATE_REQUEST` protocol blocks (`references/gate-request-protocol.md`) — the subagent emits the blocks, the parent owns the interactive surface.
+
+## Closing result block (REQ-RESULT-EMIT — MANDATORY)
+
+Your FINAL message MUST end with a single fenced `PIPELINE_AGENT_RESULT_V1` block so the
+SubagentStop commit point can confirm you closed on a real, parseable result (never on
+presence/absence heuristics).
+
+Rules: emit exactly ONE block as the last thing you output; use ONLY the parser's KNOWN
+governance keys (`status`, `summary`, `next_agent`, `findings`, `evidence`, `reason`,
+`detail`, `metrics`, `blocking`); `status` must be one of the closed vocabulary
+`completed | awaiting_user_gate | failed`. Your `agent_type` for correlation is this
+agent's frontmatter `name` (`plan-architect`) — carry it in `detail` (the parser's key
+set is closed, so do not invent an `agent_type` key). Sample:
+
+```
+=== PIPELINE_AGENT_RESULT_V1 ===
+{ "status": "completed", "summary": "implementation plan ready with task order and CHANGE_CONTRACT", "next_agent": "quality-gate-router", "detail": "agent_type=plan-architect" }
+=== END PIPELINE_AGENT_RESULT_V1 ===
+```

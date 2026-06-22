@@ -1,5 +1,6 @@
 ---
 name: adversarial-review-coordinator
+tools: Read, Grep, Glob, Write, Agent
 description: "Coordinates adversarial review by dispatching security scanner and architecture critic in parallel. Supports two modes: review-only (report, no code) and fix mode (report + fixes for critical/high findings)."
 model: opus
 color: red

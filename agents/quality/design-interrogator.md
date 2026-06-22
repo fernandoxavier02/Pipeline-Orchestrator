@@ -1,5 +1,6 @@
 ---
 name: design-interrogator
+tools: Read, Grep, Glob
 description: "Design interrogation agent. Runs after information-gate for COMPLEXA tasks (or when --grill flag is used). Walks the design decision tree relentlessly, resolving trade-offs one-by-one before implementation begins. Provides recommended answer for each question. Explores the codebase to self-answer questions when possible."
 model: sonnet
 color: yellow

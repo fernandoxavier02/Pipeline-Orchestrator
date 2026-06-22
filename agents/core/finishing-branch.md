@@ -1,5 +1,6 @@
 ---
 name: finishing-branch
+tools: Read, Grep, Glob, Write, Bash
 description: "Optional post-validation agent. Presents structured options to finalize work on a branch (merge/PR/keep/discard). Only activated when pipeline worked on a branch."
 model: sonnet
 color: green

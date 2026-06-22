@@ -1,5 +1,6 @@
 ---
 name: audit-intake
+tools: Read, Grep, Glob, Write, Bash
 description: "Audit intake agent. Performs technology stack identification, repository mapping, entry point enumeration, hotspot detection, and evidence classification setup. READ-ONLY — produces AuditIntake report only."
 model: sonnet
 color: green

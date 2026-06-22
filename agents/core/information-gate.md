@@ -1,5 +1,6 @@
 ---
 name: information-gate
+tools: Read, Grep, Glob
 description: "Defense-in-depth macro-gate. Runs after classification, before pipeline selection. Detects information gaps using conditional logic per task type. BLOCKS pipeline until all critical gaps resolved. Ask ONE question at a time."
 model: sonnet
 color: yellow
@@ -272,3 +273,22 @@ These questions are ADDED when the classification identifies these domains:
 - **Question bank:** `references/gates/macro-gate-questions.md`
 - **Output:** INFORMATION_GATE decision passed to pipeline command
 - **Complement:** Works with micro-gate (per-task) in executor-implementer-task
+
+## Closing result block (REQ-RESULT-EMIT — MANDATORY)
+
+Your FINAL message MUST end with a single fenced `PIPELINE_AGENT_RESULT_V1` block so the
+SubagentStop commit point can confirm you closed on a real, parseable result (never on
+presence/absence heuristics).
+
+Rules: emit exactly ONE block as the last thing you output; use ONLY the parser's KNOWN
+governance keys (`status`, `summary`, `next_agent`, `findings`, `evidence`, `reason`,
+`detail`, `metrics`, `blocking`); `status` must be one of the closed vocabulary
+`completed | awaiting_user_gate | failed`. Your `agent_type` for correlation is this
+agent's frontmatter `name` (`information-gate`) — carry it in `detail` (the parser's key
+set is closed, so do not invent an `agent_type` key). Sample:
+
+```
+=== PIPELINE_AGENT_RESULT_V1 ===
+{ "status": "completed", "summary": "no critical information gaps remain; pipeline may proceed", "detail": "agent_type=information-gate" }
+=== END PIPELINE_AGENT_RESULT_V1 ===
+```

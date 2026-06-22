@@ -1,5 +1,6 @@
 ---
 name: audit-compliance-checker
+tools: Read, Grep, Glob, Write, Bash
 description: "Audit compliance checker agent. Performs data integrity assessment, security pattern review, governance check, and test coverage analysis. READ-ONLY — produces COMPLIANCE_REPORT only."
 model: sonnet
 color: orange
