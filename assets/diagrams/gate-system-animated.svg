@@ -30,7 +30,7 @@
   <!-- Counter -->
   <g transform="translate(640,124)">
     <rect x="-150" y="-26" width="300" height="52" rx="14" fill="#1a1228" stroke="#7C3AED" stroke-width="2" filter="url(#gsoft)"/>
-    <text x="0" y="7" text-anchor="middle" font-size="26" font-weight="800" fill="url(#gcount)" letter-spacing="1">49 GATES · 5 LEVELS</text>
+    <text x="0" y="7" text-anchor="middle" font-size="26" font-weight="800" fill="#C4B5FD" letter-spacing="1">49 GATES · 5 LEVELS</text>
   </g>
 
   <!-- Pyramid: 5 tiers, clean (name + behavior word only) -->
