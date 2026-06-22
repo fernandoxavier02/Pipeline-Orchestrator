@@ -140,7 +140,7 @@ function buildEnvelopedPrompt(originalPrompt, fields) {
   if (lines.length > 0 && /^\[PIPELINE run=/.test(lines[0])) {
     lines.shift();
   }
-  const sanitize = (v) => String(v == null ? '' : v).replace(/[\r\n\]]/g, ' ').trim();
+  const sanitize = (v) => String(v == null ? '' : v).replace(/[\r\n[\]]/g, ' ').trim().slice(0, 256);
   const header =
     `[PIPELINE run=${sanitize(fields.run_id)} dispatch=${sanitize(fields.dispatch_id)} ` +
     `phase=${sanitize(fields.phase)} step=${sanitize(fields.step)} evidence=${sanitize(fields.evidence)}]`;

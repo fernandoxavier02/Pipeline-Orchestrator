@@ -142,7 +142,7 @@ function collect(payload) {
     evidence_id: evidenceId,
     run_id: typeof state.run_id === 'string' ? state.run_id : null,
     tool_name: toolName,
-    command: command.replace(/\r?\n/g, ' ').trim(),
+    command: command.replace(/\r?\n/g, ' ').trim().slice(0, 4096),
     exit_code: exitCode,
     stdout: stdoutT.value,
     stderr: stderrT.value,

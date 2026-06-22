@@ -62,7 +62,7 @@ function isTerminalState(value) {
 // Does the run still have outstanding pending dispatches?
 function hasPendingDispatches(state) {
   const pd = state && state.pending_dispatches;
-  return !!(pd && typeof pd === 'object' && Object.keys(pd).length > 0);
+  return !!(pd && typeof pd === 'object' && Object.values(pd).some((r) => r && typeof r === 'object' && r.status !== 'committed' && r.committed !== true));
 }
 
 // Is the run complete (a terminal state already persisted)?
