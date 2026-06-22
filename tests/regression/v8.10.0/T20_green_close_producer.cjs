@@ -142,7 +142,7 @@ liveTest('T20-S1 [main] checkpoint over evidence exit 0 → producer writes last
   const fn = producerFn(loadProducer());
   assert.ok(fn, 'the producer module must export a callable that derives + writes the verdict from evidence');
   // Evidence with a real exit code 0 (sourced from the machine-evidence ledger shape).
-  fn(docDir, { exit_code: 0, command: 'npm test', evidence_id: 'tu-ok' });
+  fn(docDir, { stdout: 'Summary: 184 passed / 0 failed / 184 total', command: 'npm test', evidence_id: 'tu-ok' });
   const after = readState(statePath) || {};
   assert.equal(after.last_checkpoint_verdict, 'pass',
     'an exit-0 checkpoint must make the producer write last_checkpoint_verdict:"pass" (from the REAL exit code, not prose)');
@@ -154,7 +154,7 @@ liveTest('T20-S2 [main] checkpoint over evidence non-zero exit → producer writ
   const { docDir, statePath } = seedRun(root);
   const fn = producerFn(loadProducer());
   assert.ok(fn, 'the producer must export a callable');
-  fn(docDir, { exit_code: 1, command: 'npm test', evidence_id: 'tu-fail' });
+  fn(docDir, { stdout: 'Summary: 180 passed / 4 failed / 184 total', command: 'npm test', evidence_id: 'tu-fail' });
   const after = readState(statePath) || {};
   assert.equal(after.last_checkpoint_verdict, 'fail',
     'a non-zero exit checkpoint must make the producer write last_checkpoint_verdict:"fail"');
@@ -198,7 +198,7 @@ liveTest('T20-S4 [deny-bad] armed (PIPELINE_REQUIRE_GREEN_CLOSE) + last_checkpoi
   const { docDir, statePath } = seedRun(root);
   const fn = producerFn(loadProducer());
   if (fn) {
-    fn(docDir, { exit_code: 1, command: 'npm test', evidence_id: 'tu-fail' });
+    fn(docDir, { stdout: 'Summary: 180 passed / 4 failed / 184 total', command: 'npm test', evidence_id: 'tu-fail' });
   } else {
     // Producer not built yet → emulate the value it will write so the gate path is
     // exercised against the real field (this keeps S4 a GATE test, not a producer test;
@@ -222,7 +222,7 @@ liveTest('T20-S5 [allow-good] armed + last_checkpoint_verdict:"pass" → gate al
   const { docDir, statePath } = seedRun(root);
   const fn = producerFn(loadProducer());
   if (fn) {
-    fn(docDir, { exit_code: 0, command: 'npm test', evidence_id: 'tu-ok' });
+    fn(docDir, { stdout: 'Summary: 184 passed / 0 failed / 184 total', command: 'npm test', evidence_id: 'tu-ok' });
   } else {
     const st = readState(statePath);
     writeSignedState(statePath, Object.assign({}, st, { last_checkpoint_verdict: 'pass', state_version: (st.state_version || 1) + 1 }));

@@ -76,19 +76,25 @@ function run(payload, env) {
   });
 }
 
-// A PostToolUse:Bash payload. tool_output carries the documented exit_code/stdout/stderr.
+// A PostToolUse:Bash payload. LIVE-PROBE FINDING (2026-06-21): the REAL field is
+// `tool_response` (NOT the docs' `tool_output`), and its Bash shape is
+// {stdout, stderr, interrupted, isImage, noOutputExpected} — it carries NO structured
+// exit code. `interrupted` is the deterministic failure signal. opts.exit_code is only
+// injected to exercise the forward-compat fallback (a future harness that DOES expose it).
 function bashPayload(root, opts) {
   const o = opts || {};
+  const tr = {
+    stdout: o.stdout === undefined ? '' : o.stdout,
+    stderr: o.stderr === undefined ? '' : o.stderr,
+    interrupted: o.interrupted === true,
+  };
+  if (o.exit_code !== undefined) tr.exit_code = o.exit_code; // fallback-only
   return {
     hook_event_name: 'PostToolUse',
     tool_name: o.tool_name || 'Bash',
     tool_use_id: o.tool_use_id === undefined ? 'tu-evidence' : o.tool_use_id,
     tool_input: { command: o.command || 'echo hi' },
-    tool_output: {
-      exit_code: o.exit_code === undefined ? 0 : o.exit_code,
-      stdout: o.stdout === undefined ? '' : o.stdout,
-      stderr: o.stderr === undefined ? '' : o.stderr,
-    },
+    tool_response: tr,
     cwd: root,
   };
 }
@@ -162,28 +168,31 @@ function liveTest(name, fn) {
 
 console.log('=== T15 v8.10.0 — machine-evidence collector (RED until .claude/hooks/machine-evidence-hook.cjs ships) ===');
 
-// ---- T15-S1 [main] exit code 0 recorded exactly ----------------------------
-liveTest('T15-S1 [main] governed Bash exit 0 → ledger entry records exit_code === 0', (root) => {
+// ---- T15-S1 [main] real Bash response → entry written, stdout captured, exit_code null
+liveTest('T15-S1 [main] governed Bash → ledger entry written + stdout captured; exit_code null (harness exposes none — live-probe confirmed)', (root) => {
   assert.ok(hookExists(), `hook missing: ${HOOK} (expected RED — collector not built yet)`);
   const { docDir } = seedRun(root);
-  const r = run(bashPayload(root, { tool_use_id: 'tu-ok', command: 'npm test', exit_code: 0, stdout: 'all good' }),
+  const r = run(bashPayload(root, { tool_use_id: 'tu-ok', command: 'npm test', stdout: 'all good' }),
     { PIPELINE_DOC_PATH: docDir });
   assert.equal(r.status, 0, r.stderr);
   const entry = findEvidenceEntry(docDir, 'tu-ok');
   assert.ok(entry, 'an evidence ledger entry keyed by the evidence_id must be written');
-  assert.strictEqual(entry.exit_code, 0, 'exit_code must be recorded as exactly 0');
+  assert.ok(typeof entry.stdout === 'string' && entry.stdout.includes('all good'), 'stdout must be captured from tool_response');
+  assert.strictEqual(entry.exit_code, null,
+    'exit_code MUST be null — the real Bash tool_response carries no structured exit code (live-probe 2026-06-21); never fabricate 0');
 });
 
-// ---- T15-S2 [main] non-zero exit code recorded exactly ----------------------
-liveTest('T15-S2 [main] governed Bash exit 1 → ledger entry records the actual non-zero code (not a default/zero/null)', (root) => {
+// ---- T15-S2 [main] interrupted is the real failure signal -------------------
+liveTest('T15-S2 [main] interrupted command → interrupted:true captured (the deterministic failure signal the harness DOES expose)', (root) => {
   assert.ok(hookExists(), `hook missing: ${HOOK}`);
   const { docDir } = seedRun(root);
-  const r = run(bashPayload(root, { tool_use_id: 'tu-fail', command: 'npm test', exit_code: 1, stderr: 'boom' }),
+  const r = run(bashPayload(root, { tool_use_id: 'tu-int', command: 'npm test', interrupted: true, stderr: 'boom' }),
     { PIPELINE_DOC_PATH: docDir });
   assert.equal(r.status, 0, r.stderr);
-  const entry = findEvidenceEntry(docDir, 'tu-fail');
-  assert.ok(entry, 'an evidence ledger entry must be written for the failing command');
-  assert.strictEqual(entry.exit_code, 1, 'exit_code must be the ACTUAL non-zero code — never defaulted to 0 or null');
+  const entry = findEvidenceEntry(docDir, 'tu-int');
+  assert.ok(entry, 'an evidence ledger entry must be written for the interrupted command');
+  assert.strictEqual(entry.interrupted, true,
+    'interrupted:true must be captured — with no exit code, this is the real deterministic failure signal in tool_response');
 });
 
 // ---- T15-S3 [main] git command → changed_files + git_observed:true ----------

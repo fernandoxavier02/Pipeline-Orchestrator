@@ -120,8 +120,16 @@ function collect(payload) {
 
   const ti = payload.tool_input && typeof payload.tool_input === 'object' ? payload.tool_input : {};
   const command = typeof ti.command === 'string' ? ti.command : '';
-  const exitCode = readExitCode(payload.tool_output);
-  const outRaw = payload.tool_output && typeof payload.tool_output === 'object' ? payload.tool_output : {};
+  // LIVE-PROBE FINDING (2026-06-21): the REAL PostToolUse field is `tool_response`,
+  // NOT the docs' `tool_output`; and the Bash tool_response shape is
+  // {stdout, stderr, interrupted, isImage, noOutputExpected} — it carries NO
+  // structured exit code. So exit_code stays best-effort-null (never fabricated to 0),
+  // and `interrupted` is the deterministic failure signal the harness DOES expose.
+  const outRaw = payload.tool_response && typeof payload.tool_response === 'object'
+    ? payload.tool_response
+    : (payload.tool_output && typeof payload.tool_output === 'object' ? payload.tool_output : {});
+  const exitCode = readExitCode(outRaw);
+  const interrupted = outRaw.interrupted === true;
   const stdoutT = truncateStream(outRaw.stdout);
   const stderrT = truncateStream(outRaw.stderr);
 
@@ -139,6 +147,7 @@ function collect(payload) {
     stdout: stdoutT.value,
     stderr: stderrT.value,
     truncated: stdoutT.truncated || stderrT.truncated,
+    interrupted: interrupted,
     git_observed: git,
     changed_files: git ? parseChangedFiles(outRaw.stdout) : [],
     recorded_at: new Date().toISOString(),
