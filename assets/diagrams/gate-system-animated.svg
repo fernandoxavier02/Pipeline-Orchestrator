@@ -1,84 +1,107 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 620" width="100%" font-family="'Segoe UI', Inter, system-ui, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 720" width="100%" font-family="'Segoe UI', Inter, system-ui, -apple-system, sans-serif">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+    <linearGradient id="gbg" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0%" stop-color="#0d1117"/>
       <stop offset="100%" stop-color="#0a0e1a"/>
     </linearGradient>
-    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+    <radialGradient id="gorb" cx="50%" cy="30%" r="55%">
+      <stop offset="0%" stop-color="#7C3AED" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#7C3AED" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="ggrid" width="40" height="40" patternUnits="userSpaceOnUse">
       <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#30363d" stroke-width="0.5" opacity="0.22"/>
     </pattern>
-    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+    <linearGradient id="gcount" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#A78BFA"/><stop offset="100%" stop-color="#F0ABFC"/>
+    </linearGradient>
+    <filter id="gsoft" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#000" flood-opacity="0.6"/>
-    </filter>
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="3" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>
   </defs>
 
-  <rect width="1280" height="620" fill="url(#bg)" rx="14"/>
-  <rect width="1280" height="620" fill="url(#grid)" rx="14"/>
+  <rect width="1280" height="720" fill="url(#gbg)" rx="14"/>
+  <rect width="1280" height="720" fill="url(#gorb)" rx="14"/>
+  <rect width="1280" height="720" fill="url(#ggrid)" rx="14"/>
 
   <!-- Title -->
-  <text x="640" y="54" text-anchor="middle" fill="#F0F6FC" font-size="34" font-weight="800" letter-spacing="0.5">The Gate System — 49 Checkpoints</text>
-  <text x="640" y="86" text-anchor="middle" fill="#8B949E" font-size="17">Every phase transition crosses a gate. Five hardness levels define whether it blocks, asks, or merely records.</text>
+  <text x="640" y="50" text-anchor="middle" fill="#F0F6FC" font-size="30" font-weight="800" letter-spacing="0.4">The Gate System — 49 Checkpoints</text>
+  <text x="640" y="78" text-anchor="middle" fill="#8B949E" font-size="15">Every phase transition crosses a gate. Five hardness levels decide whether it blocks, asks, or merely records.</text>
 
-  <!-- Big counter -->
-  <g transform="translate(640,150)">
-    <rect x="-110" y="-34" width="220" height="68" rx="16" fill="#1a1228" stroke="#7C3AED" stroke-width="2" filter="url(#soft)"/>
-    <text x="0" y="6" text-anchor="middle" font-size="34" font-weight="800" fill="url(#tg)" letter-spacing="1">49 GATES</text>
-    <defs><linearGradient id="tg" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#A78BFA"/><stop offset="100%" stop-color="#F0ABFC"/></linearGradient></defs>
+  <!-- Counter -->
+  <g transform="translate(640,124)">
+    <rect x="-150" y="-26" width="300" height="52" rx="14" fill="#1a1228" stroke="#7C3AED" stroke-width="2" filter="url(#gsoft)"/>
+    <text x="0" y="7" text-anchor="middle" font-size="26" font-weight="800" fill="url(#gcount)" letter-spacing="1">49 GATES · 5 LEVELS</text>
   </g>
 
-  <!-- Severity pyramid (5 tiers, narrowing) -->
-  <!-- Tier widths decrease; all centered at x=640 -->
-  <g filter="url(#soft)">
-    <!-- MANDATORY (top, hardest) -->
-    <rect x="440" y="206" width="400" height="56" rx="8" fill="#2a1018" stroke="#EF4444" stroke-width="2">
-      <animate attributeName="stroke-width" values="2;3;2" dur="4s" repeatCount="indefinite"/>
-    </rect>
-    <!-- HARD -->
-    <rect x="370" y="270" width="540" height="56" rx="8" fill="#231b06" stroke="#F59E0B" stroke-width="2"/>
-    <!-- CIRCUIT_BREAKER -->
-    <rect x="300" y="334" width="680" height="56" rx="8" fill="#2a1018" stroke="#F97316" stroke-width="2"/>
-    <!-- SOFT -->
-    <rect x="230" y="398" width="820" height="56" rx="8" fill="#0c2117" stroke="#22C55E" stroke-width="2"/>
-    <!-- AUDIT -->
-    <rect x="160" y="462" width="960" height="56" rx="8" fill="#0c1a2e" stroke="#0EA5E9" stroke-width="2"/>
+  <!-- Pyramid: 5 tiers, clean (name + behavior word only) -->
+  <g filter="url(#gsoft)">
+    <rect x="490" y="174" width="300" height="54" rx="8" fill="#2a1018" stroke="#EF4444" stroke-width="2"/>
+    <rect x="420" y="234" width="440" height="54" rx="8" fill="#231b06" stroke="#F59E0B" stroke-width="2"/>
+    <rect x="350" y="294" width="580" height="54" rx="8" fill="#2a1018" stroke="#F97316" stroke-width="2"/>
+    <rect x="280" y="354" width="720" height="54" rx="8" fill="#0c2117" stroke="#22C55E" stroke-width="2"/>
+    <rect x="210" y="414" width="860" height="54" rx="8" fill="#0c1a2e" stroke="#0EA5E9" stroke-width="2"/>
   </g>
+  <text text-anchor="middle">
+    <text x="640" y="199" fill="#F87171" font-size="17" font-weight="800" letter-spacing="2">MANDATORY</text>
+    <text x="640" y="219" fill="#FCA5A5" font-size="11" letter-spacing="1.5">ALWAYS BLOCKS · not even --hotfix bypasses</text>
 
-  <!-- Tier labels + behavior -->
-  <g text-anchor="middle">
-    <text x="640" y="230" fill="#F87171" font-size="16" font-weight="800" letter-spacing="1.5">MANDATORY</text>
-    <text x="640" y="250" fill="#FCA5A5" font-size="12.5">never bypassed — not even by --hotfix · structural integrity + domain-mandated security</text>
+    <text x="640" y="259" fill="#FBBF24" font-size="17" font-weight="800" letter-spacing="2">HARD</text>
+    <text x="640" y="279" fill="#FCD34D" font-size="11" letter-spacing="1.5">BLOCKS UNTIL RESOLVED · answer · approve · fix</text>
 
-    <text x="640" y="294" fill="#FBBF24" font-size="16" font-weight="800" letter-spacing="1.5">HARD</text>
-    <text x="640" y="314" fill="#FCD34D" font-size="12.5">blocks until resolved · clear resolution path (answer, approve, fix)</text>
+    <text x="640" y="319" fill="#FB923C" font-size="17" font-weight="800" letter-spacing="2">CIRCUIT_BREAKER</text>
+    <text x="640" y="339" fill="#FDBA74" font-size="11" letter-spacing="1.5">HALTS AFTER N FAILURES · needs explicit reset</text>
 
-    <text x="640" y="358" fill="#FB923C" font-size="16" font-weight="800" letter-spacing="1.5">CIRCUIT_BREAKER</text>
-    <text x="640" y="378" fill="#FDBA74" font-size="12.5">halts after N consecutive failures · requires explicit reset</text>
+    <text x="640" y="379" fill="#34D399" font-size="17" font-weight="800" letter-spacing="2">SOFT</text>
+    <text x="640" y="399" fill="#6EE7B7" font-size="11" letter-spacing="1.5">RECOMMENDED · skippable with logged ack · confidence penalty</text>
 
-    <text x="640" y="422" fill="#34D399" font-size="16" font-weight="800" letter-spacing="1.5">SOFT</text>
-    <text x="640" y="442" fill="#6EE7B7" font-size="12.5">recommended · skippable with explicit ack (logged, confidence penalty)</text>
+    <text x="640" y="439" fill="#38BDF8" font-size="17" font-weight="800" letter-spacing="2">AUDIT</text>
+    <text x="640" y="459" fill="#7DD3FC" font-size="11" letter-spacing="1.5">RECORDS ONLY · never blocks · first-class audit-trail row</text>
+  </text>
 
-    <text x="640" y="486" fill="#38BDF8" font-size="16" font-weight="800" letter-spacing="1.5">AUDIT</text>
-    <text x="640" y="506" fill="#7DD3FC" font-size="12.5">informational telemetry · never blocks · first-class audit-trail row</text>
-  </g>
-
-  <!-- Footer: deterministic enforcement note -->
-  <g transform="translate(640,548)">
-    <rect x="-560" y="0" width="1120" height="48" rx="10" fill="#161b22" stroke="#30363d" stroke-width="1"/>
-    <circle cx="-528" cy="24" r="6" fill="#A78BFA">
+  <!-- Deterministic DENY band (v8.5-v8.9) -->
+  <g transform="translate(640,520)">
+    <rect x="-590" y="-4" width="1180" height="44" rx="10" fill="#161b22" stroke="#7C3AED" stroke-width="1.2" filter="url(#gsoft)"/>
+    <circle cx="-556" cy="18" r="6" fill="#A78BFA">
       <animate attributeName="opacity" values="0.4;1;0.4" dur="2.2s" repeatCount="indefinite"/>
     </circle>
-    <text x="-510" y="29" fill="#C9D1D9" font-size="14" font-weight="600">v8.5–v8.9: prompt-only flow rules are now deterministic DENY gates — the agent physically cannot advance past a red build, an unresolved info gap, or a NO-GO.</text>
+    <text x="-540" y="23" fill="#C9D1D9" font-size="13.5" font-weight="700">Deterministic DENY gates · v8.5–v8.9</text>
+    <text x="-200" y="23" fill="#8B949E" font-size="12.5">prompt-only rules are now code-enforced</text>
   </g>
 
-  <!-- Corner accents -->
-  <g stroke="#7C3AED" stroke-width="2" fill="none" opacity="0.55">
-    <path d="M 24 24 L 24 56 M 24 24 L 56 24"/>
-    <path d="M 1256 24 L 1256 56 M 1256 24 L 1224 24"/>
-    <path d="M 24 596 L 24 564 M 24 596 L 56 596"/>
-    <path d="M 1256 596 L 1256 564 M 1256 596 L 1224 596"/>
+  <!-- 4 concrete DENY chips -->
+  <g font-family="'Segoe UI', Inter, system-ui, sans-serif">
+    <g transform="translate(190,608)" filter="url(#gsoft)">
+      <rect x="-110" y="-26" width="220" height="56" rx="10" fill="#2a1018" stroke="#EF4444" stroke-width="1.4"/>
+      <text x="0" y="-4" text-anchor="middle" fill="#F87171" font-size="13" font-weight="800">RED BUILD</text>
+      <text x="0" y="14" text-anchor="middle" fill="#FCA5A5" font-size="11">cannot advance on failing build</text>
+    </g>
+    <g transform="translate(490,608)" filter="url(#gsoft)">
+      <rect x="-110" y="-26" width="220" height="56" rx="10" fill="#231b06" stroke="#F59E0B" stroke-width="1.4"/>
+      <text x="0" y="-4" text-anchor="middle" fill="#FBBF24" font-size="13" font-weight="800">STOP RULE</text>
+      <text x="0" y="14" text-anchor="middle" fill="#FCD34D" font-size="11">2 consecutive fails = halt</text>
+    </g>
+    <g transform="translate(790,608)" filter="url(#gsoft)">
+      <rect x="-110" y="-26" width="220" height="56" rx="10" fill="#2a1018" stroke="#EF4444" stroke-width="1.4"/>
+      <text x="0" y="-4" text-anchor="middle" fill="#F87171" font-size="13" font-weight="800">SENSITIVE DOMAIN</text>
+      <text x="0" y="14" text-anchor="middle" fill="#FCA5A5" font-size="11">auth · crypto · payment · data</text>
+    </g>
+    <g transform="translate(1090,608)" filter="url(#gsoft)">
+      <rect x="-110" y="-26" width="220" height="56" rx="10" fill="#2a1018" stroke="#EF4444" stroke-width="1.4"/>
+      <text x="0" y="-4" text-anchor="middle" fill="#F87171" font-size="13" font-weight="800">PHASE VERDICT</text>
+      <text x="0" y="14" text-anchor="middle" fill="#FCA5A5" font-size="11">NO-GO · bad plan · open critical</text>
+    </g>
+  </g>
+
+  <!-- Footer note (shortened) -->
+  <g transform="translate(640,680)">
+    <text x="0" y="0" text-anchor="middle" fill="#8B949E" font-size="12">Full registry in references/gates.md · the mandatory-gates table is pinned by a regression test so docs cannot drift from code.</text>
+  </g>
+
+  <!-- corner accents -->
+  <g stroke="#7C3AED" stroke-width="2" fill="none" opacity="0.5">
+    <path d="M 22 22 L 22 50 M 22 22 L 50 22"/>
+    <path d="M 1258 22 L 1258 50 M 1258 22 L 1230 22"/>
+    <path d="M 22 698 L 22 670 M 22 698 L 50 698"/>
+    <path d="M 1258 698 L 1258 670 M 1258 698 L 1230 698"/>
   </g>
 </svg>

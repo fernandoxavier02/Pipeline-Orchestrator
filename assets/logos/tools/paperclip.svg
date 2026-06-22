@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img"
+     aria-label="Paperclip"><title>Paperclip</title>
+  <defs>
+    <linearGradient id="pcGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#A78BFA"/>
+      <stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#pcGrad)" d="M5.5 18.5a1 1 0 0 1-.7-.29l-.05-.05C2.9 16.27 2.9 12.83 4.78 10.95l8.49-8.49a4.25 4.25 0 0 1 6.01 6.01l-8.49 8.49a1.5 1.5 0 1 1-2.12-2.12l8.49-8.49a1.25 1.25 0 1 0-1.77-1.77l-8.49 8.49c-1.04 1.04-1.04 2.73 0 3.77a1 1 0 0 1-.04 1.46 1 1 0 0 1-.86.45Z"/>
+</svg>
