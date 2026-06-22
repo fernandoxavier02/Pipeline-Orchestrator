@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 300" width="100%" font-family="'Segoe UI', Inter, system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="ebg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/>
+      <stop offset="100%" stop-color="#0a0e1a"/>
+    </linearGradient>
+    <radialGradient id="eorb" cx="50%" cy="38%" r="62%">
+      <stop offset="0%" stop-color="#7C3AED" stop-opacity="0.26"/>
+      <stop offset="100%" stop-color="#7C3AED" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="egrid" width="36" height="36" patternUnits="userSpaceOnUse">
+      <path d="M 36 0 L 0 0 0 36" fill="none" stroke="#30363d" stroke-width="0.5" opacity="0.22"/>
+    </pattern>
+    <linearGradient id="pcG" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#C4B5FD"/><stop offset="100%" stop-color="#7C3AED"/>
+    </linearGradient>
+    <linearGradient id="lfA" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#F02E5E"/><stop offset="100%" stop-color="#FF7B43"/>
+    </linearGradient>
+    <linearGradient id="lfB" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7B5BFF"/><stop offset="100%" stop-color="#3DA9FC"/>
+    </linearGradient>
+    <filter id="esoft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="300" fill="url(#ebg)" rx="14"/>
+  <rect width="1280" height="300" fill="url(#eorb)" rx="14"/>
+  <rect width="1280" height="300" fill="url(#egrid)" rx="14"/>
+
+  <text x="640" y="44" text-anchor="middle" fill="#F0F6FC" font-size="23" font-weight="800" letter-spacing="0.4">Runs on the tools you already use</text>
+  <text x="640" y="68" text-anchor="middle" fill="#8B949E" font-size="13.5">One governance layer · three AI coding surfaces · live observability · autonomous runtime</text>
+
+  <!-- 5 cards, centers 160 / 400 / 640 / 880 / 1120, card 200 wide x 150 tall, vertical layout -->
+  <text text-anchor="middle">
+    <!-- CARD 1: Claude Code -->
+    <g transform="translate(160,150)" filter="url(#esoft)">
+      <rect x="-100" y="-60" width="200" height="150" rx="14" fill="#161b22" stroke="#7C3AED" stroke-width="1.5"/>
+    </g>
+    <g transform="translate(160,150)">
+      <g transform="translate(-20,-50) scale(1.7)" fill="#F0F6FC">
+        <path d="M17.3 3.5h-3.7l6.7 16.9H24Zm-10.6 0L0 20.5h3.7l1.4-3.6h7l1.4 3.6h3.7L10.5 3.5Zm-.4 10.2 2.3-5.9 2.3 5.9Z"/>
+      </g>
+      <text x="0" y="2" fill="#F0F6FC" font-size="16" font-weight="800">Claude Code</text>
+      <text x="0" y="24" fill="#A78BFA" font-size="11.5" font-weight="600">Primary surface</text>
+      <text x="0" y="44" fill="#8B949E" font-size="10.5">agents · skills · hooks</text>
+      <text x="0" y="64" fill="#8B949E" font-size="10.5">28 enforcement hooks</text>
+    </g>
+
+    <!-- CARD 2: Cursor -->
+    <g transform="translate(400,150)" filter="url(#esoft)">
+      <rect x="-100" y="-60" width="200" height="150" rx="14" fill="#161b22" stroke="#0EA5E9" stroke-width="1.5"/>
+    </g>
+    <g transform="translate(400,150)">
+      <g transform="translate(-20,-50) scale(1.7)" fill="#F0F6FC">
+        <path d="M11.5.1 1.9 5.7a.8.8 0 0 0-.4.7v11.2c0 .3.2.6.4.7l9.6 5.6a1 1 0 0 0 1 0l9.6-5.6a.8.8 0 0 0 .4-.7V6.4a.8.8 0 0 0-.4-.7L12.5.1a1 1 0 0 0-1 0M2.7 6.3h18.5c.3 0 .4.3.3.5L12.2 22.9c-.1.1-.2.1-.2-.1v-10.5a.6.6 0 0 0-.3-.5l-9.1-5.3c-.1 0-.1-.2.1-.2"/>
+      </g>
+      <text x="0" y="2" fill="#F0F6FC" font-size="16" font-weight="800">Cursor</text>
+      <text x="0" y="24" fill="#38BDF8" font-size="11.5" font-weight="600">Mirror plugin</text>
+      <text x="0" y="44" fill="#8B949E" font-size="10.5">cursor-plugin parity</text>
+      <text x="0" y="64" fill="#8B949E" font-size="10.5">lockstep descriptions</text>
+    </g>
+
+    <!-- CARD 3: OpenCode -->
+    <g transform="translate(640,150)" filter="url(#esoft)">
+      <rect x="-100" y="-60" width="200" height="150" rx="14" fill="#161b22" stroke="#22C55E" stroke-width="1.5"/>
+    </g>
+    <g transform="translate(640,150)">
+      <g transform="translate(-20,-50) scale(1.7)" fill="#F0F6FC">
+        <path d="M22 24H2V0h20zM17 4.8H7v14.4h10z"/>
+      </g>
+      <text x="0" y="2" fill="#F0F6FC" font-size="16" font-weight="800">OpenCode</text>
+      <text x="0" y="24" fill="#34D399" font-size="11.5" font-weight="600">Open runtime</text>
+      <text x="0" y="44" fill="#8B949E" font-size="10.5">standalone port</text>
+      <text x="0" y="64" fill="#8B949E" font-size="10.5">opencode-adaptation</text>
+    </g>
+
+    <!-- CARD 4: Langfuse -->
+    <g transform="translate(880,150)" filter="url(#esoft)">
+      <rect x="-100" y="-60" width="200" height="150" rx="14" fill="#161b22" stroke="#EC4899" stroke-width="1.5"/>
+    </g>
+    <g transform="translate(880,150)">
+      <g transform="translate(-20,-44)">
+        <circle cx="12" cy="12" r="14" fill="url(#lfA)"/>
+        <circle cx="12" cy="12" r="14" fill="url(#lfB)" opacity="0.55" transform="translate(6 -4) scale(0.85)"/>
+      </g>
+      <text x="0" y="2" fill="#F0F6FC" font-size="16" font-weight="800">Langfuse</text>
+      <text x="0" y="24" fill="#F472B6" font-size="11.5" font-weight="600">Observability</text>
+      <text x="0" y="44" fill="#8B949E" font-size="10.5">spans · traces · scores</text>
+      <text x="0" y="64" fill="#8B949E" font-size="10.5">opt-in · offline-first</text>
+    </g>
+
+    <!-- CARD 5: Paperclip -->
+    <g transform="translate(1120,150)" filter="url(#esoft)">
+      <rect x="-100" y="-60" width="200" height="150" rx="14" fill="#161b22" stroke="#F59E0B" stroke-width="1.5"/>
+    </g>
+    <g transform="translate(1120,150)">
+      <g transform="translate(-18,-48) scale(1.6)">
+        <path fill="url(#pcG)" d="M5.5 18.5a1 1 0 0 1-.7-.29l-.05-.05C2.9 16.27 2.9 12.83 4.78 10.95l8.49-8.49a4.25 4.25 0 0 1 6.01 6.01l-8.49 8.49a1.5 1.5 0 1 1-2.12-2.12l8.49-8.49a1.25 1.25 0 1 0-1.77-1.77l-8.49 8.49c-1.04 1.04-1.04 2.73 0 3.77a1 1 0 0 1-.04 1.46 1 1 0 0 1-.86.45Z"/>
+      </g>
+      <text x="0" y="2" fill="#F0F6FC" font-size="16" font-weight="800">Paperclip</text>
+      <text x="0" y="24" fill="#FBBF24" font-size="11.5" font-weight="600">Autonomous runtime</text>
+      <text x="0" y="44" fill="#8B949E" font-size="10.5">claude_local adapter</text>
+      <text x="0" y="64" fill="#8B949E" font-size="10.5">flow-mirror · 47 agents</text>
+    </g>
+  </text>
+
+  <!-- corner accents -->
+  <g stroke="#7C3AED" stroke-width="2" fill="none" opacity="0.5">
+    <path d="M 22 22 L 22 50 M 22 22 L 50 22"/>
+    <path d="M 1258 22 L 1258 50 M 1258 22 L 1230 22"/>
+    <path d="M 22 278 L 22 250 M 22 278 L 50 278"/>
+    <path d="M 1258 278 L 1258 250 M 1258 278 L 1230 278"/>
+  </g>
+</svg>

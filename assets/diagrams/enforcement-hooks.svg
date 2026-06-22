@@ -1,0 +1,119 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 560" width="100%" font-family="'Segoe UI', Inter, system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="hbg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/><stop offset="100%" stop-color="#0a0e1a"/>
+    </linearGradient>
+    <radialGradient id="horb" cx="50%" cy="32%" r="58%">
+      <stop offset="0%" stop-color="#7C3AED" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#7C3AED" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="hgrid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#30363d" stroke-width="0.5" opacity="0.22"/>
+    </pattern>
+    <linearGradient id="hcount" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#A78BFA"/><stop offset="100%" stop-color="#F0ABFC"/>
+    </linearGradient>
+    <filter id="hsoft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="3" stdDeviation="5" flood-color="#000" flood-opacity="0.6"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="560" fill="url(#hbg)" rx="14"/>
+  <rect width="1280" height="560" fill="url(#horb)" rx="14"/>
+  <rect width="1280" height="560" fill="url(#hgrid)" rx="14"/>
+
+  <text x="640" y="46" text-anchor="middle" fill="#F0F6FC" font-size="28" font-weight="800" letter-spacing="0.4">The Enforcement Layer — 28 Hooks</text>
+  <text x="640" y="72" text-anchor="middle" fill="#8B949E" font-size="14.5">This is where prompt-only rules became unbreakable. Deterministic DENY gates run on every tool call.</text>
+
+  <g transform="translate(640,108)">
+    <rect x="-170" y="-22" width="340" height="44" rx="12" fill="#1a1228" stroke="#7C3AED" stroke-width="2" filter="url(#hsoft)"/>
+    <text x="0" y="6" text-anchor="middle" font-size="20" font-weight="800" fill="url(#hcount)" letter-spacing="1">28 HOOKS · CODE-ENFORCED</text>
+  </g>
+
+  <!-- 4 category cards -->
+  <!-- CARD 1: DETERMINISTIC DENY (highlighted) -->
+  <g transform="translate(180,330)" filter="url(#hsoft)">
+    <rect x="-140" y="-180" width="280" height="360" rx="14" fill="#2a1018" stroke="#EF4444" stroke-width="2"/>
+    <rect x="-140" y="-180" width="280" height="46" rx="14" fill="#EF4444" fill-opacity="0.18"/>
+    <text x="0" y="-158" text-anchor="middle" fill="#F87171" font-size="15" font-weight="800" letter-spacing="1.5">DETERMINISTIC DENY</text>
+    <text x="0" y="-126" text-anchor="middle" fill="#FCA5A5" font-size="28" font-weight="800">12</text>
+    <text x="0" y="-108" text-anchor="middle" fill="#FCA5A5" font-size="10.5" letter-spacing="1">gates that BLOCK tool calls</text>
+    <g font-size="11" fill="#FCA5A5" text-anchor="middle">
+      <text x="0" y="-78">scope-lock-hook</text>
+      <text x="0" y="-58">pipeline-arm-gate</text>
+      <text x="0" y="-38">step-ledger-gate</text>
+      <text x="0" y="-18">checkpoint-verdict-gate</text>
+      <text x="0" y="2">phase-verdict-gate</text>
+      <text x="0" y="22">dispatch-guard</text>
+      <text x="0" y="42">dispatch-pending-gate</text>
+      <text x="0" y="62">parallel-dispatch-gate</text>
+      <text x="0" y="82">spec-seal-guard</text>
+      <text x="0" y="102">edit-guard-hook</text>
+      <text x="0" y="122">gate-log-gate</text>
+      <text x="0" y="142">batch-review-gate</text>
+    </g>
+  </g>
+
+  <!-- CARD 2: STATE & EVIDENCE -->
+  <g transform="translate(500,330)" filter="url(#hsoft)">
+    <rect x="-140" y="-180" width="280" height="360" rx="14" fill="#1a1228" stroke="#A78BFA" stroke-width="1.6"/>
+    <rect x="-140" y="-180" width="280" height="46" rx="14" fill="#7C3AED" fill-opacity="0.16"/>
+    <text x="0" y="-158" text-anchor="middle" fill="#C4B5FD" font-size="15" font-weight="800" letter-spacing="1.5">STATE &amp; EVIDENCE</text>
+    <text x="0" y="-126" text-anchor="middle" fill="#C4B5FD" font-size="28" font-weight="800">5</text>
+    <text x="0" y="-108" text-anchor="middle" fill="#C4B5FD" font-size="10.5" letter-spacing="1">writers · audit stampers</text>
+    <g font-size="11.5" fill="#DDD6FE" text-anchor="middle">
+      <text x="0" y="-70">pipeline-arm-writer</text>
+      <text x="0" y="-46">step-ledger-stamp</text>
+      <text x="0" y="-22">dispatch-record-hook</text>
+      <text x="0" y="2">human-gate-record</text>
+      <text x="0" y="26">machine-evidence-hook</text>
+    </g>
+    <text x="0" y="78" text-anchor="middle" fill="#8B949E" font-size="10.5" font-style="italic">every claim becomes a signed row</text>
+    <text x="0" y="98" text-anchor="middle" fill="#8B949E" font-size="10.5" font-style="italic">in gate-decisions.jsonl (HMAC)</text>
+  </g>
+
+  <!-- CARD 3: TELEMETRY & STOP -->
+  <g transform="translate(820,330)" filter="url(#hsoft)">
+    <rect x="-140" y="-180" width="280" height="360" rx="14" fill="#0c1a2e" stroke="#0EA5E9" stroke-width="1.6"/>
+    <rect x="-140" y="-180" width="280" height="46" rx="14" fill="#0EA5E9" fill-opacity="0.16"/>
+    <text x="0" y="-158" text-anchor="middle" fill="#7DD3FC" font-size="15" font-weight="800" letter-spacing="1.5">TELEMETRY &amp; STOP</text>
+    <text x="0" y="-126" text-anchor="middle" fill="#7DD3FC" font-size="28" font-weight="800">5</text>
+    <text x="0" y="-108" text-anchor="middle" fill="#7DD3FC" font-size="10.5" letter-spacing="1">observe · finalize · report</text>
+    <g font-size="11.5" fill="#bae6fd" text-anchor="middle">
+      <text x="0" y="-70">langfuse-hook</text>
+      <text x="0" y="-46">stop-hook</text>
+      <text x="0" y="-22">stop-gate-hook</text>
+      <text x="0" y="2">subagent-stop-commit-hook</text>
+      <text x="0" y="26">completion-checklist</text>
+    </g>
+    <text x="0" y="78" text-anchor="middle" fill="#8B949E" font-size="10.5" font-style="italic">Langfuse spans + run-log on</text>
+    <text x="0" y="98" text-anchor="middle" fill="#8B949E" font-size="10.5" font-style="italic">every session end</text>
+  </g>
+
+  <!-- CARD 4: GUARDRAILS & CLEANUP -->
+  <g transform="translate(1140,330)" filter="url(#hsoft)">
+    <rect x="-140" y="-180" width="280" height="360" rx="14" fill="#0c2117" stroke="#22C55E" stroke-width="1.6"/>
+    <rect x="-140" y="-180" width="280" height="46" rx="14" fill="#22C55E" fill-opacity="0.16"/>
+    <text x="0" y="-158" text-anchor="middle" fill="#6EE7B7" font-size="15" font-weight="800" letter-spacing="1.5">GUARDRAILS &amp; CLEANUP</text>
+    <text x="0" y="-126" text-anchor="middle" fill="#6EE7B7" font-size="28" font-weight="800">6</text>
+    <text x="0" y="-108" text-anchor="middle" fill="#6EE7B7" font-size="10.5" letter-spacing="1">routing · hygiene · recovery</text>
+    <g font-size="11" fill="#bbf7d0" text-anchor="middle">
+      <text x="0" y="-70">sentinel-hook</text>
+      <text x="0" y="-46">force-pipeline-agents</text>
+      <text x="0" y="-22">session-lock-hook</text>
+      <text x="0" y="2">skill-frontmatter-parser</text>
+      <text x="0" y="26">cleanup-orphan-sentinel</text>
+      <text x="0" y="50">session-cleanup-hook</text>
+    </g>
+    <text x="0" y="98" text-anchor="middle" fill="#8B949E" font-size="10.5" font-style="italic">state integrity + recovery</text>
+  </g>
+
+  <text x="640" y="536" text-anchor="middle" fill="#8B949E" font-size="12">PreToolUse · PostToolUse · UserPromptSubmit · Stop · SessionStart — every tool call the agent makes crosses this layer.</text>
+
+  <g stroke="#7C3AED" stroke-width="2" fill="none" opacity="0.5">
+    <path d="M 22 22 L 22 50 M 22 22 L 50 22"/>
+    <path d="M 1258 22 L 1258 50 M 1258 22 L 1230 22"/>
+    <path d="M 22 538 L 22 510 M 22 538 L 50 538"/>
+    <path d="M 1258 538 L 1258 510 M 1258 538 L 1230 538"/>
+  </g>
+</svg>

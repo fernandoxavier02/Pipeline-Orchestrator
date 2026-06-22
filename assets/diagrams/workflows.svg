@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 700" width="100%" font-family="'Segoe UI', Inter, system-ui, -apple-system, sans-serif">
+  <defs>
+    <linearGradient id="wbg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0d1117"/><stop offset="100%" stop-color="#0a0e1a"/>
+    </linearGradient>
+    <radialGradient id="worb" cx="50%" cy="30%" r="60%">
+      <stop offset="0%" stop-color="#7C3AED" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#7C3AED" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="wgrid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#30363d" stroke-width="0.5" opacity="0.22"/>
+    </pattern>
+    <filter id="wsoft" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#000" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+
+  <rect width="1280" height="700" fill="url(#wbg)" rx="14"/>
+  <rect width="1280" height="700" fill="url(#worb)" rx="14"/>
+  <rect width="1280" height="700" fill="url(#wgrid)" rx="14"/>
+
+  <text x="640" y="46" text-anchor="middle" fill="#F0F6FC" font-size="28" font-weight="800" letter-spacing="0.4">Pipeline Types — One Orchestrator, Many Workflows</text>
+  <text x="640" y="72" text-anchor="middle" fill="#8B949E" font-size="14">task-orchestrator classifies your request, then routes to the right pipeline. Each scales by complexity (light / heavy).</text>
+
+  <!-- ROW 1: 4 cards, centers 185 / 495 / 805 / 1115 -->
+  <!-- Bug Fix -->
+  <g transform="translate(185,180)" filter="url(#wsoft)">
+    <rect x="-130" y="-65" width="260" height="130" rx="12" fill="#2a1018" stroke="#EF4444" stroke-width="1.6"/>
+    <text x="0" y="-34" text-anchor="middle" fill="#F87171" font-size="16" font-weight="800">🐛 Bug Fix</text>
+    <text x="0" y="-8" text-anchor="middle" fill="#FCA5A5" font-size="11" font-weight="600">diagnose → root cause → fix</text>
+    <text x="0" y="12" text-anchor="middle" fill="#8B949E" font-size="10.5">hypothesis ranking + regression</text>
+    <text x="0" y="36" text-anchor="middle" fill="#A78BFA" font-size="10" font-weight="700">bugfix-light · bugfix-heavy</text>
+  </g>
+  <!-- Feature -->
+  <g transform="translate(495,180)" filter="url(#wsoft)">
+    <rect x="-130" y="-65" width="260" height="130" rx="12" fill="#0c2117" stroke="#22C55E" stroke-width="1.6"/>
+    <text x="0" y="-34" text-anchor="middle" fill="#34D399" font-size="16" font-weight="800">✨ Feature</text>
+    <text x="0" y="-8" text-anchor="middle" fill="#6EE7B7" font-size="11" font-weight="600">vertical slice architecture</text>
+    <text x="0" y="12" text-anchor="middle" fill="#8B949E" font-size="10.5">per-slice TDD · integration check</text>
+    <text x="0" y="36" text-anchor="middle" fill="#A78BFA" font-size="10" font-weight="700">feature-light · feature-heavy</text>
+  </g>
+  <!-- Audit -->
+  <g transform="translate(805,180)" filter="url(#wsoft)">
+    <rect x="-130" y="-65" width="260" height="130" rx="12" fill="#231b06" stroke="#F59E0B" stroke-width="1.6"/>
+    <text x="0" y="-34" text-anchor="middle" fill="#FBBF24" font-size="16" font-weight="800">🔍 Audit</text>
+    <text x="0" y="-8" text-anchor="middle" fill="#FCD34D" font-size="11" font-weight="600">read-only · 4 phases</text>
+    <text x="0" y="12" text-anchor="middle" fill="#8B949E" font-size="10.5">intake · domain · compliance · risk</text>
+    <text x="0" y="36" text-anchor="middle" fill="#A78BFA" font-size="10" font-weight="700">audit-light · audit-heavy</text>
+  </g>
+  <!-- UX Sim -->
+  <g transform="translate(1115,180)" filter="url(#wsoft)">
+    <rect x="-130" y="-65" width="260" height="130" rx="12" fill="#0c1a2e" stroke="#0EA5E9" stroke-width="1.6"/>
+    <text x="0" y="-34" text-anchor="middle" fill="#38BDF8" font-size="16" font-weight="800">♿ UX Simulation</text>
+    <text x="0" y="-8" text-anchor="middle" fill="#7DD3FC" font-size="11" font-weight="600">personas · WCAG 2.1 AA</text>
+    <text x="0" y="12" text-anchor="middle" fill="#8B949E" font-size="10.5">journeys · friction · QA matrix</text>
+    <text x="0" y="36" text-anchor="middle" fill="#A78BFA" font-size="10" font-weight="700">ux-sim-light · ux-sim-heavy</text>
+  </g>
+
+  <!-- ROW 2 -->
+  <!-- Spec -->
+  <g transform="translate(185,360)" filter="url(#wsoft)">
+    <rect x="-130" y="-65" width="260" height="130" rx="12" fill="#1a1228" stroke="#A78BFA" stroke-width="1.6"/>
+    <text x="0" y="-34" text-anchor="middle" fill="#C4B5FD" font-size="16" font-weight="800">📐 Spec Authoring</text>
+    <text x="0" y="-8" text-anchor="middle" fill="#DDD6FE" font-size="11" font-weight="600">authors a spec end-to-end</text>
+    <text x="0" y="12" text-anchor="middle" fill="#8B949E" font-size="10.5">Kiro lifecycle · seals as contract</text>
+    <text x="0" y="36" text-anchor="middle" fill="#A78BFA" font-size="10" font-weight="700">spec-light · spec-heavy · audit-only</text>
+  </g>
+  <!-- User Story -->
+  <g transform="translate(495,360)" filter="url(#wsoft)">
+    <rect x="-130" y="-65" width="260" height="130" rx="12" fill="#2a1018" stroke="#EC4899" stroke-width="1.6"/>
+    <text x="0" y="-34" text-anchor="middle" fill="#F472B6" font-size="16" font-weight="800">👤 User Story</text>
+    <text x="0" y="-8" text-anchor="middle" fill="#FBCFE8" font-size="11" font-weight="600">1:1 Pulsar shape</text>
+    <text x="0" y="12" text-anchor="middle" fill="#8B949E" font-size="10.5">10 steps · acceptance-driven</text>
+    <text x="0" y="36" text-anchor="middle" fill="#A78BFA" font-size="10" font-weight="700">user-story-light · -heavy</text>
+  </g>
+  <!-- Refactor -->
+  <g transform="translate(805,360)" filter="url(#wsoft)">
+    <rect x="-130" y="-65" width="260" height="130" rx="12" fill="#231b06" stroke="#F97316" stroke-width="1.6"/>
+    <text x="0" y="-34" text-anchor="middle" fill="#FB923C" font-size="16" font-weight="800">🔧 Refactor</text>
+    <text x="0" y="-8" text-anchor="middle" fill="#FDBA74" font-size="11" font-weight="600">scope-locked rewrite</text>
+    <text x="0" y="12" text-anchor="middle" fill="#8B949E" font-size="10.5">REFACTOR_SCOPE_LOCK enforced</text>
+    <text x="0" y="36" text-anchor="middle" fill="#A78BFA" font-size="10" font-weight="700">refactor-light · refactor-heavy</text>
+  </g>
+  <!-- Pipeline (generic router) -->
+  <g transform="translate(1115,360)" filter="url(#wsoft)">
+    <rect x="-130" y="-65" width="260" height="130" rx="12" fill="#0c1a2e" stroke="#7C3AED" stroke-width="2"/>
+    <text x="0" y="-34" text-anchor="middle" fill="#A78BFA" font-size="16" font-weight="800">🎛 Pipeline</text>
+    <text x="0" y="-8" text-anchor="middle" fill="#C4B5FD" font-size="11" font-weight="600">the classifier + router</text>
+    <text x="0" y="12" text-anchor="middle" fill="#8B949E" font-size="10.5">type · complexity · variant</text>
+    <text x="0" y="36" text-anchor="middle" fill="#A78BFA" font-size="10" font-weight="700">/pipeline [task] (auto-routes)</text>
+  </g>
+
+  <!-- Auxiliary flows band -->
+  <g transform="translate(640,500)">
+    <rect x="-580" y="-30" width="1160" height="100" rx="12" fill="#161b22" stroke="#30363d" stroke-width="1" filter="url(#wsoft)"/>
+    <text x="-556" y="-6" fill="#C9D1D9" font-size="13" font-weight="800" letter-spacing="1">ALWAYS-ON AUXILIARY FLOWS</text>
+    <g font-size="11.5" text-anchor="middle">
+      <g transform="translate(-440,22)"><rect x="-92" y="-16" width="184" height="34" rx="8" fill="#1e1b4b" stroke="#7C3AED" stroke-width="1"/><text x="0" y="6" fill="#C4B5FD" font-weight="700">Brainstorm (4 steps)</text></g>
+      <g transform="translate(-220,22)"><rect x="-105" y="-16" width="210" height="34" rx="8" fill="#1e1b4b" stroke="#7C3AED" stroke-width="1"/><text x="0" y="6" fill="#C4B5FD" font-weight="700">Spec lifecycle (Kiro)</text></g>
+      <g transform="translate(10,22)"><rect x="-105" y="-16" width="210" height="34" rx="8" fill="#1e1b4b" stroke="#7C3AED" stroke-width="1"/><text x="0" y="6" fill="#C4B5FD" font-weight="700">3-way adversarial review</text></g>
+      <g transform="translate(240,22)"><rect x="-110" y="-16" width="220" height="34" rx="8" fill="#1e1b4b" stroke="#7C3AED" stroke-width="1"/><text x="0" y="6" fill="#C4B5FD" font-weight="700">Final sweep (zero context)</text></g>
+      <g transform="translate(470,22)"><rect x="-100" y="-16" width="200" height="34" rx="8" fill="#1e1b4b" stroke="#7C3AED" stroke-width="1"/><text x="0" y="6" fill="#C4B5FD" font-weight="700">Pa de Cal (GO / NO-GO)</text></g>
+    </g>
+  </g>
+
+  <!-- Mode flags -->
+  <g transform="translate(640,630)">
+    <text x="-580" y="0" fill="#8B949E" font-size="12" font-weight="700">MODE FLAGS:</text>
+    <text x="0" y="0" text-anchor="middle" fill="#8B949E" font-size="12">--hotfix · --diagnostic · --continue · --review-only · --light · --heavy · --plan · --strict-spec · --on=paperclip</text>
+  </g>
+
+  <g stroke="#7C3AED" stroke-width="2" fill="none" opacity="0.5">
+    <path d="M 22 22 L 22 50 M 22 22 L 50 22"/>
+    <path d="M 1258 22 L 1258 50 M 1258 22 L 1230 22"/>
+    <path d="M 22 678 L 22 650 M 22 678 L 50 678"/>
+    <path d="M 1258 678 L 1258 650 M 1258 678 L 1230 678"/>
+  </g>
+</svg>
