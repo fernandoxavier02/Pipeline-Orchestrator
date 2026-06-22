@@ -27,6 +27,8 @@ let eg = null;
 try { eg = require('./edit-guard-hook.cjs'); } catch { eg = null; }
 let lock = null;
 try { lock = require('../../lib/exclusive-lock.cjs'); } catch { lock = null; }
+let producer = null;
+try { producer = require('../../lib/checkpoint-verdict-producer.cjs'); } catch { producer = null; }
 
 // Byte cap for stored stdout/stderr. Generous for a real build/test log, well under
 // an oversize blob; over it we store a truncated prefix + set truncated:true.
@@ -62,6 +64,43 @@ function truncateStream(s) {
   // Slice by characters down to the cap (UTF-8 safe-ish for ASCII logs; for the
   // common ASCII case length≈bytes, and a multibyte tail is harmless when stored).
   return { value: str.slice(0, MAX_STREAM_BYTES), truncated: true };
+}
+
+// B2 (REQ-GREEN-CLOSE-WIRE): is this command a CHECKPOINT (a test / verification
+// run) whose outcome should feed the green-close verdict? Build / lint / install /
+// compile are INTERMEDIATE steps and must NOT produce a verdict — a red intermediate
+// build would falsely block the close mid-fix-loop. The verdict producer is the
+// SECOND filter (it only records when the evidence carries a usable signal), so a
+// broad command match here is still conservative.
+function isCheckpointCommand(command) {
+  const c = String(command || '').trim().toLowerCase();
+  if (!c) return false;
+  // Split on shell separators and judge each segment by its LEADING invocation, so a
+  // combined `npm run build && npm test` is a checkpoint via its test segment while a
+  // bare build is not. Critically: "test" as an ARGUMENT of a non-test command
+  // (git checkout test-branch, rm test-data, cat tests/x, echo "tests") must NOT count.
+  return c.split(/&&|\|\||\||;/).map((s) => s.trim()).filter(Boolean).some((rawSeg) => {
+    // Strip leading env-var assignments + common wrappers so a prefixed invocation
+    // (`PIPELINE_X=1 npm test`, `time npm test`, `sudo pytest`, `env FOO=bar jest`) is
+    // still recognized by its real leading program.
+    const seg = rawSeg.replace(/^((\w+=\S*|env|sudo|time|nice|nohup|command|exec|xargs)\s+)+/i, '');
+    const lead = (seg.match(/^[^\s]+/) || [''])[0];
+    // Commands whose arguments routinely contain "test" but that are NOT test runs.
+    if (/^(git|rm|cat|echo|cd|ls|mkdir|rmdir|find|cp|mv|touch|grep|sed|awk|curl|wget|docker|kubectl|tar|unzip|chmod|chown|ln|head|tail|less|more|printf|export|set|source|\.)$/.test(lead)) return false;
+    // package-manager `test` subcommand.
+    if (/^(npm|yarn|pnpm|bun)\s+(run\s+)?test\b/.test(seg)) return true;
+    // build-tool `test` subcommand.
+    if (/^(go|cargo|dotnet|mvn|gradle|gradlew|\.\/gradlew|make|swift|rake|sbt)\s+\S*test\b/.test(seg)) return true;
+    // direct/known test runners (optionally via npx).
+    if (/^(npx\s+)?(jest|mocha|vitest|pytest|py\.test|rspec|phpunit|ava|tap|jasmine|tox|nox|karma|nyc)\b/.test(seg)) return true;
+    if (/^python[0-9.]*\s+-m\s+(pytest|unittest|nose2?)\b/.test(seg)) return true;
+    if (/^node\s+(--test|--experimental-test-runner)\b/.test(seg)) return true;
+    // executing a test script/runner file (its name carries test/spec).
+    if (/(^|[\s/\\])(run[-_]?tests?|tests?runner)[^\s]*/.test(seg)) return true;
+    if (/[/\\]tests?[/\\]/.test(seg)) return true;
+    if (/\.(test|spec)\.[a-z0-9]+(\s|$)/.test(seg)) return true;
+    return false;
+  });
 }
 
 // Is this command a git command whose stdout we parse for changed files?
@@ -154,6 +193,22 @@ function collect(payload) {
   };
 
   appendLedger(path.join(docDir, LEDGER_FILE), entry);
+
+  // B2 (REQ-GREEN-CLOSE-WIRE): feed the green-close producer from the REAL outcome of
+  // a CHECKPOINT command, so state.last_checkpoint_verdict (read by the shipped
+  // checkpoint-verdict-gate) is populated from machine evidence instead of staying
+  // perpetually null. Best-effort: this hook never blocks, never throws. The producer
+  // itself records NOTHING when the evidence carries no usable signal (no fabricated
+  // verdict). Pass the FULL (untruncated) stdout — the test summary lives at the END
+  // of the log and the ledger entry's stdout is byte-capped, which could drop it.
+  if (producer && typeof producer.produceCheckpointVerdict === 'function' && isCheckpointCommand(command)) {
+    const evidenceForVerdict = {
+      exit_code: exitCode,
+      interrupted: interrupted,
+      stdout: typeof outRaw.stdout === 'string' ? outRaw.stdout : '',
+    };
+    try { producer.produceCheckpointVerdict(docDir, evidenceForVerdict); } catch { /* best-effort */ }
+  }
 }
 
 if (require.main === module) {

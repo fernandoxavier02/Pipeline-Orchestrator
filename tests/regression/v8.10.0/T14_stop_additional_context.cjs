@@ -137,14 +137,15 @@ liveTest('T14-S1 [main] armed + incomplete governed run → block carries BOTH r
     '(which pending dispatch to resolve / what step is incomplete) — absent today, this is the RED');
 });
 
-// ---- T14-S2 [allow-good / default unarmed] no env → still allows -------------
-liveTest('T14-S2 [allow-good] no enforcement env (default) → incomplete run still ALLOWS; additionalContext did not arm the gate', (root) => {
+// ---- T14-S2 [allow-good / warn escape] warn → still allows -------------------
+liveTest('T14-S2 [warn-escape] PIPELINE_STOP_BLOCK_ENFORCEMENT=warn → incomplete run still ALLOWS; additionalContext did not arm the gate', (root) => {
   assert.ok(gateExists(), `gate missing: ${GATE}`);
   const { docDir } = seedRun(root, { status: 'running', current_phase: '2-execute' });
-  const r = run(stopPayload(root), { PIPELINE_DOC_PATH: docDir }); // no arm
+  // v8.11.0 B5: the default is now ARMED; warn is the explicit opt-out.
+  const r = run(stopPayload(root), { PIPELINE_DOC_PATH: docDir, PIPELINE_STOP_BLOCK_ENFORCEMENT: 'warn' }); // warn escape
   assert.equal(r.status, 0, r.stderr);
   assert.notEqual(decisionOf(r), 'block',
-    'the additionalContext addition must NOT change the unarmed default — an unconfigured operator still stops freely');
+    'the additionalContext addition must NOT change the warn escape — an operator who opts out still stops freely');
 });
 
 // ---- T14-S3 [regression — H3 cleanup-reorder] -------------------------------

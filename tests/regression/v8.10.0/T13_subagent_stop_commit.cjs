@@ -58,7 +58,8 @@ const { BEGIN, END } = require('../../../lib/contracts/pipeline-agent-result.cjs
 function gateExists() { return fs.existsSync(HOOK); }
 
 const ARMED = { PIPELINE_SUBAGENTSTOP_ENFORCEMENT: 'deny' };
-// default (no env) = warn = OFF.
+const WARN = { PIPELINE_SUBAGENTSTOP_ENFORCEMENT: 'warn' }; // explicit observe-only escape
+// v8.11.0 (B4): default (no env) is now DENY = ON; the escape is …ENFORCEMENT=warn.
 
 // Seed a SIGNED active FULL-workflow run. The hook maps agent_type→step via the
 // workflow-manifest FULL spine; we set workflow FULL so the spine is non-null.
@@ -257,16 +258,17 @@ liveTest('T13-S6 [recovery] 4th correction for the same (run_id, agent_type) →
     'at the 3-correction cap the hook must persist hard_failed so the run reaches an honest terminal, not an infinite block');
 });
 
-// ---- T13-S7 [allow-good / warn — default OFF] -------------------------------
-liveTest('T13-S7 [warn-default] unarmed (default warn) → a would-be-bad case ALLOWS + records an audit breadcrumb only', (root) => {
+// ---- T13-S7 [allow-good / warn — explicit escape] --------------------------
+liveTest('T13-S7 [warn-escape] PIPELINE_SUBAGENTSTOP_ENFORCEMENT=warn → a would-be-bad case ALLOWS + records an audit breadcrumb only', (root) => {
   assert.ok(gateExists(), `hook missing: ${HOOK} (expected RED)`);
   const { docDir } = seedRun(root);
-  // SAME bad case as S1 (pre-tester, no result block) but NO arming env → default warn.
+  // SAME bad case as S1 (pre-tester, no result block) but with the EXPLICIT warn escape
+  // (v8.11.0 B4: warn is now the opt-OUT, no longer the default).
   const r = run(stopPayload(root, 'pre-tester', 'finished, no result block emitted'),
-    { PIPELINE_DOC_PATH: docDir });
+    Object.assign({ PIPELINE_DOC_PATH: docDir }, WARN));
   assert.equal(r.status, 0, r.stderr);
   assert.notEqual(decisionOf(r), 'block',
-    'default (warn) must be inert — the same case that blocks when armed must ALLOW unarmed (default-OFF safety before T11 is live)');
+    'the warn escape must be inert — the same case that blocks when armed/default must ALLOW under warn');
 });
 
 // ---- T13-S8 [deny-bad / governed-corrupt] armed + corrupt → block -----------
@@ -284,15 +286,27 @@ liveTest('T13-S8 [deny-bad] armed governed agent + corrupt signed state → deci
 });
 
 // ---- T13-S9 [allow-good / governed-corrupt / warn] → allow ------------------
-liveTest('T13-S9 [warn] default (warn) + corrupt signed state for a governed agent → allow (warn-escape parity)', (root) => {
+liveTest('T13-S9 [warn] warn escape + corrupt signed state for a governed agent → allow (warn-escape parity)', (root) => {
   assert.ok(gateExists(), `hook missing: ${HOOK} (expected RED)`);
   const seeded = seedRun(root);
   assert.ok(seeded.signingActive, 'signing must be active so the corrupt path is real');
   tamper(seeded.statePath);
-  const r = run(stopPayload(root, 'pre-tester', 'whatever'), { PIPELINE_DOC_PATH: seeded.docDir }); // no arm
+  const r = run(stopPayload(root, 'pre-tester', 'whatever'), Object.assign({ PIPELINE_DOC_PATH: seeded.docDir }, WARN)); // warn escape
   assert.equal(r.status, 0, r.stderr);
   assert.notEqual(decisionOf(r), 'block',
-    'warn (default) must allow even on corrupt state — matching the shipped warn-escape for corrupt-state on governed agents');
+    'the warn escape must allow even on corrupt state — matching the shipped warn-escape for corrupt-state on governed agents');
+});
+
+// ---- T13-S10 [deny-default] DEFAULT (no env) now ARMS the gate (B4) ----------
+liveTest('T13-S10 [deny-default] with NO enforcement env the default is now ARMED → the bad case blocks', (root) => {
+  assert.ok(gateExists(), `hook missing: ${HOOK}`);
+  const { docDir } = seedRun(root);
+  // SAME bad case as S1/S7 but with NO env at all → must block under the new default-on.
+  const r = run(stopPayload(root, 'pre-tester', 'finished, no result block emitted'),
+    { PIPELINE_DOC_PATH: docDir });
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(decisionOf(r), 'block',
+    'v8.11.0 B4: the SubagentStop commit gate is ARMED by default — a missing result block blocks with no env set');
 });
 
 console.log('');

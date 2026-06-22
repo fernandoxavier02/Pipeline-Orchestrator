@@ -2,6 +2,26 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.11.0] - 2026-06-22
+
+### Changed (the two strong gates now ship ARMED BY DEFAULT in code)
+- **SubagentStop commit point is DEFAULT-ON** (`.claude/hooks/subagent-stop-commit-hook.cjs`): a shipped install now enforces it. Opt OUT with `PIPELINE_SUBAGENTSTOP_ENFORCEMENT=warn|off|0|false|no|allow|disabled|observe`. The prior arming lived in dev-only `settings.json`, which is never packaged.
+- **Incomplete-run Stop block is DEFAULT-ON** (`.claude/hooks/stop-gate-hook.cjs::isArmed`): opt OUT with `PIPELINE_STOP_BLOCK_ENFORCEMENT=warn|…`.
+
+### Added (the 5 missing wires)
+- **B1 — happy-path completer** (`stop-gate-hook.cjs`): on `Stop`, persists `terminal_state=completed` from a REAL success signal (signed-state `final_decision`, else the most-recent `CLOSEOUT_CONFIRM`/`PA_DE_CAL` in a bounded tail of `gate-decisions.jsonl`), so arming the Stop block cannot deadlock a run that actually finished. `persist()` now uses a commit-flag and `writeCompleted` re-checks `isComplete` under the lock (lost-update + idempotency safe; never overwrites a concurrent `aborted_by_user`/`hard_failed`).
+- **B2 — green-close producer WIRED** (`machine-evidence-hook.cjs` → `lib/checkpoint-verdict-producer.cjs`): on a CHECKPOINT command only (runner-aware `isCheckpointCommand`; env/`sudo`/`time` prefixes tolerated; build/lint excluded), derives the verdict from the real stdout (now also pytest `N failed`, jest `Tests: N failed`, go `FAIL`/`ok`) and records `last_checkpoint_verdict`. `recordCheckpointVerdict` gained `{countFailure:false}` so the A2/A3 STOP_RULE counter is not double-counted across the two producers (a `pass` still resets it).
+- **B3 — consume-once** (`step-ledger-stamp.cjs`): a step-unlocking verdict file (`checkpoint-verdict.json` + the 5 phase verdict files) is renamed (`…consumed-N`, collision-free, audit-preserving) AFTER a successful record, so a stale verdict can't re-unlock a new batch. `batch-files.json` (domains) is left accumulating by design.
+- **B4 — readiness lock** (`tests/regression/v8.11.0/B4_subagentstop_readiness.cjs`): fails if any of the 9 governed agents stops emitting `PIPELINE_AGENT_RESULT_V1` (the precondition for default-on commit enforcement).
+- **B5 — fail-safe**: an unresolvable `statePath` ALLOWS the Stop instead of looping forever (the continuity counter can't advance, so an infinite block is impossible).
+
+### Quality / process
+- Per-batch adversarial review (3 zero-context lenses each) + a final 3-lens integration review. Real defects fixed: overwriting a concurrent `aborted` with `completed`, a red intermediate build falsely failing the close, double-counting one red checkpoint, a green not resetting the counter, an infinite deadlock on a null state path. False alarms (HMAC on `gate-decisions.jsonl`, race with `session-cleanup`) refuted with code evidence (the `CORRUPT_SENTINEL` guard + the H3 ordering test).
+- Live `--plugin-dir` probe (OAuth, Claude Code 2.1.183): the code loads, validates and runs; the enforcement hooks fire live and write canonical gate decisions; a control run (armed vs disarmed) was **identical**, proving the new gates are flow-neutral. A full end-to-end close needs an interactive session (the pipeline has human gates that headless `-p` cannot answer).
+
+### Notes
+- **Iron Law preserved**: changes only under `.claude/hooks/`, `lib/`, `scripts/`, `tests/`. The Mandatory Gates by Complexity table and the Gate Registry are UNTOUCHED. No production agent `.md` changed — only test co-updates (T13/T14/F5/F6/F7). `tests/regression/v8.11.0/` B1–B5 green; the only suite failures are the pre-existing Langfuse/vendoring env tests + the flaky F07.
+
 ## [8.10.0] - 2026-06-21
 
 ### Added

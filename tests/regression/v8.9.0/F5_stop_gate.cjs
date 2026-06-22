@@ -227,14 +227,23 @@ liveTest('S5-5 [H3] incomplete governed run → session-cleanup does NOT mark th
     'cleanup must defer: an incomplete governed run must leave the session lock NOT completed (reorder/H3)');
 });
 
-// ---- S5-6 [allow-good] incomplete but UNARMED (default off) → no block -------
-liveTest('S5-6 [allow-good] incomplete run + default-OFF (unarmed) → does NOT block', (root) => {
+// ---- S5-6 [allow-good] incomplete + WARN escape → no block (v8.11.0 B5) ------
+liveTest('S5-6 [warn-escape] incomplete run + PIPELINE_STOP_BLOCK_ENFORCEMENT=warn → does NOT block', (root) => {
   assert.ok(gateExists(), `gate missing: ${GATE} (expected RED)`);
   const { docDir } = seedRun(root, { status: 'running', current_phase: '2-execute' });
-  // No PIPELINE_STOP_BLOCK_ENFORCEMENT → default off.
-  const r = run(stopPayload(root), { PIPELINE_DOC_PATH: docDir });
+  // v8.11.0 B5: warn is now the opt-OUT (the default is ARMED); the block must be inert under warn.
+  const r = run(stopPayload(root), { PIPELINE_DOC_PATH: docDir, PIPELINE_STOP_BLOCK_ENFORCEMENT: 'warn' });
   assert.equal(r.status, 0, r.stderr);
-  assert.notEqual(decisionOf(r), 'block', 'block logic must be inert without explicit arm (default off)');
+  assert.notEqual(decisionOf(r), 'block', 'block logic must be inert under the warn escape');
+});
+
+// ---- S5-6b [block] incomplete + DEFAULT (no env) now blocks (v8.11.0 B5) -----
+liveTest('S5-6b [deny-default] incomplete run with NO env now BLOCKS under the default-on Stop gate', (root) => {
+  assert.ok(gateExists(), `gate missing: ${GATE}`);
+  const { docDir } = seedRun(root, { status: 'running', current_phase: '2-execute' });
+  const r = run(stopPayload(root), { PIPELINE_DOC_PATH: docDir }); // no env → default-on
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(decisionOf(r), 'block', 'v8.11.0 B5: an incomplete governed run blocks Stop by default (recover-or-abort)');
 });
 
 // ---- S5-7 [main] SessionEnd after interrupt → no completed, no evidence del. -

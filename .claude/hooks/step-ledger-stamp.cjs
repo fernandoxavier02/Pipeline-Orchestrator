@@ -90,6 +90,22 @@ function stampRequiresResult() {
   return !/^(off|0|false|no)$/i.test(String(process.env.PIPELINE_STAMP_REQUIRE_RESULT || '').trim());
 }
 
+// Consume-once (DoD#8): after a step-unlocking verdict file is SUCCESSFULLY recorded
+// into signed state, move it aside so a LATER stamp (e.g. a new batch whose agent did
+// NOT re-emit it) cannot re-read a STALE verdict and unlock a step it never produced.
+// Each of these verdict files has a single consumer (this stamp), so renaming is safe;
+// the content is kept (…consumed-<mtime>) for audit, never deleted. Best-effort: a
+// rename failure degrades to the prior re-readable behaviour, never worse.
+function consumeRename(filePath) {
+  try {
+    // Pick a FREE destination so two consumptions never collide (overwriting an
+    // earlier .consumed audit copy). First `<file>.consumed`, then `-1`, `-2`, …
+    let dest = `${filePath}.consumed`;
+    for (let n = 1; fs.existsSync(dest); n++) dest = `${filePath}.consumed-${n}`;
+    fs.renameSync(filePath, dest);
+  } catch { /* best-effort: a rename failure degrades to re-readable, never worse */ }
+}
+
 function stamp(payload) {
   if (!ledger || !recorder || typeof recorder.recordStep !== 'function') return;
   if (!payload || payload.tool_name !== 'Agent') return;
@@ -141,16 +157,23 @@ function stamp(payload) {
   // consecutive-failure counter) so the checkpoint-verdict gate can deny advancing
   // while RED or after N consecutive fails. Fail-silent if the file is absent.
   if ((leaf === 'checkpoint-validator' || leaf === 'sanity-checker') && typeof recorder.recordCheckpointVerdict === 'function') {
-    try {
-      const raw = fs.readFileSync(path.join(docDir, 'checkpoint-verdict.json'), 'utf8');
-      recorder.recordCheckpointVerdict(docDir, JSON.parse(raw));
-    } catch { /* no verdict file / unreadable → fail-silent (verdict stays unknown) */ }
+    const vf = path.join(docDir, 'checkpoint-verdict.json');
+    let raw = null;
+    try { raw = fs.readFileSync(vf, 'utf8'); } catch { /* absent → fail-silent (verdict stays unknown) */ }
+    if (raw != null) {
+      let res = null;
+      try { res = recorder.recordCheckpointVerdict(docDir, JSON.parse(raw)); } catch { /* unreadable JSON → fail-silent */ }
+      if (res && res.ok) consumeRename(vf); // consume-once: only after a successful record
+    }
   }
 
   // Sensitive-domain detection (audit A4). The checkpoint writes the batch's
   // changed-file list to {docDir}/batch-files.json; the scanner records which
   // sensitive domains were touched so the batch-review gate can make the review
-  // mandatory. Fail-silent if absent.
+  // mandatory. Fail-silent if absent. NOTE: deliberately NOT consume-once'd —
+  // domains_touched is an accumulating, safe-biased UNION (re-reading can only ADD
+  // domains, which makes MORE reviews mandatory, never fewer). Consume-once is only
+  // for step-UNLOCKING verdicts where a stale re-read would wrongly advance.
   if (leaf === 'checkpoint-validator' && typeof recorder.recordDomainsTouched === 'function') {
     try {
       const raw = fs.readFileSync(path.join(docDir, 'batch-files.json'), 'utf8');
@@ -170,12 +193,19 @@ function stamp(payload) {
     'final-validator': { file: 'final-decision.json', field: 'final_decision' },
   };
   if (VERDICT_FILES[leaf] && typeof recorder.recordPhaseVerdict === 'function') {
-    try {
-      const { file, field } = VERDICT_FILES[leaf];
-      const obj = JSON.parse(fs.readFileSync(path.join(docDir, file), 'utf8'));
-      const value = (obj && (obj[field] != null ? obj[field] : obj.verdict));
-      recorder.recordPhaseVerdict(docDir, field, value);
-    } catch { /* no verdict file / unreadable → fail-silent */ }
+    const { file, field } = VERDICT_FILES[leaf];
+    const vf = path.join(docDir, file);
+    let raw = null;
+    try { raw = fs.readFileSync(vf, 'utf8'); } catch { /* absent → fail-silent */ }
+    if (raw != null) {
+      let res = null;
+      try {
+        const obj = JSON.parse(raw);
+        const value = (obj && (obj[field] != null ? obj[field] : obj.verdict));
+        res = recorder.recordPhaseVerdict(docDir, field, value);
+      } catch { /* unreadable JSON → fail-silent */ }
+      if (res && res.ok) consumeRename(vf); // consume-once after a successful record
+    }
   }
 
   const wf = state.workflow_key || (state.task_type === 'Spec' ? 'Spec' : 'FULL');

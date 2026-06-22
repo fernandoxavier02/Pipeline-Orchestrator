@@ -169,11 +169,18 @@ function bumpCounter(pipelineDocPath, field) {
 // advancing while the last verdict is fail; A2/A3 circuit-break at 2 consecutive
 // fails. Locked + signed; a no-op on an unrecognizable verdict (can't tell → don't
 // fabricate a red/green).
-function recordCheckpointVerdict(pipelineDocPath, rawVerdict) {
+function recordCheckpointVerdict(pipelineDocPath, rawVerdict, opts) {
   const { normalizeVerdict } = require(path.join(__dirname, '..', 'lib', 'checkpoint-verdict.cjs'));
   const verdict = normalizeVerdict(rawVerdict);
   if (verdict !== 'pass' && verdict !== 'fail') return { ok: true, skipped: 'unknown-verdict' };
   if (typeof pipelineDocPath !== 'string' || !pipelineDocPath) return { ok: false, error: 'pipelineDocPath required' };
+  // countFailure default TRUE (back-compat). It governs ONLY the INCREMENT on a
+  // 'fail': the machine-evidence green-close wire passes {countFailure:false} so one
+  // red checkpoint is not double-counted across the two producers (the A2/A3 STOP_RULE
+  // counter is owned by the checkpoint-validator/sanity-checker path). A 'pass' ALWAYS
+  // resets the counter regardless — green means recovered, and resetting can never
+  // cause a premature circuit-break.
+  const countFailure = !opts || opts.countFailure !== false;
   const safe = resolveSafeStatePath(pipelineDocPath);
   if (!safe.ok) return safe;
   return lockedStateUpdate(safe.statePath, () => {
@@ -183,7 +190,8 @@ function recordCheckpointVerdict(pipelineDocPath, rawVerdict) {
     const merged = {
       ...state,
       last_checkpoint_verdict: verdict,
-      consecutive_checkpoint_failures: verdict === 'fail' ? prevFails + 1 : 0,
+      // 'pass' always resets; 'fail' increments only when countFailure (else holds).
+      consecutive_checkpoint_failures: verdict === 'fail' ? (countFailure ? prevFails + 1 : prevFails) : 0,
       updated_at: new Date().toISOString(),
     };
     try { writeSignedState(safe.statePath, merged); }

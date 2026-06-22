@@ -131,7 +131,18 @@ function decide(payload) {
   const agentType = typeof payload.agent_type === 'string' ? payload.agent_type : '';
   const lastMsg = typeof payload.last_assistant_message === 'string' ? payload.last_assistant_message : '';
 
-  const armed = (process.env.PIPELINE_SUBAGENTSTOP_ENFORCEMENT || 'warn').toLowerCase() === 'deny';
+  // DEFAULT-ON (B4 — v8.11.0): the SubagentStop commit gate is ARMED by default so a
+  // shipped install actually enforces it (the prior arming lived in the dev-only
+  // settings.json, which is not packaged). Escape:
+  //   PIPELINE_SUBAGENTSTOP_ENFORCEMENT = warn|off|0|false|no|allow|disabled|observe
+  // reverts to observe-only. Safe to default-on: a live --plugin-dir probe (run 002)
+  // proved the harness HONORS a SubagentStop decision:block; the 9 governed agents —
+  // task-orchestrator, information-gate, plan-architect, quality-gate-router,
+  // pre-tester, executor-controller, review-orchestrator, sanity-checker,
+  // final-validator — emit PIPELINE_AGENT_RESULT_V1 (locked by B4 readiness test); and
+  // the 3-correction cap → hard_failed terminal guarantees no infinite block (NOT a
+  // deadlock — an honest terminal). Re-confirmed live in B6.
+  const armed = !/^(warn|off|0|false|no|allow|disabled|observe)$/i.test(String(process.env.PIPELINE_SUBAGENTSTOP_ENFORCEMENT || '').trim());
 
   // Discover active run state (authoritative pointer precedence).
   let state = null;
