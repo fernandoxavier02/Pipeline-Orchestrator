@@ -82,8 +82,8 @@
     </g>
     <g transform="translate(880,150)">
       <g transform="translate(-20,-44)">
-        <circle cx="12" cy="12" r="14" fill="url(#lfA)"/>
-        <circle cx="12" cy="12" r="14" fill="url(#lfB)" opacity="0.55" transform="translate(6 -4) scale(0.85)"/>
+        <circle cx="12" cy="12" r="14" fill="#F02E5E"/>
+        <circle cx="12" cy="12" r="14" fill="#7B5BFF" opacity="0.55" transform="translate(6 -4) scale(0.85)"/>
       </g>
       <text x="0" y="2" fill="#F0F6FC" font-size="16" font-weight="800">Langfuse</text>
       <text x="0" y="24" fill="#F472B6" font-size="11.5" font-weight="600">Observability</text>
@@ -97,7 +97,7 @@
     </g>
     <g transform="translate(1120,150)">
       <g transform="translate(-18,-48) scale(1.6)">
-        <path fill="url(#pcG)" d="M5.5 18.5a1 1 0 0 1-.7-.29l-.05-.05C2.9 16.27 2.9 12.83 4.78 10.95l8.49-8.49a4.25 4.25 0 0 1 6.01 6.01l-8.49 8.49a1.5 1.5 0 1 1-2.12-2.12l8.49-8.49a1.25 1.25 0 1 0-1.77-1.77l-8.49 8.49c-1.04 1.04-1.04 2.73 0 3.77a1 1 0 0 1-.04 1.46 1 1 0 0 1-.86.45Z"/>
+        <path fill="#A78BFA" d="M5.5 18.5a1 1 0 0 1-.7-.29l-.05-.05C2.9 16.27 2.9 12.83 4.78 10.95l8.49-8.49a4.25 4.25 0 0 1 6.01 6.01l-8.49 8.49a1.5 1.5 0 1 1-2.12-2.12l8.49-8.49a1.25 1.25 0 1 0-1.77-1.77l-8.49 8.49c-1.04 1.04-1.04 2.73 0 3.77a1 1 0 0 1-.04 1.46 1 1 0 0 1-.86.45Z"/>
       </g>
       <text x="0" y="2" fill="#F0F6FC" font-size="16" font-weight="800">Paperclip</text>
       <text x="0" y="24" fill="#FBBF24" font-size="11.5" font-weight="600">Autonomous runtime</text>

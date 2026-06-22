@@ -27,7 +27,7 @@
 
   <g transform="translate(640,108)">
     <rect x="-170" y="-22" width="340" height="44" rx="12" fill="#1a1228" stroke="#7C3AED" stroke-width="2" filter="url(#hsoft)"/>
-    <text x="0" y="6" text-anchor="middle" font-size="20" font-weight="800" fill="url(#hcount)" letter-spacing="1">28 HOOKS · CODE-ENFORCED</text>
+    <text x="0" y="6" text-anchor="middle" font-size="20" font-weight="800" fill="#C4B5FD" letter-spacing="1">28 HOOKS · CODE-ENFORCED</text>
   </g>
 
   <!-- 4 category cards -->
