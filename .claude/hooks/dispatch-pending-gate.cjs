@@ -69,6 +69,21 @@ function isResolutionAgent(payload, pending) {
   return false;
 }
 
+// Um spawn do agente sentinel é SEMPRE liberado, em qualquer ramo: o sentinel é o
+// agente de diagnóstico/recuperação que o sentinel-hook MANDA rodar numa divergência
+// de sequência (sentinel-hook.cjs: "sentinel itself always passes"). Espelhamos a
+// isenção aqui — senão um porteiro manda chamar o guardião e ESTE outro o barra,
+// criando um deadlock irrecuperável (descoberto por dogfood 2026-06-22). O sentinel
+// é read-mostly e NÃO executa trabalho de produção inline, então liberar o spawn é
+// seguro: não é o "wrong-Agent bypass" (esse despacharia um agente de TRABALHO).
+function isSentinelAgent(payload) {
+  if (!payload || payload.tool_name !== 'Agent') return false;
+  const ti = payload.tool_input || {};
+  const target = typeof ti.subagent_type === 'string' ? ti.subagent_type : '';
+  if (!target) return false;
+  return target.split(':').pop() === 'sentinel';
+}
+
 function pendingId(pending) {
   return (typeof pending.gate_id === 'string' && pending.gate_id)
     || (typeof pending.dispatch_id === 'string' && pending.dispatch_id)
@@ -130,6 +145,10 @@ function decideInlineGate(payload) {
   const tool = typeof payload.tool_name === 'string' ? payload.tool_name : '(unknown)';
   if (state === eg.CORRUPT_SENTINEL) {
     if (ALWAYS_ALLOW_TOOLS.has(tool)) return { decision: 'allow' };
+    // The sentinel recovery agent is always allowed — it MUST be able to run to
+    // diagnose + re-sign/rebuild a corrupt state. Without this, the corrupt branch
+    // has NO recovery edge and the run is permanently bricked (the deadlock fix).
+    if (isSentinelAgent(payload)) return { decision: 'allow' };
     // A resolution Agent (carries a resolution marker) is always allowed — but with no
     // readable pending block we can only honor the marker-based branch, not the
     // dispatch-id match. RESOLUTION_MARKERS is the safe subset.
@@ -164,6 +183,9 @@ function decideInlineGate(payload) {
 
   // Há um handshake VIVO. Só resolução/controle + isenções passam.
   if (ALWAYS_ALLOW_TOOLS.has(tool)) return { decision: 'allow' };
+  // O sentinel (recuperação/diagnóstico) tem passe livre — espelha a isenção do
+  // sentinel-hook e evita o deadlock "um porteiro manda chamar o guardião, o outro barra".
+  if (isSentinelAgent(payload)) return { decision: 'allow' };
   if (isResolutionAgent(payload, pending)) return { decision: 'allow' };
 
   // Executor legítimo já autorizado por exec-window.
@@ -216,4 +238,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { decideInlineGate, handlePreToolUse, ALWAYS_ALLOW_TOOLS };
+module.exports = { decideInlineGate, handlePreToolUse, isSentinelAgent, ALWAYS_ALLOW_TOOLS };
