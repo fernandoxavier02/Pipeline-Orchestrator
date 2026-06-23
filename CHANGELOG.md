@@ -2,6 +2,19 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.12.0] - 2026-06-23
+
+### Added (spec 006 — self-healing remediation, Batches 4-7)
+- **Batch 4** — corrective engine wired on a gate trip via a deterministic orchestrator hook (`corrective-dispatch-gate.cjs`) reusing the complete `lib/corrective-dispatch.cjs` engine.
+- **Batch 5** — LAYER B: signed `error-signals.jsonl` channel (`appendErrorSignal`/`readErrorSignals`) + corrector (`corrective-error-signal-gate.cjs`), fire-and-continue, idempotency dedup.
+- **Batch 6** — load-time enforcement-surface self-verification (`enforcement-surface-verify-hook.cjs`).
+- TDD RED→GREEN per batch + per-batch independent zero-context adversarial review. Suite 211/4 (the 4 are pre-existing Langfuse/env failures). Iron Law preserved (registry 49 + Mandatory 24 untouched).
+
+### Known issues (2 HIGH — fix in a follow-up run; final-validator verdict CONDITIONAL)
+- **R1-SEC-1** (HIGH): corrective channels are signed-on-write but NOT verified-on-read (`readActiveSentinelState` raw `JSON.parse`; engine has no `verifyState`) → forged/replayed on-disk state/trigger accepted; dedup window collapsible. Fix: verify-on-read via edit-guard `findActiveSentinelState`.
+- **R1-SEC-2** (HIGH): `corrective-dispatch-gate` is registered under PostToolUse `Edit|Write|NotebookEdit|MultiEdit|Bash|PowerShell`, but those are DENIED at PreToolUse during the governed-unarmed window so no PostToolUse fires → the drain is mostly dead in prod. Fix: matcher include `Read|Grep|Glob` or drain at SessionStart/Stop.
+- This MINOR is a user-requested CHECKPOINT release with both HIGHs documented; a follow-up addresses them.
+
 ## [8.11.1] - 2026-06-22
 
 ### Fixed
