@@ -2,6 +2,11 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.11.1] - 2026-06-22
+
+### Fixed
+- **Enforcement deadlock (dispatch-pending-gate × sentinel-hook).** `.claude/hooks/dispatch-pending-gate.cjs` now exempts a spawn of the `sentinel` agent in BOTH branches (live pending handshake + corrupt signed state), mirroring the exemption `sentinel-hook.cjs` already grants ("sentinel always passes"). Closes the irrecoverable deadlock where a sequence divergence instructs the parent to run the sentinel to auto-correct, but the dispatch-pending lock blocks the sentinel spawn — leaving the run wedged. The sentinel is a read-mostly recovery/diagnosis action, not inline production work, so this is not the wrong-Agent bypass. Found by live dogfood. Test: `tests/regression/v8.12.0/T4_sentinel_recovery_exemption.cjs` (6 scenarios RED→GREEN, incl. security: non-sentinel agent + inline Read still blocked; F37 regression intact). Iron Law: only `.claude/hooks/` + `tests/` touched; no `.codex` mirror. Full suite 206/4 (4 pre-existing Langfuse/env failures).
+
 ## [8.11.0] - 2026-06-22
 
 ### Changed (the two strong gates now ship ARMED BY DEFAULT in code)
