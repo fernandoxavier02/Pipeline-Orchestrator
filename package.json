@@ -1,6 +1,6 @@
 {
   "name": "@fx-studio-ai/pipeline-orchestrator",
-  "version": "8.12.1",
+  "version": "8.13.0",
   "description": "Multi-agent governance layer for Claude Code, Cursor, and OpenCode — sits between your spec and production code with deterministic enforcement, TDD, parallel adversarial review, a 49-gate hierarchy, and a glass-box audit trail. v8.9.0.",
   "keywords": [
     "claude-code",

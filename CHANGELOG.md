@@ -2,6 +2,20 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.13.0] - 2026-06-23
+
+### Added — deterministic AUDIT read-budget gate (closes the read-only inline escape)
+- **Root cause**: `pipeline-arm-gate.cjs` always-allows `Read/Grep/Glob` (so a diagnostic is never frozen), so read-only pipeline types (Audit, UX Simulation) ran ENTIRELY inline — never arming, never dispatching the audit-* agents. Same bug class as v8.12.1 R1-SEC-2 (enforcement tied to mutation events, blind to reads).
+- **Fix**: in the governed-UNARMED window, count investigation reads in a signed ledger (`.pipeline/state/governed-read-ledger.json`, keyed by `sha256(requested_at)`, reset per /pipeline invocation) and BLOCK the (budget+1)th read for `Audit`/`UX Simulation`. Budget default 12 (`PIPELINE_AUDIT_READ_BUDGET`, floor 1); deny default, escape `PIPELINE_AUDIT_BUDGET_ENFORCEMENT=warn`.
+- **Shape**: pure brain `lib/audit-read-budget.cjs` (`decideAuditReadBudget`) + PreToolUse blocker `audit-read-budget-gate.cjs` + PostToolUse counter `audit-read-counter-hook.cjs` (two dedicated `Read|Grep|Glob` matcher blocks in `hooks/hooks.json`). Reuses the arm-gate exported predicates + the HMAC signer (two-tier verify) + exclusive-lock. `pipeline-arm-gate.cjs` is UNCHANGED.
+- Light diagnostics pass; arming/dispatch + `.pipeline/` reads are exempt; the marker TTL expires (no deadlock). TDD RED→GREEN (41 scenarios: B0 brain 15 + B0 contract 14 + B2 live 12) + zero-context adversarial review CLEAN (0 CRITICAL / 0 HIGH). Suite 215/4 (the 4 are pre-existing Langfuse/env). Iron Law preserved (registry 49 + Mandatory 24 untouched — enforcement hook, not a registry gate).
+
+### Known issues (MEDIUM/LOW — backlog, accepted threat model, same as v8.12.1)
+- Unsigned ledger is tolerated (strip → reset budget); `PIPELINE_HMAC_STRICT=true` closes it. Bash is blocked in the governed window so it cannot be written inline.
+- The blocker reads the count without a lock → 1-2 read overshoot under concurrent subagents (the budget is a behavioral heuristic, not a hard limit).
+- `isAlignedRead` does not inspect a Glob `pattern` (over-counts a `.pipeline/**` glob — stricter, not weaker).
+- `sanitizeWorkflow` keeps `/` (parity with the arm-gate; plain-text reason, no injection).
+
 ## [8.12.1] - 2026-06-23
 
 ### Fixed (spec 006 — closes the 2 HIGH that left v8.12.0 CONDITIONAL)
