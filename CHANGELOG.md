@@ -2,6 +2,18 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.12.1] - 2026-06-23
+
+### Fixed (spec 006 — closes the 2 HIGH that left v8.12.0 CONDITIONAL)
+- **R1-SEC-1 (HIGH) — verify-on-read** added to ALL THREE corrective read channels in `lib/corrective-dispatch.cjs` (`readActiveSentinelState`, `readCorrectiveTriggers`, `readErrorSignals`): two-tier polarity — signature present+valid accept; present+INVALID reject/drop (fail-closed); unsigned tolerate (migration); key-unavailable tolerate. Reuses `lib/sentinel-state-signer.cjs` verifyState, mirrors `.claude/hooks/edit-guard-hook.cjs`. Forged/replayed on-disk state/trigger/error-signal is now rejected.
+- **R1-SEC-2 (HIGH) — dead consumer wiring** fixed: the `corrective-dispatch-gate` PostToolUse matcher in `hooks/hooks.json` now includes `Read|Glob|Grep`, so the corrective drain fires during the governed-unarmed window (where Edit|Write|Bash are denied at PreToolUse). The gate reads via `fs` (no tool recursion); the per-window ceiling (M1) remains the storm backstop.
+- TDD: `tests/regression/v8.12.0/SEC_2high_fix.cjs` (7 scenarios RED→GREEN). Full bugfix-heavy pipeline: per-batch adversarial review (Batch A + B CLEAN) + final zero-context security scan (0 CRITICAL / 0 HIGH — both original HIGH genuinely closed). Pa de Cal GO. Suite 212/4 (the 4 are pre-existing Langfuse/env). Iron Law preserved.
+
+### Known issues (pre-existing MEDIUM/LOW — backlog, NOT introduced by this release)
+- Strip-attack: an actor with write access to `.pipeline/state/` can strip `__signature` so a forged record passes as unsigned-tolerated (the accepted migration stance; `PIPELINE_HMAC_STRICT=true` closes it). Document in the verify path.
+- `active-run.json` pointer is read without an integrity check.
+- `corrective-ledger.json` / `*.consumed.json` control files are unsigned (idempotency tamper).
+
 ## [8.12.0] - 2026-06-23
 
 ### Added (spec 006 — self-healing remediation, Batches 4-7)
