@@ -80,21 +80,6 @@
         "ref": "v4.2.5"
       },
       "category": "productivity"
-    },
-    {
-      "name": "panel-llm",
-      "description": "LLM panel (council): runs several LLM providers (Anthropic, Kimi, MiniMax, GLM, Qwen, OpenRouter, and OpenAI via the official Codex login) in parallel via built-in adapters, with intra-LLM debate to consensus and a final synthesis. /panel-setup configures models from each provider's live catalogue. Windows 11 + PowerShell 7.",
-      "version": "0.3.0",
-      "author": {
-        "name": "Fernando Xavier",
-        "url": "https://github.com/fernandoxavier02/panel-llm"
-      },
-      "source": {
-        "source": "url",
-        "url": "https://github.com/fernandoxavier02/panel-llm.git",
-        "ref": "v0.3.0"
-      },
-      "category": "productivity"
     }
   ]
 }
