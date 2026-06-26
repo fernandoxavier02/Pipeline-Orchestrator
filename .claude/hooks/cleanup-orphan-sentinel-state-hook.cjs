@@ -386,6 +386,47 @@ function checkLangfuseSdkThrows(pluginRoot) {
   }
 }
 
+// Point 7b (chain-tied enforcement) — orphan ARM-MARKER self-clear. A fresh
+// session must not inherit a prior session's EXPIRED arm-pending marker. An expired
+// marker is ALREADY non-blocking (pipeline-arm-gate treats it as absent), so removing
+// it is pure hygiene that keeps a stale orphan from confusing the operator (the live
+// deadlock of 2026-06-26). Conservative on purpose: ONLY an expired marker is removed
+// — a fresh, non-expired marker may belong to a command issued this very session.
+// Best-effort, fail-silent: it must never throw or block the SessionStart chain.
+// FINAL-REVIEW ARCH-001 / QUAL-2: the arm-marker TTL is the SSOT in lib/arm-pending — the cleanup
+// must honour the SAME expiry the arm-gate enforces. The prior local 60s floor silently ignored
+// sub-minute TTLs the gate respected, so a short-TTL marker the gate already treated as expired was
+// never cleaned. Delegate to the SSOT; the local 30-min default is only a fallback if the lib is
+// absent. (Deletion/tamper semantics in cleanupExpiredArmMarker are deliberately UNCHANGED.)
+let armPending = null;
+try { armPending = require('../../lib/arm-pending.cjs'); } catch { armPending = null; }
+const ARM_MARKER_TTL_DEFAULT_MS = 30 * 60 * 1000;
+function resolveArmMarkerTtlMs(env) {
+  if (armPending && typeof armPending.resolveArmTtlMs === 'function') return armPending.resolveArmTtlMs();
+  const raw = (env || process.env || {}).PIPELINE_ARM_TTL_MS;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) && n >= 60000 ? n : ARM_MARKER_TTL_DEFAULT_MS;
+}
+function cleanupExpiredArmMarker(cwd, opts) {
+  try {
+    if (typeof cwd !== 'string' || !cwd) return 'skip';
+    const p = path.join(cwd, '.pipeline', 'pipeline-arm-pending.json');
+    let raw;
+    try { raw = fs.readFileSync(p, 'utf8'); } catch { return 'absent'; }
+    let m;
+    try { m = JSON.parse(raw); } catch { m = null; }
+    const ts = m && m.requested_at ? Date.parse(m.requested_at) : NaN;
+    const now = (opts && typeof opts.now === 'number') ? opts.now : Date.now();
+    const ttl = (opts && typeof opts.ttlMs === 'number') ? opts.ttlMs : resolveArmMarkerTtlMs();
+    // Unreadable/undated marker is treated as expired (defensive); a dated marker is
+    // removed only once it is past TTL.
+    if (!Number.isFinite(ts) || now - ts > ttl) {
+      try { fs.unlinkSync(p); return 'removed'; } catch { return 'error'; }
+    }
+    return 'live';
+  } catch { return 'error'; }
+}
+
 function handleSessionStart(payload) {
   const summary = {
     scanned: 0, archived: 0, live: 0,
@@ -405,6 +446,10 @@ function handleSessionStart(payload) {
     summary.skipped_reason = 'cwd_not_sandbox_ok';
     return summary;
   }
+
+  // Point 7b: clear an EXPIRED orphan arm-pending marker on session start (runs even
+  // when there is no docs dir — the marker lives at the .pipeline/ root).
+  try { summary.arm_marker = cleanupExpiredArmMarker(cwd); } catch { summary.arm_marker = 'error'; }
 
   const docsDir = path.join(cwd, '.pipeline', 'docs');
   if (!fs.existsSync(docsDir)) {
@@ -500,5 +545,7 @@ module.exports = {
   cleanupOrphan,
   checkHandshakeTimeouts,
   checkLangfuseSdkThrows,
+  cleanupExpiredArmMarker,
+  resolveArmMarkerTtlMs,
   handleSessionStart,
 };

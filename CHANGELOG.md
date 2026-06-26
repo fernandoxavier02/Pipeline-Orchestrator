@@ -2,6 +2,51 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.15.0] - 2026-06-26
+
+### Added — E2E self-evaluation loop
+- Deterministic step-by-step run evaluator (`lib/e2e-evaluator.cjs`) over an explicit
+  contract (`lib/contracts/e2e-eval.cjs`): scores a finished pipeline run phase-by-phase,
+  assigns a grade, and surfaces **human-gated** improvement proposals at the `Stop` event.
+- `e2e-eval-gate.cjs` hook + `scripts/e2e-eval-complete.cjs` loop-closer + `/self-eval`
+  command wire the loop into the existing fidelity/logging infrastructure (≈70% reused).
+
+### Changed — chain-tied enforcement remediation
+- **SSOT marker reading.** The arm-pending marker's verify-on-read (SEC-1 HMAC),
+  TTL resolution (SEC-3 floor), and well-formed/expired/tampered discrimination are
+  consolidated into one module (`lib/arm-pending.cjs`), consumed by the arm-gate, the
+  audit-read-budget gate, and the new `audit-dispatch-marker.cjs` hook. Closes a DRY/DIP
+  violation where the same logic lived in three places and two hooks borrowed predicates
+  from a sibling hook.
+- **Dispatch-aware read budget.** The AUDIT read-budget now exempts a genuinely dispatched
+  subagent, so legitimate orchestration is never throttled by the read ceiling.
+
+### Security (final-review findings, fixed)
+- **SEC-1** — the dispatch-mark ledger now uses an **allowlist**: only real review/audit/ux
+  agents mark the budget as dispatched; the sentinel, task-orchestrator, and brainstorm
+  steps never do (the earlier denylist let those collide).
+- **SEC-3** — the rehydration deny-message no longer teaches the exec-window write path
+  ("a janela não se abre à mão"); the agent is told to dispatch the step's agent instead.
+- **SEC-4** — a workflow label echoed into an LLM-facing deny reason is reconstructed from a
+  validated `MODE/Type` allowlist (injection-safe SSOT in `lib/pipeline-workflow-classifier.cjs`),
+  so an attacker-controlled prefix never survives into model-facing tool-response text.
+
+### Known limitation (cooperative-model floor)
+- Enforcement is prompt/coordination-based, **not cryptographic against the parent**. A parent
+  with `.pipeline/` write access can still un-govern itself by deleting its own coordination
+  state — equivalent to never invoking the pipeline. Full closure of that class requires
+  `PIPELINE_HMAC_STRICT` default-on across the whole plugin, a deliberate plugin-wide posture
+  change deferred to a future major (touching it now would span many files outside this
+  changeset and break the migration-tolerant unsigned default the rest of the plugin relies on).
+
+### Tests / invariants
+- `tests/regression/v8.14.0/` (F1–F13, incl. F12 SSOT parity gate↔lib and F13 SEC-4 injection)
+  + `tests/regression/v8.15.0/`. Full suite **232 / 4** (the 4 are the pre-existing
+  Langfuse/env failures: F8/F9/F10 langfuse + F2 score-writer).
+- Iron Law preserved: only `.claude/hooks/`, `lib/`, `hooks.json`, `commands/`, `scripts/`,
+  `tests/` — the Mandatory Gates by Complexity table and the Gate Registry are UNTOUCHED.
+- Lockstep across the 9 version surfaces.
+
 ## [8.13.0] - 2026-06-23
 
 ### Added — deterministic AUDIT read-budget gate (closes the read-only inline escape)

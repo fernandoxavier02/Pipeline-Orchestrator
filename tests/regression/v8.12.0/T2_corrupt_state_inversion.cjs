@@ -238,14 +238,21 @@ liveTest('T2-3c [io] runStateContext: authoritative corrupt → {runActive:false
 });
 
 // ===========================================================================
-// (4) HMAC POSTURE (R2.4) — a TAMPERED marker is treated as ABSENT → no governed
-//     window → corrupt is never consulted → ALLOW. (Unsigned tolerated already.)
+// (4) HMAC POSTURE — Batch 3 (SEC HIGH) CONTRACT CHANGE of the old R2.4. A TAMPERED
+//     marker used to be treated as ABSENT → fail-OPEN, which WAS the pending-arm
+//     SELF-DISARM bypass (an agent flips a field of the real marker to invalidate the
+//     signature and escape the governed window). It is now detected as tampering and
+//     the window stays GOVERNED → substantive work fails CLOSED. The original
+//     anti-brick guarantee is preserved for ORDINARY sessions: those have NO marker
+//     (absent ≠ tampered), so they are never bricked — only a session where a
+//     /pipeline WAS issued AND its marker was overwritten hits the fail-closed path,
+//     and it recovers by writing a well-formed EXPIRED marker.
 // ===========================================================================
 
-liveTest('T2-4a [hmac/R2.4] tampered arm marker treated as absent → corrupt state does NOT brick → ALLOW', (root) => {
+liveTest('T2-4a [Batch3/SEC] tampered arm marker is DETECTED → governed window → substantive work fails CLOSED (bypass closed)', (root) => {
   arm(root);
   // Tamper the signed marker on disk: flip a field WITHOUT re-signing → the
-  // signature no longer verifies → readArmPending treats it as absent.
+  // signature no longer verifies → Batch 3 treats it as TAMPERING (not absent).
   const mp = markerPath(root);
   const m = JSON.parse(fs.readFileSync(mp, 'utf8'));
   assert.ok(m.__signature, 'precondition: the marker must be signed for this test to be meaningful');
@@ -254,8 +261,13 @@ liveTest('T2-4a [hmac/R2.4] tampered arm marker treated as absent → corrupt st
   const docDir = seedCorruptState(root);
   const r = run(pre(root, 'Edit', { file_path: path.join(root, 'src', 'app.js') }), { PIPELINE_DOC_PATH: docDir });
   assert.equal(r.status, 0, r.stderr);
-  assert.equal(denyReason(r), null,
-    'a tampered marker is treated as absent → no governed window → corrupt never bricks (R2.4)');
+  const reason = denyReason(r);
+  // The bypass-closure property is "substantive work is DENIED". This scenario also
+  // seeds a CORRUPT state, and decideArmGate checks corrupt BEFORE the tampered-marker
+  // branch, so the surfacing invariant here is CORRUPT_STATE — BOTH fail-closed, both
+  // close the bypass. (F10 proves the MARKER_TAMPERED invariant in isolation, no corrupt.)
+  assert.ok(reason && /MARKER_TAMPERED|CORRUPT_STATE/.test(reason),
+    'a tampered marker must keep the window GOVERNED and DENY substantive work (self-disarm bypass closed)');
 });
 
 // ===========================================================================

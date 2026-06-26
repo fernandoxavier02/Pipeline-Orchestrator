@@ -39,8 +39,19 @@ try {
   }
 } catch { fixLoop = null; }
 
+// Batch 1 (audit ARCH-7): delegate to the single SSOT in lib/step-ledger.cjs so the
+// `workflow_key || (task_type==='Spec'?'Spec':'FULL')` heuristic lives in ONE place
+// (it was duplicated here + in step-ledger-stamp + pipeline-arm-gate + stop-gate-hook,
+// and silently mis-mapped brainstorm → FULL). Falls back to the old inline behavior
+// only if the SSOT is somehow unavailable.
 function workflowKeyFromState(state) {
-  if (state && typeof state.workflow_key === 'string' && state.workflow_key) return state.workflow_key;
+  if (ledger && typeof ledger.resolveWorkflowKey === 'function') {
+    try { return ledger.resolveWorkflowKey(state); } catch { /* fall through */ }
+  }
+  // Safe degenerate fallback (SSOT module unavailable): NEVER trust an arbitrary
+  // workflow_key verbatim (adversarial ARCH-1) — an unknown key would route the run to
+  // a workflow with no AGENT_STEP_MAP, treating it as ungoverned. Only the known
+  // skill-governed Spec is recognized here; everything else is the safe default FULL.
   if (state && state.task_type === 'Spec') return 'Spec';
   return 'FULL';
 }

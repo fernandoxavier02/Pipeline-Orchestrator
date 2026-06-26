@@ -17,39 +17,26 @@
 // no second scheme. Fail-OPEN on any error (never freeze the harness on a read).
 // =============================================================================
 
-const fs = require('node:fs');
-const path = require('node:path');
-
 let budget = null;
 try { budget = require('../../lib/audit-read-budget.cjs'); } catch { budget = null; }
 let armGate = null;
 try { armGate = require('./pipeline-arm-gate.cjs'); } catch { armGate = null; }
-
-const ARM_TTL_DEFAULT_MS = 30 * 60 * 1000;
+// Batch 5 (ARCH-1/ARCH-2): marker reading now comes from the SSOT lib, not a re-implementation.
+// armGate is still required below for the run-state / pipeline-path predicates.
+let armPending = null;
+try { armPending = require('../../lib/arm-pending.cjs'); } catch { armPending = null; }
 
 function toolNameOf(payload) {
   return typeof (payload && payload.tool_name) === 'string' ? payload.tool_name : '(unknown)';
 }
 
 // Read the signed arm-pending marker for the fields the budget needs
-// (requested_at, type, workflow), honouring the SAME tamper-verify + TTL the
-// arm-gate uses. The arm-gate's own readArmPending returns only {workflow}, so
-// we read the marker directly here (reusing its verify + TTL helpers).
+// (requested_at, type, workflow) — delegated to the SSOT lib/arm-pending, which applies
+// the SAME tamper-verify + TTL the arm-gate uses and NARROWS the return to those fields.
 function readMarker(dir) {
-  try {
-    const p = path.join(dir, '.pipeline', 'pipeline-arm-pending.json');
-    const m = JSON.parse(fs.readFileSync(p, 'utf8'));
-    if (armGate && typeof armGate.markerIsTampered === 'function' && armGate.markerIsTampered(m)) return null;
-    const ts = Date.parse(m && m.requested_at);
-    if (!Number.isFinite(ts)) return null;
-    const ttl = (armGate && typeof armGate.resolveArmTtlMs === 'function') ? armGate.resolveArmTtlMs() : ARM_TTL_DEFAULT_MS;
-    if (Date.now() - ts > ttl) return null;
-    return {
-      requested_at: m.requested_at,
-      workflow: typeof m.workflow === 'string' ? m.workflow : undefined,
-      type: typeof m.type === 'string' ? m.type : undefined,
-    };
-  } catch { return null; }
+  return armPending && typeof armPending.readArmPendingMarker === 'function'
+    ? armPending.readArmPendingMarker(dir)
+    : null;
 }
 
 // A read is "coordination" (not counted, not blocked) when it targets .pipeline/
@@ -89,6 +76,7 @@ function gatherContext(payload) {
     budgeted,
     pipelineAligned: isAlignedRead(payload, dir),
     count: ledger.count,
+    agentDispatched: ledger.dispatched === true, // Batch 4 (RISK-1): exempt once a pipeline agent was dispatched
     budget: budget.resolveReadBudget(),
     enforce: budget.resolveAuditEnforce(),
     workflow: marker.workflow,

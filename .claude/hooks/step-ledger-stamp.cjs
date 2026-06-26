@@ -208,7 +208,11 @@ function stamp(payload) {
     }
   }
 
-  const wf = state.workflow_key || (state.task_type === 'Spec' ? 'Spec' : 'FULL');
+  // Batch 1 (audit ARCH-7): single SSOT workflow-key resolution (was a duplicated
+  // inline heuristic that mis-mapped brainstorm → FULL).
+  const wf = (typeof ledger.resolveWorkflowKey === 'function')
+    ? ledger.resolveWorkflowKey(state)
+    : (state.workflow_key || (state.task_type === 'Spec' ? 'Spec' : 'FULL'));
   const step = ledger.stepForAgent(wf, leaf);
   if (!step) return; // ungoverned agent → nothing to stamp
 

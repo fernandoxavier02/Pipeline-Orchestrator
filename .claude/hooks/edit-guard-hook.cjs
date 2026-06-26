@@ -558,10 +558,17 @@ function isPlanFile(filePath) {
     const nc = process.platform === 'win32' ? c.toLowerCase() : c;
     if (norm === nc || norm.startsWith(nc + path.sep)) return true;
   }
-  // generic fallback: any `<sep>.claude<sep>plans<sep>` segment (covers nonstandard config dirs)
-  const seg = `${path.sep}.claude${path.sep}plans${path.sep}`;
-  const segNorm = process.platform === 'win32' ? seg.toLowerCase() : seg;
-  return norm.includes(segNorm);
+  // generic fallback: any path segment that STARTS WITH `.claude` immediately
+  // followed by a `plans` segment — covers nonstandard config dirs like
+  // `.claude-conta2`. LIVE DOGFOOD (chain-tied enforcement build, 2026-06-26):
+  // $CLAUDE_CONFIG_DIR was `.claude-conta2`; the old hardcoded `${sep}.claude${sep}plans`
+  // segment missed it and the session-lock/edit-guard deadlocked Plan Mode's own
+  // plan file — the harness could not write the approved plan it required.
+  const segs = norm.split(path.sep);
+  for (let i = 0; i < segs.length - 1; i++) {
+    if (segs[i].startsWith('.claude') && segs[i + 1] === 'plans') return true;
+  }
+  return false;
 }
 
 // A write is exempt from the preventive locks when it targets the run's .pipeline/ dirs OR the

@@ -17,7 +17,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { writeSignedState, verifyState, readHmacKey } = require(path.join(__dirname, '..', 'lib', 'sentinel-state-signer.cjs'));
-const { STEP_MANIFESTS } = require(path.join(__dirname, '..', 'lib', 'step-ledger.cjs'));
+const { STEP_MANIFESTS, buildChainRecovery } = require(path.join(__dirname, '..', 'lib', 'step-ledger.cjs'));
 const { withLock } = require(path.join(__dirname, '..', 'lib', 'exclusive-lock.cjs'));
 
 // Runs a read-merge-resign critical section under a cross-process exclusive lock
@@ -255,12 +255,48 @@ function recordPhaseVerdict(pipelineDocPath, field, value) {
   });
 }
 
-module.exports = { recordStep, recordFixAttempt, recordBatchCheckpoint, recordBatchReview, recordCheckpointVerdict, recordDomainsTouched, recordPhaseVerdict, PHASE_VERDICT_FIELDS, STEP_VOCAB };
+// AUTO-RECOVERY re-anchor (Lote 4). Re-derives expected_next from the ACTUAL
+// stamped ledger via buildChainRecovery (the first unstamped manifest step — never
+// forward of what was stamped) and persists it into the signed state. Used by the
+// sentinel recovery path when a governed run's chain is broken/incomplete. NEVER
+// fabricates progress: it only re-points expected_next; it does NOT add ledger
+// entries. A complete chain or an un-anchorable workflow is a no-op (returns the
+// descriptor so the caller can freeze + surface the operator escape).
+function reanchorExpectedNext(pipelineDocPath, workflowKey) {
+  if (typeof pipelineDocPath !== 'string' || !pipelineDocPath) return { ok: false, error: 'pipelineDocPath required' };
+  const safe = resolveSafeStatePath(pipelineDocPath);
+  if (!safe.ok) return safe;
+  return lockedStateUpdate(safe.statePath, () => {
+    let state;
+    try { state = readState(safe.statePath); } catch (err) { return { ok: false, error: err.message }; }
+    const wf = workflowKey || state.workflow_key || (state.task_type === 'Spec' ? 'Spec' : 'FULL');
+    const recovery = buildChainRecovery(state, wf);
+    // Nothing to re-anchor: complete chain, or no valid anchor (freeze for the operator).
+    if (!recovery.anchorable || recovery.complete || !recovery.reanchorTo) {
+      return { ok: true, reanchored: false, recovery };
+    }
+    const merged = { ...state, expected_next: recovery.reanchorTo, updated_at: new Date().toISOString() };
+    try { writeSignedState(safe.statePath, merged); }
+    catch (err) { return { ok: false, error: `failed to write signed state: ${err.message}` }; }
+    return { ok: true, reanchored: true, expected_next: recovery.reanchorTo, recovery };
+  });
+}
+
+module.exports = { recordStep, recordFixAttempt, recordBatchCheckpoint, recordBatchReview, recordCheckpointVerdict, recordDomainsTouched, recordPhaseVerdict, reanchorExpectedNext, PHASE_VERDICT_FIELDS, STEP_VOCAB };
 
 if (require.main === module) {
-  const [docPath, step] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  // Auto-recovery: `record-step.cjs --reanchor <pipelineDocPath> [workflowKey]`
+  // re-syncs expected_next to the real chain resume point (never fabricates).
+  if (args[0] === '--reanchor') {
+    const res = reanchorExpectedNext(args[1], args[2]);
+    if (res.ok) { process.stdout.write(JSON.stringify(res) + '\n'); process.exit(0); }
+    process.stderr.write('reanchor error: ' + res.error + '\n');
+    process.exit(1);
+  }
+  const [docPath, step] = args;
   if (!docPath || !step) {
-    process.stderr.write('usage: record-step.cjs <pipelineDocPath> <step>\n');
+    process.stderr.write('usage: record-step.cjs <pipelineDocPath> <step>\n       record-step.cjs --reanchor <pipelineDocPath> [workflowKey]\n');
     process.exit(2);
   }
   const res = recordStep(docPath, step);

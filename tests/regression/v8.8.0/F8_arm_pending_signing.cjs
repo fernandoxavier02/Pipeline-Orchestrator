@@ -140,7 +140,12 @@ liveTest('B5-SEC1-1 [NEW] arm-gate readArmPending() rejects a signed-then-tamper
   fs.writeFileSync(arm.markerPath(dir), JSON.stringify(onDisk, null, 2));
   // The gate must NOT trust the tampered marker.
   const got = armGate.readArmPending(dir);
-  assert.equal(got, null, 'a tampered marker must read as NOT-ARMED (null), not be honored');
+  // Batch 3 (SEC HIGH) CONTRACT CHANGE: readArmPending now returns a structured
+  // {armed,tampered} instead of null. A tampered marker is no longer silently "absent"
+  // (which failed OPEN) — it is detected as tampering and the window stays GOVERNED
+  // (fail-CLOSED), closing the pending-arm self-disarm bypass.
+  assert.equal(got.armed, false, 'a tampered marker must NOT be armed (not honored)');
+  assert.equal(got.tampered, true, 'a tampered marker is DETECTED as tampering → fail-closed, not silently absent');
 });
 
 // ---- B5-SEC1-2 [GUARD] arm-gate readArmPending HONORS an untampered signed marker ----
@@ -162,10 +167,13 @@ liveTest('B5-SEC1-3 [GUARD] arm-gate readArmPending() tolerates an UNSIGNED mark
   try {
     delete process.env.PIPELINE_HMAC_STRICT;
     const lenient = armGate.readArmPending(dir);
-    assert.ok(lenient && lenient.workflow === 'FULL/Bug Fix', 'unsigned marker tolerated when strict OFF');
+    assert.ok(lenient && lenient.armed === true && lenient.workflow === 'FULL/Bug Fix', 'unsigned marker tolerated (armed) when strict OFF');
     process.env.PIPELINE_HMAC_STRICT = 'true';
     const strict = armGate.readArmPending(dir);
-    assert.equal(strict, null, 'unsigned marker rejected (not armed) under PIPELINE_HMAC_STRICT');
+    // Batch 3 (SEC HIGH) CONTRACT CHANGE: unsigned-under-STRICT is now treated as
+    // tampering (fail-CLOSED) rather than silently absent (fail-OPEN).
+    assert.equal(strict.armed, false, 'unsigned marker not armed under PIPELINE_HMAC_STRICT');
+    assert.equal(strict.tampered, true, 'unsigned-under-strict is treated as tampering → fail-closed');
   } finally {
     if (prevStrict === undefined) delete process.env.PIPELINE_HMAC_STRICT;
     else process.env.PIPELINE_HMAC_STRICT = prevStrict;

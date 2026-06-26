@@ -37,6 +37,10 @@ let signer = null;
 try { signer = require('../../lib/sentinel-state-signer.cjs'); } catch { signer = null; }
 let manifest = null;
 try { manifest = require('../../lib/contracts/workflow-manifest.cjs'); } catch { manifest = null; }
+// Lote 4 (chain-tied enforcement): the step ledger so the close can require a
+// COMPLETE chain (every phase stamped) before honoring a GO signal.
+let stepLedger = null;
+try { stepLedger = require('../../lib/step-ledger.cjs'); } catch { stepLedger = null; }
 
 const CONTINUITY_CAP = 3; // after 3 continuities, convert to hard_failed terminal.
 
@@ -85,6 +89,39 @@ function isComplete(state) {
   if (isTerminalState(state.terminal_state)) return true;
   if (isTerminalState(state.status)) return true;
   return false;
+}
+
+// Lote 4 — require a COMPLETE chain before a GO signal closes the run. OPT-IN
+// (parity with v8.9.0 PIPELINE_REQUIRE_GREEN_CLOSE): strict is OFF by default so a
+// genuinely finished run of any workflow whose ledger this hook cannot fully verify
+// is NEVER deadlocked. Turn on with PIPELINE_CHAIN_CLOSE_ENFORCEMENT to enforce
+// "no GO without every phase stamped in order" — a GO whose chain is incomplete then
+// falls through to the incomplete-run block (capped at 3 continuities → hard_failed,
+// so it can never deadlock forever).
+function chainCloseStrict() {
+  return /^(1|true|yes|on|deny|strict)$/i.test(String(process.env.PIPELINE_CHAIN_CLOSE_ENFORCEMENT || '').trim());
+}
+function chainIsComplete(state) {
+  if (!stepLedger || typeof stepLedger.isChainComplete !== 'function') return true; // cannot verify → don't block
+  // Batch 1 CORRECTION (adversarial REC-2 / MEDIUM-2): an EMPTY agent-step ledger at
+  // a GO close means the run was NEVER agent-ledger-tracked — it is skill-governed
+  // (Spec/brainstorm) OR a mis-identified workflow whose controller did not write
+  // workflow_key. Requiring ledger-completeness would DEADLOCK it even if it mis-mapped
+  // to FULL. Defer to the GO/seal signal — closing the hole REGARDLESS of whether the
+  // upstream controller tagged the workflow. (A genuine FULL run that reached GO has a
+  // non-empty ledger, so this never weakens FULL's real enforcement.)
+  if (!state || !Array.isArray(state.step_ledger) || state.step_ledger.length === 0) return true;
+  // Batch 1 (audit ARCH-3/ARCH-7): SSOT key resolution (no silent brainstorm→FULL).
+  const wf = typeof stepLedger.resolveWorkflowKey === 'function'
+    ? stepLedger.resolveWorkflowKey(state)
+    : ((state && state.workflow_key) || (state && state.task_type === 'Spec' ? 'Spec' : 'FULL'));
+  // Batch 1 (audit ARCH-2): the chain-complete close ONLY governs workflows whose
+  // completeness the AGENT ledger tracks (FULL). Spec/brainstorm interleave
+  // skill-dispatched, seal-governed steps — requiring an agent-ledger-complete chain
+  // for them would DEADLOCK their close (exactly the audit's prediction). Defer to the
+  // existing GO/seal completion signal: treat as "complete" so the close is not blocked.
+  if (typeof stepLedger.ledgerGovernsClosure === 'function' && !stepLedger.ledgerGovernsClosure(wf)) return true;
+  try { return stepLedger.isChainComplete(state, wf); } catch { return true; }
 }
 
 // Persist a state mutation under the lock with re-read → verify → mutate → re-sign
@@ -260,7 +297,8 @@ function decide(payload) {
   // logic, so arming the Stop block (B5) cannot deadlock a run that actually
   // finished. Only on the Stop event (the recovery events returned above), only
   // when not already terminal, and only on a REAL GO signal — never fabricated.
-  if (!isComplete(state) && statePath && hasSuccessCompletionSignal(state, path.dirname(statePath))) {
+  if (!isComplete(state) && statePath && hasSuccessCompletionSignal(state, path.dirname(statePath))
+      && (!chainCloseStrict() || chainIsComplete(state))) {
     writeCompleted(statePath);
     return { decision: 'allow' };
   }
