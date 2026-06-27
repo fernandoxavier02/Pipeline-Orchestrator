@@ -2,6 +2,25 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.15.1] - 2026-06-27
+
+### Fixed — AUDIT read-budget dispatch-exemption persistence
+- `writeLedger()` in `lib/audit-read-budget.cjs` now carries the `dispatched` flag across
+  writes. Previously the PostToolUse read-counter (`bumpLedger`) rebuilt the ledger object
+  without `dispatched`, so the first read after `markDispatched` wiped the exemption and the
+  next read re-blocked — a dispatched audit/review subagent was starved by the very read
+  budget that is supposed to exempt it (observed live: zero-context reviewers blocked at
+  `files_reviewed: 0`). The flag is now read under the same tamper + `arm_id` guard as the
+  count, so reset-on-new-invocation and tamper-reset still hold; `markDispatched` still sets
+  it true and `bumpLedger` preserves it.
+- **TDD:** `tests/regression/v8.14.0/F11` gains a regression block (markDispatched →
+  bumpLedger×N → `dispatched` stays true) — RED on the old code, GREEN after the fix.
+- **Adversarial review** (independent, code-grounded): 0 critical / 0 high / 0 medium; 1 info
+  (a forged *unsigned* `dispatched:true` now persists into a signed ledger — pre-existing
+  cooperative-model posture, within the accepted threat model, closed by `PIPELINE_HMAC_STRICT`).
+- Suite 232/4 (the 4 are the pre-existing Langfuse/env failures). Iron Law preserved: only
+  `lib/` + `tests/` touched; Mandatory Gates table + Gate Registry untouched.
+
 ## [8.15.0] - 2026-06-26
 
 ### Added — E2E self-evaluation loop

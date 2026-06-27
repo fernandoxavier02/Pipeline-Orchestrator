@@ -50,6 +50,26 @@ check('brain: SEM agentDispatched + count>=budget → block (comportamento origi
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 }
 
+// ---- REGRESSAO (bug 2026-06-27): bumpLedger DEVE preservar dispatched ----------
+// O contador PostToolUse chama bumpLedger apos CADA leitura. Se writeLedger nao
+// preservar `dispatched`, a 1a leitura do agente despachado APAGA a isencao e a 2a
+// volta a ser bloqueada — exatamente o que cegou os revisores adversariais ao vivo.
+{
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'f11d-'));
+  try {
+    const reqAt = new Date().toISOString();
+    const armId = budget.armIdFor(reqAt);
+    budget.bumpLedger(dir, { requested_at: reqAt, type: 'Audit' });    // count=1
+    budget.markDispatched(dir, { requested_at: reqAt, type: 'Audit' }); // dispatched=true
+    check('apos markDispatched: dispatched=true', budget.readLedger(dir, armId).dispatched === true);
+    budget.bumpLedger(dir, { requested_at: reqAt, type: 'Audit' });    // count=2 — NAO pode apagar dispatched
+    budget.bumpLedger(dir, { requested_at: reqAt, type: 'Audit' });    // count=3
+    const led = budget.readLedger(dir, armId);
+    check('bumpLedger PRESERVA dispatched=true (isencao sobrevive as leituras seguintes)', led.dispatched === true);
+    check('bumpLedger continua contando apos dispatch (count=3)', led.count === 3);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+}
+
 // ---- hook: dispatching a pipeline-orchestrator agent in an Audit window marks it
 function auditWindow() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'f11h-'));
