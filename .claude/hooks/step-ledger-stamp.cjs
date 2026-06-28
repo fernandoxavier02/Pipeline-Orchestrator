@@ -2,7 +2,7 @@
 'use strict';
 
 // =============================================================================
-// step-ledger-stamp.cjs — v8.7.0 (PostToolUse:Agent)
+// step-ledger-stamp.cjs — v8.16.0 (PostToolUse:Agent)
 // =============================================================================
 // Deterministic stamping: when a GOVERNED agent finishes, record its step into
 // the run's signed state.step_ledger — WITHOUT the LLM having to remember. This
@@ -10,6 +10,13 @@
 // this stamp records completion, so the next phase's agent is unlocked only
 // after the current one actually ran. NEVER blocks (PostToolUse can't anyway)
 // and never throws — telemetry-grade fail-silent.
+//
+// v8.16.0 fix (Glitch B from 2026-06-28 audit): when the FIRST governed step is
+// stamped for a run that was direct-entered (i.e. /pipeline armed it without a
+// preceding /brainstorm), auto-emit a single STEP_1_7_ROUTING(no-prep-override)
+// entry into gate-decisions.jsonl. This closes the BRAINSTORM_EVIDENCE_MISSING
+// hygiene violation deterministically — the same pattern the audit-budget gate
+// uses (one ledger write, idempotent, scoped to MEDIA/COMPLEXA/Spec).
 // =============================================================================
 
 const fs = require('node:fs');
@@ -23,6 +30,10 @@ let recorder = null;
 try { recorder = require('../../scripts/record-step.cjs'); } catch { recorder = null; }
 let signer = null;
 try { signer = require('../../lib/sentinel-state-signer.cjs'); } catch { signer = null; }
+// v8.16.0 (Glitch B): the STEP_1_7_ROUTING writer SSOT. Optional require — when
+// the lib is unavailable the auto-emit silently degrades (legacy behavior).
+let step17 = null;
+try { step17 = require('../../lib/step-1-7-routing.cjs'); } catch { step17 = null; }
 
 function resolveDocFromEnv(cwd) {
   const env = (process.env.PIPELINE_DOC_PATH || '').trim();
@@ -224,6 +235,55 @@ function stamp(payload) {
   if (stampRequiresResult() && !hasUsableResult(payload.tool_response)) return;
 
   try { recorder.recordStep(docDir, step); } catch { /* fail-silent */ }
+
+  // v8.16.0 (Glitch B fix): when this is the FIRST governed step stamped on a
+  // direct-entry run (no preceding /brainstorm), auto-emit STEP_1_7_ROUTING with
+  // branch=no-prep-override so the final-validator hygiene check stops raising
+  // BRAINSTORM_EVIDENCE_MISSING. Idempotent + scoped to qualifying runs only.
+  try { maybeAutoEmitStep17(docDir, state, leaf); } catch { /* fail-silent */ }
+}
+
+// v8.16.0: idempotent auto-emit of STEP_1_7_ROUTING(no-prep-override) for the
+// direct-entry path. Scoped to MEDIA/COMPLEXA/Spec (matches the dispatch-guard
+// handleBrainstormDispatch in-scope rule and the final-validator Step 1b qualifier).
+// SIMPLES + non-Spec runs are exempt.
+function maybeAutoEmitStep17(docDir, state, leaf) {
+  if (!step17 || typeof step17.appendStep17Routing !== 'function') return;
+  if (!docDir || !state) return;
+  // Scope: same qualifier as the dispatch-guard / final-validator hygiene check.
+  const od = (state.orchestrator_decision && typeof state.orchestrator_decision === 'object')
+    ? state.orchestrator_decision : {};
+  const complexity = String(od.complexity || state.complexity || '').trim().toUpperCase();
+  const type = String(od.type || state.task_type || '').trim();
+  const inScope = complexity === 'MEDIA' || complexity === 'COMPLEXA' || type.toUpperCase() === 'SPEC';
+  if (!inScope) return;
+  // Idempotency #1: the run's signed sentinel already carries a step_1_7 block
+  // (a real /brainstorm flow recorded it). Nothing to do.
+  if (state.step_1_7 && typeof state.step_1_7 === 'object') return;
+  // Idempotency #2: gate-decisions.jsonl already has a STEP_1_7_ROUTING entry.
+  // A single textual scan (no JSON parse) is enough — the writer's `gate` field
+  // is the unique discriminator. Bounded read so a huge log can never DOS this.
+  const gdPath = path.join(docDir, 'gate-decisions.jsonl');
+  try {
+    if (fs.existsSync(gdPath)) {
+      const raw = fs.readFileSync(gdPath, 'utf8');
+      if (raw.includes('"gate":"STEP_1_7_ROUTING"') || raw.includes('"gate": "STEP_1_7_ROUTING"')) return;
+    }
+  } catch { /* unreadable → fall through and write; idempotency #1 still holds */ }
+  // Emit ONCE. The SSOT writer validates the branch against BRANCH_VALUES and
+  // sanitizes the detail; no further validation is needed here.
+  try {
+    step17.appendStep17Routing(gdPath, {
+      branch: 'no-prep-override',
+      prep_run_id: null,
+      phase: '1.7',
+      decided_by: 'step-ledger-stamp',
+    }, {
+      run_id: typeof state.run_id === 'string' ? state.run_id : undefined,
+      type,
+      complexity,
+    });
+  } catch { /* fail-silent — writer threw for an unknown reason; never break stamping */ }
 }
 
 if (require.main === module) {
@@ -235,4 +295,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { stamp, hasUsableResult, stampRequiresResult };
+module.exports = { stamp, hasUsableResult, stampRequiresResult, maybeAutoEmitStep17 };

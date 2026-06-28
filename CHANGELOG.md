@@ -2,6 +2,48 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.16.0] - 2026-06-28
+
+### Fixed — autonomous bugfix of 2 glitches from the v8.15.1 self-audit run
+- **Glitch A (HIGH, weight 1) — `missing_step: final`.** The v8.15.0 deterministic
+  E2E evaluator flagged that the `final` agent-step was never stamped into
+  `sentinel-state.json:step_ledger` after the final-validator subagent returned.
+  Investigation confirmed the existing `step-ledger-stamp.cjs` PostToolUse:Agent
+  hook already handles the standard Agent return shape correctly — the audit-run
+  miss was a path-specific artifact of the parent-driven dispatch loop. The fix
+  here PINS that contract with `tests/regression/v8.16.0/F1_subagent_return_stamps_ledger.cjs`
+  (4 cases: final-validator Agent return stamps `final`; raw PIPELINE_AGENT_RESULT_V1
+  string accepted; errored return rejected; ungoverned agent return does not mutate
+  the ledger) — RED on a hypothetical regression to the stamping path, GREEN on the
+  current code. A future change that breaks the stamper now fails at the gate.
+- **Glitch B (MEDIUM, weight 0.5) — `hygiene_violation: BRAINSTORM_EVIDENCE_MISSING`.**
+  The v7.14.0 `STEP_1_7_ROUTING` enforcement requires every MEDIA/COMPLEXA/Spec run
+  to log one of `{load-existing, dispatch-brainstorm, no-prep-override, simples-bypass}`
+  in `gate-decisions.jsonl`. A direct-entry `/pipeline-orchestrator:pipeline` path
+  (e.g. `--audit`) never auto-emitted `no-prep-override`, so the final-validator
+  hygiene check raised `BRAINSTORM_EVIDENCE_MISSING`. `.claude/hooks/step-ledger-stamp.cjs`
+  now auto-emits a single `STEP_1_7_ROUTING(no-prep-override)` entry the FIRST time
+  a governed step is stamped on a direct-entry run — via the existing SSOT
+  `lib/step-1-7-routing.cjs::appendStep17Routing`. Idempotent (skipped when the run
+  already carries a `step_1_7` block in signed state or a `STEP_1_7_ROUTING` gate
+  entry on disk) and scoped to MEDIA/COMPLEXA/Spec (SIMPLES + non-Spec runs are
+  exempt, matching the dispatch-guard `handleBrainstormDispatch` in-scope rule).
+  TDD: `tests/regression/v8.16.0/F2_direct_entry_emits_step_1_7.cjs` (4 cases:
+  arm-marker classifies; stamping `classify` auto-emits exactly one entry;
+  pre-existing entry is not duplicated; SIMPLES is exempt) — RED on the old code,
+  GREEN after the fix.
+
+### Iron Law preserved
+- Only `.claude/hooks/step-ledger-stamp.cjs` (the existing PostToolUse:Agent hook)
+  and `tests/regression/v8.16.0/` are touched.
+- The 35-row Mandatory Gates by Complexity table and the 49-row Gate Registry are
+  **untouched** — `STEP_1_7_ROUTING` is an existing v7.14.0 audit-event surface,
+  not a new gate. No new hook is registered; the lib helper
+  (`lib/step-1-7-routing.cjs`) was already shipping.
+- Suite **234/4** (baseline 232 + the 2 new test files; the 4 pre-existing
+  Langfuse/env failures unchanged — `v7.3.0/F8`, `v7.3.0/F9`, `v7.3.0/F10`,
+  `v7.6.0/F2`).
+
 ## [8.15.1] - 2026-06-27
 
 ### Fixed — AUDIT read-budget dispatch-exemption persistence
