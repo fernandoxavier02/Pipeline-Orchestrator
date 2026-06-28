@@ -67,6 +67,15 @@ const path = require('node:path');
 let signer = null;
 try { signer = require('../../lib/sentinel-state-signer.cjs'); } catch { signer = null; }
 
+// AUDIT-004 (v8.17.0): dedicated enforcement-status probe. The pre-existing
+// ENFORCEMENT_SURFACE_UNVERIFIED event covers broader surface degradation, but
+// the specific case "canonical execution-gate hook missing" deserves its own
+// HIGH-severity event so the e2e-evaluator can weight it deterministically
+// (HYGIENE_EVENT_SEVERITY.ENFORCEMENT_INACTIVE === 1.0). Optional require —
+// the observer stays safe even when the lib is unavailable.
+let enforcementStatusLib = null;
+try { enforcementStatusLib = require('../../lib/enforcement-status.cjs'); } catch { enforcementStatusLib = null; }
+
 // EVENT name + strict env token — both pinned by the contract / locked test.
 const EVENT_NAME = 'ENFORCEMENT_SURFACE_UNVERIFIED';
 const STRICT_ENV = 'PIPELINE_ENFORCEMENT_SURFACE_ENFORCEMENT';
@@ -432,6 +441,38 @@ function handleSessionStart(payload) {
     const strict = isStrictFromEnv(process.env);
     const ctx = buildSurfaceCtx(payload, strict);
     const verdict = decideSurfaceVerify(ctx);
+
+    // AUDIT-004 (v8.17.0): dedicated ENFORCEMENT_INACTIVE probe. Independent of
+    // the broader surface check above — fires ONE protocol-event line whenever
+    // the canonical execution-gate hook (pipeline-arm-gate.cjs) is missing from
+    // the active install. Soft-fail by construction: any error degrades to
+    // "no event emitted" rather than throwing into the observer.
+    try {
+      if (enforcementStatusLib && typeof enforcementStatusLib.detectEnforcementStatus === 'function') {
+        const pluginRoot = resolvePluginRoot();
+        if (pluginRoot) {
+          const hooksDir = path.join(pluginRoot, '.claude', 'hooks');
+          const status = enforcementStatusLib.detectEnforcementStatus({
+            hooksDir,
+            expectedCanonicalHook: enforcementStatusLib.DEFAULT_CANONICAL_HOOK,
+          });
+          if (status && status.active === false) {
+            const docDirEarly = resolveDocDir(payload);
+            appendProtocolEvent(docDirEarly, {
+              event: enforcementStatusLib.EVENT_NAME, // 'ENFORCEMENT_INACTIVE'
+              agent: 'session',
+              phase: 'session-start',
+              decided_by: 'enforcement-status',
+              decision: 'TRIGGERED',
+              severity: enforcementStatusLib.SEVERITY_LABEL, // 'HIGH'
+              detail: sanitizeForReason(
+                status.reason || 'canonical execution-gate hook missing from install', 240),
+              probed_path: sanitizeForReason(status.probed_path || '', 240),
+            });
+          }
+        }
+      }
+    } catch { /* never throw from the observer */ }
 
     // could-not-verify / silent-on-health -> nothing recorded, continue.
     if (!verdict || verdict.warn !== true) {

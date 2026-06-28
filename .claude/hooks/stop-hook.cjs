@@ -726,10 +726,54 @@ function handleStop(payload) {
     const result = appendRunLog(cwd, entry);
     if (!result || result.ok !== true) {
       warn(`appendRunLog failed: ${result && result.error ? result.error : 'unknown'}`);
+    } else {
+      // AUDIT-001 (v8.17.0): write-verify. Read the tail back and warn if the
+      // run_id we just wrote is NOT the tail's run_id (the central log lost a
+      // race, was truncated by a concurrent writer, or our entry was silently
+      // dropped). Soft-fail by contract: any read/parse trouble is a no-op so
+      // the teardown never blocks. The mismatch warn is the auditable signal
+      // operators search for ('run-log verify mismatch').
+      try { verifyRunLogAppend(cwd, entry.run_id); } catch (_e) { /* soft */ }
     }
   } catch (e) {
     warn(`top-level error swallowed: ${e.message}`);
   }
+}
+
+/**
+ * AUDIT-001 (v8.17.0): tail-read verify for appendRunLog.
+ *
+ * Reads <repoRoot>/.pipeline/run-log.jsonl, takes the LAST non-empty line,
+ * parses it, and compares its `run_id` against the one the stop-hook just
+ * persisted. If they differ, emits ONE warn line that operators can grep:
+ *   `run-log verify mismatch: expected <X> got <Y>`
+ *
+ * SOFT-fail contract: missing file, unreadable file, malformed tail line, or
+ * any other error degrades to a silent no-op. NEVER throws. The verify is a
+ * forensic guard — it must never become a new failure mode for teardown.
+ */
+function verifyRunLogAppend(repoRoot, expectedRunId) {
+  try {
+    if (typeof repoRoot !== 'string' || !repoRoot) return;
+    if (typeof expectedRunId !== 'string' || !expectedRunId) return;
+    const logPath = path.join(repoRoot, '.pipeline', 'run-log.jsonl');
+    if (!fs.existsSync(logPath)) return; // missing -> soft pass
+    let raw;
+    try { raw = fs.readFileSync(logPath, 'utf8'); } catch (_e) { return; }
+    const tailLines = raw.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    if (tailLines.length === 0) return;
+    const last = tailLines[tailLines.length - 1];
+    let parsed;
+    try { parsed = JSON.parse(last); } catch (_e) {
+      // Malformed tail: a concurrent writer mid-flight or a truncated row.
+      // Not a forensic mismatch by contract — soft pass without warn.
+      return;
+    }
+    const gotRunId = parsed && typeof parsed.run_id === 'string' ? parsed.run_id : '(none)';
+    if (gotRunId !== expectedRunId) {
+      warn(`run-log verify mismatch: expected ${expectedRunId} got ${gotRunId}`);
+    }
+  } catch (_e) { /* soft */ }
 }
 
 /**
@@ -839,4 +883,4 @@ if (require.main === module) {
   }, 5000).unref();
 }
 
-module.exports = { handleStop, buildRunLogEntry, ensureFidelityReport, readClassification, authoringVariantAllowed, shouldAppendRunLogEntry, findActiveRunFolder, langfuseFlushAndCleanup };
+module.exports = { handleStop, buildRunLogEntry, ensureFidelityReport, readClassification, authoringVariantAllowed, shouldAppendRunLogEntry, findActiveRunFolder, langfuseFlushAndCleanup, verifyRunLogAppend };

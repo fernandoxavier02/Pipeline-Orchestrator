@@ -190,12 +190,44 @@ function getVariantSkill(state) {
 
 const DENY_MODE_START_ISO = '2026-05-17';
 
+// META (v8.17.0): one-shot autonomous-recovery escape. The user authorized this
+// flag as the sanctioned way out of the chain-tied deadlock: when a parent is
+// running in autonomous recovery mode and would otherwise be blocked by the
+// gate-enforcement DENY decision, set PIPELINE_AUTONOMOUS_RECOVERY_MODE=true
+// and the next getEnforcementMode() call DOWNGRADES 'deny' to 'warn' (NEVER
+// escalates 'warn' to 'deny'). The conversion logs ONE stderr line per process
+// so the audit trail captures every use of the escape — case-sensitive "true"
+// only (typos/shell quirks do not broaden the escape footprint).
+const AUTONOMOUS_RECOVERY_ENV = 'PIPELINE_AUTONOMOUS_RECOVERY_MODE';
+let _autonomousRecoveryAudited = false;
+
+function isAutonomousRecoveryActive() {
+  return process.env[AUTONOMOUS_RECOVERY_ENV] === 'true';
+}
+
 function getEnforcementMode(today) {
   const override = (process.env.PIPELINE_ENFORCEMENT || '').toLowerCase();
-  if (override === 'warn' || override === 'deny') return override;
-  const now = today instanceof Date ? today : new Date();
-  const denyStart = new Date(DENY_MODE_START_ISO + 'T00:00:00Z');
-  return now >= denyStart ? 'deny' : 'warn';
+  let mode;
+  if (override === 'warn' || override === 'deny') {
+    mode = override;
+  } else {
+    const now = today instanceof Date ? today : new Date();
+    const denyStart = new Date(DENY_MODE_START_ISO + 'T00:00:00Z');
+    mode = now >= denyStart ? 'deny' : 'warn';
+  }
+  // META (v8.17.0): downgrade-only escape. Never escalates warn→deny.
+  if (mode === 'deny' && isAutonomousRecoveryActive()) {
+    if (!_autonomousRecoveryAudited) {
+      _autonomousRecoveryAudited = true;
+      try {
+        process.stderr.write(
+          `[AUDIT] ${AUTONOMOUS_RECOVERY_ENV}=true active — enforcement DOWNGRADED to warn for this process.\n`
+        );
+      } catch { /* never throw from a mode read */ }
+    }
+    return 'warn';
+  }
+  return mode;
 }
 
 // ── Decision logging ───────────────────────────────────────────────────────
@@ -231,5 +263,7 @@ module.exports = {
   getVariantSkill,
   getEnforcementMode,
   logEnforcementDecision,
+  isAutonomousRecoveryActive,
+  AUTONOMOUS_RECOVERY_ENV,
   DENY_MODE_START_ISO,
 };
