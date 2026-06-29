@@ -34,15 +34,20 @@ const eg = require('./edit-guard-hook.cjs');
 // Ferramentas que NUNCA são "trabalho inline": delegação (Agent), resolução de
 // gate/plan-mode (AskUserQuestion/EnterPlanMode), controle de fluxo do harness e
 // gestão de progresso. Liberadas mesmo com handshake pendente.
-// Ferramentas de controle/resolução SEMPRE liberadas (gate/plan-mode são resolvidos
-// por AskUserQuestion/EnterPlanMode; Task*/TodoWrite são gestão de progresso, não
-// produção). 'Agent' NÃO entra aqui: um spawn de Agent só é liberado quando é a
+// Ferramentas de controle/resolução + investigação SEMPRE liberadas.
+// Gate/plan-mode são resolvidos por AskUserQuestion/EnterPlanMode;
+// Task*/TodoWrite são gestão de progresso, não produção.
+// Read/Grep/Glob/ToolSearch são investigação pura (não escrevem código) — liberá-las
+// é essencial para que o agente consiga DIAGNOSTICAR o problema e chegar à resolução.
+// Paridade com pipeline-arm-gate.cjs (v8.18.0, fix deadlock).
+// 'Agent' NÃO entra aqui: um spawn de Agent só é liberado quando é a
 // RESOLUÇÃO do handshake (ver isResolutionAgent) — senão o parent burlaria a trava
 // despachando um agente IRRELEVANTE em vez do alvo do bloco pendente (SEC-1).
 const ALWAYS_ALLOW_TOOLS = new Set([
   'AskUserQuestion',  // resolve um GATE_REQUEST
   'EnterPlanMode',    // resolve um PLAN_MODE_REQUEST
   'ExitPlanMode',
+  'Read', 'Grep', 'Glob', 'ToolSearch',  // investigação (paridade com pipeline-arm-gate)
   'TaskCreate', 'TaskUpdate', 'TaskList', 'TaskGet', 'TaskOutput', 'TaskStop',
   'TodoWrite',
   'ScheduleWakeup',
@@ -144,6 +149,20 @@ function decideInlineGate(payload) {
   if (!state) return { decision: 'allow' };
   const tool = typeof payload.tool_name === 'string' ? payload.tool_name : '(unknown)';
   if (state === eg.CORRUPT_SENTINEL) {
+    // Se o pipeline NÃO está ativo (pipeline_active=false no active-run.json),
+    // não faz sentido fail-closed — o estado corrupto é residual, não evidência
+    // de handshake pendente. Libera tudo (v8.18.0, fix deadlock cross-sessão).
+    try {
+      const activeRunPath = path.join(dir, '.pipeline', 'active-run.json');
+      const activeRun = JSON.parse(fs.readFileSync(activeRunPath, 'utf8'));
+      if (activeRun && activeRun.pipeline_active === false) return { decision: 'allow' };
+      // Staleness recovery: se o active-run é velho demais (>2h), a sessão que criou
+      // morreu sem limpar. Tratar como inativo — não travar uma sessão nova por lixo
+      // de uma sessão morta. O updated_at é o campo canônico de timestamp.
+      const STALE_MS = 2 * 60 * 60 * 1000; // 2 horas
+      const updatedAt = Date.parse(activeRun && activeRun.updated_at);
+      if (Number.isFinite(updatedAt) && (Date.now() - updatedAt) > STALE_MS) return { decision: 'allow' };
+    } catch { /* active-run ilegível → segue para os checks normais */ }
     if (ALWAYS_ALLOW_TOOLS.has(tool)) return { decision: 'allow' };
     // The sentinel recovery agent is always allowed — it MUST be able to run to
     // diagnose + re-sign/rebuild a corrupt state. Without this, the corrupt branch

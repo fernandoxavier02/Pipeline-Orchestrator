@@ -30,7 +30,10 @@ process.stdin.on('end', () => {
 
     let marker = null;
     if (arm && typeof arm.writeArmPending === 'function') {
-      try { marker = arm.writeArmPending(cwd, prompt); } catch { marker = null; }
+      // v8.18.0: session isolation
+      let sid;
+      try { const d2 = JSON.parse(input || '{}'); sid = typeof d2.session_id === 'string' ? d2.session_id : undefined; } catch { sid = undefined; }
+      try { marker = arm.writeArmPending(cwd, prompt, undefined, sid); } catch { marker = null; }
     }
 
     if (marker) {

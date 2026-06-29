@@ -74,7 +74,9 @@ function handleSessionStart(payload) {
   if (arm && typeof arm.writeArmPending === 'function') {
     // writeArmPending: classifies in code, signs (reusing the sentinel-state
     // signer), atomic temp+rename. Returns null for a non-pipeline prompt.
-    try { marker = arm.writeArmPending(cwd, prompt); } catch { marker = null; }
+    // v8.18.0: session isolation — gravar session_id para filtro cross-sessão
+    const sid = payload && typeof payload.session_id === 'string' ? payload.session_id : undefined;
+    try { marker = arm.writeArmPending(cwd, prompt, undefined, sid); } catch { marker = null; }
   }
 
   if (marker) {

@@ -23,9 +23,9 @@ try { budget = require('../../lib/audit-read-budget.cjs'); } catch { budget = nu
 let armPending = null;
 try { armPending = require('../../lib/arm-pending.cjs'); } catch { armPending = null; }
 
-function readMarker(dir) {
+function readMarker(dir, sessionId) {
   return armPending && typeof armPending.readArmPendingMarker === 'function'
-    ? armPending.readArmPendingMarker(dir)
+    ? armPending.readArmPendingMarker(dir, sessionId)
     : null;
 }
 
@@ -49,7 +49,9 @@ function mark(payload) {
     // with brainstorm-step-00-intake / brainstorm-step-01-explore, which must NOT lift the budget.)
     if (!/(adversarial|audit|ux-|review|critic|scanner|simulator|analyzer|compliance|accessibility)/i.test(st)) return;
     const dir = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd();
-    const marker = readMarker(dir);
+    // v8.18.0: session isolation
+    const sessionId = typeof payload.session_id === 'string' ? payload.session_id : undefined;
+    const marker = readMarker(dir, sessionId);
     if (!marker) return; // no governed window → nothing to exempt
     budget.markDispatched(dir, { requested_at: marker.requested_at, workflow: marker.workflow, type: marker.type });
   } catch { /* fail-silent — a marker must never block a dispatch */ }

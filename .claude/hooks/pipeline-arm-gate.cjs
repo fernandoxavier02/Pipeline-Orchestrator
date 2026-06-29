@@ -441,8 +441,8 @@ function markerIsTampered(marker) {
 // Batch 5 (ARCH-1/ARCH-2): delegates to lib/arm-pending (SSOT). Fallback (lib absent) →
 // {armed:false, tampered:false} = absent/fail-OPEN, the same degraded stance the gate uses
 // for an unreadable FS — a broken install must not brick the front door.
-function readArmPending(dir) {
-  if (armPending && typeof armPending.readArmPending === 'function') return armPending.readArmPending(dir);
+function readArmPending(dir, sessionId) {
+  if (armPending && typeof armPending.readArmPending === 'function') return armPending.readArmPending(dir, sessionId);
   return { armed: false, tampered: false };
 }
 
@@ -527,7 +527,9 @@ function gatherContext(payload) {
   if (!payload || typeof payload !== 'object') return null;
   const dir = payload.cwd;
   if (typeof dir !== 'string' || !dir) return null;
-  const marker = readArmPending(dir);
+  // v8.18.0: session isolation — passar session_id para filtrar marker de outra sessão
+  const payloadSessionId = typeof payload.session_id === 'string' ? payload.session_id : undefined;
+  const marker = readArmPending(dir, payloadSessionId);
   // Batch 3 (SEC HIGH): an ABSENT or legitimately-EXPIRED marker is ungoverned →
   // fail-open. A TAMPERED marker (garbage/forged overwrite to self-disarm) keeps the
   // window GOVERNED so substantive work stays fail-closed.

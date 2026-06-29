@@ -33,9 +33,9 @@ function toolNameOf(payload) {
 // Read the signed arm-pending marker for the fields the budget needs
 // (requested_at, type, workflow) — delegated to the SSOT lib/arm-pending, which applies
 // the SAME tamper-verify + TTL the arm-gate uses and NARROWS the return to those fields.
-function readMarker(dir) {
+function readMarker(dir, sessionId) {
   return armPending && typeof armPending.readArmPendingMarker === 'function'
-    ? armPending.readArmPendingMarker(dir)
+    ? armPending.readArmPendingMarker(dir, sessionId)
     : null;
 }
 
@@ -62,7 +62,9 @@ function gatherContext(payload) {
   if (!payload || typeof payload !== 'object' || !budget) return null;
   const dir = payload.cwd;
   if (typeof dir !== 'string' || !dir) return null;
-  const marker = readMarker(dir);
+  // v8.18.0: session isolation
+  const sessionId = typeof payload.session_id === 'string' ? payload.session_id : undefined;
+  const marker = readMarker(dir, sessionId);
   if (!marker) return { toolName: toolNameOf(payload), armPending: false };
   const rs = (armGate && typeof armGate.runStateContext === 'function')
     ? armGate.runStateContext(dir) : { runActive: false, corrupt: false };

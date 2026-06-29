@@ -41,11 +41,18 @@ const RECENT = () => ([
   { block_type: 'DISPATCH_REQUEST', dispatch_id: 'step-1-7-brainstorm-controller', emitted_at: iso(60_000) },
 ]);
 
-test('F37-I1: pending vivo + Read fora de .pipeline → BLOCK (inline barrado)', () => {
+test('F37-I1: pending vivo + Edit fora de .pipeline → BLOCK (inline barrado)', () => {
   const { tmp } = setupState({ pending: RECENT() });
-  const r = gate.decideInlineGate({ tool_name: 'Read', tool_input: { file_path: path.join(tmp, 'src/foo.cjs') }, cwd: tmp });
+  const r = gate.decideInlineGate({ tool_name: 'Edit', tool_input: { file_path: path.join(tmp, 'src/foo.cjs') }, cwd: tmp });
   assert.strictEqual(r.decision, 'block');
   assert.match(r.reason, /INLINE_WORK_BLOCKED|dispatch|pend/i);
+  fs.rmSync(tmp, { recursive: true });
+});
+
+test('F37-I1a: pending vivo + Read fora de .pipeline → ALLOW (investigação liberada, v8.18.0)', () => {
+  const { tmp } = setupState({ pending: RECENT() });
+  const r = gate.decideInlineGate({ tool_name: 'Read', tool_input: { file_path: path.join(tmp, 'src/foo.cjs') }, cwd: tmp });
+  assert.strictEqual(r.decision, 'allow');
   fs.rmSync(tmp, { recursive: true });
 });
 
@@ -131,7 +138,8 @@ test('F37-I9: escape PIPELINE_DISPATCH_INLINE_ENFORCEMENT=warn → ALLOW', () =>
   const prev = process.env.PIPELINE_DISPATCH_INLINE_ENFORCEMENT;
   process.env.PIPELINE_DISPATCH_INLINE_ENFORCEMENT = 'warn';
   try {
-    const r = gate.decideInlineGate({ tool_name: 'Read', tool_input: { file_path: path.join(tmp, 'src/foo.cjs') }, cwd: tmp });
+    // Usa Edit (ferramenta de produção) — Read agora é investigação e passa direto (v8.18.0)
+    const r = gate.decideInlineGate({ tool_name: 'Edit', tool_input: { file_path: path.join(tmp, 'src/foo.cjs') }, cwd: tmp });
     assert.strictEqual(r.decision, 'allow');
   } finally {
     if (prev === undefined) delete process.env.PIPELINE_DISPATCH_INLINE_ENFORCEMENT; else process.env.PIPELINE_DISPATCH_INLINE_ENFORCEMENT = prev;
@@ -175,7 +183,8 @@ test('F37-I15: warn mode registra INLINE_WORK_BLOCKED em protocol-events.jsonl',
   const prev = process.env.PIPELINE_DISPATCH_INLINE_ENFORCEMENT;
   process.env.PIPELINE_DISPATCH_INLINE_ENFORCEMENT = 'warn';
   try {
-    const r = gate.decideInlineGate({ tool_name: 'Read', tool_input: { file_path: path.join(tmp, 'src/foo.cjs') }, cwd: tmp });
+    // Usa Edit (ferramenta de produção) — Read agora é investigação e passa direto (v8.18.0)
+    const r = gate.decideInlineGate({ tool_name: 'Edit', tool_input: { file_path: path.join(tmp, 'src/foo.cjs') }, cwd: tmp });
     assert.strictEqual(r.decision, 'allow');
     const log = fs.readFileSync(path.join(runDir, 'protocol-events.jsonl'), 'utf8');
     assert.match(log, /INLINE_WORK_BLOCKED/);
@@ -185,12 +194,13 @@ test('F37-I15: warn mode registra INLINE_WORK_BLOCKED em protocol-events.jsonl',
   fs.rmSync(tmp, { recursive: true });
 });
 
-test('F37-I11 (dogfood CLI): hook nega Read inline com pending vivo', () => {
+test('F37-I11 (dogfood CLI): hook nega Edit inline com pending vivo', () => {
   const { spawnSync } = require('node:child_process');
   const { tmp } = setupState({ pending: RECENT() });
   const hookPath = path.join(__dirname, '..', '..', '..', '.claude', 'hooks', 'dispatch-pending-gate.cjs');
+  // Usa Edit (ferramenta de produção) — Read agora é investigação e passa direto (v8.18.0)
   const res = spawnSync(process.execPath, [hookPath], {
-    input: JSON.stringify({ tool_name: 'Read', tool_input: { file_path: path.join(tmp, 'src/foo.cjs') }, cwd: tmp }),
+    input: JSON.stringify({ tool_name: 'Edit', tool_input: { file_path: path.join(tmp, 'src/foo.cjs') }, cwd: tmp }),
     encoding: 'utf8',
   });
   assert.strictEqual(res.status, 0);

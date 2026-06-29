@@ -109,11 +109,11 @@ check('D2 [live] handshake vivo + Agent(plan-architect, sem marcador) → BLOCK 
   (tmp) => ({ tool_name: 'Agent', tool_input: { subagent_type: NON_SENTINEL, prompt: 'trabalho inline disfarçado' }, cwd: tmp }),
   'block');
 
-// D3 — REGRESSION (F37): inline Read with a live pending still blocked.
-check('D3 [live] handshake vivo + Read inline → BLOCK (regressão F37 preservada)',
+// D3 — v8.18.0: Read agora é investigação (ALWAYS_ALLOW_TOOLS), liberado mesmo com pending.
+check('D3 [live] handshake vivo + Read inline → ALLOW (investigação liberada, v8.18.0)',
   () => setupLive(RECENT()),
   (tmp) => ({ tool_name: 'Read', tool_input: { file_path: path.join(tmp, 'src/foo.cjs') }, cwd: tmp }),
-  'block');
+  'allow');
 
 // D4 — CORRUPT branch: the guard must be able to run to rebuild the seal.
 check('D4 [corrupt] estado CORRUPT + Agent(sentinel) → ALLOW (guardião reconstrói o selo)',

@@ -2,6 +2,30 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.18.0] - 2026-06-28
+
+### Fixed — deadlock recovery + session isolation
+
+Two structural bugs that caused agents to get stuck and required manual
+intervention (renaming `.pipeline/`) to unblock.
+
+- **Bug 1 — Investigation tools deadlock.** `dispatch-pending-gate.cjs` blocked
+  Read/Grep/Glob/ToolSearch when sentinel-state was corrupt or a handshake was
+  pending, while the error message said "use Agent/AskUserQuestion to resolve."
+  The agent couldn't even READ files to understand the situation. Fix: added
+  Read/Grep/Glob/ToolSearch to ALWAYS_ALLOW_TOOLS (parity with
+  pipeline-arm-gate). Also added pipeline_active=false check and 2h staleness
+  recovery — a corrupt state from a dead session no longer blocks new sessions.
+
+- **Bug 2 — Cross-session arm-pending blocking.** Two terminals on the same
+  project shared `.pipeline/pipeline-arm-pending.json` without session scoping.
+  One terminal's `/pipeline` arm blocked the other's tools. Fix: marker now
+  includes `session_id` on write; `readArmPending` and `readArmPendingMarker`
+  filter by session. Legacy markers (no session_id) remain backward-compatible.
+
+- **Tests:** 25 new tests (F1: 17, F2: 8), 4 existing tests updated for the
+  new Read-as-investigation behavior (F37-I1/I9/I11/I15, T4-D3).
+
 ## [8.17.0] - 2026-06-28
 
 ### Fixed — autonomous bugfix run delivers 4 audit-driven fixes + 1 meta-escape
