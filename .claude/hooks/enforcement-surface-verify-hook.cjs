@@ -76,6 +76,12 @@ try { signer = require('../../lib/sentinel-state-signer.cjs'); } catch { signer 
 let enforcementStatusLib = null;
 try { enforcementStatusLib = require('../../lib/enforcement-status.cjs'); } catch { enforcementStatusLib = null; }
 
+// ARCH-002 (v8.18.1): import cwd-sandbox from cleanup-orphan (the SSOT) instead
+// of maintaining a local copy. Fail-closed: if the require fails, isCwdSandboxOk
+// returns false (skip the write) — coherent with SEC posture.
+let cwdSandboxLib = null;
+try { cwdSandboxLib = require('./cleanup-orphan-sentinel-state-hook.cjs'); } catch { cwdSandboxLib = null; }
+
 // EVENT name + strict env token — both pinned by the contract / locked test.
 const EVENT_NAME = 'ENFORCEMENT_SURFACE_UNVERIFIED';
 const STRICT_ENV = 'PIPELINE_ENFORCEMENT_SURFACE_ENFORCEMENT';
@@ -321,31 +327,12 @@ function buildSurfaceCtx(payload, strict) {
 
 // SEC (ESV-2): cwd write sandbox. The payload's cwd is attacker-controllable, and
 // resolveDocDir feeds it to appendProtocolEvent / recordBlockState (which WRITE
-// files). Replicate the deny-list + realpath sandbox check from
-// .claude/hooks/cleanup-orphan-sentinel-state-hook.cjs (isCwdSandboxOk /
-// SYSTEM_PATH_PREFIXES) so this observer never writes into a system path. Kept as a
-// LOCAL copy (Iron Law: do NOT edit the cleanup hook) — the cleanup hook is the
-// SSOT for this check; keep these two in step if either changes.
-const SYSTEM_PATH_PREFIXES = [
-  '/etc', '/sys', '/proc', '/dev', '/usr', '/bin', '/sbin', '/var',
-  '/Library', '/System',
-  'C:\\Windows', 'C:\\Program Files', 'C:\\Program Files (x86)',
-];
-
+// files). The deny-list + realpath sandbox check lives in the cleanup-orphan hook
+// (the SSOT) and is imported via cwdSandboxLib above (ARCH-002, v8.18.1).
+// Fail-closed: if the import is unavailable, isCwdSandboxOk returns false.
 function isCwdSandboxOk(cwd) {
-  if (typeof cwd !== 'string' || cwd.length === 0) return false;
-  let resolved;
-  try {
-    resolved = fs.realpathSync(cwd);
-  } catch {
-    // cwd does not resolve — treat as non-sandbox-ok (skip the write).
-    return false;
-  }
-  const norm = resolved.toLowerCase();
-  for (const prefix of SYSTEM_PATH_PREFIXES) {
-    if (norm.startsWith(prefix.toLowerCase())) return false;
-  }
-  return true;
+  if (!cwdSandboxLib || typeof cwdSandboxLib.isCwdSandboxOk !== 'function') return false;
+  return cwdSandboxLib.isCwdSandboxOk(cwd);
 }
 
 // Resolve where the event / block state are written. The test reads
@@ -431,6 +418,38 @@ function recordBlockState(docDir, verdict) {
 // warn===true records EXACTLY ONE ENFORCEMENT_SURFACE_UNVERIFIED line. On a
 // block verdict it ALSO records signed block state. Returns a continue-shaped
 // result (SessionStart never denies). Safe no-op on malformed input.
+
+// ARCH-001 (v8.18.1): dedicated ENFORCEMENT_INACTIVE probe extracted from
+// handleSessionStart for SRP. Independent of the broader surface check —
+// fires ONE protocol-event line whenever the canonical execution-gate hook
+// is missing from the active install. Safe no-op: never throws.
+function probeEnforcementInactive(payload) {
+  try {
+    if (!enforcementStatusLib || typeof enforcementStatusLib.detectEnforcementStatus !== 'function') return;
+    const pluginRoot = resolvePluginRoot();
+    if (!pluginRoot) return;
+    const hooksDir = path.join(pluginRoot, '.claude', 'hooks');
+    const status = enforcementStatusLib.detectEnforcementStatus({
+      hooksDir,
+      expectedCanonicalHook: enforcementStatusLib.DEFAULT_CANONICAL_HOOK,
+    });
+    if (status && status.active === false) {
+      const docDir = resolveDocDir(payload);
+      appendProtocolEvent(docDir, {
+        event: enforcementStatusLib.EVENT_NAME,
+        agent: 'session',
+        phase: 'session-start',
+        decided_by: 'enforcement-status',
+        decision: 'TRIGGERED',
+        severity: enforcementStatusLib.SEVERITY_LABEL,
+        detail: sanitizeForReason(
+          status.reason || 'canonical execution-gate hook missing from install', 240),
+        probed_path: sanitizeForReason(status.probed_path || '', 240),
+      });
+    }
+  } catch { /* never throw from the observer */ }
+}
+
 function handleSessionStart(payload) {
   try {
     // S5: malformed/empty/missing payload -> safe no-op continue. No event.
@@ -442,37 +461,7 @@ function handleSessionStart(payload) {
     const ctx = buildSurfaceCtx(payload, strict);
     const verdict = decideSurfaceVerify(ctx);
 
-    // AUDIT-004 (v8.17.0): dedicated ENFORCEMENT_INACTIVE probe. Independent of
-    // the broader surface check above — fires ONE protocol-event line whenever
-    // the canonical execution-gate hook (pipeline-arm-gate.cjs) is missing from
-    // the active install. Soft-fail by construction: any error degrades to
-    // "no event emitted" rather than throwing into the observer.
-    try {
-      if (enforcementStatusLib && typeof enforcementStatusLib.detectEnforcementStatus === 'function') {
-        const pluginRoot = resolvePluginRoot();
-        if (pluginRoot) {
-          const hooksDir = path.join(pluginRoot, '.claude', 'hooks');
-          const status = enforcementStatusLib.detectEnforcementStatus({
-            hooksDir,
-            expectedCanonicalHook: enforcementStatusLib.DEFAULT_CANONICAL_HOOK,
-          });
-          if (status && status.active === false) {
-            const docDirEarly = resolveDocDir(payload);
-            appendProtocolEvent(docDirEarly, {
-              event: enforcementStatusLib.EVENT_NAME, // 'ENFORCEMENT_INACTIVE'
-              agent: 'session',
-              phase: 'session-start',
-              decided_by: 'enforcement-status',
-              decision: 'TRIGGERED',
-              severity: enforcementStatusLib.SEVERITY_LABEL, // 'HIGH'
-              detail: sanitizeForReason(
-                status.reason || 'canonical execution-gate hook missing from install', 240),
-              probed_path: sanitizeForReason(status.probed_path || '', 240),
-            });
-          }
-        }
-      }
-    } catch { /* never throw from the observer */ }
+    probeEnforcementInactive(payload);
 
     // could-not-verify / silent-on-health -> nothing recorded, continue.
     if (!verdict || verdict.warn !== true) {

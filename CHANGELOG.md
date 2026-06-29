@@ -2,6 +2,31 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.18.1] - 2026-06-29
+
+### Fixed — phantom-arm deadlock (all workflows) + ARCH refactors
+
+- **Phantom arming from harness-injected text.** `lib/pipeline-arm.cjs::writeArmPending`
+  classified the RAW prompt, so a harness-injected envelope (task-notification,
+  agent result, system-reminder) that merely *mentioned* a pipeline token armed a
+  phantom run and re-locked the session in a loop. Fix: classify only the
+  user-authored segment via the new positional `userPromptSegment()` — it cuts at
+  the first injected-envelope opening tag and ignores closing tags/nesting (a
+  subtractive close-tag strip is evadable: a lazy match stops at an inner close-tag
+  an agent result printed, leaking the tail). Applies at the arming chokepoint, so
+  it covers EVERY workflow and BOTH arming paths (UserPromptSubmit writer +
+  SessionStart session-arm hook).
+- **REVIEW-ONLY / DIAGNOSTIC skip arming.** These read-only modes no longer write
+  an arm marker (no governed window → nothing to deadlock).
+- **ARCH-001 / ARCH-002** (`enforcement-surface-verify-hook.cjs`): extracted
+  `probeEnforcementInactive()` (SRP); imported `isCwdSandboxOk` from the
+  cleanup-orphan hook instead of duplicating it (DRY), fail-closed.
+- Tests: `tests/regression/v8.7.0/F2_pipeline_arm_marker.cjs` F2-7..F2-15,
+  including adversarial-review evasion pins (inner close-tag echo, nesting,
+  out-of-allowlist wrapper) found by a zero-context security reviewer.
+- Reconciled all 9 version surfaces to 8.18.1 (the 8.18.0 bump was incomplete and
+  left plugin.json/marketplace/cursor/lib-index/README/CLAUDE at 8.17.0).
+
 ## [8.18.0] - 2026-06-28
 
 ### Fixed — deadlock recovery + session isolation
