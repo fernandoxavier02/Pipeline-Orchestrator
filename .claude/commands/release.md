@@ -3,7 +3,7 @@ description: Full deploy canônico do Pipeline-Orchestrator nos 4 canais (GitHub
 argument-hint: <nova-versão> (ex: 8.18.3) — SemVer sem o "v"
 ---
 
-# /deploy — Release completo nos 4 canais
+# /release — Release completo nos 4 canais
 
 Você vai publicar a versão **$1** do Pipeline-Orchestrator. Se `$1` estiver vazio, **PARE** e pergunte a versão (via AskUserQuestion) antes de tocar em qualquer coisa — nunca invente o número.
 
