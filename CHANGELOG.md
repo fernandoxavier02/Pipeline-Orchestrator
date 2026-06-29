@@ -2,6 +2,37 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.19.0] - 2026-06-29
+
+### Added — spec-authoring output enforcement (close the return-channel gap)
+
+Closes the spec-authoring communication/return-channel gap: the seal was already
+code-enforced, but the contract that the spec-controller emit a terminal result
+block and that the parent surface it was honor-only. Three changes close it:
+
+- **(A) Terminal block contract.** `spec-controller` Step 9 must now end on a fenced
+  `PIPELINE_AGENT_RESULT_V1` block — the run no longer terminates on prose alone.
+- **(B) Governed Spec leaf.** `spec-controller` is now a governed Spec leaf in
+  `lib/contracts/workflow-manifest.cjs`, resolved by `spec_authoring_progress` and
+  policed by the already-armed SubagentStop check. The stale `DEFAULT-OFF` comment
+  was corrected.
+- **(C) Seal-evidence Stop gate.** The Stop gate now closes a Spec run only with
+  on-disk seal evidence, never mere inactivity (HIGH-1).
+
+Safety properties:
+
+- **Emit-and-hoist safety.** Intermediate `AWAITING_*` stops pass un-counted; only the
+  terminal stop is policed (the v8.19.0 hoist-cap CRITICAL, fixed).
+- **Seal-forgery guard.** Seal authority is consolidated onto the signed sentinel's
+  `final_decision` via the shared `lib/contracts/workflow-manifest.cjs::sealEvidence`;
+  the unsigned `manifest.yaml` status is no longer an independent grant.
+
+Adversarial loop converged (1 CRITICAL hoist-cap + 1 LOW over-match + 1 LOW
+manifest-forgery, all fixed). Tests: `tests/regression/v8.19.0/F1-F8` + the manifest
+contract suite. Iron Law: only 2 hooks + `spec-controller.md` + the manifest contract
++ tests touched; the Mandatory Gates table + Gate Registry are UNTOUCHED; no `.codex`
+mirror. Lockstep 9 surfaces.
+
 ## [8.18.2] - 2026-06-29
 
 ### Fixed — observer governance guard (false-positive SUBAGENTSTOP_RESULT_MISSING)
