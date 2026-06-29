@@ -103,18 +103,15 @@ function resolveWorkflowKey(state) {
 }
 function isSpecRun(state) { return resolveWorkflowKey(state) === 'Spec'; }
 
-// hasSealEvidence(state, docDir) → true IFF on-disk seal evidence exists: the signed
-// sentinel's final_decision is SEALED, OR the run's manifest.yaml status is sealed.
-// Best-effort: an absent/unreadable manifest is "no evidence" (never a throw).
-function hasSealEvidence(state, docDir) {
-  if (state && typeof state.final_decision === 'string'
-      && state.final_decision.trim().toUpperCase() === 'SEALED') return true;
-  if (!docDir) return false;
-  try {
-    const m = fs.readFileSync(path.join(docDir, 'manifest.yaml'), 'utf8');
-    if (/^status:\s*"?sealed"?\s*$/m.test(m)) return true;
-  } catch { /* no evidence */ }
-  return false;
+// hasSealEvidence(state) → true IFF the run is authentically SEALED (the signed
+// sentinel's final_decision is SEALED). v8.19.0 FORGERY GUARD: the UNSIGNED
+// manifest.yaml `status: sealed` is NO LONGER an independent seal-authority source — it
+// is not signature-verified, so a forged line alone must not grant a clean spec close.
+// Delegates to the workflow-manifest SSOT sealEvidence(state), shared verbatim with
+// subagent-stop-commit-hook.cjs (D-2 — no more duplicated IO copy to drift). Legit
+// seals are unaffected (sealSpecRun writes BOTH sentinel final_decision AND manifest).
+function hasSealEvidence(state) {
+  return !!(manifest && typeof manifest.sealEvidence === 'function' && manifest.sealEvidence(state));
 }
 
 // Lote 4 — require a COMPLETE chain before a GO signal closes the run. OPT-IN
@@ -334,9 +331,8 @@ function decide(payload) {
   // 'SEALED' (not a GO value), so the B1 GO-signal completer above does NOT fire for
   // it. On-disk seal evidence (signed final_decision SEALED OR manifest status sealed)
   // is the honest clean-close condition for a spec run: mark it terminal completed.
-  const docDir = statePath ? path.dirname(statePath) : null;
-  const specNeedsSeal = isSpecRun(state) && !hasSealEvidence(state, docDir);
-  if (isSpecRun(state) && !isComplete(state) && statePath && hasSealEvidence(state, docDir)) {
+  const specNeedsSeal = isSpecRun(state) && !hasSealEvidence(state);
+  if (isSpecRun(state) && !isComplete(state) && statePath && hasSealEvidence(state)) {
     writeCompleted(statePath);
     return { decision: 'allow' };
   }

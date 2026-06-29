@@ -77,13 +77,18 @@ liveTest('F4-S1 [sealed] a SEALED spec run closes cleanly and is marked terminal
   assert.equal(terminalOf(statePath), 'completed', 'seal evidence must persist terminal_state=completed (RED today: not written)');
 });
 
-// ---- F4-S2: sealed via manifest.yaml status: sealed → allow + completed ------
-liveTest('F4-S2 [sealed-manifest] seal evidence from manifest.yaml status: sealed closes cleanly', (root) => {
+// ---- F4-S2: FORGERY GUARD (v8.19.0 contract change) — manifest.yaml status: sealed
+//      ALONE (sentinel NOT SEALED) is NO LONGER seal evidence → it does NOT close the
+//      spec run cleanly. The unsigned manifest is not signature-verified, so a forged
+//      `status: sealed` line must not grant a clean close (defense-in-depth). Legit
+//      seals are unaffected — sealSpecRun writes BOTH sentinel final_decision SEALED
+//      AND the manifest, so F4-S1 (sentinel-sealed) still closes cleanly.
+liveTest('F4-S2 [manifest-forgery] manifest.yaml status: sealed WITHOUT a sentinel SEALED does NOT close cleanly (block, armed)', (root) => {
   const { docDir, statePath } = seedRun(root, SPEC, /* manifestStatus */ 'sealed');
   const r = run(stopPayload(root, 'Stop'), { PIPELINE_DOC_PATH: docDir });
   assert.equal(r.status, 0, r.stderr);
-  assert.notEqual(decisionOf(r), 'block', 'a manifest-sealed spec run must close cleanly');
-  assert.equal(terminalOf(statePath), 'completed', 'manifest seal evidence must persist completed (RED today: not written)');
+  assert.equal(decisionOf(r), 'block', 'a forged manifest-only seal must NOT close a spec run cleanly');
+  assert.notEqual(terminalOf(statePath), 'completed', 'a forged manifest-only seal must NOT persist terminal_state=completed');
 });
 
 // ---- F4-S3: inactive spec, NO seal evidence → block(armed) (RED today) -------

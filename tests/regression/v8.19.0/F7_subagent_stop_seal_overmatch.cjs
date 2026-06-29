@@ -112,12 +112,16 @@ liveTest('F7-S1 [residual-block] sealed terminal (final_decision SEALED) with a 
   assert.equal(correctionCount(statePath), 1, 'the armed block must bump the correction counter once');
 });
 
-// ---- F7-S2: sealed via manifest.yaml + stray AWAITING line, no block → BLOCK
-liveTest('F7-S2 [residual-block-manifest] sealed terminal (manifest status: sealed) with a stray AWAITING line and NO valid block is BLOCKED when armed', (root) => {
+// ---- F7-S2: FORGERY GUARD (v8.19.0 contract change) — manifest.yaml status: sealed
+//      ALONE (sentinel NOT SEALED) is NO LONGER seal evidence, so a forged manifest line
+//      must NOT promote a run to a governed sealed terminal. With no authentic seal, a
+//      stray-AWAITING stop is correctly an intermediate hoist → ALLOWED (not blocked).
+//      The authentic-seal block path is covered by F7-S1 (sentinel final_decision SEALED).
+liveTest('F7-S2 [manifest-forgery] a manifest-only seal does NOT promote a stray-AWAITING stop to a governed terminal → ALLOWED (forged manifest is not seal authority)', (root) => {
   const { docDir } = seedRun(root, SPEC, /* manifestStatus */ 'sealed');
   const r = run(payload(root, 'spec-controller', SEAL_PROSE_WITH_STRAY_AWAITING), { PIPELINE_DOC_PATH: docDir });
   assert.equal(r.status, 0, r.stderr);
-  assert.equal(decisionOf(r), 'block', 'manifest seal evidence must keep the terminal governed (RED today: allowed via over-match)');
+  assert.notEqual(decisionOf(r), 'block', 'manifest-only sealed must NOT be treated as seal evidence (sentinel is the only seal authority)');
 });
 
 // ---- F7-S3: GUARD — active (NOT sealed) intermediate hoist still allowed, not counted

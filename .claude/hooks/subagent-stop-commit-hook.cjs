@@ -86,23 +86,17 @@ function resolveWorkflowKey(state) {
   return 'FULL';
 }
 
-// hasSealEvidence(state, docDir) → true IFF on-disk SEAL evidence exists: the signed
-// sentinel's final_decision is SEALED, OR the run's manifest.yaml status is sealed.
-// A stop with seal evidence is TERMINAL by definition, so the emit-and-hoist bypass
-// below must NOT treat it as an intermediate handshake (closes the LOW over-match
-// residual: a sealed terminal whose body happens to carry a line-start `STATUS:
-// AWAITING_*` would otherwise dodge the result-block requirement). REUSES the exact
-// logic of the sibling stop-gate-hook.cjs::hasSealEvidence (~L109-118) — keep in
-// lockstep. Best-effort: an absent/unreadable manifest is "no evidence" (never throws).
-function hasSealEvidence(state, docDir) {
-  if (state && typeof state.final_decision === 'string'
-      && state.final_decision.trim().toUpperCase() === 'SEALED') return true;
-  if (!docDir) return false;
-  try {
-    const m = fs.readFileSync(path.join(docDir, 'manifest.yaml'), 'utf8');
-    if (/^status:\s*"?sealed"?\s*$/m.test(m)) return true;
-  } catch { /* no evidence */ }
-  return false;
+// hasSealEvidence(state) → true IFF the run is authentically SEALED (the signed
+// sentinel's final_decision is SEALED). A stop with seal evidence is TERMINAL by
+// definition, so the emit-and-hoist bypass below must NOT treat it as an intermediate
+// handshake (closes the LOW over-match residual: a sealed terminal whose body happens
+// to carry a line-start `STATUS: AWAITING_*` would otherwise dodge the result-block
+// requirement). v8.19.0 FORGERY GUARD: the UNSIGNED manifest.yaml `status: sealed` is
+// NO LONGER an independent seal-authority source — delegates to the workflow-manifest
+// SSOT sealEvidence(state), shared verbatim with stop-gate-hook.cjs (no more duplicated
+// IO copy to drift). Tolerant of unsigned state (the final_decision read is unchanged).
+function hasSealEvidence(state) {
+  return !!(manifest && typeof manifest.sealEvidence === 'function' && manifest.sealEvidence(state));
 }
 
 function resolveDocDir(pipelineDir) {
@@ -221,9 +215,9 @@ function decide(payload) {
   // Absent / unreadable-non-authoritative state → ungoverned → allow.
   if (!state || typeof state !== 'object') return { decision: 'allow' };
 
-  // I/O layer: read on-disk seal evidence ONCE here (state.final_decision + manifest.yaml)
-  // so the hoist decision below stays a pure boolean consumer (no disk I/O in the branch).
-  const sealEvidence = hasSealEvidence(state, docDir);
+  // Read seal evidence ONCE here (authoritative sentinel final_decision) so the hoist
+  // decision below stays a pure boolean consumer.
+  const sealEvidence = hasSealEvidence(state);
 
   // Map agent_type → step (HOISTED above the inactive check for HIGH-1). REQ-B3:
   // resolve the workflow key off a during-authoring signal, never the seal-time type.

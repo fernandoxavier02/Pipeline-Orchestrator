@@ -317,6 +317,23 @@ test('S1-17 [v8.18.2] FULL agents_by_step (manifest) is the EXACT inverse of AGE
   }
 });
 
+// ---- S1-18 [v8.19.0 seal-forgery guard] sealEvidence is sentinel-only ----------
+// The SSOT both Stop gates key off for "is this run sealed?". ONLY the authoritative
+// sentinel final_decision === 'SEALED' grants it; the unsigned manifest.yaml is NOT a
+// source here (the helper is pure — it cannot even see the manifest). Pins that the
+// forgery guard lives in the contract, not just the hooks.
+test('S1-18 [v8.19.0] sealEvidence(state): sentinel final_decision SEALED → true; everything else → false', () => {
+  const m = load();
+  assert.equal(typeof m.sealEvidence, 'function', 'sealEvidence must be exported');
+  assert.equal(m.sealEvidence({ final_decision: 'SEALED' }), true);
+  assert.equal(m.sealEvidence({ final_decision: '  sealed  ' }), true, 'case/space tolerant');
+  assert.equal(m.sealEvidence({ final_decision: 'GO' }), false, 'a GO verdict is not a seal');
+  assert.equal(m.sealEvidence({ status: 'sealed' }), false, 'manifest-style status:sealed is NOT seal authority');
+  assert.equal(m.sealEvidence({}), false);
+  assert.equal(m.sealEvidence(null), false);
+  assert.equal(m.sealEvidence(undefined), false);
+});
+
 console.log('');
 console.log(`Summary: ${pass} pass / ${fail} fail / ${pass + fail} total`);
 if (failed.length) {
