@@ -5,9 +5,11 @@
 // subagent-stop-commit-hook.cjs — v8.10.0 (SubagentStop) — T13 (REQ-SUBAGENTSTOP-COMMIT)
 // =============================================================================
 // The commit point for a governed subagent. On SubagentStop it confirms the agent
-// closed on a REAL, parseable PIPELINE_AGENT_RESULT_V1 block (the producer is the 9
-// governed agents from T11) instead of trusting presence/absence. DEFAULT-OFF: the
-// gate is inert unless PIPELINE_SUBAGENTSTOP_ENFORCEMENT=deny arms it (default 'warn').
+// closed on a REAL, parseable PIPELINE_AGENT_RESULT_V1 block (the producers are the 9
+// FULL governed agents from T11 + the spec-controller terminal leaf, v8.19.0) instead
+// of trusting presence/absence. DEFAULT-ON (since v8.11.0 B4; escape
+// PIPELINE_SUBAGENTSTOP_ENFORCEMENT=warn): the gate is ARMED by default so a shipped
+// install enforces it; the warn escape reverts it to observe-only.
 //
 // Decision (design L3b.1):
 //   discover run → if governed-corrupt: block(armed)/allow(warn) →
@@ -42,6 +44,21 @@ try { writer = require('../../lib/gate-decision-writer.cjs'); } catch { writer =
 
 const CORRECTION_CAP = 3;
 
+// Emit-and-hoist INTERMEDIATE-stop detector. A sub-orchestrator made a governed leaf
+// (e.g. spec-controller, v8.19.0) drives ~13 steps by EMIT-AND-HOIST: at each intermediate
+// step it ends its turn with a bare `STATUS: AWAITING_<…>` line and STOPS, so the parent
+// runs the dispatch/gate/plan-mode and re-dispatches it (references/gate-request-protocol.md,
+// agents/core/spec-controller.md). Such a stop is a legitimate non-terminal handshake — NOT a
+// missing result — so the result-block requirement must NOT police it. The three tokens are
+// the canonical hoist markers (a CLOSED set per the protocol). Anchored to a line start so a
+// stray mention in prose does not match. Only a GENUINE TERMINAL stop (no AWAITING_* marker)
+// remains governed below — preserving the original bug fix (a terminal prose/no-block close
+// is still caught).
+const HOIST_STATUS_RE = /^[ \t]*STATUS:[ \t]*(?:AWAITING_DISPATCH_RESULTS|AWAITING_GATE_RESPONSES|AWAITING_PLAN_MODE_RESULTS)\b/m;
+function isEmitAndHoistStop(lastMsg) {
+  return typeof lastMsg === 'string' && HOIST_STATUS_RE.test(lastMsg);
+}
+
 // Find the step that owns an agent_type, or null when the agent is NOT in the spine.
 // The inversion is the manifest SSOT (promoted in v8.18.2 — this commit gate and the
 // error-signal observer both consume it, no duplicated inversion). Manifest absent, OR a
@@ -53,6 +70,39 @@ function stepForAgentType(workflowKey, agentType) {
   return (manifest && typeof manifest.stepForAgentType === 'function')
     ? manifest.stepForAgentType(workflowKey, agentType)
     : null;
+}
+
+// resolveWorkflowKey(state) → the workflow key the commit point governs the run under.
+// REQ-B3 (anti-regression): a spec authoring run must NOT be resolved off the seal-time
+// `type:'Spec'` flag (only stamped at seal). Prefer an explicit `workflow` field, then
+// the DURING-AUTHORING signal `spec_authoring_progress` (written by
+// scripts/record-spec-step.cjs into the SIGNED sentinel from intake onward, so it is
+// present well before seal). Falls back to 'FULL'.
+// NOTE: keep in lockstep with the identical resolver in stop-gate-hook.cjs (D-2).
+function resolveWorkflowKey(state) {
+  if (state && typeof state.workflow === 'string' && state.workflow) return state.workflow;
+  const prog = state && state.spec_authoring_progress;
+  if (prog && typeof prog === 'object' && Object.keys(prog).length > 0) return 'Spec';
+  return 'FULL';
+}
+
+// hasSealEvidence(state, docDir) → true IFF on-disk SEAL evidence exists: the signed
+// sentinel's final_decision is SEALED, OR the run's manifest.yaml status is sealed.
+// A stop with seal evidence is TERMINAL by definition, so the emit-and-hoist bypass
+// below must NOT treat it as an intermediate handshake (closes the LOW over-match
+// residual: a sealed terminal whose body happens to carry a line-start `STATUS:
+// AWAITING_*` would otherwise dodge the result-block requirement). REUSES the exact
+// logic of the sibling stop-gate-hook.cjs::hasSealEvidence (~L109-118) — keep in
+// lockstep. Best-effort: an absent/unreadable manifest is "no evidence" (never throws).
+function hasSealEvidence(state, docDir) {
+  if (state && typeof state.final_decision === 'string'
+      && state.final_decision.trim().toUpperCase() === 'SEALED') return true;
+  if (!docDir) return false;
+  try {
+    const m = fs.readFileSync(path.join(docDir, 'manifest.yaml'), 'utf8');
+    if (/^status:\s*"?sealed"?\s*$/m.test(m)) return true;
+  } catch { /* no evidence */ }
+  return false;
 }
 
 function resolveDocDir(pipelineDir) {
@@ -170,21 +220,60 @@ function decide(payload) {
 
   // Absent / unreadable-non-authoritative state → ungoverned → allow.
   if (!state || typeof state !== 'object') return { decision: 'allow' };
-  // Present-but-not-active → allow.
-  if (state.pipeline_active !== true) return { decision: 'allow' };
 
-  // Map agent_type → step. Not in the spine ⇒ ungoverned for the commit point ⇒ allow.
-  const workflowKey = typeof state.workflow === 'string' ? state.workflow : 'FULL';
+  // I/O layer: read on-disk seal evidence ONCE here (state.final_decision + manifest.yaml)
+  // so the hoist decision below stays a pure boolean consumer (no disk I/O in the branch).
+  const sealEvidence = hasSealEvidence(state, docDir);
+
+  // Map agent_type → step (HOISTED above the inactive check for HIGH-1). REQ-B3:
+  // resolve the workflow key off a during-authoring signal, never the seal-time type.
+  const workflowKey = resolveWorkflowKey(state);
   const step = stepForAgentType(workflowKey, agentType);
-  if (!step) return { decision: 'allow' };
-
   // resultRequired for the step. An env override of 'false' models a step the
   // manifest reports as not-required (T13-S4) — allow without inspecting the message.
   const overrideFalse = (process.env.PIPELINE_SUBAGENTSTOP_RESULT_REQUIRED_OVERRIDE || '').toLowerCase() === 'false';
   const resultRequired = !overrideFalse
     && manifest && typeof manifest.resultRequired === 'function'
     && manifest.resultRequired(workflowKey, step);
+
+  // Present-but-not-active → allow, EXCEPT for a governed result-required leaf
+  // (HIGH-1): sealSpecRun sets pipeline_active:false DURING Step 9, BEFORE the
+  // spec-controller emits its terminal block, so the controller's SubagentStop fires
+  // on an inactive run. The plain "inactive → allow" early-return would bypass the
+  // result-block check exactly for the governed spec leaf — defeating REQ-B2. Narrow
+  // it so an inactive run is allowed only when the finishing agent is NOT a governed
+  // result-required leaf. Block-on-missing here is RECOVERABLE (the controller
+  // re-emits; sealSpecRun is idempotent) and bounded by the same 3-correction cap →
+  // hard_failed, so no deadlock (NFR-4). FULL leaves are unaffected: a FULL run is
+  // still active at its leaves' stops.
+  if (state.pipeline_active !== true && !(step && resultRequired)) {
+    return { decision: 'allow' };
+  }
+
+  // Not in the spine ⇒ ungoverned for the commit point ⇒ allow.
+  if (!step) return { decision: 'allow' };
   if (!resultRequired) return { decision: 'allow' };
+
+  // Emit-and-hoist INTERMEDIATE stop on a governed sub-orchestrator leaf → ALLOW, and do
+  // NOT bump the correction counter. The spec-controller (and any future emit-and-hoist
+  // sub-orchestrator made a governed leaf) ends ~13 intermediate turns with a bare
+  // `STATUS: AWAITING_*` handshake before the parent re-dispatches it; only its genuine
+  // TERMINAL stop (Step 9 seal) carries the result block. Policing the hoists would bump
+  // subagent_corrections per intermediate stop → at the 3-cap convert to hard_failed → KILL
+  // the run mid-authoring. The result-block requirement below therefore applies ONLY to a
+  // terminal stop (no AWAITING_* marker), preserving REQ-B2 / HIGH-1 for the seal close.
+  //
+  // RESIDUAL (LOW): HOIST_STATUS_RE is /m-anchored, so a GENUINE TERMINAL stop whose
+  // body carries a stray line-start `STATUS: AWAITING_*` (echoed/quoted prose) would
+  // over-match as a hoist and dodge the result-block requirement — reopening the
+  // prose-at-the-seal bug. A run with ON-DISK SEAL EVIDENCE is terminal by definition,
+  // so the hoist bypass fires ONLY when the run is NOT yet sealed; a sealed terminal
+  // falls through to the governed result-block check (valid block → allow; prose/stray
+  // line + no block → block).
+  if (isEmitAndHoistStop(lastMsg) && !sealEvidence) {
+    appendBreadcrumb(docDir, 'SUBAGENTSTOP_HOIST', `agent_type=${agentType} emit-and-hoist intermediate stop → allow (not counted)`, state);
+    return { decision: 'allow' };
+  }
 
   const runId = typeof state.run_id === 'string' ? state.run_id : 'unknown';
   const correctionKey = `${runId}::${agentType}`;

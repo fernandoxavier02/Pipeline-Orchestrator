@@ -125,8 +125,24 @@ On clean/accepted review:
 1. Set `spec.json`: `phase: "sealed"`, all `approvals.*.approved = true`, `ready_for_implementation: true`, `spec_version: 1` (or increment on amend), `sealed_at`, and a `sealed_spec` pointer `{ run_dir, artifacts:[the five filenames] }`. (`phase` is the SSOT; `ready_for_implementation` is derived. No content hashes — deferred to the R8 follow-up gate.)
 2. Call the substrate seal action via its CLI: `node lib/run-seal.cjs <runDir> --variant spec-authoring --grade <grade>` (exact signature; `--decision` defaults to `SEALED`). The CLI prints the JSON result and exits non-zero on `{ ok:false }`, so a failed seal is observable. **Canonical authoring variant:** the variant you pass MUST be `spec-authoring` (the historical alias `spec-author` is also accepted). This exact string is what the fidelity-reporter's `isAuthoringVariant` allowlist matches to select the 2-gate authoring yardstick — any other string keeps the legacy processing SPEC set, so do not invent a variant here. One call performs ALL THREE substrate writes **sequentially and idempotently** (they are not a single filesystem-atomic transaction — each of the three files is written independently; a crash between them is recovered by re-running the idempotent seal): it updates `manifest.yaml` to `status: "sealed"` (phase 3, step 9, `spec_lifecycle_completed: true`, `type: "Spec"`, `notes.options.{spec_sealed, controller_type}`), re-signs the run's `sentinel-state.json` closed (`pipeline_active: false`, `type: "Spec"`, `pipeline_variant: "spec-authoring"`, `final_decision: "SEALED"`), and appends the idempotent `SPEC_SEALED` audit line (`gate: "SPEC_SEALED"`, decision `CONFIRMED`, label in `detail`) to `gate-decisions.jsonl`. This replaces the old "manually append `SPEC_SEALED`" prose and FIXES the stale-manifest defect (AUDIT-004): without this call the manifest stayed at its pre-seal status while spec.json said sealed. The spec.json sealing in step 1 is still done by the controller; `sealSpecRun` owns the manifest + sentinel + gate-line. The `SPEC_SEALED` line is written once even on a second seal (idempotent).
 3. `sealSpecRun` already sets `notes.options.spec_sealed = true` on the manifest; the controller does not need a separate write.
-4. **Print the voice scorecard** (R11): a spoken-friendly line — requirement count, number of user decisions, number of review findings caught-and-fixed.
-5. **STOP.** Do NOT hand off to implementation. Tell the user the exact command to run later to implement (`/pipeline-orchestrator:pipeline` over the sealed spec dir).
+4. **STOP.** Do NOT hand off to implementation.
+
+**Your final message MUST be the terminal `PIPELINE_AGENT_RESULT_V1` block below — nothing else.** The voice scorecard (R11) goes INSIDE the block: the spoken-friendly narrative (requirement count, number of user decisions, number of review findings caught-and-fixed, and the exact later-implement command `/pipeline-orchestrator:pipeline` over the sealed spec dir) lives in `summary`; the counts live in `metrics`. Do NOT print the scorecard as prose, and do NOT write any text after the `=== END PIPELINE_AGENT_RESULT_V1 ===` line. The content of the **## Output — SPEC AUTHORING COMPLETE** box below is exactly what you put into the block's `summary` (it is the human view of the same payload), not a separate terminal artifact.
+
+Use ONLY the closed governance keys (`status`, `summary`, `metrics`, `next_agent`) and a closed `status` value of `completed`:
+
+```
+=== PIPELINE_AGENT_RESULT_V1 ===
+{
+  "status": "completed",
+  "summary": "SPEC AUTHORING COMPLETE — run_id <id>; status sealed; spec_version <N>; requirements <R>; decisions <D>; findings fixed <F>. Implement later with: /pipeline-orchestrator:pipeline <spec dir>.",
+  "metrics": { "requirements": <R>, "decisions": <D>, "findings_fixed": <F>, "review_attempts": <A> },
+  "next_agent": ""
+}
+=== END PIPELINE_AGENT_RESULT_V1 ===
+```
+
+**Non-happy-path exits (REQ-A5).** A spec run that ends NOT sealed still ends on a terminal block — completion is never inferred from prose in any exit path. Use `status: "failed"` for a partial / non-converged / cancelled exit (carry the reason in `summary`), or `status: "awaiting_user_gate"` with `"blocking": true` when an open decision-class gap remains. The same "block is the literal last message, no prose after END" rule applies.
 
 ## Voice summaries (R11)
 

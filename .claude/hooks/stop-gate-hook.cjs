@@ -91,6 +91,32 @@ function isComplete(state) {
   return false;
 }
 
+// v8.19.0 (REQ-C). resolveWorkflowKey: same runtime-state resolution as
+// subagent-stop-commit-hook.cjs (D-2 — keep in lockstep). A spec authoring run is
+// resolved off the during-authoring `spec_authoring_progress` signal, NOT the
+// seal-time `type:'Spec'` flag.
+function resolveWorkflowKey(state) {
+  if (state && typeof state.workflow === 'string' && state.workflow) return state.workflow;
+  const prog = state && state.spec_authoring_progress;
+  if (prog && typeof prog === 'object' && Object.keys(prog).length > 0) return 'Spec';
+  return 'FULL';
+}
+function isSpecRun(state) { return resolveWorkflowKey(state) === 'Spec'; }
+
+// hasSealEvidence(state, docDir) → true IFF on-disk seal evidence exists: the signed
+// sentinel's final_decision is SEALED, OR the run's manifest.yaml status is sealed.
+// Best-effort: an absent/unreadable manifest is "no evidence" (never a throw).
+function hasSealEvidence(state, docDir) {
+  if (state && typeof state.final_decision === 'string'
+      && state.final_decision.trim().toUpperCase() === 'SEALED') return true;
+  if (!docDir) return false;
+  try {
+    const m = fs.readFileSync(path.join(docDir, 'manifest.yaml'), 'utf8');
+    if (/^status:\s*"?sealed"?\s*$/m.test(m)) return true;
+  } catch { /* no evidence */ }
+  return false;
+}
+
 // Lote 4 — require a COMPLETE chain before a GO signal closes the run. OPT-IN
 // (parity with v8.9.0 PIPELINE_REQUIRE_GREEN_CLOSE): strict is OFF by default so a
 // genuinely finished run of any workflow whose ledger this hook cannot fully verify
@@ -303,9 +329,23 @@ function decide(payload) {
     return { decision: 'allow' };
   }
 
+  // --- Stop event: spec seal evidence (REQ-C1) -------------------------------
+  // A spec authoring run reaches SEALED with pipeline_active:false + final_decision
+  // 'SEALED' (not a GO value), so the B1 GO-signal completer above does NOT fire for
+  // it. On-disk seal evidence (signed final_decision SEALED OR manifest status sealed)
+  // is the honest clean-close condition for a spec run: mark it terminal completed.
+  const docDir = statePath ? path.dirname(statePath) : null;
+  const specNeedsSeal = isSpecRun(state) && !hasSealEvidence(state, docDir);
+  if (isSpecRun(state) && !isComplete(state) && statePath && hasSealEvidence(state, docDir)) {
+    writeCompleted(statePath);
+    return { decision: 'allow' };
+  }
+
   // --- Stop event ------------------------------------------------------------
-  // No governed run (not active, no terminal in progress) → allow.
-  if (state.pipeline_active !== true && !isComplete(state)) {
+  // No governed run (not active, no terminal in progress) → allow. REQ-C2: an
+  // inactive-but-UNSEALED spec run must NOT slip through on inactivity alone — it
+  // falls to the incomplete-run block below (capped at 3 → hard_failed).
+  if (state.pipeline_active !== true && !isComplete(state) && !specNeedsSeal) {
     return { decision: 'allow' };
   }
 
@@ -325,8 +365,9 @@ function decide(payload) {
     return { decision: 'allow' };
   }
 
-  // Outstanding pending dispatches OR plain incompleteness → block with next action.
-  if (hasPendingDispatches(state) || state.pipeline_active === true) {
+  // Outstanding pending dispatches OR an active run OR an unsealed spec run under
+  // teardown (REQ-C2) → block with next action.
+  if (hasPendingDispatches(state) || state.pipeline_active === true || specNeedsSeal) {
     // FAIL-SAFE (B5 adversarial): without a writable statePath we cannot advance the
     // continuity counter, so the 3-cap → hard_failed terminator could NEVER fire and
     // the block would repeat forever (an INFINITE deadlock). If we cannot persist the

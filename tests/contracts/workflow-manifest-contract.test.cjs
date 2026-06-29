@@ -142,7 +142,9 @@ test('S1-9 [allow-good] denyException for ungoverned/absent is NOT "deny" (anti-
 test('S1-10 [edge] non-FULL modes present with agents_by_step === null (GAP-02)', () => {
   const m = load();
   assert.ok(m.WORKFLOWS && typeof m.WORKFLOWS === 'object', 'WORKFLOWS SSOT must be exported');
-  for (const mode of ['DIAGNOSTIC', 'REVIEW-ONLY', 'HOTFIX', 'PAPERCLIP', 'Spec', 'brainstorm']) {
+  // v8.19.0: Spec now carries a single-leaf spine (seal → spec-controller), so it is
+  // no longer in the null-spine set. Every OTHER non-FULL mode stays null.
+  for (const mode of ['DIAGNOSTIC', 'REVIEW-ONLY', 'HOTFIX', 'PAPERCLIP', 'brainstorm']) {
     assert.ok(Object.prototype.hasOwnProperty.call(m.WORKFLOWS, mode),
       `WORKFLOWS must enumerate mode "${mode}"`);
     assert.strictEqual(m.WORKFLOWS[mode].agents_by_step, null,
@@ -216,10 +218,16 @@ test('S1-11 [edge] require has zero fs/env/io side-effects', () => {
   }
 });
 
-// ---- S1-12 [regression] Spec.agents_by_step === null ------------------------
-test('S1-12 [regression] WORKFLOWS.Spec.agents_by_step === null (no invented spine)', () => {
+// ---- S1-12 [v8.19.0] Spec is a single-leaf spine (seal → spec-controller) ----
+test('S1-12 [v8.19.0] WORKFLOWS.Spec is the single-leaf seal spine (one governed terminal leaf, no invented lifecycle)', () => {
   const m = load();
-  assert.strictEqual(m.WORKFLOWS.Spec.agents_by_step, null);
+  assert.deepStrictEqual(m.WORKFLOWS.Spec.steps, ['seal']);
+  assert.deepStrictEqual(m.WORKFLOWS.Spec.agents_by_step, { seal: ['spec-controller'] });
+  assert.deepStrictEqual(m.WORKFLOWS.Spec.step_obligations, { seal: { result_required: true, evidence_required: false } });
+  // NFR-7 anti-invention: only 'seal' exists — any other step stays ungoverned.
+  assert.equal(m.stepForAgentType('Spec', 'spec-controller'), 'seal');
+  assert.equal(m.isTransitionAllowed('Spec', 'requirements', 'design'), true,
+    'a non-seal Spec step must stay ungoverned (anti-deadlock preserved)');
 });
 
 // ---- S1-13 [regression] brainstorm.agents_by_step === null ------------------
@@ -266,6 +274,9 @@ test('S1-15 [v8.18.2] isGovernedLeaf true for the 9 leaves, false for harness/br
   // A step-ledger brainstorm SPAWN leaf is deliberately NOT a result-block governed leaf here.
   assert.equal(m.isGovernedLeaf('brainstorm-step-00-intake'), false,
     'a step-ledger brainstorm spawn-order leaf is NOT a result-block-obligated governed leaf');
+  // v8.19.0: spec-controller is the 10th governed leaf (Spec single-leaf spine).
+  assert.equal(m.isGovernedLeaf('spec-controller'), true,
+    'spec-controller must be a governed leaf (the Spec seal terminal leaf, v8.19.0)');
 });
 
 // ---- S1-16 [v8.18.2] stepForAgentType on a null-spine / unknown workflow → null ----
