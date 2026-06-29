@@ -417,9 +417,13 @@ check('S4b EDGE: a later failure for a DIFFERENT agent must NOT re-fire a correc
     'handleSubagentStop missing — RED (hook file not created yet)');
   delete process.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS;
 
-  // 1) Agent A fails in window w1 → corrective #1 (genuinely fresh).
+  // v8.18.2: the observer now only acts on manifest-recognized GOVERNED spine leaves
+  // (Explore/general-purpose/etc. are no-ops). The cross-window dedup behavior this
+  // scenario locks is agent-agnostic, so we use two DISTINCT real governed leaves
+  // (executor-controller + review-orchestrator) instead of the old generic agent-A/B.
+  // 1) Agent A (executor-controller) fails in window w1 → corrective #1 (genuinely fresh).
   const a = hook.handleSubagentStop(failurePayload(tmp, {
-    agent_type: 'agent-A', agent_id: 'a-A-1', occurrence_window: 'w1',
+    agent_type: 'executor-controller', agent_id: 'a-A-1', occurrence_window: 'w1',
   }));
   assert.equal(a.emitted, true, 'agent A failure must emit a signal');
   assert.equal(a.dispatched, true, 'agent A defect must dispatch a fresh corrective');
@@ -427,9 +431,9 @@ check('S4b EDGE: a later failure for a DIFFERENT agent must NOT re-fire a correc
 
   // After A is corrected the run advances to a LATER window; a DIFFERENT agent B now
   // fails. The channel already holds A's w1 signal (append-only, never cleared).
-  // 2) Agent B fails in window w2 → a corrective for B ONLY.
+  // 2) Agent B (review-orchestrator) fails in window w2 → a corrective for B ONLY.
   const b = hook.handleSubagentStop(failurePayload(tmp, {
-    agent_type: 'agent-B', agent_id: 'a-B-1', occurrence_window: 'w2',
+    agent_type: 'review-orchestrator', agent_id: 'a-B-1', occurrence_window: 'w2',
   }));
   assert.equal(b.emitted, true, 'agent B failure must emit a signal');
   assert.equal(b.dispatched, true, 'agent B (a genuinely-fresh distinct defect) must dispatch a corrective');
@@ -448,10 +452,10 @@ check('S4b EDGE: a later failure for a DIFFERENT agent must NOT re-fire a correc
     `expected exactly 2 corrective records (A@w1 + B@w2), got ${records.length} — a 3rd record means a SPURIOUS corrective was re-fired for the already-handled agent A (HIGH-1)`);
 
   // And concretely: there must be NO SECOND corrective whose responsible agent is A.
-  const aRecords = records.filter((r) => r && r.agent_ref === 'agent-A');
+  const aRecords = records.filter((r) => r && r.agent_ref === 'executor-controller');
   assert.equal(aRecords.length, 1,
     `agent A must have exactly ONE corrective record (its genuine w1 defect), got ${aRecords.length} — a 2nd A record is the spurious cross-window re-fire`);
-  const bRecords = records.filter((r) => r && r.agent_ref === 'agent-B');
+  const bRecords = records.filter((r) => r && r.agent_ref === 'review-orchestrator');
   assert.equal(bRecords.length, 1,
     `agent B must have exactly ONE corrective record (its genuine w2 defect), got ${bRecords.length}`);
 });

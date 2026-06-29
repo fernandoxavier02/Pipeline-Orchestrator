@@ -42,17 +42,17 @@ try { writer = require('../../lib/gate-decision-writer.cjs'); } catch { writer =
 
 const CORRECTION_CAP = 3;
 
-// Invert the manifest's step→agents map for a workflow to find the step that owns an
-// agent_type. Returns the step name or null when the agent is NOT in the spine.
+// Find the step that owns an agent_type, or null when the agent is NOT in the spine.
+// The inversion is the manifest SSOT (promoted in v8.18.2 — this commit gate and the
+// error-signal observer both consume it, no duplicated inversion). Manifest absent, OR a
+// pre-8.18.2 manifest lacking the stepForAgentType export → null (ungoverned). The
+// absent-manifest end-state matches the old local fallback; the NEW dependency is on the
+// EXPORT, so it assumes hook↔lib version lockstep (both ship from the same install — the
+// dogfood cache-vs-source skew is the one scenario where this could silently un-govern).
 function stepForAgentType(workflowKey, agentType) {
-  if (!manifest || !manifest.WORKFLOWS) return null;
-  const wf = manifest.WORKFLOWS[workflowKey];
-  if (!wf || !wf.agents_by_step) return null;
-  for (const step of Object.keys(wf.agents_by_step)) {
-    const leaves = wf.agents_by_step[step];
-    if (Array.isArray(leaves) && leaves.indexOf(agentType) >= 0) return step;
-  }
-  return null;
+  return (manifest && typeof manifest.stepForAgentType === 'function')
+    ? manifest.stepForAgentType(workflowKey, agentType)
+    : null;
 }
 
 function resolveDocDir(pipelineDir) {

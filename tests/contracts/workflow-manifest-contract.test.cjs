@@ -228,6 +228,84 @@ test('S1-13 [regression] WORKFLOWS.brainstorm.agents_by_step === null (prose tab
   assert.strictEqual(m.WORKFLOWS.brainstorm.agents_by_step, null);
 });
 
+// The 9 governed FULL spine leaves, enumerated ONCE here (the SSOT contract location).
+const FULL_LEAF_STEP = {
+  'task-orchestrator': 'classify',
+  'information-gate': 'info-gate',
+  'plan-architect': 'plan',
+  'quality-gate-router': 'tdd',
+  'pre-tester': 'tdd',
+  'executor-controller': 'execute',
+  'review-orchestrator': 'adversarial',
+  'sanity-checker': 'sanity',
+  'final-validator': 'final',
+};
+
+// ---- S1-14 [v8.18.2] stepForAgentType maps ALL 9 leaves + rejects non-leaf/falsy ----
+test('S1-14 [v8.18.2] stepForAgentType maps all 9 FULL leaves and rejects non-leaf/falsy', () => {
+  const m = load();
+  assert.equal(typeof m.stepForAgentType, 'function', 'stepForAgentType must be exported');
+  for (const [leaf, step] of Object.entries(FULL_LEAF_STEP)) {
+    assert.equal(m.stepForAgentType('FULL', leaf), step, `stepForAgentType('FULL','${leaf}') must be '${step}'`);
+  }
+  for (const a of ['Explore', 'general-purpose', 'Plan', '', null, undefined, 42]) {
+    assert.equal(m.stepForAgentType('FULL', a), null, `stepForAgentType('FULL',${JSON.stringify(a)}) must be null`);
+  }
+});
+
+// ---- S1-15 [v8.18.2] isGovernedLeaf: 9 leaves true; harness/brainstorm/falsy false ----
+test('S1-15 [v8.18.2] isGovernedLeaf true for the 9 leaves, false for harness/brainstorm/falsy', () => {
+  const m = load();
+  assert.equal(typeof m.isGovernedLeaf, 'function', 'isGovernedLeaf must be exported');
+  for (const leaf of Object.keys(FULL_LEAF_STEP)) {
+    assert.equal(m.isGovernedLeaf(leaf), true, `${leaf} must be a governed leaf`);
+  }
+  for (const a of ['Explore', 'general-purpose', 'Plan', 'code-reviewer', '', null, undefined, 42]) {
+    assert.equal(m.isGovernedLeaf(a), false, `${JSON.stringify(a)} must NOT be a governed leaf`);
+  }
+  // A step-ledger brainstorm SPAWN leaf is deliberately NOT a result-block governed leaf here.
+  assert.equal(m.isGovernedLeaf('brainstorm-step-00-intake'), false,
+    'a step-ledger brainstorm spawn-order leaf is NOT a result-block-obligated governed leaf');
+});
+
+// ---- S1-16 [v8.18.2] stepForAgentType on a null-spine / unknown workflow → null ----
+test('S1-16 [v8.18.2] stepForAgentType on a null-spine or unknown workflow → null (no invented spine)', () => {
+  const m = load();
+  assert.equal(m.stepForAgentType('REVIEW-ONLY', 'executor-controller'), null);
+  assert.equal(m.stepForAgentType('Spec', 'final-validator'), null);
+  assert.equal(m.stepForAgentType('nope-not-a-workflow', 'executor-controller'), null);
+});
+
+// ---- S1-17 [v8.18.2 drift-lock] manifest FULL spine ≡ step-ledger AGENT_STEP_MAP.FULL ----
+// The manifest's FULL agents_by_step is a hand-transcribed inverse of step-ledger's
+// AGENT_STEP_MAP.FULL. Two SSOTs of the SAME 9 governed leaves with no parity check =
+// silent drift risk (add a 10th leaf to one, forget the other → the observer stops
+// emitting for it while the spawn gate keeps governing it). This pins them in lockstep.
+test('S1-17 [v8.18.2] FULL agents_by_step (manifest) is the EXACT inverse of AGENT_STEP_MAP.FULL (step-ledger)', () => {
+  const m = load();
+  // eslint-disable-next-line global-require
+  const ledger = require('../../lib/step-ledger.cjs');
+  const ledgerMap = ledger.AGENT_STEP_MAP.FULL;          // leaf -> step
+  const manifestMap = m.WORKFLOWS.FULL.agents_by_step;   // step -> [leaves]
+
+  const manifestLeafToStep = {};
+  for (const step of Object.keys(manifestMap)) {
+    for (const leaf of manifestMap[step]) {
+      assert.ok(!(leaf in manifestLeafToStep), `manifest lists leaf ${leaf} under two steps`);
+      manifestLeafToStep[leaf] = step;
+    }
+  }
+  assert.deepEqual(
+    Object.keys(manifestLeafToStep).sort(),
+    Object.keys(ledgerMap).sort(),
+    'FULL governed-leaf SET drifted between manifest agents_by_step and step-ledger AGENT_STEP_MAP.FULL',
+  );
+  for (const leaf of Object.keys(ledgerMap)) {
+    assert.equal(manifestLeafToStep[leaf], ledgerMap[leaf],
+      `leaf '${leaf}' maps to different steps (manifest='${manifestLeafToStep[leaf]}' ledger='${ledgerMap[leaf]}')`);
+  }
+});
+
 console.log('');
 console.log(`Summary: ${pass} pass / ${fail} fail / ${pass + fail} total`);
 if (failed.length) {

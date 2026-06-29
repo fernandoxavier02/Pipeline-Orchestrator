@@ -73,6 +73,15 @@ try { engine = require('../../lib/corrective-dispatch.cjs'); } catch { engine = 
 let resultContract = null;
 try { resultContract = require('../../lib/contracts/pipeline-agent-result.cjs'); } catch { resultContract = null; }
 
+// Optional require: the workflow manifest SSOT. It answers "is this finishing agent a
+// governed spine leaf?" via a narrower membership-BY-NAME test (see the SPINE-MEMBERSHIP
+// guard below for how this observer deliberately differs from the commit gate). Its
+// absence means we cannot confirm governance, so the GOVERNANCE guard fails toward
+// NO-EMIT (the safe direction for THIS defect: emitting for a non-governed agent is
+// exactly the bug being fixed). The live path always loads it.
+let manifest = null;
+try { manifest = require('../../lib/contracts/workflow-manifest.cjs'); } catch { manifest = null; }
+
 const DEFAULT_OBSERVER = 'corrective-error-signal-gate';
 
 // The in-execution failure verdict invariant — the SAME id subagent-stop-commit-hook
@@ -88,13 +97,37 @@ const DEFAULT_OBSERVER = 'corrective-error-signal-gate';
 // here (YAGNI) — there is no second defect class for this observer to discriminate.
 const FAILURE_INVARIANT = 'SUBAGENTSTOP_RESULT_MISSING';
 
-// ---- governance guard --------------------------------------------------------
-// The observer only acts on a GOVERNED subagent finishing — that requires a non-empty
-// agent_type (the finishing governed leaf). A payload with no agent_type is not a
-// governed verdict at all (not-governed / malformed) → a complete no-op, never an emit.
+// ---- governance guards -------------------------------------------------------
+// SHAPE guard: a SubagentStop verdict must at least carry a non-empty agent_type.
+// A payload with no agent_type is not a verdict we can attribute (malformed) → no-op.
+// NOTE: a non-empty agent_type is NECESSARY but NOT SUFFICIENT for governance — the
+// harness fires SubagentStop for EVERY subagent, including non-pipeline harness agents
+// (Explore / general-purpose / Plan) and other-plugin agents, all of which carry an
+// agent_type. The SPINE-MEMBERSHIP guard below is what actually decides governance.
 function isGovernedVerdict(payload) {
   return !!(payload && typeof payload === 'object'
     && typeof payload.agent_type === 'string' && payload.agent_type);
+}
+
+// SPINE-MEMBERSHIP guard: only an agent the workflow manifest recognizes as a governed
+// spine leaf is in this observer's scope. The harness ALSO fires SubagentStop for
+// non-pipeline agents (Explore / general-purpose / Plan / other-plugin agents); treating
+// those as governed produced FALSE SUBAGENTSTOP_RESULT_MISSING signals + spurious
+// correctives (observed live 2026-06-29). This closes that class by NAME membership.
+//
+// DELIBERATELY membership-BY-NAME only — NOT run-aware, NOT workflow-specific (this is a
+// REAL difference from the sibling commit gate, not "the same posture"). The commit gate
+// (subagent-stop-commit-hook.cjs) is stricter: it governs only when pipeline_active===true
+// and keys off the ACTIVE run's state.workflow. A pure NON-BLOCKING observer does not need
+// that run bookkeeping, so it emits for ANY known governed-leaf NAME on a failure verdict,
+// even with no active run. RESIDUAL, by design: one of the 9 leaves finishing with no
+// active run still emits (run_id:"") — far narrower than the pre-fix "any agent_type"
+// class, low-probability (these leaves only spawn inside a run), and non-blocking. Manifest
+// absent → return false (the SAFE direction for THIS defect: a false emit for a
+// non-governed agent is the bug; the live path always loads the shipped manifest).
+function isGovernedLeaf(agentType) {
+  if (!manifest || typeof manifest.isGovernedLeaf !== 'function') return false;
+  try { return manifest.isGovernedLeaf(agentType) === true; } catch { return false; }
 }
 
 // ---- failure-verdict detection (defensive: every field access guarded) -------
@@ -167,7 +200,13 @@ function handleSubagentStop(payload) {
       return { emitted: false, dispatched: false, reason: 'malformed' };
     }
     if (!isGovernedVerdict(payload)) {
-      // No governed agent_type → not a governed verdict → complete no-op.
+      // No agent_type → cannot attribute the verdict → complete no-op.
+      return { emitted: false, dispatched: false, reason: 'not-governed' };
+    }
+    if (!isGovernedLeaf(payload.agent_type)) {
+      // Has an agent_type but is NOT a manifest-recognized governed spine leaf — a
+      // non-pipeline harness/plugin agent (Explore, general-purpose, …). The observer
+      // has no business emitting a SUBAGENTSTOP_RESULT_MISSING for it → complete no-op.
       return { emitted: false, dispatched: false, reason: 'not-governed' };
     }
     if (!isFailureVerdict(payload)) {
@@ -249,6 +288,7 @@ if (require.main === module) {
 module.exports = {
   handleSubagentStop,
   isGovernedVerdict,
+  isGovernedLeaf,
   isFailureVerdict,
   buildSignal,
   FAILURE_INVARIANT,

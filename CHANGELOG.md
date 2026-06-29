@@ -2,6 +2,40 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.18.2] - 2026-06-29
+
+### Fixed — observer governance guard (false-positive SUBAGENTSTOP_RESULT_MISSING)
+
+- **Observer fired for non-pipeline agents.** `.claude/hooks/corrective-error-signal-gate.cjs`
+  treated ANY SubagentStop payload with a non-empty `agent_type` as a governed
+  spine leaf. The harness fires SubagentStop for EVERY subagent — including
+  non-pipeline harness agents (`Explore`, `general-purpose`, `Plan`) and other-plugin
+  agents — so a plain `Explore` finishing without a `PIPELINE_AGENT_RESULT_V1` block
+  emitted a FALSE `SUBAGENTSTOP_RESULT_MISSING` signal and fired a spurious corrective
+  dispatch (observed live 2026-06-29 with `run_id:""`, no governed run active).
+- **Fix.** The agent→step inversion is promoted to the manifest SSOT
+  (`lib/contracts/workflow-manifest.cjs`) as `stepForAgentType` + a new `isGovernedLeaf`.
+  The observer now rejects any agent that is not a manifest-recognized governed spine
+  leaf. The sibling `subagent-stop-commit-hook.cjs` delegates its previously-local
+  inversion to the same SSOT (no duplicated logic).
+- **Deliberate scope.** The observer is membership-by-name + run-blind by design (a
+  non-blocking signal emitter), explicitly NOT identical to the run-aware commit gate
+  (which also requires `pipeline_active===true` and keys off `state.workflow`). The
+  narrow residual (a governed leaf finishing with no active run still emits) is
+  documented as accepted.
+- **Tests.** `tests/regression/v8.18.2/F1_observer_governance_guard.cjs` (RED→GREEN:
+  `Explore` no longer emits; a real governed leaf still does). `tests/contracts/workflow-manifest-contract.test.cjs`
+  gains S1-14..S1-17 — all 9 FULL leaves, null-spine, falsy inputs, and a drift-lock
+  parity test asserting `WORKFLOWS.FULL.agents_by_step` is the exact inverse of
+  step-ledger's `AGENT_STEP_MAP.FULL`.
+- **Review.** Three zero-context adversarial lenses (security / architecture / quality)
+  in a correction loop to CLEAN — no CRITICAL/HIGH; misleading "identical posture"
+  comments + coverage/drift gaps fixed.
+- Iron Law preserved: only `.claude/hooks/`, `lib/`, `tests/` touched; the 35-row
+  Mandatory Gates table + 49-row Gate Registry UNTOUCHED. Suite 241 pass / 5 fail
+  (the 5 pre-existing baseline failures: 3 Langfuse + score-writer + F4
+  dispatch-pending-gate inherited from the v8.18.0 deadlock-recovery change). Lockstep 9 surfaces.
+
 ## [8.18.1] - 2026-06-29
 
 ### Fixed — phantom-arm deadlock (all workflows) + ARCH refactors
