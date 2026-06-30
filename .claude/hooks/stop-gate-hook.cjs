@@ -41,6 +41,11 @@ try { manifest = require('../../lib/contracts/workflow-manifest.cjs'); } catch {
 // COMPLETE chain (every phase stamped) before honoring a GO signal.
 let stepLedger = null;
 try { stepLedger = require('../../lib/step-ledger.cjs'); } catch { stepLedger = null; }
+// v8.19.1 — consume the arm-pending marker on a deliberate run close. Optional
+// require: a missing module degrades to a no-op (marker cleanup must NEVER be a hard
+// dependency of the Stop decision).
+let arm = null;
+try { arm = require('../../lib/pipeline-arm.cjs'); } catch { arm = null; }
 
 const CONTINUITY_CAP = 3; // after 3 continuities, convert to hard_failed terminal.
 
@@ -249,6 +254,29 @@ function hasSuccessCompletionSignal(state, docDir) {
   return false;
 }
 
+// v8.19.1 — consume the arm-pending marker when a governed run reaches a DELIBERATE
+// close (completed / hard_failed / sealed / inactive). The marker is enforcement
+// CONTROL state written at /pipeline invocation; nothing consumed it on run-end, so a
+// finished code-mutating run's still-live marker (≤TTL, same session) kept blocking the
+// NEXT non-pipeline task with PIPELINE_NOT_ARMED until TTL expiry or a restart. Called
+// ONLY on the closed-run ALLOW paths below — NEVER on a block (would un-govern a live
+// run), NEVER on SessionEnd/StopFailure recovery, NEVER on corrupt state. Session-aware
+// (a marker owned by another session is preserved). PURE best-effort side effect: fully
+// guarded, never throws, never changes the Stop decision. Preserves the TTL, session
+// isolation and tamper invariants (a tampered marker is left in place → stays governed).
+// CWD ASSUMPTION (accepted): the marker is keyed off `pipelineDir` (payload.cwd), the SAME
+// cwd the UserPromptSubmit writer armed it under; if a teardown reports a different cwd the
+// consume simply misses and the marker reverts to its TTL / SessionStart-cleanup backstop —
+// a missed consume is recoverable and never un-governs the wrong run.
+function closeArmMarker(pipelineDir, sessionId) {
+  try {
+    if (arm && typeof arm.clearArmPendingForSession === 'function'
+        && typeof pipelineDir === 'string' && pipelineDir) {
+      arm.clearArmPendingForSession(pipelineDir, sessionId);
+    }
+  } catch { /* best-effort: marker cleanup must never affect the Stop decision */ }
+}
+
 function nextActionReason(state) {
   const phase = (state && typeof state.current_phase === 'string') ? state.current_phase : 'a fase atual';
   return (
@@ -292,6 +320,8 @@ function decide(payload) {
   if (!payload || typeof payload !== 'object') return { decision: 'allow' };
   const event = payload.hook_event_name;
   const pipelineDir = typeof payload.cwd === 'string' && payload.cwd ? payload.cwd : process.cwd();
+  // v8.19.1: session ownership for the arm-marker consume (a cross-session marker is preserved).
+  const sessionId = typeof payload.session_id === 'string' ? payload.session_id : undefined;
 
   const { statePath } = resolveStatePath(pipelineDir);
 
@@ -323,6 +353,7 @@ function decide(payload) {
   if (!isComplete(state) && statePath && hasSuccessCompletionSignal(state, path.dirname(statePath))
       && (!chainCloseStrict() || chainIsComplete(state))) {
     writeCompleted(statePath);
+    closeArmMarker(pipelineDir, sessionId); // v8.19.1: run finished → consume the marker
     return { decision: 'allow' };
   }
 
@@ -334,6 +365,7 @@ function decide(payload) {
   const specNeedsSeal = isSpecRun(state) && !hasSealEvidence(state);
   if (isSpecRun(state) && !isComplete(state) && statePath && hasSealEvidence(state)) {
     writeCompleted(statePath);
+    closeArmMarker(pipelineDir, sessionId); // v8.19.1: spec sealed → consume the marker
     return { decision: 'allow' };
   }
 
@@ -342,11 +374,12 @@ function decide(payload) {
   // inactive-but-UNSEALED spec run must NOT slip through on inactivity alone — it
   // falls to the incomplete-run block below (capped at 3 → hard_failed).
   if (state.pipeline_active !== true && !isComplete(state) && !specNeedsSeal) {
+    closeArmMarker(pipelineDir, sessionId); // v8.19.1: inactive close → consume the marker
     return { decision: 'allow' };
   }
 
   // A complete/terminal run is never blocked.
-  if (isComplete(state)) return { decision: 'allow' };
+  if (isComplete(state)) { closeArmMarker(pipelineDir, sessionId); return { decision: 'allow' }; } // v8.19.1: terminal → consume the marker
 
   // Incomplete governed run. Block logic is inert unless armed (default OFF).
   if (!isArmed()) return { decision: 'allow' };
@@ -358,6 +391,7 @@ function decide(payload) {
   const thisAttempt = priorContinuities + 1;
   if (thisAttempt >= CONTINUITY_CAP) {
     if (statePath) writeHardFailed(statePath);
+    closeArmMarker(pipelineDir, sessionId); // v8.19.1: hard_failed terminal → consume the marker
     return { decision: 'allow' };
   }
 

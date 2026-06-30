@@ -2,6 +2,16 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.19.1] - 2026-06-30
+
+### Fixed — arm-marker consume-on-close deadlock
+
+- The `pipeline-arm-pending` marker (written at `/pipeline` invocation by `pipeline-arm-writer.cjs`, 30-min TTL, HMAC-signed-by-shape, session-stamped since v8.18.0) was **never consumed when a governed run ended deliberately**. Only TTL expiry or a session restart (via v8.18.0 session isolation) cleared it. So a finished **code-mutating** run left its still-live marker in place, and `pipeline-arm-gate.cjs` kept denying the NEXT non-pipeline task in the same session with `PIPELINE_NOT_ARMED` for up to 30 min. (`REVIEW-ONLY`/`DIAGNOSTIC` runs never arm — `lib/pipeline-arm.cjs::writeArmPending` skips them — so the real trigger is a FULL/code run that armed, completed, and was never disarmed.)
+- **FIX:** `.claude/hooks/stop-gate-hook.cjs` (the authoritative Stop-event terminal owner) now consumes the marker on its closed-run ALLOW paths — completed / GO-completer / spec-seal / hard_failed continuity-cap / deliberate-inactive — via a new `lib/pipeline-arm.cjs::clearArmPendingForSession(cwd, sessionId)`. It is **never** called on a block, on `SessionEnd`/`StopFailure` recovery, or on corrupt state.
+- **Positive-ownership delete** (symmetric with the read path's v8.18.0 session isolation): the marker is removed only when marker and caller `session_id` are both present and equal, OR both absent; any ambiguous (stamped-vs-absent) or mismatched case is preserved and left to the TTL / `SessionStart` cleanup — never delete a marker we cannot prove we own (closes a cross-session un-govern vector). The **tamper verdict is delegated to the `lib/arm-pending` SSOT** (`markerIsTampered`), so a signed-but-invalid marker stays fail-closed (parity with the arm-gate's verify-on-read; no fourth divergent copy of that rule).
+- 2 zero-context adversarial review rounds found 1 HIGH (tamper-bypass on delete) + 1 CRITICAL (cross-session/sessionless delete); both fixed; a final independent pass returned CLEAN. TDD via `tests/regression/v8.19.1/F1` (10 scenarios — all 5 call sites + tamper-preserve + the full session-ownership truth table).
+- Iron Law preserved: only `.claude/hooks/stop-gate-hook.cjs` + `lib/pipeline-arm.cjs` + `tests/` touched; the Mandatory Gates table + Gate Registry are UNTOUCHED; no `.codex` mirror (stop-gate does not mirror). Suite 250/5 (5 pre-existing: 3 Langfuse + score-writer + F4 dispatch-pending-gate; F07 jsonl-writer flaky). Lockstep 9 surfaces.
+
 ## [8.19.0] - 2026-06-29
 
 ### Added — spec-authoring output enforcement (close the return-channel gap)
