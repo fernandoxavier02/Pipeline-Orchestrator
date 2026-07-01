@@ -39,7 +39,11 @@ const PENDING_BLOCK_TYPES = new Set(['DISPATCH_REQUEST', 'GATE_REQUEST', 'PLAN_M
 function getActiveLock(pipelineDir) {
   const sessionsDir = path.join(pipelineDir, '.pipeline', 'sessions');
   if (!fs.existsSync(sessionsDir)) return null;
-  const files = fs.readdirSync(sessionsDir).filter((f) => f.endsWith('.lock'));
+  // sessions present but unreadable (a file where a dir is expected → ENOTDIR, or
+  // EACCES) must NOT crash the whole gate — treat as "no lock" and fail open here.
+  let files;
+  try { files = fs.readdirSync(sessionsDir).filter((f) => f.endsWith('.lock')); }
+  catch (_) { return null; }
   const now = Date.now();
   const candidates = [];
   for (const f of files) {
@@ -197,7 +201,10 @@ function getActiveExecWindow(pipelineDir, lockSessionId) {
   if (typeof lockSessionId !== 'string' || !SESSION_ID_RE.test(lockSessionId)) return null;
   const sessionsDir = path.join(pipelineDir, '.pipeline', 'sessions');
   if (!fs.existsSync(sessionsDir)) return null;
-  const files = fs.readdirSync(sessionsDir).filter((f) => f.endsWith('.exec-window'));
+  // As in getActiveLock: an unreadable sessions dir must not crash the gate.
+  let files;
+  try { files = fs.readdirSync(sessionsDir).filter((f) => f.endsWith('.exec-window')); }
+  catch (_) { return null; }
   const now = Date.now();
   for (const f of files) {
     const filePath = path.join(sessionsDir, f);
@@ -760,12 +767,17 @@ if (require.main === module) {
       }
       process.exit(0);
     } catch (err) {
-      process.stderr.write(`edit-guard-hook error: ${err.message}\n`);
+      const rawMsg = err && err.message ? err.message : String(err);
+      process.stderr.write(`edit-guard-hook error: ${rawMsg}\n`);
+      // Surface the REAL reason (sanitized: single line, printable ASCII, capped)
+      // so a genuine failure is debuggable instead of an opaque "internal error".
+      // Posture is UNCHANGED — still fail-closed (deny) when the guard cannot evaluate.
+      const safeMsg = String(rawMsg).replace(/[\r\n\t]/g, ' ').replace(/[^\x20-\x7E]/g, '').slice(0, 200);
       process.stdout.write(JSON.stringify({
         hookSpecificOutput: {
           hookEventName: 'PreToolUse',
           permissionDecision: 'deny',
-          permissionDecisionReason: 'edit-guard-hook internal error — failing closed',
+          permissionDecisionReason: `edit-guard-hook internal error: ${safeMsg} — failing closed`,
         },
       }));
       process.exit(0);
