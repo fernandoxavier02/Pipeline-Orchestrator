@@ -2,6 +2,15 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.19.2] - 2026-07-01
+
+### Fixed — edit-guard-hook robustness (Cursor-crash hardening, Claude-Code-scoped)
+
+- The PreToolUse `edit-guard-hook.cjs` could crash into its opaque external catch — surfacing `edit-guard-hook internal error — failing closed` and denying **every** Edit/Write/Bash — whenever an `fs` call inside the guard threw. The reproducing case: `.pipeline/sessions` present but **unreadable** (a file where a directory is expected → `ENOTDIR`, or `EACCES`), which made the unguarded `readdirSync` in `getActiveLock`/`getActiveExecWindow` throw. Reported from a non-native (Cursor) runtime where malformed/empty payloads hit the same catch.
+- **FIX (3 minimal guards, no posture change):** (1) `getActiveLock` wraps `readdirSync` in try/catch → returns `null` (no lock) instead of throwing; (2) `getActiveExecWindow` does the same → returns `null`; (3) the CLI external catch now includes the **real error, sanitized** (single-line, printable-ASCII, capped 200 chars) — `edit-guard-hook internal error: <msg> — failing closed` — so a genuine failure is debuggable instead of opaque. The guard still **fails closed** (deny) when it cannot evaluate — the security posture is unchanged.
+- **Deliberately out of scope (Claude-Code-only):** no foreign tool-name vocabulary (`StrReplace`/`Shell`/`Delete`/…) and no payload-schema normalization were added — cross-runtime tool mapping is the other editor's concern. This hardens the Claude Code side and makes a failure legible; it does not, by itself, make a foreign runtime enforce end-to-end.
+- TDD via `tests/regression/v8.19.2/F1-edit-guard-robustness.test.cjs` (RED 7-fail → GREEN, 8 checks incl. a CLI-level malformed-stdin probe proving the message now carries detail while staying `deny`). Iron Law preserved: only `.claude/hooks/edit-guard-hook.cjs` + `tests/` touched; Mandatory Gates table + Gate Registry UNTOUCHED; no `.codex` mirror. Suite 251/5 (5 pre-existing: 3 Langfuse + score-writer + F4 dispatch-pending-gate). Lockstep 9 surfaces.
+
 ## [8.19.1] - 2026-06-30
 
 ### Fixed — arm-marker consume-on-close deadlock
