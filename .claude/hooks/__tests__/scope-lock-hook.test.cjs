@@ -209,8 +209,9 @@ test('main() smoke test — hook does not crash on a Write call with no contract
   let decision;
   try { decision = JSON.parse(result.stdout); }
   catch (e) { assert.fail(`main() stdout must be valid JSON, got: ${result.stdout}`); }
-  assert.equal(decision.permissionDecision, 'allow',
-    'with no active contract (no sessions dir), main() must emit permissionDecision: "allow"');
+  // v8.20.0: canonical hookSpecificOutput envelope (F2 v8.20.0 pins the contract).
+  assert.equal(decision.hookSpecificOutput && decision.hookSpecificOutput.permissionDecision, 'allow',
+    'with no active contract (no sessions dir), main() must emit an allow in hookSpecificOutput');
 });
 
 test('main() smoke test — handles non-Write tool (passes through)', () => {
@@ -224,7 +225,7 @@ test('main() smoke test — handles non-Write tool (passes through)', () => {
   assert.equal(result.status, 0);
   assert.equal(result.stderr || '', '');
   const decision = JSON.parse(result.stdout);
-  assert.equal(decision.permissionDecision, 'allow');
+  assert.equal(decision.hookSpecificOutput && decision.hookSpecificOutput.permissionDecision, 'allow');
 });
 
 test('main() smoke test — handles empty stdin gracefully', () => {
@@ -237,7 +238,7 @@ test('main() smoke test — handles empty stdin gracefully', () => {
   assert.equal(result.status, 0);
   // Empty stdin → allow (defensive: don't block when input cannot be parsed)
   const decision = JSON.parse(result.stdout);
-  assert.equal(decision.permissionDecision, 'allow');
+  assert.equal(decision.hookSpecificOutput && decision.hookSpecificOutput.permissionDecision, 'allow');
 });
 
 console.log('');

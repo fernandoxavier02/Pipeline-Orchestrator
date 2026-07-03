@@ -361,6 +361,17 @@ function checkScope(toolName, toolInput, contract, dir) {
   };
 }
 
+// v8.20.0 (F2 — hook audit D2): emit the CANONICAL PreToolUse envelope. The old
+// FLAT top-level { permissionDecision, reason } shape is not part of the current
+// Claude Code hook contract — the harness either ignored the deny outright or
+// bound it without the reason ever reaching the model ("blocked without knowing
+// why"). Same envelope as every sibling (edit-guard-hook et al.).
+function emitDecision(decision, reason) {
+  const hso = { hookEventName: 'PreToolUse', permissionDecision: decision };
+  if (reason) hso.permissionDecisionReason = reason;
+  process.stdout.write(JSON.stringify({ hookSpecificOutput: hso }));
+}
+
 function main() {
   // PreToolUse hooks receive { tool_name, tool_input } on stdin.
   let raw = '';
@@ -368,7 +379,7 @@ function main() {
     raw = fs.readFileSync(0, 'utf8');
   } catch (_) {
     // No stdin — nothing to check, pass through.
-    process.stdout.write(JSON.stringify({ permissionDecision: 'allow' }));
+    emitDecision('allow');
     return;
   }
 
@@ -377,13 +388,13 @@ function main() {
     parsed = raw ? JSON.parse(raw) : {};
   } catch (_) {
     // Malformed input — fail open (other hooks will see same input).
-    process.stdout.write(JSON.stringify({ permissionDecision: 'allow' }));
+    emitDecision('allow');
     return;
   }
 
   const toolName = parsed.tool_name || '';
   if (!TOOL_NAMES_LOCKED.has(toolName)) {
-    process.stdout.write(JSON.stringify({ permissionDecision: 'allow' }));
+    emitDecision('allow');
     return;
   }
 
@@ -395,17 +406,11 @@ function main() {
   const result = checkScope(toolName, parsed.tool_input || {}, contract, dir);
 
   if (result.allow) {
-    process.stdout.write(JSON.stringify({
-      permissionDecision: 'allow',
-      ...(result.reason ? { reason: result.reason } : {}),
-    }));
+    emitDecision('allow', result.reason);
     return;
   }
 
-  process.stdout.write(JSON.stringify({
-    permissionDecision: 'deny',
-    reason: result.reason,
-  }));
+  emitDecision('deny', result.reason);
 }
 
 // Export for tests; main() runs only when invoked as a script.

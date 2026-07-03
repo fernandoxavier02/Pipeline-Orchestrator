@@ -48,7 +48,10 @@ const { verifyState, readHmacKey, signState } = require('../../../lib/sentinel-s
 const armGate = require('../../../.claude/hooks/pipeline-arm-gate.cjs');
 
 const SIGNING_ACTIVE = !!readHmacKey();
-const PIPELINE_PROMPT = '/pipeline-orchestrator:pipeline fix the audit findings';
+// A MUTATING task (Bug Fix) so writeArmPending arms — this test exercises marker
+// SIGNING, not the arm/skip decision. (v8.19.3: read-only TYPES like Audit no
+// longer arm, so an "audit"-worded prompt would correctly write no marker here.)
+const PIPELINE_PROMPT = '/pipeline-orchestrator:pipeline fix the broken login button';
 
 let pass = 0, fail = 0;
 const failed = [];

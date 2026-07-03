@@ -92,8 +92,9 @@ function run(payload, env) {
   });
 }
 
-// The scope-lock hook emits a FLAT { permissionDecision, reason } object (NOT the
-// hookSpecificOutput envelope the Agent gates use). Parse defensively for both.
+// v8.20.0: the scope-lock hook now emits the CANONICAL hookSpecificOutput
+// envelope (the FLAT top-level shape was ignored by the harness — F2 v8.20.0
+// pins the new contract). These accessors stay dual-tolerant on purpose.
 function decisionOf(r) {
   let out = {};
   try { out = JSON.parse(r.stdout || '{}'); } catch { return undefined; }

@@ -86,11 +86,12 @@ function handleSessionStart(payload) {
     const wf = safeWf || '(desconhecido)';
     return {
       continue: true,
+      // v8.20.0 (F3): ONE next action, same as the arm-gate deny — no self-write
+      // recipe (the LLM has no signer), no unresolved placeholders.
       systemMessage:
         `⛔ PIPELINE ARMADO (SessionStart, defesa em profundidade) — workflow=${wf}. ` +
-        `Trabalho real (Edit/Write/Bash/subagente genérico) está BLOQUEADO até o run ser armado: ` +
-        `crie {PIPELINE_DOC_PATH}/sentinel-state.json com pipeline_active:true, ` +
-        `ou inicie o workflow despachando um agente pipeline-orchestrator:. ` +
+        `Trabalho real (Edit/Write/Bash/subagente genérico) fica BLOQUEADO até o run iniciar. ` +
+        `PRÓXIMA AÇÃO (única): Agent(subagent_type: "pipeline-orchestrator:core:pipeline-controller", prompt: <a tarefa do usuário>). ` +
         `Leitura (Read/Grep/Glob) e perguntas seguem liberadas.`,
     };
   }

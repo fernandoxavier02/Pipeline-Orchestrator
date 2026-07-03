@@ -117,8 +117,11 @@ function repoRootFromDoc(docPath, fallback) {
 
 // Persist a state mutation under the lock: re-read → verify → mutate → re-sign →
 // atomic-rename (mirror of stop-gate-hook.persist). mutate returns true to commit.
+// v8.20.0 (F1 fail-open): returns TRUE only when the signed write really committed
+// (see stop-gate-hook.persist — callers gating a BLOCK on a persisted counter must check).
 function persist(statePath, mutate) {
-  if (!signer || typeof signer.writeSignedState !== 'function') return;
+  if (!signer || typeof signer.writeSignedState !== 'function') return false;
+  let wrote = false;
   const doWrite = () => {
     let state;
     try { state = JSON.parse(fs.readFileSync(statePath, 'utf8')); } catch { return; }
@@ -135,11 +138,13 @@ function persist(statePath, mutate) {
     const cur = Number.isFinite(state.state_version) ? state.state_version : 0;
     state.state_version = cur + 1;
     signer.writeSignedState(statePath, state, { key: signer.readHmacKey() });
+    wrote = true;
   };
   try {
     if (lock && typeof lock.withLock === 'function') lock.withLock(statePath, doWrite);
     else doWrite();
   } catch { /* best-effort */ }
+  return wrote;
 }
 
 function setCompleted(statePath, value) {
@@ -236,12 +241,19 @@ function decide(payload) {
   // marker AND pipeline_active:false (so edit-guard's plan-gate goes inert for the
   // fix turn — see plan: writeCompleted does not zero pipeline_active).
   if (!statePath) return { decision: 'allow' }; // cannot persist counter → don't deadlock
-  persist(statePath, (st) => {
+  // v8.20.0 (F1): same fail-safe for "the write itself did not commit" (read-only
+  // state/dir, signer unavailable, verify failing) — an unadvanceable counter can
+  // never reach the cap, so blocking would loop forever. ALLOW with an audit trace.
+  const persisted = persist(statePath, (st) => {
     st[C.MARKERS.PENDING] = true;
     st[C.MARKERS.CONTINUITY] = thisAttempt;
     st.pipeline_active = false;
     return true;
   });
+  if (!persisted) {
+    process.stderr.write('[e2e-eval-gate] E2E_COUNTER_UNPERSISTABLE: continuity marker could not be persisted — failing OPEN (never an infinite block)\n');
+    return { decision: 'allow' };
+  }
   return {
     decision: 'block',
     reason: blockReason(score, glitchCount),

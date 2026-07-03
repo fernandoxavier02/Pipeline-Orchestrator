@@ -2,6 +2,33 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.20.0] - 2026-07-02
+
+### Fixed — enforcement unblocking pack (2026-07-02 hook audit)
+
+- **Stop-trap fail-open (the only true no-exit prison):** `stop-gate-hook.cjs`, `e2e-eval-gate.cjs` and `subagent-stop-commit-hook.cjs` blocked **forever** when their continuity counter could not be persisted (signer unavailable, `verifyState` failing/throwing at write time, read-only state file or dir) — the 3-cap that converts a block into an honest terminal could never fire. `persist()`/`withSignedState()` now report real commit success; each block call site fails **OPEN** with an audit trace (`STOP_GATE_COUNTER_UNPERSISTABLE` / `E2E_COUNTER_UNPERSISTABLE` / `SUBAGENTSTOP_COUNTER_UNPERSISTABLE`), extending the existing `!statePath → allow` B5 guard to every unpersistable shape. Healthy paths (block + persisted counter + cap → `hard_failed`/`forced`) are pinned unchanged.
+- **scope-lock-hook invisible deny:** migrated every emit (allow and deny) from the FLAT top-level `{permissionDecision, reason}` shape — which the harness does not honor, so the refactor scope deny was ignored or bound without its reason reaching the model — to the canonical `hookSpecificOutput.{hookEventName, permissionDecision, permissionDecisionReason}` envelope used by every sibling gate.
+- **One reachable next action in arm messages:** `PIPELINE_NOT_ARMED` and `CORRUPT_STATE` deny reasons plus the `pipeline-arm-writer`/`pipeline-session-arm-hook` banners now lead with the single reliable unblocking action — `Agent(subagent_type: "pipeline-orchestrator:core:pipeline-controller", prompt: <task>)` (what `skills/pipeline/SKILL.md` itself does). The impossible "create sentinel-state.json by hand" recipe (the LLM has no HMAC signer; the hand-written state deepened the block and contradicted the `MARKER_TAMPERED` branch) and the literal unresolved `{PIPELINE_DOC_PATH}`/`<cwd>` placeholders are gone.
+- **Phantom arm via teammate/agent messages (live 2026-07-02):** `lib/pipeline-arm.cjs::HARNESS_OPEN_TAG` now also cuts `<teammate-message>`/`<agent-message>` envelopes. A background subagent report quoting `/pipeline-orchestrator:pipeline continue` in prose arrived as a prompt turn, leaked past the positional cut, armed a phantom `CONTINUE` run (`source flag:continue`) and bricked the session's Bash/PowerShell/Agent until the 30-min TTL.
+
+### Added
+
+- **`sentinel-state-autosign.cjs`** (PostToolUse `Edit|Write|NotebookEdit|MultiEdit`): hook-side signing for the Bash-less controller. The `pipeline-controller` subagent cannot run the signer its spec prescribes (no Bash tool), so its `sentinel-state.json` landed UNSIGNED → `STATE_FILE_INIT_FAIL` + most of the corrective-loop noise. The hook signs a freshly-written, **unsigned** run-dir `sentinel-state.json` (`.pipeline/docs/**` or `pipeline-runs/**`). Posture guards: never touches a file whose `__signature` is present (invalid = tamper evidence), skips under `PIPELINE_HMAC_STRICT=true` (no auto-launder in strict), fail-open silent. Zero security delta: unsigned was already tolerated by default.
+
+### Tests
+
+- `tests/regression/v8.20.0/F1-F5` (26 scenarios, TDD RED→GREEN, incl. a live-repro fixture of the phantom arm). Co-updated pins: `.claude/hooks/__tests__/scope-lock-hook.test.cjs`, `tests/regression/v8.8.0/F5_refactor_scope_lock.cjs` (envelope), version pins F7/F6/F01. Suite `257 pass / 5 fail` — the same 5 pre-existing failures (3 Langfuse + score-writer + v8.18.0 F4).
+- Iron Law: only `.claude/hooks/`, `lib/`, `hooks/hooks.json`, `tests/` touched; Mandatory Gates table + Gate Registry UNTOUCHED; no `.codex` mirror (none of the touched hooks mirrors).
+
+## [8.19.3] - 2026-07-01
+
+### Fixed — arm-classifier: keyword-inferred read-only runs no longer arm (recurring phantom-arm deadlock)
+
+- A natural-language review/audit/analysis request (`/pipeline-orchestrator:pipeline faça revisão adversarial`, `faça uma auditoria`, `análise`) is classified `FULL/Audit` by keyword. `lib/pipeline-arm.cjs::writeArmPending` only skipped arming for the read-only **modes** (`REVIEW-ONLY`/`DIAGNOSTIC`), so a keyword-inferred **Audit / UX-Simulation** armed the `pipeline-arm-pending` marker. Read-only work never opens an exec window → it hits `INLINE_WORK_BLOCKED`, aborts, and the orphan marker then bricks the next task with `PIPELINE_NOT_ARMED` until TTL/restart. Reproduced live in the interview-coach project on 2026-06-30 and 2026-07-01 (the second run still armed the marker whose `session_id` was `78ef80e4…`).
+- **FIX:** `writeArmPending` now also skips arming for the read-only **types** (`Audit`, `UX Simulation`) **when they were inferred from keywords** (`source` begins `kw:`). An **explicit `--audit`/`--ux` flag** stays a deliberate governed run and still arms — preserving the `STEP_1_7` direct-entry evidence (v8.16.0). Safe direction per the documented arm trade-off: a missed arm is recoverable (re-invoke); a phantom arm deadlocks the session.
+- TDD via `tests/regression/v8.19.3/F1-readonly-types-no-arm.test.cjs` (RED 4-fail → GREEN: natural-language review/audit/ux return `null` and write no marker; a Bug Fix control still arms). Two deliberate v8.7.0 pins (`F2-2`, `F2-5`) were updated to exercise the `--audit`-flag arming path, since keyword-audit intentionally no longer arms.
+- Iron Law preserved: only `lib/pipeline-arm.cjs` + `tests/` touched; Mandatory Gates table + Gate Registry UNTOUCHED; no `.codex` mirror. Suite 252/5 (5 pre-existing: 3 Langfuse + score-writer + F4 dispatch-pending-gate). Lockstep across all version surfaces.
+
 ## [8.19.2] - 2026-07-01
 
 ### Fixed — edit-guard-hook robustness (Cursor-crash hardening, Claude-Code-scoped)

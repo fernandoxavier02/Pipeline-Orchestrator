@@ -328,17 +328,21 @@ function safeWorkflowLabel(workflow) {
   return sanitizeWorkflow(workflow); // fallback (classifier absent): char-clean only
 }
 
+// v8.20.0 (F3 — hook audit D3): ONE next action, the reliable one. The old text
+// led with a self-write recipe ("crie sentinel-state.json…") the LLM cannot
+// execute (it has no HMAC signer — the hand-written state deepens the block) and
+// directly contradicted the MARKER_TAMPERED branch; it also shipped literal
+// unresolved {PIPELINE_DOC_PATH}/<cwd> placeholders into model-facing text.
 function buildArmReason(tool, workflow) {
   const safeWf = safeWorkflowLabel(workflow);
   const safeTool = sanitizeWorkflow(tool) || '(unknown)';
   const wf = safeWf ? ` (workflow detectado: ${safeWf})` : '';
   return (
-    `PIPELINE_NOT_ARMED: você invocou /pipeline-orchestrator:pipeline${wf} mas NENHUM run foi armado. ` +
-    `NÃO conduza o trabalho como conversa avulsa. Antes de qualquer trabalho real, ARME o run: ` +
-    `crie {PIPELINE_DOC_PATH}/sentinel-state.json + <cwd>/.pipeline/active-run.json com pipeline_active:true, ` +
-    `OU inicie o workflow despachando um agente pipeline-orchestrator: via Agent tool. ` +
-    `A ferramenta '${safeTool}' fica bloqueada até o run existir. Investigação (Read/Grep/Glob) e perguntas seguem liberadas. ` +
-    `Recovery automático: o marcador expira por timeout, nunca trava a sessão pra sempre.`
+    `PIPELINE_NOT_ARMED: você invocou /pipeline-orchestrator:pipeline${wf} mas o run ainda não foi iniciado. ` +
+    `PRÓXIMA AÇÃO (única): despache o controlador — ` +
+    `Agent(subagent_type: "pipeline-orchestrator:core:pipeline-controller", prompt: <a tarefa do usuário>). ` +
+    `A ferramenta '${safeTool}' fica bloqueada até o run existir. ` +
+    `Investigação (Read/Grep/Glob) e perguntas seguem liberadas; o marcador expira por timeout sozinho, nunca trava a sessão pra sempre.`
   );
 }
 
@@ -353,11 +357,11 @@ function buildCorruptReason(tool, workflow) {
   return (
     `CORRUPT_STATE: o run de pipeline${wf} está armado mas o sentinel-state apontado está ` +
     `corrompido/ilegível. Por segurança, trabalho substantivo fica BLOQUEADO dentro da janela governada ` +
-    `(fail-closed apenas aqui — sessões comuns sem run NÃO são afetadas). Recupere: re-crie o ` +
-    `{PIPELINE_DOC_PATH}/sentinel-state.json assinado via o signer, OU re-despache um agente ` +
-    `pipeline-orchestrator: para refazer o run. A ferramenta '${safeTool}' fica bloqueada até o estado voltar a ser legível. ` +
-    `Investigação (Read/Grep/Glob) e perguntas seguem liberadas. ` +
-    `Recovery automático: o marcador expira por timeout e o corretivo é disparado — nunca trava pra sempre.`
+    `(fail-closed apenas aqui — sessões comuns sem run NÃO são afetadas). ` +
+    `PRÓXIMA AÇÃO (única): re-despache o controlador — ` +
+    `Agent(subagent_type: "pipeline-orchestrator:core:pipeline-controller", prompt: <a tarefa do usuário>) — para refazer o run com estado assinado. ` +
+    `A ferramenta '${safeTool}' fica bloqueada até o estado voltar a ser legível. ` +
+    `Investigação (Read/Grep/Glob) e perguntas seguem liberadas; o marcador expira por timeout e o corretivo é disparado sozinho — nunca trava pra sempre.`
   );
 }
 
