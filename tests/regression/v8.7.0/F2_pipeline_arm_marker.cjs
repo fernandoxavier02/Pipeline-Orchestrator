@@ -46,9 +46,12 @@ test('F2-1 — non-pipeline prompt → no marker, returns null', (dir) => {
   assert.equal(fs.existsSync(markerPath(dir)), false);
 });
 
-test('F2-2 — pipeline prompt → marker written, workflow classified (Audit)', (dir) => {
+// v8.19.3 — an EXPLICIT --audit flag is a deliberate governed audit and still arms
+// (type Audit). A natural-language "faça uma auditoria" is now read-only and does
+// NOT arm — that skip is pinned in tests/regression/v8.19.3/F1-readonly-types-no-arm.
+test('F2-2 — explicit --audit flag → marker written, workflow classified (Audit)', (dir) => {
   const { writeArmPending, markerPath } = require(MOD);
-  const r = writeArmPending(dir, '/pipeline-orchestrator:pipeline faça uma auditoria do módulo X', FIXED_ISO);
+  const r = writeArmPending(dir, '/pipeline-orchestrator:pipeline --audit módulo X', FIXED_ISO);
   assert.ok(r, 'should return the marker');
   assert.equal(r.type, 'Audit');
   assert.equal(fs.existsSync(markerPath(dir)), true);
@@ -73,7 +76,7 @@ test('F2-4 — --bugfix --heavy prompt → FULL mode, Bug Fix, variant heavy cap
 
 test('F2-5 — clearArmPending removes the marker', (dir) => {
   const { writeArmPending, clearArmPending, markerPath } = require(MOD);
-  writeArmPending(dir, '/pipeline-orchestrator:pipeline audita isso', FIXED_ISO);
+  writeArmPending(dir, '/pipeline-orchestrator:pipeline --audit isso', FIXED_ISO);
   assert.equal(fs.existsSync(markerPath(dir)), true);
   assert.equal(clearArmPending(dir), true);
   assert.equal(fs.existsSync(markerPath(dir)), false);

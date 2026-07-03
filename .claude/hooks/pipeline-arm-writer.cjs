@@ -39,11 +39,12 @@ process.stdin.on('end', () => {
     if (marker) {
       process.stdout.write(JSON.stringify({
         continue: true,
+        // v8.20.0 (F3): ONE next action — the same reliable one the arm-gate deny
+        // names. No self-write recipe (the LLM has no signer), no placeholders.
         systemMessage:
           `⛔ PIPELINE ARMADO (determinístico) — workflow=${marker.workflow}. ` +
-          `Trabalho real (Edit/Write/Bash/subagente genérico) está BLOQUEADO até o run ser armado: ` +
-          `crie {PIPELINE_DOC_PATH}/sentinel-state.json com pipeline_active:true, ` +
-          `ou inicie o workflow despachando um agente pipeline-orchestrator:. ` +
+          `Trabalho real (Edit/Write/Bash/subagente genérico) fica BLOQUEADO até o run iniciar. ` +
+          `PRÓXIMA AÇÃO (única): Agent(subagent_type: "pipeline-orchestrator:core:pipeline-controller", prompt: <a tarefa do usuário>). ` +
           `Leitura (Read/Grep/Glob) e perguntas seguem liberadas.`,
       }));
     } else {

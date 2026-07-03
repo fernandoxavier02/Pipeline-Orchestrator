@@ -140,8 +140,11 @@ function appendBreadcrumb(docDir, gate, detail, state) {
 // Mutate the freshest signed state under the exclusive lock with the re-read →
 // verify → bump → temp → atomic-rename sequence. `mutate(state)` edits in place and
 // returns true to commit (a write) or false to abort. Best-effort: never crashes.
+// v8.20.0 (F1 fail-open): returns TRUE only when the signed write really committed
+// (see stop-gate-hook.persist — callers gating a BLOCK on a persisted counter must check).
 function withSignedState(statePath, mutate) {
-  if (!signer || typeof signer.writeSignedState !== 'function') return;
+  if (!signer || typeof signer.writeSignedState !== 'function') return false;
+  let wrote = false;
   const doWrite = () => {
     let state;
     try { state = JSON.parse(fs.readFileSync(statePath, 'utf8')); }
@@ -160,11 +163,13 @@ function withSignedState(statePath, mutate) {
     const cur = Number.isFinite(state.state_version) ? state.state_version : 0;
     state.state_version = cur + 1;
     signer.writeSignedState(statePath, state, { key: signer.readHmacKey() });
+    wrote = true;
   };
   try {
     if (lock && typeof lock.withLock === 'function') lock.withLock(statePath, doWrite);
     else doWrite();
   } catch { /* persistence best-effort */ }
+  return wrote;
 }
 
 // Pure-ish decision (with best-effort state side effects). Returns
@@ -366,13 +371,23 @@ function decide(payload) {
     return { decision: 'allow' };
   }
 
-  if (statePath) {
-    withSignedState(statePath, (s) => {
+  // v8.20.0 (F1): a block is only honest when the correction counter really
+  // advanced — otherwise the 3-cap can never fire and this block would repeat on
+  // every re-run of the subagent FOREVER (read-only state/dir, signer unavailable,
+  // verify failing at write time, or no resolvable statePath). Fail OPEN with an
+  // audit breadcrumb instead.
+  const persisted = statePath
+    ? withSignedState(statePath, (s) => {
       if (!s.subagent_corrections || typeof s.subagent_corrections !== 'object') s.subagent_corrections = {};
       const c = Number.isFinite(s.subagent_corrections[correctionKey]) ? s.subagent_corrections[correctionKey] : 0;
       s.subagent_corrections[correctionKey] = c + 1;
       return true;
-    });
+    })
+    : false;
+  if (!persisted) {
+    appendBreadcrumb(docDir, 'SUBAGENTSTOP_COUNTER_UNPERSISTABLE',
+      `agent_type=${agentType} correction counter could not be persisted — failing open (never an infinite block)`, state);
+    return { decision: 'allow' };
   }
 
   return {

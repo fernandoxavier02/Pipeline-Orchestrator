@@ -154,8 +154,13 @@ function chainIsComplete(state) {
 
 // Persist a state mutation under the lock with re-read → verify → mutate → re-sign
 // → atomic-rename. `mutate(state)` edits in place. Best-effort, never throws out.
+// v8.20.0 (F1 fail-open): returns TRUE only when the signed write really committed.
+// Callers that gate a BLOCK on a persisted counter MUST check this — a silent
+// decline (signer unavailable, verify failing/throwing, tmp-write/rename failing)
+// means the continuity cap can never fire, so blocking would loop FOREVER.
 function persist(statePath, mutate) {
-  if (!signer || typeof signer.writeSignedState !== 'function') return;
+  if (!signer || typeof signer.writeSignedState !== 'function') return false;
+  let wrote = false;
   const doWrite = () => {
     let state;
     try { state = JSON.parse(fs.readFileSync(statePath, 'utf8')); }
@@ -164,8 +169,10 @@ function persist(statePath, mutate) {
     // FAIL CLOSED on a verification THROW (SEC-01 parity with dispatch-record-hook):
     // a state shaped to make verifyState throw must NOT fall through to mutate +
     // re-sign — that would persist over state whose integrity we could not confirm.
-    // Declining to write is safe here: the Stop decision is unaffected (this hook
-    // always allows teardown), the run simply stays recoverable.
+    // Declining to write is safe: persist() then returns false, and the block call
+    // site (v8.20.0 F1) converts an unpersistable counter bump into an ALLOW — the
+    // run stays recoverable and the teardown is never walled behind a counter that
+    // cannot advance.
     try {
       if (typeof signer.verifyState === 'function') {
         const v = signer.verifyState(state, { key: signer.readHmacKey() });
@@ -182,11 +189,13 @@ function persist(statePath, mutate) {
     const cur = Number.isFinite(state.state_version) ? state.state_version : 0;
     state.state_version = cur + 1;
     signer.writeSignedState(statePath, state, { key: signer.readHmacKey() });
+    wrote = true;
   };
   try {
     if (lock && typeof lock.withLock === 'function') lock.withLock(statePath, doWrite);
     else doWrite();
   } catch { /* best-effort */ }
+  return wrote;
 }
 
 // Write the hard_failed terminal (the continuity cap). Persists hard_failed FIRST
@@ -404,7 +413,15 @@ function decide(payload) {
     // counter, ALLOW — never trade a missing-result block for a permanent deadlock; the
     // run whose state path is unresolvable is already unrecoverable.
     if (!statePath) return { decision: 'allow' };
-    persist(statePath, (st) => { st.continuity_attempts = thisAttempt; return true; });
+    // v8.20.0 (F1): the SAME fail-safe extends to "the counter bump did not
+    // persist" (read-only state/dir, signer unavailable, verify failing at write
+    // time). If we cannot advance the counter, the 3-cap can never fire and the
+    // block would repeat forever — ALLOW instead, leaving an audit trace.
+    const persisted = persist(statePath, (st) => { st.continuity_attempts = thisAttempt; return true; });
+    if (!persisted) {
+      process.stderr.write('[stop-gate-hook] STOP_GATE_COUNTER_UNPERSISTABLE: continuity counter could not be persisted — failing OPEN (never an infinite block)\n');
+      return { decision: 'allow' };
+    }
     return { decision: 'block', reason: nextActionReason(state), additionalContext: nextActionContext(state) };
   }
 
