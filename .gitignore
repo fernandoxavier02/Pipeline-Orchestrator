@@ -42,3 +42,8 @@ context.md
 paperclip-native-spec/.claude/
 paperclip-native-spec/.pipeline/
 plan-mode-pending-*.json
+
+# Never commit git bundles or the BPOPrincing workspace (IP protection)
+*.bundle
+BPOPrincing/
+BPOPrincing
