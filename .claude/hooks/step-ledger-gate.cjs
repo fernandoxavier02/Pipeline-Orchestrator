@@ -38,6 +38,64 @@ try {
     FIX_LOOP_DEFAULT_MAX = fixLoop.DEFAULT_MAX;
   }
 } catch { fixLoop = null; }
+// v8.22.0 (T5, loop hook-unblock): persistência do carimbo-por-evidência (opcional).
+let recorder = null;
+try { recorder = require('../../scripts/record-step.cjs'); } catch { recorder = null; }
+const fs = require('node:fs');
+const path = require('node:path');
+
+// v8.22.0 (T5): evidência de TDD já aprovada neste run. Testes RED congelados de uma
+// sessão anterior satisfazem o CONTEÚDO de TDD_APPROVAL (gate-decisions.jsonl), mas não
+// carimbam o passo 'tdd' no ledger — e o spawn do executor era negado por ordem
+// (run 2026-07-04, protocol-events linha 19: "frozen tests satisfy TDD_APPROVAL content
+// but do NOT stamp the 'tdd' ledger step"). Leitura em cauda limitada; ausência/erro → false.
+const GATE_DECISIONS_TAIL_BYTES = 262144;
+function hasTddApprovalEvidence(state, cwd) {
+  const docRaw = state && typeof state.pipeline_doc_path === 'string' ? state.pipeline_doc_path : '';
+  if (!docRaw) return false;
+  const docDir = path.isAbsolute(docRaw) ? docRaw : path.resolve(cwd, docRaw);
+  let raw;
+  try {
+    const gdPath = path.join(docDir, 'gate-decisions.jsonl');
+    const st = fs.statSync(gdPath);
+    const start = st.size > GATE_DECISIONS_TAIL_BYTES ? st.size - GATE_DECISIONS_TAIL_BYTES : 0;
+    const fd = fs.openSync(gdPath, 'r');
+    try {
+      const len = st.size - start;
+      const buf = Buffer.alloc(len);
+      fs.readSync(fd, buf, 0, len, start);
+      raw = buf.toString('utf8');
+    } finally { fs.closeSync(fd); }
+  } catch { return false; }
+  for (const line of raw.split(/\r?\n/)) {
+    if (!line || line.indexOf('TDD_APPROVAL') === -1) continue;
+    let ev; try { ev = JSON.parse(line); } catch { continue; }
+    if (!ev || ev.gate !== 'TDD_APPROVAL') continue;
+    if (ev.decision === 'APPROVED' || ev.decision === 'CONFIRMED') return true;
+  }
+  return false;
+}
+
+// Persiste o carimbo concedido por evidência (recordStep idempotente + assinado) e deixa
+// o rastro de origem no protocol-events.jsonl (padrão dos eventos AUDIT; NÃO é gate novo —
+// Iron Law preservada). Best-effort: falha nunca muda a decisão do gate.
+function persistTddEvidenceStamp(state, cwd) {
+  const docRaw = state && typeof state.pipeline_doc_path === 'string' ? state.pipeline_doc_path : '';
+  if (!docRaw) return;
+  const docDir = path.isAbsolute(docRaw) ? docRaw : path.resolve(cwd, docRaw);
+  try { if (recorder && typeof recorder.recordStep === 'function') recorder.recordStep(docDir, 'tdd'); } catch { /* best-effort */ }
+  try {
+    const entry = {
+      event: 'STEP_STAMP_BY_EVIDENCE',
+      step: 'tdd',
+      source: 'TDD_APPROVAL(gate-decisions.jsonl)',
+      run_id: typeof state.run_id === 'string' ? state.run_id.slice(0, 128) : undefined,
+      emitted_by: 'step-ledger-gate',
+      timestamp: new Date().toISOString(),
+    };
+    fs.appendFileSync(path.join(docDir, 'protocol-events.jsonl'), JSON.stringify(entry) + '\n');
+  } catch { /* best-effort */ }
+}
 
 // Batch 1 (audit ARCH-7): delegate to the single SSOT in lib/step-ledger.cjs so the
 // `workflow_key || (task_type==='Spec'?'Spec':'FULL')` heuristic lives in ONE place
@@ -121,10 +179,19 @@ function decide(payload) {
 
   // Step order (inert until step_ledger is stamped).
   if (!Array.isArray(state.step_ledger)) return { decision: 'allow' };
+  // v8.22.0 (T5): carimbo por evidência — 'tdd' ausente do ledger mas TDD_APPROVAL
+  // APPROVED/CONFIRMED presente em gate-decisions.jsonl → o passo é concedido por
+  // evidência: decide com 'tdd' presente e persiste o carimbo + rastro de origem.
+  // Sem evidência, nega exatamente como antes.
+  let stampedSteps = state.step_ledger;
+  if (!stampedSteps.includes('tdd') && hasTddApprovalEvidence(state, dir)) {
+    stampedSteps = [...stampedSteps, 'tdd'];
+    try { persistTddEvidenceStamp(state, dir); } catch { /* best-effort */ }
+  }
   return ledger.decideAgentSpawn({
     workflowKey: workflowKeyFromState(state),
     agentType: ti.subagent_type,
-    stampedSteps: state.step_ledger,
+    stampedSteps,
     enforce: process.env.PIPELINE_STEP_LEDGER_ENFORCEMENT || 'deny',
   });
 }
