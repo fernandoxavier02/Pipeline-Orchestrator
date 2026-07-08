@@ -534,6 +534,48 @@ function findActiveSentinelState(pipelineDir) {
   return state;
 }
 
+// v8.22.0 (T1, loop hook-unblock): 'already dispatched' exemption. dispatch-record-hook.cjs
+// (PreToolUse:Agent) persists pending_dispatches[tool_use_id] = { subagent_type, created_at, ... }
+// into the SAME signed state the gates read — on-disk proof that the pending DISPATCH_REQUEST's
+// target was genuinely spawned. Subagents share the parent session, so keeping the block live
+// after the spawn denies the dispatched subagent's own Bash/Write — the egg-and-chicken deadlock
+// that killed run 2026-07-04-e2e-ruler-recalibration-s2 (even the exec-window open script was
+// denied by the very gate it unblocks). Target matching mirrors isResolutionAgent
+// (dispatch-pending-gate.cjs): exact id or leaf containment.
+function dispatchTargetMatches(dispatchId, subagentType) {
+  if (typeof dispatchId !== 'string' || !dispatchId) return false;
+  if (typeof subagentType !== 'string' || !subagentType) return false;
+  if (dispatchId === subagentType) return true;
+  const leaf = subagentType.split(':').pop();
+  return !!leaf && (dispatchId.includes(leaf) || leaf.includes(dispatchId));
+}
+
+// A DISPATCH_REQUEST pending block is satisfied-by-spawn when a pending_dispatches record
+// matches its target AND was created at/after the request (>= inclusive; an OLD spawn of the
+// same target does NOT satisfy a NEW request). GATE_REQUEST/PLAN_MODE_REQUEST are resolved by
+// the user, never by a spawn — out of scope. Shape-guarded: pending_dispatches must be a plain
+// object (the dispatch-record-hook contract); an array or malformed record never exempts.
+function pendingAlreadyDispatched(state, block) {
+  if (!state || typeof state !== 'object') return false;
+  if (!block || typeof block !== 'object') return false;
+  if (block.block_type !== 'DISPATCH_REQUEST') return false;
+  if (typeof block.dispatch_id !== 'string' || !block.dispatch_id) return false;
+  const emitted = typeof block.emitted_at === 'string' ? Date.parse(block.emitted_at)
+    : typeof block.emitted_at === 'number' ? block.emitted_at : NaN;
+  if (!Number.isFinite(emitted)) return false;
+  const pd = state.pending_dispatches;
+  if (!pd || typeof pd !== 'object' || Array.isArray(pd)) return false;
+  for (const key of Object.keys(pd)) {
+    const rec = pd[key];
+    if (!rec || typeof rec !== 'object' || Array.isArray(rec)) continue;
+    const created = typeof rec.created_at === 'string' ? Date.parse(rec.created_at)
+      : typeof rec.created_at === 'number' ? rec.created_at : NaN;
+    if (!Number.isFinite(created) || created < emitted) continue;
+    if (dispatchTargetMatches(block.dispatch_id, rec.subagent_type)) return true;
+  }
+  return false;
+}
+
 function findLivePendingBlock(state, timeoutMs) {
   if (!state || !Array.isArray(state.pending_blocks)) return null;
   const now = Date.now();
@@ -546,6 +588,10 @@ function findLivePendingBlock(state, timeoutMs) {
     // age > timeout → dead handshake (recovery via cleanup-orphan); negative age (future skew)
     // is treated as live (0) so a fabricated future emitted_at cannot dodge the lock.
     if (now - emitted > timeoutMs) continue;
+    // v8.22.0: a DISPATCH_REQUEST whose target was already spawned (recorded in this same
+    // state by dispatch-record-hook) is satisfied — not live. The gate keeps blocking
+    // between REQUEST and spawn; the CORRUPT (tampered) branch never reaches here.
+    if (pendingAlreadyDispatched(state, b)) continue;
     return b;
   }
   return null;
@@ -893,4 +939,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, getActiveLock, openExecWindow, closeExecWindow, findPairingEntry, appendAuditEntry, shouldBlockOnPendingDispatch, buildDispatchBlockMessage, findActiveSentinelState, discoverStatePath, findLivePendingBlock, resolveHandshakeTimeoutMs, shouldBlockWithoutApprovedPlan, buildPlanGateMessage, planGateArmedFromState, detectShellWrite, isDispatchPending, isPlanGateArmed, isPlanFile, isExemptPath, isSpecArtifactWrite, isVerifiedSpecArtifactWrite, CORRUPT_SENTINEL, MAX_TTL_MINUTES, PAIRING_TOLERANCE_MS, STALE_HEARTBEAT_THRESHOLD_MS, STALE_HEARTBEAT_MS /* deprecated alias, removal scheduled for v5.4.0 */ };
+module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, getActiveLock, openExecWindow, closeExecWindow, findPairingEntry, appendAuditEntry, shouldBlockOnPendingDispatch, buildDispatchBlockMessage, findActiveSentinelState, discoverStatePath, findLivePendingBlock, dispatchTargetMatches, pendingAlreadyDispatched, resolveHandshakeTimeoutMs, shouldBlockWithoutApprovedPlan, buildPlanGateMessage, planGateArmedFromState, detectShellWrite, isDispatchPending, isPlanGateArmed, isPlanFile, isExemptPath, isSpecArtifactWrite, isVerifiedSpecArtifactWrite, CORRUPT_SENTINEL, MAX_TTL_MINUTES, PAIRING_TOLERANCE_MS, STALE_HEARTBEAT_THRESHOLD_MS, STALE_HEARTBEAT_MS /* deprecated alias, removal scheduled for v5.4.0 */ };
