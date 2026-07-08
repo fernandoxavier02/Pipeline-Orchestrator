@@ -13,7 +13,7 @@
 <p align="center"><strong>A multi-agent governance layer that sits between your spec and your production code — and makes the AI follow a contract instead of its mood.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator/releases"><img src="https://img.shields.io/badge/version-8.20.0-7C3AED?style=flat-square&logo=git&logoColor=white" alt="Version"/></a>
+  <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator/releases"><img src="https://img.shields.io/badge/version-8.22.0-7C3AED?style=flat-square&logo=git&logoColor=white" alt="Version"/></a>
   <img src="https://img.shields.io/badge/agents-20-0EA5E9?style=flat-square" alt="Agents"/>
   <img src="https://img.shields.io/badge/gates-49-22C55E?style=flat-square" alt="Gates"/>
   <img src="https://img.shields.io/badge/hooks-28-EC4899?style=flat-square" alt="Hooks"/>

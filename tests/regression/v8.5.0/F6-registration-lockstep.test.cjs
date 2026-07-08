@@ -27,7 +27,7 @@ const ROOT = path.resolve(__dirname, '../../..');
 // Rolled forward each lockstep release (like F7's VERSION pin). Bumped to 8.9.0
 // for the determinism-enforcement-hardening release. The 9 version surfaces all
 // declare 8.9.0.
-const VERSION = '8.20.0';
+const VERSION = '8.22.0';
 const GATES_MD = path.join(ROOT, 'references', 'gates.md');
 const HOOKS_JSON = path.join(ROOT, 'hooks', 'hooks.json');
 const GATE_DECISION_CONTRACT = path.join(ROOT, 'lib', 'contracts', 'gate-decision.cjs');

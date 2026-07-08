@@ -2,6 +2,27 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.22.0] - 2026-07-07
+
+### Fixed — hook-unblock pack (2026-07-07 corrective-telemetry diagnosis)
+
+Five anti-deadlock/anti-friction fixes to the enforcement layer, from the diagnosis of 27 corrective triggers (2026-06-29 → 07-04) and the live egg-and-chicken deadlock that killed run `2026-07-04-e2e-ruler-recalibration-s2` with a 0/320 diff. (8.21.0 is reserved for the in-flight S2 ruler-recalibration slice, whose frozen RED tests live in `tests/regression/v8.21.0/`.)
+
+- **T1 — already-dispatched exemption** (`edit-guard-hook.cjs`): new `pendingAlreadyDispatched` + `dispatchTargetMatches` (exported). A live `DISPATCH_REQUEST` whose target subagent was **genuinely spawned** — proven by the `pending_dispatches[tool_use_id]` record the `dispatch-record-hook` already persists into the same signed state, with `created_at >= emitted_at` and leaf-containment matching mirroring `isResolutionAgent` — is no longer "live", freeing all 3 session blockers at once (`dispatch-pending-gate`, `shouldBlockOnPendingDispatch`, `isDispatchPending`). Subagents share the parent session; the old behavior denied the dispatched subagent's own Bash/Write. Block between REQUEST and spawn, tamper fail-closed branch and malformed-shape guard (`pending_dispatches` array) preserved.
+- **T2 — anchored exec-window control-plane exemption** (`dispatch-pending-gate.cjs`): new `isExecWindowControlCommand` (exported). A Bash/PowerShell command that IS exactly `node …/scripts/exec-window/open.cjs|close.cjs` (env `VAR=val` prefixes tolerated, quoted Windows paths normalized) passes with a live pending — it was the designed way out, denied by the very gate it unblocks. Composition (`&&`, `;`, `|`, backtick, newline, `$(…)`) or the path embedded as another program's argument NEVER earns the exemption (anti-injection pinned by tests).
+- **T3 — deterministic pending clear** (`step-ledger-stamp.cjs`, PostToolUse:Agent): new `clearSatisfiedPending` (exported). When the returning agent is the target of a `DISPATCH_REQUEST` pending block and returned a **usable** result, the entry is removed from the signed state (`withLock` + read-verify-refuse-launder, same posture as `record-step.cjs`). Replaces the honor-only controller prose "clear the pending on RESULT" whose omission caused a false 482-minute `PROTOCOL_HANDSHAKE_TIMEOUT` on 2026-07-04. Errored/no-op returns leave the handshake pending; other targets' entries untouched.
+- **T4 — disk-truth anti-false-timeout** (`edit-guard-hook.cjs` + `cleanup-orphan-sentinel-state-hook.cjs`): new `pendingResolvedByEvents` (exported). A `DISPATCH_REQUEST` whose id has a matching `DISPATCH_RESULT` in the run's `protocol-events.jsonl` (timestamp `>=` request) is RESOLVED — wired into `findLivePendingBlock` (the 3 gates) and into the `checkHandshakeTimeouts` sweep, which finally implements its own docstring promise ("AND no matching response arrived"). DISPATCH-only scope: GATE/PLAN_MODE requests stay human-resolved. Bounded tail read; absent/unreadable events file keeps prior behavior.
+- **T5 — tdd stamp-by-evidence** (`step-ledger-gate.cjs`): frozen RED tests approved in a prior session satisfy `TDD_APPROVAL` in `gate-decisions.jsonl` but never stamped the `tdd` ledger step, so the executor spawn was denied by order (live: protocol-events line 19 of the 07-04 run). The gate now grants the step by evidence (`TDD_APPROVAL` `APPROVED|CONFIRMED`), persists the stamp via `recordStep` (idempotent, signed) and appends a `STEP_STAMP_BY_EVIDENCE` audit event to `protocol-events.jsonl` — **NOT a new gate** (Iron Law: Mandatory Gates table + Gate Registry untouched). No evidence, or an earlier step missing → denies exactly as before.
+
+### Tests
+
+- `tests/regression/v8.22.0/F1-F5` — 41 scenarios, TDD RED→GREEN per task (F1 11, F2 11, F3 7, F4 7, F5 5); allow-side and block-side both pinned (tamper, injection, wrong-target, stale-record, ordering). Suite `258 pass / 8 fail / 266` = the pre-existing baseline exactly (3× Langfuse v7.3.0 + score-writer v7.6.0 + F4 v8.8.0 + 3× v8.21.0 frozen RED of the in-flight S2 slice); 0 new failures. Known flake: `v7.13.0/F07` failed once under full-suite load, passes 3/3 standalone (historical, documented since v8.3.0).
+- Iron Law: only `.claude/hooks/` + `tests/` (+ `loops/hook-unblock/` process artifacts) touched; no `.codex` mirror (these hooks do not mirror).
+
+### Process note
+
+Authored via the loopify harness on branch `loop/hook-unblock` (per-task selective commits; base checkpoint also landed the previously-uncommitted S1 spec-artifact-exemption work). The headless loop could not edit `.claude/hooks/**` (harness sensitive-file protection, not overridable by permission rules in a non-interactive session) — implementation landed from the interactive session; lesson recorded in `loops/hook-unblock/LOOP_DONE.md`.
+
 ## [8.20.0] - 2026-07-02
 
 ### Fixed — enforcement unblocking pack (2026-07-02 hook audit)
