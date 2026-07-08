@@ -576,6 +576,47 @@ function pendingAlreadyDispatched(state, block) {
   return false;
 }
 
+// v8.22.0 (T4, loop hook-unblock): disk-truth resolution. A DISPATCH_REQUEST whose id
+// already has a matching DISPATCH_RESULT recorded in the run's protocol-events.jsonl
+// (at/after the request) is RESOLVED — even when the PostToolUse clear (T3) never ran
+// (prior session, crash mid-run). This is what the sentinel proved BY HAND to clear the
+// false 482-minute PROTOCOL_HANDSHAKE_TIMEOUT on 2026-07-04. Scope: DISPATCH_REQUEST
+// only (GATE/PLAN_MODE are resolved by the user, not by an event append). Bounded tail
+// read; an absent/unreadable events file keeps the current behavior (still live).
+const PROTOCOL_EVENTS_TAIL_BYTES = 262144;
+function pendingResolvedByEvents(state, block, docDir) {
+  if (!block || typeof block !== 'object') return false;
+  if (block.block_type !== 'DISPATCH_REQUEST') return false;
+  if (typeof block.dispatch_id !== 'string' || !block.dispatch_id) return false;
+  const emitted = typeof block.emitted_at === 'string' ? Date.parse(block.emitted_at)
+    : typeof block.emitted_at === 'number' ? block.emitted_at : NaN;
+  if (!Number.isFinite(emitted)) return false;
+  const dir = (typeof docDir === 'string' && docDir) ? docDir
+    : (state && typeof state.pipeline_doc_path === 'string' ? state.pipeline_doc_path : '');
+  if (!dir) return false;
+  let raw;
+  try {
+    const evPath = path.join(dir, 'protocol-events.jsonl');
+    const st = fs.statSync(evPath);
+    const start = st.size > PROTOCOL_EVENTS_TAIL_BYTES ? st.size - PROTOCOL_EVENTS_TAIL_BYTES : 0;
+    const fd = fs.openSync(evPath, 'r');
+    try {
+      const len = st.size - start;
+      const buf = Buffer.alloc(len);
+      fs.readSync(fd, buf, 0, len, start);
+      raw = buf.toString('utf8');
+    } finally { fs.closeSync(fd); }
+  } catch { return false; }
+  for (const line of raw.split(/\r?\n/)) {
+    if (!line || line.indexOf('DISPATCH_RESULT') === -1) continue;
+    let ev; try { ev = JSON.parse(line); } catch { continue; } // truncated tail head → skip
+    if (!ev || ev.event !== 'DISPATCH_RESULT' || ev.id !== block.dispatch_id) continue;
+    const ts = typeof ev.timestamp === 'string' ? Date.parse(ev.timestamp) : NaN;
+    if (Number.isFinite(ts) && ts >= emitted) return true;
+  }
+  return false;
+}
+
 function findLivePendingBlock(state, timeoutMs) {
   if (!state || !Array.isArray(state.pending_blocks)) return null;
   const now = Date.now();
@@ -592,6 +633,8 @@ function findLivePendingBlock(state, timeoutMs) {
     // state by dispatch-record-hook) is satisfied — not live. The gate keeps blocking
     // between REQUEST and spawn; the CORRUPT (tampered) branch never reaches here.
     if (pendingAlreadyDispatched(state, b)) continue;
+    // v8.22.0 (T4): a request whose RESULT is already on disk is resolved, not live.
+    if (pendingResolvedByEvents(state, b)) continue;
     return b;
   }
   return null;
@@ -939,4 +982,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, getActiveLock, openExecWindow, closeExecWindow, findPairingEntry, appendAuditEntry, shouldBlockOnPendingDispatch, buildDispatchBlockMessage, findActiveSentinelState, discoverStatePath, findLivePendingBlock, dispatchTargetMatches, pendingAlreadyDispatched, resolveHandshakeTimeoutMs, shouldBlockWithoutApprovedPlan, buildPlanGateMessage, planGateArmedFromState, detectShellWrite, isDispatchPending, isPlanGateArmed, isPlanFile, isExemptPath, isSpecArtifactWrite, isVerifiedSpecArtifactWrite, CORRUPT_SENTINEL, MAX_TTL_MINUTES, PAIRING_TOLERANCE_MS, STALE_HEARTBEAT_THRESHOLD_MS, STALE_HEARTBEAT_MS /* deprecated alias, removal scheduled for v5.4.0 */ };
+module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, getActiveLock, openExecWindow, closeExecWindow, findPairingEntry, appendAuditEntry, shouldBlockOnPendingDispatch, buildDispatchBlockMessage, findActiveSentinelState, discoverStatePath, findLivePendingBlock, dispatchTargetMatches, pendingAlreadyDispatched, pendingResolvedByEvents, resolveHandshakeTimeoutMs, shouldBlockWithoutApprovedPlan, buildPlanGateMessage, planGateArmedFromState, detectShellWrite, isDispatchPending, isPlanGateArmed, isPlanFile, isExemptPath, isSpecArtifactWrite, isVerifiedSpecArtifactWrite, CORRUPT_SENTINEL, MAX_TTL_MINUTES, PAIRING_TOLERANCE_MS, STALE_HEARTBEAT_THRESHOLD_MS, STALE_HEARTBEAT_MS /* deprecated alias, removal scheduled for v5.4.0 */ };

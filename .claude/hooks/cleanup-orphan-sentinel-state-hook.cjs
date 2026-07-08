@@ -44,6 +44,11 @@
 const fs = require('node:fs');
 const path = require('node:path');
 
+// v8.22.0 (T4, loop hook-unblock): resolved-by-events check (SSOT em edit-guard-hook).
+// Require opcional — sem ele a varredura degrada ao comportamento anterior.
+let egPending = null;
+try { egPending = require('./edit-guard-hook.cjs'); } catch { egPending = null; }
+
 const STALE_HOURS = 24;
 const STALE_MS = STALE_HOURS * 60 * 60 * 1000;
 const MAX_WALK_DEPTH = 10;
@@ -263,6 +268,16 @@ function checkHandshakeTimeouts(stateFile, opts) {
     if (age >= HANDSHAKE_MAX_AGE_MS) continue;
 
     if (age < windowMs) continue;
+
+    // v8.22.0 (T4): honra a promessa do docstring "AND no matching response arrived" —
+    // um pending cujo DISPATCH_RESULT correspondente já está no protocol-events.jsonl
+    // do run está RESOLVIDO, não expirado (falso timeout de 482 min em 2026-07-04:
+    // o sentinel provou a resolução manualmente lendo exatamente este arquivo).
+    if (egPending && typeof egPending.pendingResolvedByEvents === 'function') {
+      try {
+        if (egPending.pendingResolvedByEvents(state, block, path.dirname(stateFile))) continue;
+      } catch { /* verificação é best-effort; na dúvida segue o fluxo antigo */ }
+    }
 
     // Stale enough to emit. Choose log vocabulary based on session_id match.
     const entry = isCrossSession
