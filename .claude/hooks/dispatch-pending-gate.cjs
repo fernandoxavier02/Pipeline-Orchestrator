@@ -74,6 +74,28 @@ function isResolutionAgent(payload, pending) {
   return false;
 }
 
+// v8.22.0 (T2, loop hook-unblock): comando de PLANO DE CONTROLE da exec-window.
+// Com pending vivo, o único remédio desenhado para autorizar o executor é armar a
+// exec-window — mas o script que a abre é ele próprio um comando Bash, negado por
+// ESTE gate (ovo-e-galinha, run 2026-07-04-e2e-ruler-recalibration-s2). Libera
+// EXATAMENTE a invocação `node …/scripts/exec-window/open.cjs|close.cjs` ANCORADA
+// no início do comando (tolerando prefixos VAR=val), nunca substring: composição
+// (&&, ;, |, crase, newline, subshell) ou o caminho como argumento de outro
+// programa NÃO ganham a isenção.
+const EXEC_WINDOW_SCRIPT_RE = /(^|\/)scripts\/exec-window\/(open|close)\.cjs$/;
+function isExecWindowControlCommand(payload) {
+  if (!payload || (payload.tool_name !== 'Bash' && payload.tool_name !== 'PowerShell')) return false;
+  const ti = payload.tool_input || {};
+  const cmd = typeof ti.command === 'string' ? ti.command.trim() : '';
+  if (!cmd) return false;
+  if (/[;&|\r\n`]|\$\(/.test(cmd)) return false; // composição/subshell nunca é isenta
+  // [VAR=val …] node[.exe] <script> [args…] — script entre aspas duplas/simples ou nu.
+  const m = /^(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*"?node(?:\.exe)?"?\s+(?:"([^"]+)"|'([^']+)'|(\S+))(?:\s|$)/.exec(cmd);
+  if (!m) return false;
+  const script = (m[1] || m[2] || m[3] || '').replace(/\\/g, '/');
+  return EXEC_WINDOW_SCRIPT_RE.test(script);
+}
+
 // Um spawn do agente sentinel é SEMPRE liberado, em qualquer ramo: o sentinel é o
 // agente de diagnóstico/recuperação que o sentinel-hook MANDA rodar numa divergência
 // de sequência (sentinel-hook.cjs: "sentinel itself always passes"). Espelhamos a
@@ -206,6 +228,9 @@ function decideInlineGate(payload) {
   // sentinel-hook e evita o deadlock "um porteiro manda chamar o guardião, o outro barra".
   if (isSentinelAgent(payload)) return { decision: 'allow' };
   if (isResolutionAgent(payload, pending)) return { decision: 'allow' };
+  // v8.22.0 (T2): abrir/fechar a exec-window é CONTROLE, não trabalho inline — sem
+  // esta isenção o gate nega o próprio remédio que a mensagem de bloqueio recomenda.
+  if (isExecWindowControlCommand(payload)) return { decision: 'allow' };
 
   // Executor legítimo já autorizado por exec-window.
   try {
@@ -257,4 +282,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { decideInlineGate, handlePreToolUse, isSentinelAgent, ALWAYS_ALLOW_TOOLS };
+module.exports = { decideInlineGate, handlePreToolUse, isSentinelAgent, isExecWindowControlCommand, ALWAYS_ALLOW_TOOLS };
