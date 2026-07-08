@@ -34,6 +34,10 @@ try { signer = require('../../lib/sentinel-state-signer.cjs'); } catch { signer 
 // the lib is unavailable the auto-emit silently degrades (legacy behavior).
 let step17 = null;
 try { step17 = require('../../lib/step-1-7-routing.cjs'); } catch { step17 = null; }
+// v8.22.0 (T3): cross-process lock for the pending_blocks clear (same lock the
+// record-step writer uses). Optional — without it the clear degrades to unlocked.
+let xlock = null;
+try { xlock = require('../../lib/exclusive-lock.cjs'); } catch { xlock = null; }
 
 function resolveDocFromEnv(cwd) {
   const env = (process.env.PIPELINE_DOC_PATH || '').trim();
@@ -117,6 +121,45 @@ function consumeRename(filePath) {
   } catch { /* best-effort: a rename failure degrades to re-readable, never worse */ }
 }
 
+// v8.22.0 (T3, loop hook-unblock): deterministic pending_blocks hygiene. The controller
+// prose said "clear the pending entry when processing each RESULT" — honor-only, and the
+// omission fired a false 482-minute PROTOCOL_HANDSHAKE_TIMEOUT on the 2026-07-04 run.
+// This makes it code: when the RETURNING agent is the target of a DISPATCH_REQUEST
+// pending block (same leaf-containment match the gates use — eg.dispatchTargetMatches)
+// and returned a USABLE result, remove that entry from the signed state. Other targets'
+// entries and non-DISPATCH_REQUEST blocks stay. Same read-verify-refuse-launder posture
+// as scripts/record-step.cjs (a present-but-INVALID signature is never rewritten).
+// Fail-silent throughout — PostToolUse cannot block, and hygiene must never break stamping.
+function clearSatisfiedPending(docDir, subagentType) {
+  if (!signer || typeof signer.writeSignedState !== 'function') return;
+  if (!eg || typeof eg.dispatchTargetMatches !== 'function') return;
+  if (typeof docDir !== 'string' || !docDir) return;
+  if (typeof subagentType !== 'string' || !subagentType) return;
+  const statePath = path.join(docDir, 'sentinel-state.json');
+  const update = () => {
+    let obj;
+    try { obj = JSON.parse(fs.readFileSync(statePath, 'utf8')); } catch { return; }
+    if (!obj || typeof obj !== 'object' || !Array.isArray(obj.pending_blocks)) return;
+    if (typeof signer.verifyState === 'function') {
+      let v;
+      try { v = signer.verifyState(obj, { key: signer.readHmacKey() }); }
+      catch { v = { valid: true }; }
+      if (v && v.valid === false && v.unsigned !== true && v.key_unavailable !== true) return; // never launder
+    }
+    const kept = obj.pending_blocks.filter((b) => !(
+      b && typeof b === 'object' && b.block_type === 'DISPATCH_REQUEST'
+      && typeof b.dispatch_id === 'string' && eg.dispatchTargetMatches(b.dispatch_id, subagentType)
+    ));
+    if (kept.length === obj.pending_blocks.length) return; // nothing to clear → no write
+    const merged = { ...obj, pending_blocks: kept, updated_at: new Date().toISOString() };
+    try { signer.writeSignedState(statePath, merged); } catch { /* fail-silent */ }
+  };
+  try {
+    if (xlock && typeof xlock.withLock === 'function') xlock.withLock(statePath, update);
+    else update();
+  } catch { /* fail-silent */ }
+}
+
 function stamp(payload) {
   if (!ledger || !recorder || typeof recorder.recordStep !== 'function') return;
   if (!payload || payload.tool_name !== 'Agent') return;
@@ -141,6 +184,14 @@ function stamp(payload) {
   // .trim() keeps this parser IDENTICAL to the gate's (batch-review-gate.cjs) so a
   // trailing-space subagent_type can't desync which leaf the stamp vs the gate sees.
   const leaf = String((payload.tool_input || {}).subagent_type || '').split(':').pop().trim();
+
+  // v8.22.0 (T3): pending hygiene BEFORE any early return — even an executor-fix
+  // return clears its satisfied DISPATCH_REQUEST. Result-gated with the same bias
+  // as the stamp itself: an errored/no-op return leaves the handshake pending.
+  if (!stampRequiresResult() || hasUsableResult(payload.tool_response)) {
+    const fullAgent = String((payload.tool_input || {}).subagent_type || '').trim();
+    try { clearSatisfiedPending(docDir, fullAgent); } catch { /* fail-silent */ }
+  }
 
   // executor-fix completion → increment the fix-loop counter (deterministic cap).
   if (leaf === 'executor-fix') {
@@ -295,4 +346,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { stamp, hasUsableResult, stampRequiresResult, maybeAutoEmitStep17 };
+module.exports = { stamp, hasUsableResult, stampRequiresResult, maybeAutoEmitStep17, clearSatisfiedPending };
