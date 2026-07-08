@@ -1,0 +1,5 @@
+# Arquivos de runtime do vigia do loopify — nunca commitar (sujariam a checagem
+# de árvore limpa do próprio vigia a cada volta).
+*/.loop_guard.lock
+*/.loopify_hashes.json
+*/guard_report.json

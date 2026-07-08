@@ -1,0 +1,8 @@
+tests/regression/v7.3.0/F10-langfuse-sanitizer.test.cjs
+tests/regression/v7.3.0/F8-langfuse-disabled-noop.test.cjs
+tests/regression/v7.3.0/F9-langfuse-span-lifecycle.test.cjs
+tests/regression/v7.6.0/F2-score-writer.test.cjs
+tests/regression/v8.21.0/F1_gate_expectation_selector.cjs
+tests/regression/v8.21.0/F2_evaluator_recalibrated.cjs
+tests/regression/v8.21.0/F3_fidelity_same_selector.cjs
+tests/regression/v8.8.0/F4_governed_fail_closed.cjs

@@ -1,0 +1,74 @@
+{
+  "titulo": "Destravar os hooks do pipeline (deadlock de despacho pendente + contabilidade)",
+  "pasta_loop": "loops/hook-unblock",
+  "runner": "claude",
+  "repo_raiz": ".",
+  "branch_base": "main",
+  "branch_loop": "loop/hook-unblock",
+  "test_cmd": "node loops/hook-unblock/check_no_new_failures.cjs",
+  "baseline": "Medido 2026-07-07: 258 passed / 8 failed / 266 total. As 8 falhas pre-existentes estao listadas em loops/hook-unblock/baseline_failures.txt (3x Langfuse v7.3.0 + score-writer v7.6.0 + F4 v8.8.0 dispatch-pending fail-closed + 3x RED congelados v8.21.0 da fatia S2, vermelhos POR DESIGN). Criterio do loop: nenhuma falha NOVA — o wrapper test_cmd ja faz essa comparacao e sai 0/1.",
+  "auditoria_extra": null,
+  "proibicoes": [
+    "NAO tocar tests/regression/v8.21.0/ — testes congelados da fatia S2 da spec workflow-audit-remediation (READ-ONLY, contrato de outra frente de trabalho)",
+    "NAO tocar references/gates.md, a tabela Mandatory Gates nem o Gate Registry (Iron Law do repo): nenhum gate novo, nenhuma linha alterada",
+    "Escopo de arquivos permitido: .claude/hooks/, lib/, hooks/hooks.json, tests/regression/v8.22.0/ e a pasta do loop. NADA em agents/, skills/, commands/, references/, .codex/ (esses hooks nao espelham por design)",
+    "Preservar o diff nao-commitado de .claude/hooks/edit-guard-hook.cjs (implementacao da fatia S1): fazer commit de checkpoint separado desse trabalho ANTES da primeira volta e nunca adicionar arquivos ao stage em bloco — commits sempre seletivos por arquivo",
+    "Postura fail-closed dos gates PRESERVADA: toda isencao nova e POSITIVA (prova afirmativa), ancorada e sujeita a mesma verificacao de assinatura HMAC do estado que o gate ja usa; casamento por substring simples de comando e proibido (anti-injecao)",
+    "Sem publicacao, sem bump de versao, sem comando de rede — release e o item GATE-HUMANO e o loop apenas PREPARA o runbook",
+    "Nao commitar .pipeline/ (working-state) e nao tocar .kiro/ (specs de outra frente)",
+    "Proibido placeholder/stub/TODO: item grande demais vira sub-item novo na secao Descobertas do LOOP_PLAN.md"
+  ],
+  "pedido_original": "Analisamos via telemetria por que os hooks do pipeline-orchestrator bloqueiam demais (27 gatilhos corretivos; deadlock ovo-e-galinha do dispatch-pending-gate ainda aberto na v8.20.0; atritos de contabilidade). O usuario pediu para transformar a analise em um loop autonomo que corrija as causas.",
+  "fatos": [
+    "Baseline 2026-07-07: 258/8/266 (suite oficial: node scripts/run-tests.cjs, sai 1 com falhas pre-existentes — por isso o test_cmd e o wrapper de comparacao, nao a suite crua)",
+    "Evidencia viva do deadlock: run governado 2026-07-04-e2e-ruler-recalibration-s2 (HANDOFF-NEXT-SESSION.md em claude-code/.pipeline/docs/Pre-Media-action/2026-07-04-e2e-ruler-recalibration-s2/) — pending_block vivo do executor negou Bash/Write da sessao INTEIRA, inclusive do proprio subagente despachado (subagentes compartilham a sessao) e do script scripts/exec-window/open.cjs que abriria a unica saida",
+    "Telemetria corretiva 2026-06-29 a 2026-07-04: 27 gatilhos em .pipeline/state/corrective-triggers.jsonl (raiz + claude-code) — 18 NOT_ARMED ja extintos pelas v8.19.1/v8.19.3, 8 INLINE_WORK_BLOCKED, 1 CORRUPT_STATE",
+    "dispatch-pending-gate.cjs reusa predicados EXPORTADOS de edit-guard-hook.cjs (findLivePendingBlock ~linha 538, getActiveExecWindow, isExemptPath) — mexer no predicado propaga aos consumidores; conferir todos",
+    "O padrao de isencao-por-despacho ja existe no repo: lib/audit-read-budget.cjs markDispatched + flag dispatched persistido (v8.15.0/v8.15.1) — REUSAR o desenho, nao inventar outro",
+    "O padrao de reescrita de estado assinado e: escrever SEM __signature e deixar o hook sentinel-state-autosign re-assinar (v8.20.0); carregar assinatura velha conta como tamper",
+    "Se o proprio enforcement do plugin travar uma volta do loop: escape sancionado PIPELINE_AUTONOMOUS_RECOVERY_MODE=true rebaixa deny para warn por processo (v8.18.1, downgrade-only)",
+    "A fatia S7 da spec workflow-audit-remediation construira um harness consolidado de cenarios de deadlock; os testes v8.22.0 deste loop sao candidatos diretos a alimenta-lo (anotar isso no LOOP_DONE.md)"
+  ],
+  "suposicoes": [
+    "Pasta de testes novos: tests/regression/v8.22.0/ — v8.21.0 pertence a fatia S2 em andamento; proximo numero livre, sem colisao",
+    "As correcoes ficam na branch do loop ate revisao humana; nenhum canal de distribuicao e atualizado pelo loop",
+    "O loop roda FORA de run governado do pipeline: trabalho direto (Edit/Bash) nao e bloqueado pelo arm-gate desde a v8.19.3 quando nenhum run esta armado"
+  ],
+  "tarefas": [
+    {
+      "id": "T1",
+      "texto": "Isencao 'ja despachado' no guarda de despacho pendente (.claude/hooks/dispatch-pending-gate.cjs): quando o pending_block vivo corresponder a um despacho de Agent JA REALIZADO (o spawn do alvo aconteceu — usar o rastro que o fluxo PreToolUse:Agent ja produz, ou persistir marca 'dispatched' na propria entrada de pending no momento do spawn permitido, espelhando o padrao markDispatched de lib/audit-read-budget.cjs), a decisao passa a PERMITIR Bash/PowerShell/Edit/Write da sessao — o trabalho agora e do subagente despachado, que compartilha a sessao com o parent. O gate continua bloqueando entre o REQUEST e o spawn, quando nao ha despacho registrado, e quando o estado esta adulterado (fail-closed intocado). Escrever PRIMEIRO o teste RED tests/regression/v8.22.0/F1_pending_dispatched_exemption.cjs reproduzindo o cenario do run 2026-07-04 (pending vivo do executor-controller + Bash negado), depois implementar ate GREEN.",
+      "aceite": "node tests/regression/v8.22.0/F1_pending_dispatched_exemption.cjs -> exit 0 (cobre allow pos-spawn E block pre-spawn E block com estado adulterado); node loops/hook-unblock/check_no_new_failures.cjs -> exit 0"
+    },
+    {
+      "id": "T2",
+      "texto": "Isencao ANCORADA do plano de controle no mesmo guarda: comando Bash/PowerShell cujo executavel e node e cujo PRIMEIRO argumento de script resolve (path normalizado, barras dos dois tipos) para um caminho terminando em scripts/exec-window/open.cjs ou scripts/exec-window/close.cjs passa a ser permitido mesmo com pending vivo — hoje o unico remedio (abrir a janela de execucao) e negado pelo proprio gate, o ovo-e-galinha do run 2026-07-04. Casamento ancorado no INICIO do comando (tolerando prefixos de variavel de ambiente), nunca substring: comando composto (&&, ;, |, subshell) ou o caminho embutido como argumento de outro programa NAO ganha isencao. Escrever PRIMEIRO o teste RED tests/regression/v8.22.0/F2_execwindow_control_plane.cjs incluindo os cenarios anti-injecao.",
+      "aceite": "node tests/regression/v8.22.0/F2_execwindow_control_plane.cjs -> exit 0 (legitimo -> allow; composto/injetado -> block); node loops/hook-unblock/check_no_new_failures.cjs -> exit 0"
+    },
+    {
+      "id": "T3",
+      "texto": "Limpeza deterministica da espera: no evento PostToolUse:Agent (estender .claude/hooks/step-ledger-stamp.cjs, que ja roda ali, ou criar hook novo registrado em hooks/hooks.json), quando o subagente que retornou corresponde ao alvo de uma entrada de pending_blocks do sentinel-state assinado, REMOVER essa entrada — escrevendo o estado SEM __signature para o autosign re-assinar (padrao v8.20.0). Entradas de outros alvos permanecem intactas; estado adulterado nao e tocado. Isso tira da prosa do controller a regra 'limpar a espera ao processar o resultado' (cuja omissao causou o falso timeout de 482 minutos no run 2026-07-04). Escrever PRIMEIRO o teste RED tests/regression/v8.22.0/F3_pending_clear_on_result.cjs.",
+      "aceite": "node tests/regression/v8.22.0/F3_pending_clear_on_result.cjs -> exit 0 (entrada do alvo removida; entrada alheia preservada; estado adulterado intocado); node loops/hook-unblock/check_no_new_failures.cjs -> exit 0"
+    },
+    {
+      "id": "T4",
+      "texto": "Anti-falso-timeout pela verdade em disco: o avaliador de pendencia viva (findLivePendingBlock em .claude/hooks/edit-guard-hook.cjs, reusado pelos gates) e o carimbo de PROTOCOL_HANDSHAKE_TIMEOUT do cleanup-orphan-sentinel-state-hook.cjs passam a tratar como RESOLVIDA a entrada de pending cujo id tem um DISPATCH_RESULT correspondente registrado no protocol-events.jsonl do run (timestamp igual ou posterior ao do REQUEST) — cobrindo o caso em que a limpeza da T3 nao rodou (sessao anterior, cross-session). Sem RESULT correspondente ou sem protocol-events legivel, comportamento atual INTOCADO. Atencao: T1 ja pode ter mudado findLivePendingBlock — integrar, nao duplicar. Escrever PRIMEIRO o teste RED tests/regression/v8.22.0/F4_pending_resolved_by_events.cjs.",
+      "aceite": "node tests/regression/v8.22.0/F4_pending_resolved_by_events.cjs -> exit 0 (pending com RESULT -> nao-vivo/sem timeout; sem RESULT -> comportamento atual); node loops/hook-unblock/check_no_new_failures.cjs -> exit 0"
+    },
+    {
+      "id": "T5",
+      "texto": "Carimbo por evidencia no livro-razao de passos: quando o gate-decisions.jsonl do run contem TDD_APPROVAL com decision APPROVED ou CONFIRMED e o passo 'tdd' ainda nao esta carimbado no step-ledger, o gate de spawn (step-ledger-gate + lib/step-ledger.cjs) aceita o spawn do passo 'execute' e carimba 'tdd' como satisfeito-por-evidencia (detail explicito no ledger dizendo a origem). Fecha o cenario do run 2026-07-04: testes RED congelados pre-existentes + TDD aprovado em gate-decisions, mas spawn do executor negado por 'tdd' nao carimbado (protocol-events linha 19). Sem TDD_APPROVAL valido -> nega exatamente como hoje. Escrever PRIMEIRO o teste RED tests/regression/v8.22.0/F5_tdd_stamp_by_evidence.cjs.",
+      "aceite": "node tests/regression/v8.22.0/F5_tdd_stamp_by_evidence.cjs -> exit 0 (com evidencia -> allow + carimbo com detail; sem evidencia -> deny igual hoje); node loops/hook-unblock/check_no_new_failures.cjs -> exit 0"
+    },
+    {
+      "id": "T6",
+      "texto": "GATE-HUMANO — preparar (NUNCA executar) o release: escrever loops/hook-unblock/RELEASE-RUNBOOK.md com o checklist lockstep de bump de versao (todas as superficies listadas na secao Release/Deploy do CLAUDE.md do repo, incluindo os 3 pinos de versao em testes) e os 4 canais de distribuicao (GitHub canonico, cache global do plugin + installed_plugins.json, npm, marketplace), mais o lembrete de /reload-plugins ao final. NENHUM bump aplicado, NENHUMA publicacao, NENHUM comando de rede executado pelo loop.",
+      "aceite": "loops/hook-unblock/RELEASE-RUNBOOK.md existe citando as superficies de versao e os 4 canais; nenhuma superficie de versao do repo modificada no diff da branch",
+      "gate_humano": true
+    }
+  ],
+  "schema_version": "1",
+  "data": "2026-07-07",
+  "padroes_proibidos_commit": ".env, segredos/credenciais, dados do .gitignore",
+  "allowed_tools_claude": "Bash(python *),Bash(git add:*),Bash(git commit:*),Bash(git status:*),Bash(git diff:*),Bash(git rev-parse:*),Bash(git checkout -b:*),Bash(git log:*)"
+}
