@@ -59,6 +59,27 @@ comando exato que o humano deve rodar. Uma tarefa por iteração.
       humano / bloqueado, com evidências por item) e commitá-lo.
       Aceite: LOOP_DONE.md existe e lista todos os itens com estado final.
 
+## Descobertas do loop (achados durante a execução, não no plano original)
+
+- [ ] D1 (2026-07-08 — Batch 4, descoberto ao mapear hooks.json inteiro para
+      escopar o Batch 4) `.claude/hooks/subagent-stop-commit-hook.cjs` linhas
+      206-214 (SUBAGENTSTOP_STATE_CORRUPT): quando um subagente despachado
+      encerra o turno sobre um sentinel-state corrompido/adulterado, o hook
+      bloqueia o SEU PRÓPRIO SubagentStop com a mensagem "Recrie/re-assine o
+      estado pelo controller antes de encerrar" — mas o subagente bloqueado
+      não tem a ferramenta Agent (não pode invocar o controller) nem a chave
+      HMAC do signer (não pode re-assinar sozinho). Diferente da classe de bug
+      já corrigida no Batch 3: um decision:block em SubagentStop RE-EXECUTA O
+      MESMO subagente (prova ao vivo v8.10.0, CLAUDE.md linha da v8.10.0) — a
+      cláusula de fallback padrão ("emita um DISPATCH_REQUEST e encerre o
+      turno") não resolve aqui, porque encerrar o turno é exatamente o que já
+      está sendo bloqueado; precisa de um desenho próprio (ex.: fail-open
+      nesse ramo específico, ou uma saída que sobreviva ao re-run), não uma
+      aplicação mecânica do padrão dos Batches 1-3. Adiado para spec/sessão
+      dedicada — fora do escopo deste loop. <!-- lid:13 -->
+      Aceite: decisão humana registrada sobre a abordagem (fail-open vs. nova
+      cláusula específica para SubagentStop) antes de qualquer implementação.
+
 ## Descobertas do loop (itens adicionados pelo agente durante as voltas)
 
 (vazio)
