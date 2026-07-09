@@ -92,7 +92,24 @@ const HOOK_FORCE_SHA256 = '92d331524fb2110a5a56ebbcbcd8aee00174944fda0063554e8eb
 // Re-pinned a 3rd time (round-2-v2 confirmation review, LOW-MEDIUM finding):
 // this file's subagentFallbackSuffix() wrapper was missing the leading ' '
 // the other 3 copies have, gluing the clause onto the prior sentence.
-const HOOK_DISPATCH_SHA256 = 'b5c3caf03c53491e52e0b596279d287fc64388da36868b113863766379228acd';
+// Re-pinned a 4th time (Batch 5, round-1 adversarial review, MEDIUM finding):
+// the HMAC-fail-under-STRICT deny site (handleBrainstormDispatch) and the
+// unreadable-state deny site (handleSealedSpecImplementation) also needed the
+// fallback clause — their prescribed action (restore/re-sign state before
+// dispatching) is only practically reachable via dispatch, same shape as the
+// sibling denies that already carry the clause — same legitimate-change rule.
+// Re-pinned a 5th time (Batch 5, round-2 adversarial review): the HMAC-fail
+// reason's state-forgery recipe ("Re-sign the state (writeSignedState)") was
+// removed (tool-agnostic "restore via the pipeline-controller" instead — MEDIUM
+// security finding, S3), and the subagentFallbackSuffix() wrapper's silent
+// error-swallow gained a one-line stderr trail (LOW observability finding, S5;
+// fail-open posture unchanged) — both touch this file's bytes; same
+// legitimate-change rule applies.
+// Re-pinned a 6th time (Batch 5, round-3 adversarial review, N2): the wrapper's
+// stderr trail gained a nested try/catch so an exotic synchronous stderr throw
+// can never escape the catch and convert the fail-closed deny into a silent
+// allow (defense-in-depth; same legitimate-change rule applies).
+const HOOK_DISPATCH_SHA256 = '8628dbf8a2c9ceb84503dac59937b4b72c198284644b0a778051e9b175834de1';
 // S6: the lockstep bump happens at slice close. The v8.8.0 determinism-
 // enforcement-hardening release (AUDIT-001..007, B6) is that slice close, so the
 // manifests now legitimately read 8.8.0; the hook byte-identity guard below is

@@ -101,6 +101,84 @@ record('S2 [SPEC_CONTRACT via Skill] deny includes the subagent-fallback clause'
   assertNoGluedWord(reason);
 });
 
+// S4/S5 (v8.23.0 Batch 5, round-1 architecture reviewer MEDIUM finding): two DENY
+// SITES inside handleBrainstormDispatch / handleSealedSpecImplementation — the
+// HMAC-fail-under-STRICT branch and the unreadable-state branch — were initially
+// read as "no tool-name assumption" (so left without the clause). But the underlying
+// action each prescribes ("restore / re-sign the run state before dispatching") is
+// only practically reachable via dispatch, exactly like their sibling denies that
+// ALREADY carry the clause (BRAINSTORM_BYPASS, SPEC_CONTRACT_DISCIPLINE_MISSING,
+// and the BRAINSTORM unreadable-state site on line ~649). A subagent reader with no
+// Agent tool has no exit from these two either → both now carry
+// subagentFallbackSuffix() for consistency (round-1 fix, re-confirmed round-2).
+
+record('S4 [BRAINSTORM HMAC-fail under STRICT] deny includes the subagent-fallback clause', () => {
+  const dp = mkTmp('f6b-brainstorm-hmac-');
+  // Unsigned (but JSON-legible) sentinel-state under PIPELINE_HMAC_STRICT=true →
+  // verifyState returns valid:false ("no signature present and strict mode enabled")
+  // → the HMAC-fail deny site fires (NOT the unreadable catch: the JSON parses fine).
+  fs.writeFileSync(path.join(dp, 'sentinel-state.json'), JSON.stringify({
+    orchestrator_decision: { type: 'Feature', complexity: 'COMPLEXA' },
+  }));
+  const reason = dispatchSkill(dp, 'pipeline-orchestrator:feature-heavy', {
+    PIPELINE_BRAINSTORM_ENFORCEMENT: 'deny',
+    PIPELINE_HMAC_STRICT: 'true',
+  });
+  assert.ok(reason, 'expected a deny reason (fixture must reproduce the HMAC-fail site)');
+  assert.match(reason, /\[BRAINSTORM\]/);
+  assert.match(reason, /failed HMAC verification/);
+  // S3 (round-2 security review, MEDIUM finding): the HMAC-fail reason must NOT
+  // name the signing function (writeSignedState) or the signer lib path — that
+  // is a state-forgery recipe a subagent with Bash could follow to mint a
+  // validly-signed forged state and retry the dispatch, defeating the fail-closed
+  // posture PIPELINE_HMAC_STRICT is meant to impose. The resolution must be
+  // tool-agnostic (route via the pipeline-controller) + the legit operator escape.
+  assert.doesNotMatch(reason, /writeSignedState|sentinel-state-signer/i,
+    `HMAC-fail reason must NOT name the signing function/path (state-forgery recipe): ${reason}`);
+  assert.match(reason, /via the pipeline-controller/i,
+    `HMAC-fail reason must offer a tool-agnostic resolution via the controller: ${reason}`);
+  assert.match(reason, /subagente sem a ferramenta Agent/i, `must offer a subagent-reachable exit: ${reason}`);
+  assert.match(reason, /DISPATCH_REQUEST/);
+  assertNoGluedWord(reason);
+});
+
+record('S5 [SPEC_CONTRACT unreadable-state] deny includes the subagent-fallback clause', () => {
+  const dp = mkTmp('f6b-speccontract-unreadable-');
+  // NO sentinel-state.json in the run dir → the read throws → the unreadable-state
+  // deny site fires. PIPELINE_BRAINSTORM_ENFORCEMENT=warn isolates the path: the
+  // brainstorm handler's own unreadable catch returns false (fail-open), so flow
+  // reaches the SPEC_CONTRACT handler instead of short-circuiting on brainstorm.
+  const reason = dispatchSkill(dp, 'pipeline-orchestrator:feature-heavy', {
+    PIPELINE_SPEC_AUTHORING_ENFORCEMENT: 'deny',
+    PIPELINE_BRAINSTORM_ENFORCEMENT: 'warn',
+  });
+  assert.ok(reason, 'expected a deny reason (fixture must reproduce the unreadable SPEC_CONTRACT site)');
+  assert.match(reason, /\[SPEC_CONTRACT\]/);
+  assert.match(reason, /unreadable\/corrupt/);
+  assert.match(reason, /subagente sem a ferramenta Agent/i, `must offer a subagent-reachable exit: ${reason}`);
+  assert.match(reason, /DISPATCH_REQUEST/);
+  assertNoGluedWord(reason);
+});
+
+record('S6 [file-wide anti-recipe] no model-facing string in dispatch-guard.cjs names the signing function or signer lib path', () => {
+  // Round-3 security review (N3): S4 pins ONLY the HMAC-fail site. A companion
+  // FILE-WIDE guard ensures no deny reason ANYWHERE in the file re-introduces the
+  // state-forgery recipe (writeSignedState / sentinel-state-signer) removed in
+  // S3 — a future edit could regress a DIFFERENT site without tripping S4. The 2
+  // LEGITIMATE occurrences of sentinel-state-signer live in a provenance comment
+  // + the require() binding; both are stripped before the check, so only
+  // model-facing string/code text is scanned.
+  const src = fs.readFileSync(HOOK, 'utf8');
+  const stripped = src.split(/\r?\n/)
+    .filter((l) => !/^\s*\/\//.test(l))      // drop full-line comments (provenance note)
+    .filter((l) => !/require\s*\(/.test(l))  // drop require/import lines (the lib binding)
+    .join('\n');
+  assert.doesNotMatch(stripped, /writeSignedState/i,
+    'dispatch-guard.cjs: a model-facing string names writeSignedState — that is the state-forgery recipe removed in S3');
+  assert.doesNotMatch(stripped, /sentinel-state-signer/i,
+    'dispatch-guard.cjs: a model-facing string names the signer lib path — that is the state-forgery recipe removed in S3');
+});
+
 record('S3 [comment accuracy] buildDenyReason no longer lumps BRAINSTORM/SPEC_CONTRACT in with the Agent-only paths', () => {
   const src = fs.readFileSync(HOOK, 'utf8');
   // The corrected comment must explicitly say BRAINSTORM/SPEC_CONTRACT ARE reachable

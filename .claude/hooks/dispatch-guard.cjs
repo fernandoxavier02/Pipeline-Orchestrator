@@ -47,7 +47,18 @@ function subagentFallbackSuffix() {
       // audit-read-budget.cjs) — this file was the one copy that drifted.
       return ' ' + nextActionLib.buildSubagentFallbackClause();
     }
-  } catch { /* never let the fallback clause break the deny itself */ }
+  } catch (e) {
+    // Fail-OPEN (the deny itself must still fire) but make the drop OBSERVABLE
+    // (round-2 security review, LOW finding): without this stderr line a
+    // failure here silently re-introduces the exact CR6 deadlock this clause
+    // exists to close, with no telemetry trail. The stderr write is itself
+    // wrapped (round-3 security review, N2): a synchronous throw from a broken
+    // stderr would otherwise escape this catch (a catch does NOT catch its own
+    // throw) and convert the fail-closed deny into a silent allow.
+    try {
+      process.stderr.write('[dispatch-guard] subagent-fallback clause dropped: ' + ((e && e.message) || 'unknown') + '\n');
+    } catch { /* stderr failure must never break the deny */ }
+  }
   return '';
 }
 
@@ -645,7 +656,8 @@ function handleBrainstormDispatch(target, kind) {
           permissionDecisionReason:
             '[BRAINSTORM] sentinel-state.json is unreadable/corrupt and ' +
             'PIPELINE_BRAINSTORM_ENFORCEMENT=deny — cannot confirm STEP 1.7 brainstorm ran. ' +
-            'Restore a valid pipeline run state (or set enforcement to warn) before dispatching execution.',
+            'Restore a valid pipeline run state (or set enforcement to warn) before dispatching execution.' +
+            subagentFallbackSuffix(),
         },
       }));
       return true; // fail-closed deny
@@ -705,8 +717,9 @@ function handleBrainstormDispatch(target, kind) {
             permissionDecisionReason:
               '[BRAINSTORM] sentinel-state.json failed HMAC verification ' +
               `(${sanitizeForReason(verification.reason, 80)}) and PIPELINE_HMAC_STRICT + ` +
-              'enforcement=deny refuse to trust an unsigned/tampered state. Re-sign the state ' +
-              '(lib/sentinel-state-signer.cjs writeSignedState) or relax strict mode.',
+              'enforcement=deny refuse to trust an unsigned/tampered state. Restore a valid signed ' +
+              'run state via the pipeline-controller, or relax PIPELINE_HMAC_STRICT.' +
+              subagentFallbackSuffix(),
           },
         }));
         return true; // fail-closed deny
@@ -1000,7 +1013,8 @@ function handleSealedSpecImplementation(target, kind, prompt) {
             '[SPEC_CONTRACT] sentinel-state.json is unreadable/corrupt and ' +
             'PIPELINE_SPEC_AUTHORING_ENFORCEMENT=deny — cannot confirm the sealed spec\'s ' +
             'required_impl_gates were satisfied. Restore a valid run state (or set enforcement ' +
-            'to warn) before dispatching implementation.',
+            'to warn) before dispatching implementation.' +
+            subagentFallbackSuffix(),
         },
       }));
       return true; // fail-closed deny
