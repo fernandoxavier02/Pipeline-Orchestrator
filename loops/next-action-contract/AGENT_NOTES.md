@@ -58,3 +58,16 @@ para não reinventar na hora, T1.1 não mexeu nisso (fora de escopo do item).
 `loops/next-action-contract/LOOP_PLAN.md` (T1.1 marcado `[x]`). Não toquei
 `PROMPT.md`/`RODAR.md`/`loop_spec.json` (pré-existentes, não fazem parte deste item).
 
+## Intervenção do supervisor humano (fora de volta) — 2026-07-08
+
+3 voltas seguidas tentando T1.2 foram desfeitas (VIOLACAO_DESFEITA) por deriva de conteúdo no
+lid=2 — cada uma encontrou o MESMO achado de segurança real (charset de `sanitizeText` em
+`lib/next-action.cjs` ainda permite aspas, abrindo brecha de manipulação de instrução via
+`taskHint` em `buildPromptText`) e tentou anotar isso dentro do próprio texto de T1.2 em vez de
+criar um item novo — violando a regra 8 (achado fora do item vira item novo, nunca edita o
+item atual). Para destravar, o supervisor inseriu **T1.1b** como item novo (lid:12) ANTES de
+T1.2, cobrindo exatamente esse achado, sem tocar no texto de T1.2 (lid:2, intocado desde a
+autoria original). Próxima volta: pegue T1.1b primeiro (é o primeiro item aberto agora); se
+encontrar QUALQUER outra coisa fora do escopo de T1.1b, crie um item novo na seção
+"Descobertas do loop" — não edite o texto de T1.1b nem de T1.2.
+
