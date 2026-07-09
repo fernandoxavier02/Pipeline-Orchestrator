@@ -64,6 +64,12 @@ let runStepGuard = null;
 try { runStepGuard = require('../../lib/run-step-guard.cjs'); } catch { runStepGuard = null; }
 let stepLedger = null;
 try { stepLedger = require('../../lib/step-ledger.cjs'); } catch { stepLedger = null; }
+// T1.2: Next-Action Contract SSOT — builds the corrective descriptor for
+// INLINE_WORK_BLOCKED (both the normal runStepGuard path and the fail-safe path
+// below). Optional require, same posture as its siblings above: a missing
+// module just means the block ships without a corrective, never a harder failure.
+let nextActionLib = null;
+try { nextActionLib = require('../../lib/next-action.cjs'); } catch { nextActionLib = null; }
 // Batch 5 (ARCH-1/ARCH-2): the arm-pending marker reading (HMAC verify + TTL + parse)
 // now lives in ONE lib (SSOT). The gate DELEGATES to it and re-exports the predicates so
 // its existing callers (audit-read-budget-gate, step-ledger-stamp) keep working unchanged.
@@ -153,8 +159,13 @@ function isPipelineDocWrite(payload, dir) {
 }
 
 // ---- PURE BRAIN -------------------------------------------------------------
-// ctx: { toolName, armPending(bool), runActive(bool), corrupt(bool),
-//        pipelineAligned(bool), enforce('deny'|'warn'), workflow(string|undefined) }
+// ctx: { toolName, armPending(bool), runActive(bool), observedActive(bool),
+//        markerTampered(bool), corrupt(bool), pipelineAligned(bool),
+//        enforce('deny'|'warn'), workflow(string|undefined, RAW unsigned-marker
+//        display label), execWindowOpen(bool), sessionId(string|undefined),
+//        expectedStep(string|null), trustedWorkflowKey(string|null, T1.2 — the
+//        SSOT-resolved key over TRUSTED disc.state; distinct from `workflow`
+//        above on purpose, see gatherContext) }
 //
 // UNIFORM GOVERNANCE BY CONSTRUCTION (R1.1, spec 006): there is deliberately NO
 // per-command enumeration here (no list of pipeline/bugfix/feature/userstory/
@@ -204,6 +215,7 @@ function decideArmGate(ctx) {
         'foi comprometida; trabalho substantivo fica BLOQUEADO (fail-closed). Para retomar, ' +
         're-invoque o comando do pipeline para rearmar de forma assinada; NÃO escreva o estado ' +
         'de enforcement à mão. Leitura e perguntas seguem liberadas.',
+      corrective: buildCorrectiveDescriptor('MARKER_TAMPERED', tool, ctx.workflow),
     };
   }
 
@@ -234,12 +246,26 @@ function decideArmGate(ctx) {
       // outside an open exec-window is DENIED (reads/control/.pipeline already passed above).
       const MUTATING = /^(Edit|Write|MultiEdit|NotebookEdit|Bash|PowerShell)$/;
       if (MUTATING.test(tool) && ctx.execWindowOpen !== true) {
+        // T1.2: this path has no `g` (runStepGuard is literally unavailable in this
+        // branch), so the corrective is built directly from the same SSOT instead
+        // of being forwarded — same fix as the normal path just below, applied to
+        // the fail-safe twin so it does not regress back to an empty corrective.
+        let corrective;
+        try {
+          if (nextActionLib && typeof nextActionLib.resolveInlineWorkCorrective === 'function') {
+            corrective = nextActionLib.resolveInlineWorkCorrective({
+              workflowKey: ctx.trustedWorkflowKey || null,
+              expectedStep: ctx.expectedStep || null,
+            });
+          }
+        } catch { corrective = undefined; }
         return {
           decision: 'block',
           invariant_id: 'INLINE_WORK_BLOCKED',
           reason: 'INLINE_WORK_BLOCKED (fail-safe): mutação de produção fora de janela durante run ativo ' +
             'e o guarda de passo está indisponível. Despache o agente do passo esperado (que abre a janela) ' +
             'em vez de trabalhar inline. Leitura e perguntas seguem liberadas.',
+          corrective,
         };
       }
       return { decision: 'allow' };
@@ -248,11 +274,15 @@ function decideArmGate(ctx) {
       toolName: tool,
       execWindowOpen: ctx.execWindowOpen === true,
       expectedStep: ctx.expectedStep || null,
+      workflowKey: ctx.trustedWorkflowKey || null,
       sessionId: ctx.sessionId,
       enforce: chainEnforce === 'warn' ? 'warn' : 'deny',
     });
     if (g.decision === 'block') {
-      return { decision: 'block', invariant_id: g.invariant_id, reason: g.reason, expected_step: g.expected_step };
+      // T1.2: forward g.corrective — before this, the object was rebuilt here
+      // WITHOUT it, which is the exact reason the INLINE_WORK_BLOCKED corrective
+      // trigger landed empty ({}) downstream (AUDIT-REPORT.md §2 E1).
+      return { decision: 'block', invariant_id: g.invariant_id, reason: g.reason, expected_step: g.expected_step, corrective: g.corrective };
     }
     return g.warn ? { decision: 'allow', warn: true } : { decision: 'allow' };
   }
@@ -384,6 +414,27 @@ function buildCorrectiveDescriptor(invariantId, tool, workflow) {
       resume_instruction: `resume the blocked ${safeTool} after the state is readable again`,
       workflow: safeWf || undefined,
       blocking: true, // R4: LAYER-A hard block stays in force while recovering
+    };
+  }
+  // Adversarial review (Batch 2, architecture): MARKER_TAMPERED was the only
+  // decision:'block' in this file with no corrective at all — it fell through
+  // to the NOT_ARMED shape below via emitCorrectiveTrigger's `|| {}` fallback,
+  // which is inaccurate (a tampered marker is not "no run armed") and is the
+  // exact class of bug (AUDIT-REPORT.md §2 E1) this batch exists to close.
+  // Deliberately hand-written like CORRUPT_STATE, NOT routed through the
+  // Next-Action Contract SSOT: there is no "expected step" here — the marker
+  // itself is untrusted, so the only safe remediation is re-arming via the
+  // signed command, never a self-write recipe (SEC-3, see the reason text
+  // just above this function's call site).
+  if (invariantId === 'MARKER_TAMPERED') {
+    return {
+      invariant_id: 'MARKER_TAMPERED',
+      what_failed: 'the arm-pending marker is tampered/malformed — the governed window is compromised',
+      what_is_missing: 'a freshly signed arm marker',
+      fix_instruction: 're-invoke the pipeline command to re-arm signed (never hand-write enforcement state)',
+      resume_instruction: `resume the blocked ${safeTool} after the run is re-armed signed`,
+      workflow: safeWf || undefined,
+      blocking: true,
     };
   }
   return {
@@ -557,6 +608,14 @@ function gatherContext(payload) {
   let execWindowOpen = false;
   let sessionId;
   let expectedStep = null;
+  // T1.2, renamed per adversarial review (Batch 2, architecture finding — name
+  // collision risk): `workflow` a few lines below is the UNSIGNED marker's raw
+  // display label (sanitized before ever reaching a message). This is a
+  // DIFFERENT, narrower value — the SSOT-resolved key from stepLedger over
+  // TRUSTED disc.state, the same one that indexes AGENT_LEAF_TO_FQN — so it is
+  // named distinctly to stop a future edit from passing the wrong one into a
+  // path that resolves which agent to dispatch.
+  let trustedWorkflowKey = null;
   if (observedActive && eg) {
     try {
       const lock = typeof eg.getActiveLock === 'function' ? eg.getActiveLock(dir) : null;
@@ -571,6 +630,7 @@ function gatherContext(payload) {
           ? stepLedger.resolveWorkflowKey(disc.state)
           : (disc.state.workflow_key || (disc.state.task_type === 'Spec' ? 'Spec' : 'FULL'));
         expectedStep = stepLedger.expectedNextStep(disc.state, wf);
+        trustedWorkflowKey = wf || null; // T1.2: threaded through so a block's corrective can name the exact expected agent, not just the step id.
       }
     } catch { /* best-effort enrichment */ }
   }
@@ -587,6 +647,7 @@ function gatherContext(payload) {
     execWindowOpen,
     sessionId,
     expectedStep,
+    trustedWorkflowKey,
   };
 }
 
