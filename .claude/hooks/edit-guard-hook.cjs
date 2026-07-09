@@ -3,6 +3,21 @@ const fs = require('node:fs');
 const path = require('node:path');
 const signer = require('../../lib/sentinel-state-signer.cjs');
 const os = require('node:os');
+// Batch 3 (AUDIT-REPORT.md §4 P1 / CR6): several deny messages below tell the
+// reader to act "via Agent tool" / "via AskUserQuestion" without knowing
+// whether the reader IS a dispatched subagent that has neither (Achado #7 —
+// session_id is identical for parent and subagent, a hook can never tell them
+// apart). Optional require, same posture as its siblings in this file.
+let nextActionLib = null;
+try { nextActionLib = require('../../lib/next-action.cjs'); } catch { nextActionLib = null; }
+function subagentFallbackSuffix(blockType) {
+  try {
+    if (nextActionLib && typeof nextActionLib.buildSubagentFallbackClause === 'function') {
+      return ' ' + nextActionLib.buildSubagentFallbackClause(blockType);
+    }
+  } catch { /* never let the fallback clause break the deny itself */ }
+  return '';
+}
 
 const SESSION_ID_RE = /^[A-Za-z0-9._-]{1,64}$/;
 const MAX_TTL_MINUTES = 60;
@@ -436,7 +451,8 @@ function buildBlockMessage(filePath, sessionId) {
     `opened an exec-window via Write to .pipeline/sessions/${sessionId}.exec-window before the edit. ` +
     `To resume this session, run /pipeline-orchestrator:pipeline continue. ` +
     `The lock is released automatically when Claude Code stops (Stop hook cleanup). ` +
-    `As a last resort only, you may manually delete .pipeline/sessions/${sessionId}.lock.`
+    `As a last resort only, you may manually delete .pipeline/sessions/${sessionId}.lock.` +
+    subagentFallbackSuffix()
   );
 }
 
@@ -859,7 +875,8 @@ function buildDispatchBlockMessage(blockType, dispatchId) {
     `despache o alvo via Agent tool e re-invoque o controller (chamada Agent() NOVA) com DISPATCH_RESULTS prependado; ` +
     `para um GATE_REQUEST, colete a resposta via AskUserQuestion e re-invoque com GATE_RESPONSES. ` +
     `NÃO conduza o trabalho inline. Re-dispatch NÃO usa SendMessage. ` +
-    `Se o handshake morreu, o cleanup-orphan hook o expira automaticamente.`
+    `Se o handshake morreu, o cleanup-orphan hook o expira automaticamente.` +
+    subagentFallbackSuffix(blockType)
   );
 }
 
@@ -891,7 +908,8 @@ function buildPlanGateMessage() {
     'This pipeline run requires an APPROVED plan before any production code is written, ' +
     'and no approved plan is registered in the run state (phase_1_5_plan.approved !== true). ' +
     'Enter Plan Mode, get the plan approved by the user, and record the approval before writing code. ' +
-    'Do NOT skip planning. Writes inside .pipeline/ remain allowed.'
+    'Do NOT skip planning. Writes inside .pipeline/ remain allowed.' +
+    subagentFallbackSuffix('PLAN_MODE_REQUEST')
   );
 }
 
@@ -922,8 +940,8 @@ function handlePreToolUse(payload) {
     if (typeof dir !== 'string') return { decision: 'block', reason: 'PIPELINE_GUARD: invalid payload (failing closed)' };
     const lock = getActiveLock(dir);
     if (lock && getActiveExecWindow(dir, lock.session_id)) return { decision: 'allow' };
-    if (isDispatchPending(dir)) return { decision: 'block', reason: 'DISPATCH_LOCK_ACTIVE: shell write blocked while a protocol handshake is pending. Resolve the dispatch before writing code via the terminal.' };
-    if (isPlanGateArmed(dir)) return { decision: 'block', reason: 'PLAN_GATE_ACTIVE: shell write blocked — no approved plan registered. Get the plan approved before writing code via the terminal.' };
+    if (isDispatchPending(dir)) return { decision: 'block', reason: 'DISPATCH_LOCK_ACTIVE: shell write blocked while a protocol handshake is pending. Resolve the dispatch before writing code via the terminal.' + subagentFallbackSuffix() };
+    if (isPlanGateArmed(dir)) return { decision: 'block', reason: 'PLAN_GATE_ACTIVE: shell write blocked — no approved plan registered. Get the plan approved before writing code via the terminal.' + subagentFallbackSuffix('PLAN_MODE_REQUEST') };
     return { decision: 'allow' };
   }
   if (!['Edit', 'Write', 'NotebookEdit', 'MultiEdit'].includes(payload.tool_name)) {

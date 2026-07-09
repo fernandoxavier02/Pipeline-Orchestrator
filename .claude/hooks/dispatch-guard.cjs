@@ -30,6 +30,26 @@
 const fs = require('fs');
 const path = require('path');
 const enforcement = require('./skill-frontmatter-parser.cjs');
+// Batch 3 (AUDIT-REPORT.md §4 P1 / CR6): used by the Skill-tool deny sites
+// that a dispatched subagent CAN actually reach (buildDenyReason, plus
+// BRAINSTORM/SPEC_CONTRACT — see the comment near buildDenyReason for which
+// deny sites in this file are Agent-tool-only and deliberately excluded).
+let nextActionLib = null;
+try { nextActionLib = require('../../lib/next-action.cjs'); } catch { nextActionLib = null; }
+function subagentFallbackSuffix() {
+  try {
+    if (nextActionLib && typeof nextActionLib.buildSubagentFallbackClause === 'function') {
+      // Leading space (round-2 confirmation review, LOW-MEDIUM finding): every
+      // call site appends this directly after a sentence with no separator of
+      // its own — without it, "...execution." + this = "execution.Se você é"
+      // glued together. Matches the convention in the other 3 hooks that
+      // define this same wrapper (dispatch-pending-gate.cjs, edit-guard-hook.cjs,
+      // audit-read-budget.cjs) — this file was the one copy that drifted.
+      return ' ' + nextActionLib.buildSubagentFallbackClause();
+    }
+  } catch { /* never let the fallback clause break the deny itself */ }
+  return '';
+}
 
 // SEC-1 (v7.14.0): HMAC integrity verification of the sentinel state before the
 // STEP 1.7 enforcement layer trusts its step_1_7 block. Loaded defensively — if
@@ -118,7 +138,25 @@ function buildDenyReason(leaf, fqn) {
     `    subagent_type: "${fqn}",\n` +
     `    description: "<short description>",\n` +
     `    prompt: "<full prompt for the agent>"\n` +
-    `  )`
+    `  )\n\n` +
+    // Batch 3 (AUDIT-REPORT.md §4 P1 / CR6): this hook is registered on
+    // matcher "Skill|Agent" (hooks.json) — the Skill-tool half of that CAN be
+    // called by a dispatched subagent (Skill is not one of the 3 tools Achado
+    // #7 removes), so "use Agent(...) instead" is not always executable by
+    // the reader.
+    //
+    // CORRECTED (2nd adversarial review round — the first version of this
+    // comment wrongly lumped all four deny sites together): ENFORCEMENT
+    // (handleAgentEnforcement) and PLAN_MODE (handlePlanModeDispatch) really
+    // ARE Agent-tool-only — both are called exclusively from the
+    // `tool_name === 'Agent'` branch of handleInput, so a subagent cannot
+    // reach them and they deliberately do NOT get this clause (YAGNI, per
+    // Batch 2's lesson). BRAINSTORM (handleBrainstormDispatch) and
+    // SPEC_CONTRACT (handleSealedSpecImplementation) are DIFFERENT: both are
+    // called from BOTH the Agent branch AND the Skill branch of handleInput —
+    // a subagent calling Skill('feature-light', ...) etc. can reach either —
+    // so both of THEIR deny sites also carry subagentFallbackSuffix().
+    subagentFallbackSuffix()
   );
 }
 
@@ -726,7 +764,8 @@ function handleBrainstormDispatch(target, kind) {
           `[BRAINSTORM] ${leaf} was dispatched for a ${complexitySafe || typeSafe} task but STEP 1.7 ` +
           `(mandatory brainstorm) has no recorded routing decision in sentinel-state.step_1_7. ` +
           `Run STEP 1.7 first (dispatch the brainstorm, load an existing prep, or record a legal ` +
-          `--no-prep / simples-bypass branch) before dispatching execution.`,
+          `--no-prep / simples-bypass branch) before dispatching execution.` +
+          subagentFallbackSuffix(),
       },
     }));
     return true; // deny
@@ -1053,7 +1092,8 @@ function handleSealedSpecImplementation(target, kind, prompt) {
           `[SPEC_CONTRACT] ${leaf} was dispatched against a SEALED spec but its ` +
           `required_impl_gates [${gatesSafe}] are not all satisfied in gate-decisions.jsonl. ` +
           `Satisfy the required implementation gates before dispatching implementation, ` +
-          `or set PIPELINE_SPEC_AUTHORING_ENFORCEMENT=warn.`,
+          `or set PIPELINE_SPEC_AUTHORING_ENFORCEMENT=warn.` +
+          subagentFallbackSuffix(),
       },
     }));
     return true; // deny

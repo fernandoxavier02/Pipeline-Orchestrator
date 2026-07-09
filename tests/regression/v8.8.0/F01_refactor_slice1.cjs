@@ -78,7 +78,21 @@ const MANDATORY_TABLE_SHA256 = '77213f530ece8eb0ffbcb680406125ad87ff69d1efced544
 // S6: the two hooks must be byte-identical after the slice (Slice 1 is docs +
 //   registry + skills only; it does not touch enforcement hook code).
 const HOOK_FORCE_SHA256 = '92d331524fb2110a5a56ebbcbcd8aee00174944fda0063554e8ebefd1955aa7e';
-const HOOK_DISPATCH_SHA256 = 'c11bb9ca1e69960805e469fb580c131075cbe9a70803edf38ea06aa635317456';
+// Batch 3 (loop/next-action-contract, AUDIT-REPORT.md §4 P1 / CR6): updated —
+// this guard's job is catching the ORIGINAL concern (Refactor Slice 1, a
+// long-completed docs/registry/skills-only slice, accidentally touching
+// enforcement hook code). A LEGITIMATE, unrelated enforcement change to
+// dispatch-guard.cjs (buildDenyReason's Skill-tool deny now offers a
+// subagent-reachable exit) is exactly the case this pin must be updated for,
+// not bypassed — re-verify intentionality, then re-pin (like any golden-hash
+// test). `node -e "console.log(require('crypto').createHash('sha256').update(require('fs').readFileSync('.claude/hooks/dispatch-guard.cjs')).digest('hex'))"`.
+// Re-pinned a 2nd time (round-2 adversarial review, HIGH finding): the
+// BRAINSTORM/SPEC_CONTRACT Skill-path deny sites also needed the fallback
+// clause — same legitimate-change rule applies.
+// Re-pinned a 3rd time (round-2-v2 confirmation review, LOW-MEDIUM finding):
+// this file's subagentFallbackSuffix() wrapper was missing the leading ' '
+// the other 3 copies have, gluing the clause onto the prior sentence.
+const HOOK_DISPATCH_SHA256 = 'b5c3caf03c53491e52e0b596279d287fc64388da36868b113863766379228acd';
 // S6: the lockstep bump happens at slice close. The v8.8.0 determinism-
 // enforcement-hardening release (AUDIT-001..007, B6) is that slice close, so the
 // manifests now legitimately read 8.8.0; the hook byte-identity guard below is
