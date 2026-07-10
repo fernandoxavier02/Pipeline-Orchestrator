@@ -2,6 +2,12 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.23.0] - 2026-07-10
+
+### Added
+
+- Write-time audit-trail anti-fabrication guard: new PreToolUse hook audit-fabrication-gate.cjs (+ pure brain lib/audit-forgery-guard.cjs) blocks a Write/Edit/MultiEdit to gate-decisions.jsonl or sentinel-state.json inside a run dir when the incoming content is forged - a backdated entry without a BACKFILLED marker; a final_decision:GO / completed:true without the logged closure chain (FINAL_ADVERSARIAL_GATE [+ CLOSEOUT_CONFIRM]); or a decided_by:user entry with no corroborating user-gate protocol-event. Runs BEFORE the PostToolUse autosign, so a forgery can no longer be laundered into a valid HMAC signature. Default deny; escape PIPELINE_AUDIT_FABRICATION_ENFORCEMENT=warn; threshold PIPELINE_BACKFILL_THRESHOLD_MS. Fail-open on unreadable/absent state. Iron Law preserved (only .claude/hooks/ + lib/ + tests/ + hooks.json; Mandatory Gates + Registry untouched; no .codex mirror). Residual deferred layer (planting the closure chain or fabricating the protocol-event) needs PIPELINE_HMAC_STRICT plugin-wide. TDD tests/regression/v8.23.0/F1-F2; adversarial review round 1 (5 hardening fixes).
+
 ## [8.22.0] - 2026-07-07
 
 ### Fixed — hook-unblock pack (2026-07-07 corrective-telemetry diagnosis)
