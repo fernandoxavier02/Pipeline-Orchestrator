@@ -259,38 +259,13 @@ liveTest('S5-7 [main] SessionEnd after interrupt → does NOT mark completed, do
 });
 
 // ---- S5-8 [main] StopFailure → no success, no evidence deletion --------------
-liveTest('S5-8 [main] StopFailure → does NOT declare success, does NOT delete evidence', (root) => {
-  assert.ok(gateExists(), `gate missing: ${GATE} (expected RED)`);
-  // SEC-02: the StopFailure handling is only real if the SHIPPED manifest actually
-  // routes the StopFailure event to this hook. Asserting the wiring (not just a
-  // direct poke) means removing the registration breaks this test.
-  assert.ok(gateRegisteredFor('StopFailure'),
-    'hooks/hooks.json must register stop-gate-hook.cjs for the StopFailure event ' +
-    '(otherwise StopFailure runs ungated in production and this test is theater)');
-  const { docDir, statePath } = seedRun(root, { status: 'running' });
-  const evidence = path.join(docDir, 'gate-decisions.jsonl');
-  fs.writeFileSync(evidence, '{"gate":"X"}\n');
-  run(stopFailurePayload(root), Object.assign({ PIPELINE_DOC_PATH: docDir }, ARMED));
-  const after = readState(statePath) || {};
-  assert.notEqual(after.status, 'completed', 'StopFailure is an unclean end — never declare success');
-  assert.ok(fs.existsSync(evidence), 'StopFailure must keep evidence recoverable');
-});
+// v8.20.0-glm port: StopFailure event eliminated (not supported by Z-Code).
+// stop-gate-hook.cjs still runs in Stop event and provides equivalent coverage.
+console.log('  [SKIP] S5-8 [main] StopFailure — event eliminated in v8.20.0-glm port (Z-Code has no StopFailure)');
 
 // ---- S5-8b [wiring] StopFailure registered AND cannot block ------------------
-liveTest('S5-8b [wiring] StopFailure event is wired to the real hook and that hook never blocks teardown', (root) => {
-  assert.ok(gateExists(), `gate missing: ${GATE} (expected RED)`);
-  // The real event path: StopFailure must be registered in the shipped manifest.
-  assert.ok(gateRegisteredFor('StopFailure'),
-    'StopFailure must be a registered event in hooks/hooks.json pointing at stop-gate-hook.cjs');
-  // And the registered hook, driven via the StopFailure payload, must record +
-  // keep recoverable, NEVER declare success and NEVER block teardown.
-  const { docDir, statePath } = seedRun(root, { status: 'running', continuity_attempts: 2 });
-  const r = run(stopFailurePayload(root), Object.assign({ PIPELINE_DOC_PATH: docDir }, ARMED));
-  assert.equal(r.status, 0, r.stderr);
-  assert.notEqual(decisionOf(r), 'block', 'StopFailure must never block teardown, even armed at the continuity cap');
-  const after = readState(statePath) || {};
-  assert.notEqual(after.status, 'completed', 'StopFailure must never mark the run completed');
-});
+// v8.20.0-glm port: StopFailure event eliminated (not supported by Z-Code).
+console.log('  [SKIP] S5-8b [wiring] StopFailure — event eliminated in v8.20.0-glm port (Z-Code has no StopFailure)');
 
 // ---- S5-9 [regression / H3] structural ordering: stop-gate cap, then cleanup --
 liveTest('S5-9 [H3] armed cap writes hard_failed FIRST; cleanup then defers (lock NOT completed before terminal)', (root) => {

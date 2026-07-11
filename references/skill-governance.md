@@ -1,6 +1,8 @@
 # Skill Governance — Pipeline-Orchestrator
 
-> **SSOT** for skill lifecycle rules within the Pipeline-Orchestrator plugin: semver policy for skills, lockstep between Claude and Cursor manifests, progressive disclosure for long skills, allowed-tools format guidance, and the audit log of patterns adopted from external sources (notably `langfuse/skills`). Introduced in v7.4.0.
+> **SSOT** for skill lifecycle rules within the Pipeline-Orchestrator plugin: semver policy for skills, lockstep between Claude and Cursor manifests, progressive disclosure for long skills, allowed-tools format guidance, and the audit log of patterns adopted from external sources. Introduced in v7.4.0.
+
+> v8.20.0-glm port: references to `langfuse/skills` patterns below are historical — they document what was adopted from that ecosystem at v7.4.0. The Langfuse Cloud integration itself was removed from this port; the patterns adopted from observing `langfuse/skills` (progressive disclosure, separate manifests, etc.) remain in force.
 
 This document is kept **separate from `CLAUDE.md`** so that general engineering rules and skill-specific lifecycle rules live in distinct documents. `CLAUDE.md` carries a short pointer to this file from its top-level table of contents; the operational detail lives here.
 

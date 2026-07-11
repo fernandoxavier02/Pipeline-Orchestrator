@@ -12,9 +12,8 @@ Este plugin é uma linha de montagem para trabalho de software. Você descreve u
 Existem dois jeitos de usar:
 
 - **Aqui na sua máquina** — você acompanha em tempo real, responde às perguntas e aprova cada passo. São o comando guarda-chuva `pipeline`, o `brainstorm`, e um atalho direto pra cada tipo de tarefa (conserto de bug, funcionalidade, auditoria, experiência do usuário, e outros).
-- **Nos robôs do servidor (Paperclip)** — você monta a tarefa, despacha pra um servidor remoto, e os robôs tocam sozinhos. Você acompanha por um painel na internet. São os comandos que começam com `paperclip-`.
 
-Os comandos se dividem em três famílias: os que rodam na sua máquina, os que despacham pro servidor, e dois de configuração. Abaixo, cada um explicado.
+Os comandos se dividem em duas famílias: os que rodam na sua máquina e o de ajuda. Abaixo, cada um explicado.
 
 ---
 
@@ -39,7 +38,6 @@ Ele também tem **modos** (uma palavra logo depois do comando) e **opções** (c
 - `--no-plan` — pula o planejamento. Só funciona em tarefa média; se a tarefa for grande, o plano roda mesmo assim, porque pular nesse caso costuma dar problema.
 - `--type=<tipo>` — você já declara o tipo da tarefa de antemão (por exemplo `--type=spec`, `--type=feature`), em vez de deixar ele adivinhar.
 - `--strict-spec` — modo rígido para automação sem ninguém na frente do teclado (robôs, integração contínua): ele só trata a tarefa como "especificação" se você declarar isso de forma explícita, em vez de adivinhar pela escrita. Evita que ele entre no caminho errado quando não tem você ali pra confirmar.
-- `--on=paperclip <tarefa>` — em vez de rodar aqui, manda a tarefa pros robôs do servidor.
 
 Exemplo: `/pipeline-orchestrator:pipeline conserta o cálculo de juros que arredonda errado`
 
@@ -96,49 +94,4 @@ Escreve a especificação completa de uma ideia do zero: clareia o que você que
 
 ---
 
-## Comandos que despacham pros robôs do servidor (Paperclip)
-
-Estes oito comandos não fazem nada na sua máquina. Eles montam a tarefa em forma de uma sequência de cartões e mandam pra um servidor remoto, onde uma equipe de robôs trabalha sozinha. Antes de mandar pra valer, todos te mostram um rascunho do que vão criar e pedem sua confirmação — então nunca tem surpresa nem custo de só dar uma olhada. Depois de despachar, você acompanha o andamento por um painel na internet.
-
-A maioria deles aceita as opções `--simples`, `--media` ou `--complexa` pra você forçar o tamanho da tarefa. O tamanho decide se os robôs usam a versão leve (mais rápida) ou a pesada (mais caprichada).
-
-### `/pipeline-orchestrator:paperclip-overview`
-Um índice que compara os oito comandos abaixo lado a lado. Comece por aqui se estiver na dúvida sobre qual escolher. Não tem opções.
-
-### `/pipeline-orchestrator:paperclip-bugfix`
-Conserta um defeito em código que já existe. Os robôs investigam a causa, consertam com testes, checam se não quebraram nada em volta, revisam de forma crítica e dão o veredito. Aceita `--simples`, `--media` ou `--complexa`.
-
-### `/pipeline-orchestrator:paperclip-feature`
-Constrói uma funcionalidade nova quando você já tem os critérios bem definidos do que ela precisa fazer. Aceita `--simples`, `--media` ou `--complexa`.
-
-### `/pipeline-orchestrator:paperclip-user-story`
-A mesma coisa que a funcionalidade nova, mas para quando você descreve em forma de história — tipo "Como cliente, quero redefinir minha senha pelo e-mail". Os robôs primeiro extraem dessa frase os critérios do que precisa funcionar, e aí constroem. Aceita `--simples`, `--media` ou `--complexa`.
-
-### `/pipeline-orchestrator:paperclip-audit`
-Examina um pedaço do sistema sem mexer em nada — é só leitura. No fim, sai um relatório técnico (pra equipe) e um executivo (pra quem decide), apontando riscos e problemas. Aceita `--media` ou `--complexa`; não aceita `--simples`, porque auditoria pequena não justifica toda a máquina.
-
-### `/pipeline-orchestrator:paperclip-ux`
-Simula como diferentes tipos de usuário usariam o produto e produz um relatório de experiência, apontando onde as pessoas travariam. Também é só leitura, não mexe no código. Aceita `--simples`, `--media` ou `--complexa`.
-
-### `/pipeline-orchestrator:paperclip-spec`
-Gera só a especificação completa de algo — requisitos, desenho e lista de tarefas — a partir de uma ideia. Não constrói nada; entrega o documento pronto pra alguém implementar depois. Aceita `--simples`, `--media` ou `--complexa`.
-
-### `/pipeline-orchestrator:paperclip-hotfix`
-Para emergência de verdade, quando tem coisa quebrada em produção agora. O tipo e a gravidade já vêm fixos no máximo, sem perguntas. Corta as etapas mais demoradas mas mantém o conserto, a revisão de segurança e o veredito. Não tem opções.
-
-### `/pipeline-orchestrator:paperclip-review`
-Pega mudanças que já foram escritas e passa três revisores críticos em paralelo (um de segurança, um de arquitetura, um de qualidade). No fim, entrega um relatório de tudo que eles acharam. Não conserta nada — só aponta. Não tem opções.
-
----
-
-## Comandos de configuração
-
-### `/pipeline-orchestrator:setup-paperclip`
-Prepara toda a parte do servidor (o Paperclip) do zero: detecta a instalação, cria as empresas, contrata os 47 robôs, configura tudo e instala as habilidades deles. Você roda uma vez só, na primeira vez, ou quando quiser refazer a configuração. Não tem opções.
-
-### `/pipeline-orchestrator:measure-paperclip-fidelity`
-Depois que os robôs do servidor rodam uma tarefa, este comando mede o quanto eles realmente seguiram o roteiro combinado — uma nota de fidelidade. Serve pra saber se a execução remota está saindo igual à daqui.
-
----
-
-Uma dica pra fechar: as opções de planejamento e interrogação do comando local (`--grill`, `--plan`, `--no-plan`) não fazem efeito nos comandos do servidor — se você colocar, eles simplesmente ignoram, sem dar erro.
+Uma dica pra fechar: as opções de planejamento e interrogação do comando local (`--grill`, `--plan`, `--no-plan`) afetam apenas o comando pipeline.

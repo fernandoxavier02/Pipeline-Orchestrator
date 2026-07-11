@@ -281,7 +281,6 @@ Analyze `<arguments>` to determine mode:
 | `/pipeline --plan [task]` | FULL + plan mode | Force plan-architect for any complexity |
 | `/pipeline --no-plan [task]` | FULL + skip plan mode (MEDIA only) | Bypass plan-architect on MEDIA tasks; logs justification in TRACE.md. **Ignored** on COMPLEXA — plan runs anyway with the override attempt logged for audit. (Wave 8-spec / v4.17.0+) |
 | `/pipeline review-only` | **REVIEW-ONLY** | Runs final adversarial review on current uncommitted changes |
-| `/pipeline --on=paperclip [task]` | **PAPERCLIP** | Early return: classify locally via classify-bridge.cjs, mount root card spec via tree-factory.cjs, emit PAPERCLIP_DISPATCH payload — no local phases executed; Paperclip agents on VPS execute the tree |
 
 ### REVIEW-ONLY Mode
 
@@ -292,55 +291,6 @@ When `review-only` is specified:
 3. **Spawn** `final-adversarial-orchestrator` directly
 4. **Output:** FINAL_ADVERSARIAL_REPORT
 5. **No fixes** — report only (user decides what to do)
-
-### PAPERCLIP Mode (`--on=paperclip`)
-
-When `--on=paperclip` is present in `<arguments>`, the controller performs an **early return** before any local phase (Phases 0–3). Detection happens here in STEP 1, before any Agent spawn — mirroring the HOTFIX and REVIEW-ONLY pattern.
-
-**Validation (STEP 1):**
-1. If `[task]` (the task description) is empty or absent → emit a descriptive error to the user. Do NOT call classify-bridge or create a root card.
-2. Parse complexity override: `--simples` → `{complexity:'SIMPLES'}`, `--media` → `{complexity:'MEDIA'}`, `--complexa` → `{complexity:'COMPLEXA'}`. Pass as second argument to classify-bridge.
-3. Flags `--grill`, `--no-plan`, `--plan`, `--variant=*` have no effect in PAPERCLIP mode — they are listed in the payload `notes` as **ignored in paperclip mode** (no error, no execution).
-
-**Branch flow (STEP 1 — early return):**
-
-```
-[task] present?
-  NO  → error to user, no card created
-  YES → classify-bridge.cjs::classify(task, {complexity?}) → ClassifyResult
-           ERROR (invalid override) → present to user via AskUserQuestion, no card created
-           OK → tree-factory.cjs::nodeSpec(complexity, 'classificar', null) → rootIssueSpec
-                  → emit PAPERCLIP_DISPATCH block
-                  → EARLY RETURN (no Phases 0-3, no sentinel-state.json, no gate-decisions.jsonl)
-```
-
-**Emit this block and stop:**
-
-```
-=== PAPERCLIP_DISPATCH v1 ===
-mode: PAPERCLIP
-type: <ClassifyResult.type>
-complexity: <ClassifyResult.complexity>
-source: <ClassifyResult.source>
-rootIssueSpec:
-  title: <rootIssueSpec.title>
-  assigneeAgentId: <rootIssueSpec.assigneeAgentId>
-  blockedByIssueIds: []
-  body: |
-    <rootIssueSpec.body>
-notes: <ClassifyResult.notes + any ignored flags>
-===
-```
-
-**Invariants:**
-- `assigneeAgentId` in the root card is always `task-orchestrator` (the canonical `classificar` step role in all templates — SIMPLES, MEDIA, and COMPLEXA — see `references/paperclip/spec/lib/tree-template.cjs`). `pipeline-controller` is the N1 dispatcher (emits `DISPATCH_REQUEST`), not the classifier (which emits `ORCHESTRATOR_DECISION`). See `references/paperclip/paperclip-catalog.md` line 30.
-- No local agents are spawned (no PIPELINE_DOC_PATH, no sentinel-state.json, no gate-decisions.jsonl).
-- `tree-factory-io.cjs` (actual Paperclip API calls) is NOT invoked here — it belongs to Group B (operation layer, a future step).
-- `mode` field in the payload is `PAPERCLIP` — distinct from FULL / HOTFIX / REVIEW-ONLY / DIAGNOSTIC / CONTINUE.
-
-**Modules used (by name, no inline logic):**
-- `references/paperclip/spec/lib/classify-bridge.cjs` — local type+complexity heuristic (pure, no I/O)
-- `references/paperclip/spec/lib/tree-factory.cjs` — root card spec builder (pure, no I/O)
 
 ### HOTFIX Mode (Emergency Bypass)
 
@@ -438,7 +388,7 @@ Pass this EXACT path to ALL agents. Every agent saves to `{PIPELINE_DOC_PATH}/0N
 
 Immediately after creating PIPELINE_DOC_PATH, create the sentinel state file:
 
-1. Write `{PIPELINE_DOC_PATH}/sentinel-state.json` with initial state (see `references/sentinel-integration.md` Section 1). The initial state MUST include the v7.11.0 correlation fields: `run_id` (= the run folder basename), `pipeline_doc_path` (= absolute PIPELINE_DOC_PATH) and `created_at` (ISO timestamp) — telemetry (Langfuse spans, run-log, fidelity) keys off them (AUDIT-003/010)
+1. Write `{PIPELINE_DOC_PATH}/sentinel-state.json` with initial state (see `references/sentinel-integration.md` Section 1). The initial state MUST include the v7.11.0 correlation fields: `run_id` (= the run folder basename), `pipeline_doc_path` (= absolute PIPELINE_DOC_PATH) and `created_at` (ISO timestamp) — telemetry (run-log, fidelity) keys off them (AUDIT-003/010)
 1b. ALSO write the discovery pointer `<cwd>/.pipeline/active-run.json` = `{ "pipeline_doc_path": "<absolute PIPELINE_DOC_PATH>", "run_id": "<run folder basename>", "updated_at": "<ISO now>" }` — sentinel-hook and stop-hook read it as discovery Priority 0/1.5, eliminating the cwd-mtime ambiguity (AUDIT-005). Refresh updated_at whenever you rewrite sentinel-state.json; it self-invalidates when pipeline_active=false
 2. Set `expected_next: "task-orchestrator"` so the hook knows the first expected spawn
 3. The Write MUST complete before any Agent tool call

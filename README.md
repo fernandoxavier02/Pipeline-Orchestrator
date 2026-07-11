@@ -18,13 +18,13 @@
   <img src="https://img.shields.io/badge/gates-49-22C55E?style=flat-square" alt="Gates"/>
   <img src="https://img.shields.io/badge/hooks-28-EC4899?style=flat-square" alt="Hooks"/>
   <img src="https://img.shields.io/badge/tests-188_files-F59E0B?style=flat-square" alt="Tests"/>
-  <img src="https://img.shields.io/badge/observability-Langfuse_Cloud-FF6B6B?style=flat-square&logo=opentelemetry&logoColor=white" alt="Observability"/>
+  <img src="https://img.shields.io/badge/observability-On_disk_JSONL-FF6B6B?style=flat-square&logo=opentelemetry&logoColor=white" alt="Observability"/>
   <img src="https://img.shields.io/badge/platform-Claude_Code_+Cursor_+OpenCode-000?style=flat-square" alt="Platform"/>
   <img src="https://img.shields.io/badge/license-PolyForm_Shield_1.0.0-EC4899?style=flat-square" alt="License"/>
 </p>
 
 <div align="center">
-  <img src="assets/diagrams/ecosystem.svg" alt="Pipeline Orchestrator ecosystem — Claude Code, Cursor, OpenCode, Langfuse, Paperclip" width="100%"/>
+  <img src="assets/diagrams/ecosystem.svg" alt="Pipeline Orchestrator ecosystem — Claude Code, Cursor, OpenCode, Z-Code" width="100%"/>
 </div>
 
 <p align="center">
@@ -34,8 +34,7 @@
   <a href="#the-enforcement-layer">Enforcement</a> ·
   <a href="#the-gate-system">Gates</a> ·
   <a href="#architecture">Architecture</a> ·
-  <a href="#observability--langfuse">Langfuse</a> ·
-  <a href="#paperclip-runtime">Paperclip</a> ·
+  <a href="#observability">Observability</a> ·
   <a href="#quick-start">Install</a>
 </p>
 
@@ -75,7 +74,7 @@ Five independent anchors hold long sessions on contract. Failures in one do not 
 
 **4 · Gate hierarchy** — **49 checkpoints** across five hardness levels, several of them deterministic `DENY` hooks (v8.5–v8.9). The agent physically cannot advance past a red build, an unresolved info gap, or a `NO-GO`.
 
-**5 · Glass-box audit trail** — Every run emits `TRACE.md` + `gate-decisions.jsonl` under `.pipeline-orchestrator/runs/<run-id>/`, **HMAC-signed** against tampering, validatable with a standalone Node script, and streamable to **Langfuse Cloud** for cross-run analytics. Every decision is recorded. Every run ends with a number — `GO ≥ 0.80`, `CONDITIONAL ≥ 0.60`, `NO-GO < 0.60`. No gut feelings.
+**5 · Glass-box audit trail** — Every run emits `TRACE.md` + `gate-decisions.jsonl` under `.pipeline-orchestrator/runs/<run-id>/`, **HMAC-signed** against tampering, validatable with a standalone Node script. Every decision is recorded. Every run ends with a number — `GO ≥ 0.80`, `CONDITIONAL ≥ 0.60`, `NO-GO < 0.60`. No gut feelings.
 
 ---
 
@@ -85,9 +84,8 @@ Five independent anchors hold long sessions on contract. Failures in one do not 
 - **Spec-authoring takeover (v8.0)** — `/pipeline-orchestrator:spec` no longer just processes an existing spec. It **authors a new one** end-to-end: brainstorm clarification → proactive ideation → forced design interrogation → Kiro lifecycle → adversarial document review → sealed contract, then stops before implementing.
 - **Adversarial review at two levels** — per-batch three-way parallel review during execution, plus an optional final three-reviewer sweep with zero shared context before the `Pa de Cal` (final validation).
 - **Proportional rigor** — a typo fix does not get the same ceremony as a payment system rewrite. Auto-detected: SIMPLES is light, COMPLEXA gets the full adversarial team.
-- **First-class observability** — opt-in **Langfuse Cloud** tracing with two env vars; per-subagent spans carry `phase`, `agent_name`, `plugin_version`, `run_id`. On-disk JSONL for compliance, dashboard for trends.
-- **Runs inside Paperclip** — the same governance layer drives autonomous agents on [Paperclip](https://paperclip.ing) via the `claude_local` adapter and a flow-mirror that turns any pipeline into a dependency-linked tree of issues.
-- **Offline-first** — absent credentials mean zero SDK calls, zero network. The Langfuse hook short-circuits in under 100 ms.
+- **On-disk observability** — every run emits signed `gate-decisions.jsonl` + `TRACE.md` under `.pipeline-orchestrator/runs/<run-id>/`. Compliance artifact by default.
+- **Offline-first** — zero network calls, zero external SDK dependencies. Runs in air-gapped environments.
 
 ---
 
@@ -112,7 +110,7 @@ One orchestrator, many workflows. The `task-orchestrator` reads your request, cl
 
 Three flows run **inside every pipeline**, not as separate types: the **brainstorm** (intake → explore → alternatives → ideation), the **spec lifecycle** (init → requirements → validate-gap → design → validate-design → tasks), and the **3-way adversarial review**.
 
-**Mode flags** modulate any pipeline: `--hotfix` (production emergency, reduced scope, never skips MANDATORY gates), `--diagnostic` (classify + plan only, no code), `--continue` (resume a previous run), `--review-only` (final adversarial against an uncommitted diff), `--light`/`--heavy` (force depth), `--plan`/`--no-plan` (Plan Mode control), `--strict-spec`, `--on=paperclip`.
+**Mode flags** modulate any pipeline: `--hotfix` (production emergency, reduced scope, never skips MANDATORY gates), `--diagnostic` (classify + plan only, no code), `--continue` (resume a previous run), `--review-only` (final adversarial against an uncommitted diff), `--light`/`--heavy` (force depth), `--plan`/`--no-plan` (Plan Mode control), `--strict-spec`.
 
 ---
 
@@ -193,43 +191,11 @@ Mandatory-gate counts scale with complexity: **SIMPLES 11 · MEDIA 13 · COMPLEX
 
 ---
 
-## Observability · Langfuse
+## Observability
 
-Pipeline Orchestrator ships with first-class [Langfuse](https://langfuse.com) integration — the open-source LLM observability platform. It is **opt-in and offline-first**: with no credentials, the hook short-circuits in under 100 ms and makes zero network calls.
+Pipeline Orchestrator emits a glass-box audit trail on disk: every gate decision lands in `gate-decisions.jsonl` and every run emits a `TRACE.md` and run-log under `.pipeline-orchestrator/runs/<run-id>/`, **HMAC-signed** against tampering. The on-disk copy is your compliance artifact.
 
-**Activate with two environment variables:**
-
-```bash
-export LANGFUSE_ENABLED=true
-export LANGFUSE_PUBLIC_KEY=pk-lf-...
-export LANGFUSE_SECRET_KEY=sk-lf-...
-export LANGFUSE_HOST=https://us.cloud.langfuse.com   # or your self-hosted URL
-# optional:
-export LANGFUSE_SAMPLE_RATE=1.0   # 0.0 disables tracing; 1.0 traces every run
-export PIPELINE_TRACING_SCOPE=full   # agent-only (default) | agent-plus-skill | full
-```
-
-**What you see.** Each pipeline run becomes a single Langfuse **trace**; each subagent dispatch becomes a **span** carrying structured metadata — `run_id`, `task_type`, `complexity`, `phase`, `agent_name`, and `plugin_version`. Every gate decision, `GATE_REQUEST`, and adversarial finding lands as a scored event, so you can slice performance by agent, by phase, or by gate hardness.
-
-**One run, one trace.** Earlier versions fragmented a single run across N traces when subagents forked processes. Since v7.5.0 the Langfuse carrier is keyed by `runId` (with graceful PPID/mtime fallback), and since v7.9.3 spans are resolved by phase + agent so you stop seeing `unknown`. The `langfuse-hook.cjs` also enforces project isolation via the plugin `.env`, so traces land in the right Langfuse project.
-
-**On-disk mirror.** The same data is written to `gate-decisions.jsonl` and the run-log under `.pipeline-orchestrator/runs/<run-id>/`. The on-disk copy is your compliance artifact; the Langfuse dashboard is your trend view across runs.
-
-**Bundled, not boilerplate.** `langfuse` 3.x is a `bundledDependencies` entry in `package.json`, so an npm install carries the SDK — no extra network step in air-gapped teams.
-
----
-
-## Paperclip Runtime
-
-[Paperclip](https://paperclip.ing) is an open-source platform for running autonomous AI agents — you provision a company of agents, they pick up issues, and work flows through dependencies. Pipeline Orchestrator runs **inside** Paperclip with effective parity to Claude Code standalone, so the same governance layer that guards your interactive sessions also guards the autonomous ones.
-
-**The `claude_local` adapter.** Paperclip orchestrates its own agent lifecycle; the adapter exposes the plugin's agents, skills, and hooks to that lifecycle. Your plugin-defined `pipeline-controller`, `task-orchestrator`, adversarial reviewers, and gates all execute inside a Paperclip agent run.
-
-**The flow-mirror (v7.9.0).** Any pipeline can be mirrored into a Paperclip **tree of issues** linked by `blockedByIssueIds` — each task, batch, and adversarial review becomes an issue with its dependencies wired. You watch the pipeline as a board; the orchestrator updates issues as it advances. The fidelity of the mirror is itself measured (`skills/measure-paperclip-fidelity`) and sealed with a **HMAC run-seal** (`lib/run-seal.cjs`) so a forged run cannot pass as governed.
-
-**Company provisioning.** `setup-paperclip` runs `references/paperclip/scripts/provision-pipeline-company.cjs`, which creates a Paperclip company with **47 agent roles** and **11 skills**, name-agnostic (no hardcoded UUIDs). An existing live deployment runs ~50 agents on `codex_local` / `gpt-5.x`.
-
-**Ten Paperclip entry-points** mirror the pipeline flows: `paperclip-audit`, `paperclip-bugfix`, `paperclip-feature`, `paperclip-hotfix`, `paperclip-overview`, `paperclip-refactor`, `paperclip-review`, `paperclip-spec`, `paperclip-user-story`, `paperclip-ux`. Start any flow with `--on=paperclip`. Full setup in [`docs/PAPERCLIP-INTEGRATION.md`](docs/PAPERCLIP-INTEGRATION.md).
+> Note on this port: the Langfuse Cloud integration that existed in the canonical was removed. Observability is now on-disk only. See `docs/port-zcode/` for the portability audit.
 
 ---
 
@@ -271,7 +237,7 @@ If active, you will see classification (SIMPLES/MEDIA/COMPLEXA), variant selecti
 
 ### Turn on observability (optional)
 
-See the [Langfuse section](#observability--langfuse) for the full env-var set. Minimal: `LANGFUSE_ENABLED=true` plus your public/secret keys and host.
+Observability in this port is on-disk only. Every gate decision lands in `gate-decisions.jsonl` and every run emits `TRACE.md` plus a run-log under `.pipeline-orchestrator/runs/<run-id>/`, HMAC-signed against tampering. The Langfuse Cloud integration from the canonical was removed in this port.
 
 ---
 
@@ -293,7 +259,7 @@ The plugin scales depth automatically by complexity.
 npm test
 ```
 
-188 test files spanning regression suites from v6.0.0 through v8.9.0 (Achado #7 protocol, telemetry hygiene, Phase 0 hardening, concurrent-safe tracing, implementation discipline, deterministic enforcement) plus the hook unit suites. The release gate also wires in the Paperclip flow-mirror and packaging tests.
+188 test files spanning regression suites from v6.0.0 through v8.9.0 (Achado #7 protocol, telemetry hygiene, Phase 0 hardening, concurrent-safe tracing, implementation discipline, deterministic enforcement) plus the hook unit suites.
 
 ---
 
@@ -318,7 +284,6 @@ This repository hosts the **FX-Studio-AI** marketplace. Install once to access m
 - **[`docs/diagrams/`](docs/diagrams/)** — standalone interactive HTML diagrams (pipeline overview, gate hierarchy, the Achado #7 subagent protocol, audit history).
 - **[`docs/audits/`](docs/audits/)** — archived deep audits (IFRS 16 reference project, clarification-overhaul dogfood, enforcement-determinism audits).
 - **[`references/`](references/)** — source-of-truth references: `gates.md`, `audit-trail.md`, `complexity-matrix.md`, `implementation-discipline.md`, `skill-governance.md`, `team-registry.md`.
-- **[`docs/PAPERCLIP-INTEGRATION.md`](docs/PAPERCLIP-INTEGRATION.md)** — running the plugin inside Paperclip.
 
 ### Recent releases at a glance
 
@@ -362,8 +327,7 @@ Contributions welcome — this is an active project with a strong audit culture.
     <a href="https://claude.com/claude-code">Claude Code</a> ·
     <a href="https://cursor.com">Cursor</a> ·
     <a href="https://github.com/sst/opencode">OpenCode</a> ·
-    Observability by <a href="https://langfuse.com">Langfuse</a> ·
-    Autonomous runtime on <a href="https://paperclip.ing">Paperclip</a>
+    Z-Code
   </p>
   <p><em>"AI follows a contract, not its mood — and now you can watch it do so in real time."</em></p>
 </div>

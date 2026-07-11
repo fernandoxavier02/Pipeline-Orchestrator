@@ -408,6 +408,19 @@ function shouldBlock(filePath, pipelineDir) {
     return { block: false, reason: 'exec_window_active', execWindow, lock };
   }
 
+  // SEC-1 (F4/S1): shouldBlock is the FIRST gate in handlePreToolUse and returns IMMEDIATELY, so the
+  // spec-artifact exemption the later gates honor (through isExemptPath) is unreachable from here. A
+  // real /spec run arms a session-lock for the 'spec' entry point, but the spec-controller writes its
+  // .kiro/specs/** artifacts DIRECTLY and never opens an exec-window — so without this branch the very
+  // first spec-artifact write of a locked Spec run hits PIPELINE_LOCK_ACTIVE (the 2026-06-29 deadlock
+  // this slice exists to close). Release ONLY the exact verified-spec-artifact case (same PRESENT+VALID
+  // HMAC gate as the isExemptPath grant point, target anchored repo-relative inside the run's OWN spec
+  // folder). PIPELINE_LOCK_ACTIVE still holds for everything else — production code, cross-spec targets,
+  // non-Spec runs, and unsigned/invalid/key-unavailable state.
+  if (isVerifiedSpecArtifactWrite(filePath, pipelineDir)) {
+    return { block: false, reason: 'spec_artifact_exempt', lock };
+  }
+
   return {
     block: true,
     reason: `PIPELINE_LOCK_ACTIVE: ${buildBlockMessage(filePath, lock.session_id)}`,
@@ -578,10 +591,105 @@ function isPlanFile(filePath) {
   return false;
 }
 
-// A write is exempt from the preventive locks when it targets the run's .pipeline/ dirs OR the
-// harness Plan-Mode plan file. Production code outside these stays subject to the gate.
+// v8.21.0 (F4 / Slice S1): normalize a forward-or-back-slash path (relative to the shared repo
+// root) into resolved segments — dropping leading './' and resolving '.'/'..' — so targetPath and
+// spec_path are anchored against the SAME base and compared by path-SEGMENT containment rather than
+// raw string-prefix (the OVER-EXEMPTION / FALSE-NEGATIVE hazard the F4 header pins).
+//
+// CASE-SENSITIVITY (CLAR-1, deliberate): the segments produced here are compared CASE-SENSITIVELY by
+// isUnderKiroSpecs and by the containment loop in isSpecArtifactWrite — a deliberate break from the
+// win32-lowercase normalization the rest of this file uses (isInsidePipelineDirs, isPlanFile,
+// discoverStatePath). The difference is intentional because those predicates DENY/contain, whereas
+// this one GRANTS an access exemption: lowercasing would only LOOSEN the match (hand the exemption to
+// case-variant targets like '.Kiro/Specs/…'), the opposite of the hardening this slice is about, and
+// would make an otherwise-pure predicate platform-dependent. Kiro emits spec paths with consistent
+// casing, so there is no real false-negative. Pinned by test F4-5.6 so a refactor cannot silently flip
+// this predicate to case-insensitive without updating the contract.
+function specPathSegments(p) {
+  if (typeof p !== 'string') return [];
+  const normalized = path.posix.normalize(p.replace(/\\/g, '/'));
+  return normalized.split('/').filter((s) => s && s !== '.');
+}
+
+// A segment list is inside .kiro/specs/<run>/… only when it starts with those two segments AND
+// carries at least a named run folder beneath them. Guards the empty/root spec_path over-exemption
+// (a spec_path of '.' or '/' must NOT turn every .kiro/specs write into a spec-artifact write).
+function isUnderKiroSpecs(segs) {
+  return Array.isArray(segs) && segs.length >= 3 && segs[0] === '.kiro' && segs[1] === 'specs';
+}
+
+// A Write/Edit that lands INSIDE .kiro/specs/** is a legitimate spec-artifact write — exempt from
+// the production-code locks — ONLY when the active run is a verified Spec-authoring run and the
+// target lives INSIDE that run's OWN spec folder. Pure and fail-closed: anything it cannot
+// positively vouch for (no run / CORRUPT_SENTINEL / wrong type / empty spec_path / cross-spec
+// target / production path) returns false, leaving the write subject to the gate.
+function isSpecArtifactWrite(targetPath, signedState) {
+  // (a) a real, verified state object — the CORRUPT_SENTINEL string and null fail closed (5.4).
+  if (typeof signedState !== 'object' || signedState === null) return false;
+  // (b) target normalized inside .kiro/specs/<run>/… (5.2c: production paths outside → false).
+  const targetSegs = specPathSegments(targetPath);
+  if (!isUnderKiroSpecs(targetSegs)) return false;
+  // (c) a Spec-authoring run that declares its own non-empty spec folder (5.2b: type !== 'Spec').
+  const decision = signedState.orchestrator_decision;
+  if (!decision || typeof decision !== 'object') return false;
+  if (decision.type !== 'Spec') return false;
+  const specPath = decision.spec_context && decision.spec_context.spec_path;
+  if (typeof specPath !== 'string' || !specPath.trim()) return false;
+  const specSegs = specPathSegments(specPath);
+  if (!isUnderKiroSpecs(specSegs)) return false;
+  // (d) path-SEGMENT containment (not raw string-prefix): the target must sit STRICTLY inside the
+  //     run's own spec folder — a sibling like .kiro/specs/foo-2/ must NOT match .kiro/specs/foo/
+  //     (5.2a: cross-spec target → false).
+  if (targetSegs.length <= specSegs.length) return false;
+  for (let i = 0; i < specSegs.length; i++) {
+    if (targetSegs[i] !== specSegs[i]) return false;
+  }
+  return true;
+}
+
+// SEC-1 / QUAL-1 (F4/S1): the SINGLE source of truth for "is this an exemptible spec-artifact write
+// for the active, cryptographically-VERIFIED Spec run?". Shared by BOTH isExemptPath (the dispatch/
+// plan/corrupt gates) AND shouldBlock (the first lock gate) so the two can never diverge — before
+// this extraction shouldBlock had no spec-artifact path at all, making the exemption dead code
+// whenever a session-lock was active with no exec-window (the real /spec deadlock).
+//
+// HIGH-2 (forge-deny): GRANTING the exemption is an ACCESS grant, so it demands a cryptographically
+// VERIFIED run state — stricter than the migration-tolerant fail-closed posture the rest of the hook
+// uses. findActiveSentinelState returns the mtime-fallback state RAW (never signature-checked) and
+// tolerates unsigned authoritative states for migration; either would let an attacker plant a FORGED
+// unsigned sentinel-state (type=Spec, arbitrary spec_path) under .pipeline/docs/Pre-*-action/<forged>/
+// and be handed an exemption over an unrelated .kiro/specs target. Re-verify here and require a
+// signature that is PRESENT and VALID: null / CORRUPT_SENTINEL / unsigned / invalid / key-unavailable
+// all → do NOT grant. This only HARDENS: a genuinely signed run still verifies regardless of how its
+// state was discovered.
+function isVerifiedSpecArtifactWrite(filePath, pipelineDir) {
+  if (typeof filePath !== 'string' || typeof pipelineDir !== 'string') return false;
+  const state = findActiveSentinelState(pipelineDir);
+  if (!state || typeof state !== 'object') return false; // null and the CORRUPT_SENTINEL string
+  let v;
+  try { v = signer.verifyState(state, { key: signer.readHmacKey() }); }
+  catch (_) { return false; }
+  if (!v || v.valid !== true || v.unsigned === true || v.key_unavailable === true) return false;
+  // HIGH-1 (dead-feature fix): tool_input.file_path is ABSOLUTE in Claude Code but
+  // decision.spec_context.spec_path is repo-relative. Anchor the target on the SAME base (repo-
+  // relative) — exactly as isInsidePipelineDirs does — so both feed specPathSegments as .kiro/specs/…
+  // segments. Passing the raw absolute path made specPathSegments()[0] the drive/root, so
+  // isUnderKiroSpecs was always false and the exemption never fired.
+  const repoRelativeTarget = path.relative(pipelineDir, path.resolve(pipelineDir, filePath));
+  return isSpecArtifactWrite(repoRelativeTarget, state);
+}
+
+// A write is exempt from the preventive locks when it targets the run's .pipeline/ dirs, the
+// harness Plan-Mode plan file, OR a spec-artifact write for the active verified Spec run (the
+// signedState is derived internally from the run dir). Production code outside these stays subject
+// to the gate. CORRUPT_SENTINEL → isVerifiedSpecArtifactWrite returns false, so corruptResult still
+// blocks.
 function isExemptPath(filePath, pipelineDir) {
-  return isInsidePipelineDirs(filePath, pipelineDir) || isPlanFile(filePath);
+  // SEC-3/QUAL-2: guard FIRST — isInsidePipelineDirs and isPlanFile call path.resolve, which throws a
+  // TypeError on a non-string filePath. Bailing here keeps the predicate total.
+  if (typeof filePath !== 'string' || typeof pipelineDir !== 'string') return false;
+  if (isInsidePipelineDirs(filePath, pipelineDir) || isPlanFile(filePath)) return true;
+  return isVerifiedSpecArtifactWrite(filePath, pipelineDir);
 }
 
 // Shared fail-closed result for an authoritatively-corrupt run state.
@@ -785,4 +893,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, getActiveLock, openExecWindow, closeExecWindow, findPairingEntry, appendAuditEntry, shouldBlockOnPendingDispatch, buildDispatchBlockMessage, findActiveSentinelState, discoverStatePath, findLivePendingBlock, resolveHandshakeTimeoutMs, shouldBlockWithoutApprovedPlan, buildPlanGateMessage, planGateArmedFromState, detectShellWrite, isDispatchPending, isPlanGateArmed, isPlanFile, isExemptPath, CORRUPT_SENTINEL, MAX_TTL_MINUTES, PAIRING_TOLERANCE_MS, STALE_HEARTBEAT_THRESHOLD_MS, STALE_HEARTBEAT_MS /* deprecated alias, removal scheduled for v5.4.0 */ };
+module.exports = { shouldBlock, buildBlockMessage, handlePreToolUse, getActiveExecWindow, getActiveLock, openExecWindow, closeExecWindow, findPairingEntry, appendAuditEntry, shouldBlockOnPendingDispatch, buildDispatchBlockMessage, findActiveSentinelState, discoverStatePath, findLivePendingBlock, resolveHandshakeTimeoutMs, shouldBlockWithoutApprovedPlan, buildPlanGateMessage, planGateArmedFromState, detectShellWrite, isDispatchPending, isPlanGateArmed, isPlanFile, isExemptPath, isSpecArtifactWrite, isVerifiedSpecArtifactWrite, CORRUPT_SENTINEL, MAX_TTL_MINUTES, PAIRING_TOLERANCE_MS, STALE_HEARTBEAT_THRESHOLD_MS, STALE_HEARTBEAT_MS /* deprecated alias, removal scheduled for v5.4.0 */ };

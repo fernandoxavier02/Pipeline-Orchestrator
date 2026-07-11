@@ -42,7 +42,15 @@ const PLUGIN_ROOT_STOP = path.resolve(__dirname, '..', '..');
 // Shared trace-carrier SSOT (v7.3.0 fix-loop 1: ARCH-3 / RISK-1) — provides
 // canonical SPAN_PREFIX/TRACE_PREFIX/getSpanPath/getTracePath so the cleanup
 // glob below stays in sync with what langfuse-hook.cjs writes.
-const carrierLib = require(path.join(PLUGIN_ROOT_STOP, 'lib', 'langfuse-carrier.cjs'));
+// v8.20.0-glm port: Langfuse foi removido; require é fail-open com fallback
+// para os mesmos prefixos literais ('langfuse-trace-' e 'langfuse-span-'),
+// garantindo que arquivos temp órfãos de runs anteriores ainda sejam limpos.
+let carrierLib;
+try {
+  carrierLib = require(path.join(PLUGIN_ROOT_STOP, 'lib', 'langfuse-carrier.cjs'));
+} catch (_e) {
+  carrierLib = { TRACE_PREFIX: 'langfuse-trace-', SPAN_PREFIX: 'langfuse-span-' };
+}
 
 // Stdin cap — defense against unbounded buffering (SEC-4 from Batch 3
 // adversarial). 1 MiB is far above any realistic Stop-event payload but

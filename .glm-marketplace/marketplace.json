@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "name": "glm-local",
+  "plugins": [
+    {
+      "cachePath": "D:\\pipeline-orchestrator-claude\\pipeline-orchestrator-glm",
+      "name": "pipeline-orchestrator",
+      "source": "filesystem",
+      "version": "8.20.0"
+    }
+  ]
+}

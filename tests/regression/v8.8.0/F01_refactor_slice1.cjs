@@ -363,26 +363,7 @@ test('S7 [NEW] "refactor" is present across ALL lockstep surfaces incl. controll
 });
 
 // ---- S8 [NEW] paperclip mirror -----------------------------------------
-test('S8 [NEW] paperclip refactor mirror exists (workflow ref + slash command), shaped like the bugfix mirror', () => {
-  assert.ok(fs.existsSync(PAPERCLIP_WORKFLOW),
-    'references/paperclip/PAPERCLIP-REFACTOR-WORKFLOW.md must exist');
-  assert.ok(fs.existsSync(PAPERCLIP_CMD),
-    'commands/paperclip-refactor.md must exist');
-
-  const wf = read(PAPERCLIP_WORKFLOW);
-  const cmd = read(PAPERCLIP_CMD);
-
-  // Workflow doc mirrors the bugfix workflow header shape.
-  assert.match(wf, /PAPERCLIP-REFACTOR-WORKFLOW/,
-    'workflow doc must carry the PAPERCLIP-REFACTOR-WORKFLOW title');
-  assert.match(wf, /[Rr]efactor/, 'workflow doc must describe the Refactor type');
-
-  // Slash command mirrors the bugfix command shape: YAML frontmatter with
-  // allowed-tools, a fixed Refactor type, and a confirmation gate.
-  assert.match(cmd, /^---/, 'paperclip-refactor.md must open with YAML frontmatter');
-  assert.match(cmd, /allowed-tools:/, 'paperclip-refactor.md frontmatter must declare allowed-tools');
-  assert.match(cmd, /[Rr]efactor/, 'paperclip-refactor.md must target the Refactor type');
-});
+// v8.20.0-glm port: paperclip integration removed; S8 test deleted.
 
 // ---- summary ------------------------------------------------------------
 console.log('');

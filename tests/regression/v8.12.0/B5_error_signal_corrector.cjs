@@ -521,14 +521,15 @@ check('S6 SMOKE: real spawned hook (stdin failure verdict) exits 0 + writes chan
   assert.equal(fs.existsSync(HOOK_PATH), true,
     `MISSING hook file: ${HOOK_PATH} must exist for the real-process smoke — RED until Batch 5 GREEN`);
 
-  // (b) it must be registered under the SubagentStop event in hooks/hooks.json.
+  // (b) v8.20.0-glm port: hook migrated from SubagentStop to PostToolUse:Agent
+  // (Z-Code has no SubagentStop event). Verify it's registered under PostToolUse.
   const manifest = JSON.parse(fs.readFileSync(HOOKS_JSON, 'utf8'));
-  const sub = (manifest && manifest.hooks && manifest.hooks.SubagentStop) || [];
-  const registered = sub.some((group) => Array.isArray(group.hooks)
+  const ptu = (manifest && manifest.hooks && manifest.hooks.PostToolUse) || [];
+  const registered = ptu.some((group) => Array.isArray(group.hooks)
     && group.hooks.some((h) => typeof h.command === 'string'
       && /corrective-error-signal-gate\.cjs/.test(h.command)));
   assert.equal(registered, true,
-    'corrective-error-signal-gate.cjs must be registered under the SubagentStop event in hooks/hooks.json — RED until Batch 5 GREEN wires it');
+    'corrective-error-signal-gate.cjs must be registered under PostToolUse (matcher Agent) in hooks/hooks.json — v8.20.0-glm port migrated from SubagentStop');
 
   // (c) spawn the real process with a failure verdict on stdin in a fresh tmp cwd.
   delete process.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS;

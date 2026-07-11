@@ -123,9 +123,7 @@ test('B3 — review-only → REVIEW-ONLY mode', () => {
   assert.equal(classifyWorkflow('/pipeline-orchestrator:pipeline review-only').mode, 'REVIEW-ONLY');
 });
 
-test('B4 — --on=paperclip → PAPERCLIP mode', () => {
-  assert.equal(classifyWorkflow('/pipeline-orchestrator:pipeline --on=paperclip add a button').mode, 'PAPERCLIP');
-});
+// v8.20.0-glm port: B4 paperclip test removed (--on=paperclip flag deleted).
 
 test('B5 — "corrige o bug do login" → Bug Fix', () => {
   assert.equal(classifyWorkflow('corrige o bug do login com Google').type, 'Bug Fix');

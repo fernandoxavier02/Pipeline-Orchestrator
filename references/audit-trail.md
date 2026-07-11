@@ -153,22 +153,23 @@ Each line carries the 8 base fields plus the 5 correlation-envelope fields (`run
 Spec: `.kiro/specs/tracing-concurrent-execution-id/`. Four invariants govern how concurrent pipeline runs share a working directory without corrupting each other's trace data.
 
 - **I-1 — Multiple simultaneous runs.** The system permits more than one pipeline to be in flight in the same working directory at the same time. No global lock; coexistence is by isolation, not by serialization.
-- **I-2 — Run-scoped artefacts.** Every tracing artefact (run-directory manifests, Langfuse trace/span carrier files, sentinel state files) is keyed by a unique, collision-resistant per-run identifier propagated through the environment variable `PIPELINE_RUN_ID`. The id is allocated by `lib/run-directory.cjs::RunDirectory.allocate` and published on `process.env.PIPELINE_RUN_ID` before that function returns.
-- **I-3 — Explicit scope contract.** The set of events that turn into observations in Langfuse is governed by `PIPELINE_TRACING_SCOPE`, never by a silent code-level filter. The three accepted values are `agent-only` (default; v7.4.0 parity), `agent-plus-skill`, and `full`.
-- **I-4 — Opt-in cost reductions.** Filters that exist purely to reduce observability cost (e.g., dropping non-Agent tool events) must be opt-in flags with a default that preserves prior behavior. Silent drops are forbidden.
+- **I-2 — Run-scoped artefacts.** Every tracing artefact (run-directory manifests, sentinel state files) is keyed by a unique, collision-resistant per-run identifier propagated through the environment variable `PIPELINE_RUN_ID`. The id is allocated by `lib/run-directory.cjs::RunDirectory.allocate` and published on `process.env.PIPELINE_RUN_ID` before that function returns.
 
-## Tracing Scope Policy (`PIPELINE_TRACING_SCOPE`)
+> v8.20.0-glm port: Langfuse Cloud integration was removed. Tracing scope policy (`PIPELINE_TRACING_SCOPE`) and the Langfuse AUDIT events that depended on `langfuse-hook.cjs` no longer apply. The on-disk audit trail (`gate-decisions.jsonl`, `run-log.jsonl`, sentinel-state) remains the source of truth.
 
-`PIPELINE_TRACING_SCOPE` is read once per hook invocation by `.claude/hooks/langfuse-hook.cjs::shouldTrace`. Accepted values:
+## AUDIT Events (v7.5.0 additions)
 
-| Value | Tools that drive a span | Notes |
-|-------|-------------------------|-------|
-| (unset) / `agent-only` | `Agent` | Default. Bit-for-bit identical to v7.4.0 behavior. |
-| `agent-plus-skill` | `Agent`, `Skill` | Opt-in. Emits `TRACING_SCOPE_EXPANDED` once per session. |
-| `full` | every tool the hook sees | Opt-in. Useful for end-to-end audit traces; expect higher Langfuse ingest cost. |
-| any other string | falls back to `agent-only` | Emits `TRACING_SCOPE_UNKNOWN` once per session so typos surface in stderr. |
+These events surface as JSONL lines on `stderr` from the relevant module. They are informational breadcrumbs — not gates. They are deduped per process so a single hook invocation only emits one line per (event, key) pair.
 
-Backward compatibility is the contract here: users who never set `PIPELINE_TRACING_SCOPE` see no behavior change relative to v7.4.0.
+| Event | Origin | Meaning |
+|-------|--------|---------|
+| `RUN_DIR_COLLISION_RETRY` | `lib/run-directory.cjs::allocate` | The exclusive `mkdirSync` lost a race; a new `uniqueId` is being generated for retry. Expected under high concurrency; rare otherwise. |
+| `DISCOVERY_RUN_ID_NO_MATCH` | `sentinel-hook` / `stop-hook` | `PIPELINE_RUN_ID` is set but no `sentinel-state.json` in the candidate set carries a matching `run_id`. The hook falls back to mtime-newest. Possible causes: orphan state, env-var leak, races between cleanup and discovery. |
+| `DISCOVERY_MTIME_FALLBACK` | `sentinel-hook` / `stop-hook` | Discovery picked the mtime-newest candidate because no `runId` match was available (env-var absent or non-matching). Includes `total` (candidate count) and `picked` (absolute path). |
+
+> v8.20.0-glm port: `CARRIER_PPID_FALLBACK`, `TRACING_SCOPE_UNKNOWN`, and `TRACING_SCOPE_EXPANDED` were removed (they originated in `langfuse-hook.cjs`, which no longer exists in this port).
+
+All documented events are at the SSOT level (this file). The schema is `{ "audit_event": <name>, "ts": <ISO 8601>, ...event-specific fields }`. Operators who want to alert on a particular event can grep stderr / journalctl logs for the `audit_event` key.
 
 ## AUDIT Events (v7.5.0 additions)
 

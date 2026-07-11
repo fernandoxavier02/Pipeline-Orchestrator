@@ -144,7 +144,8 @@ test('S1-10 [edge] non-FULL modes present with agents_by_step === null (GAP-02)'
   assert.ok(m.WORKFLOWS && typeof m.WORKFLOWS === 'object', 'WORKFLOWS SSOT must be exported');
   // v8.19.0: Spec now carries a single-leaf spine (seal → spec-controller), so it is
   // no longer in the null-spine set. Every OTHER non-FULL mode stays null.
-  for (const mode of ['DIAGNOSTIC', 'REVIEW-ONLY', 'HOTFIX', 'PAPERCLIP', 'brainstorm']) {
+  // v8.20.0-glm port: PAPERCLIP removed from this list (paperclip integration deleted).
+  for (const mode of ['DIAGNOSTIC', 'REVIEW-ONLY', 'HOTFIX', 'brainstorm']) {
     assert.ok(Object.prototype.hasOwnProperty.call(m.WORKFLOWS, mode),
       `WORKFLOWS must enumerate mode "${mode}"`);
     assert.strictEqual(m.WORKFLOWS[mode].agents_by_step, null,

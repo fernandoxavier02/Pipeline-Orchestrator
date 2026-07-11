@@ -1,7 +1,7 @@
 {
   "name": "@fx-studio-ai/pipeline-orchestrator",
   "version": "8.20.0",
-  "description": "Multi-agent governance layer for Claude Code, Cursor, and OpenCode — sits between your spec and production code with deterministic enforcement, TDD, parallel adversarial review, a 49-gate hierarchy, and a glass-box audit trail. v8.20.0.",
+  "description": "Multi-agent governance layer for Claude Code, Cursor, OpenCode, and Z-Code — sits between your spec and production code with deterministic enforcement, TDD, parallel adversarial review, a 49-gate hierarchy, and a glass-box audit trail. Portable across all four harnesses via dual manifest (.claude-plugin + .zcode-plugin). v8.20.0.",
   "keywords": [
     "claude-code",
     "claude-code-plugin",
@@ -52,6 +52,7 @@
     "lib/",
     "scripts/",
     ".claude-plugin/",
+    ".zcode-plugin/",
     "hooks/",
     ".claude/hooks/",
     "assets/",
@@ -61,10 +62,7 @@
     "README.md",
     "LICENSE",
     "NOTICE.md",
-    "CLAUDE.md",
-    "node_modules/langfuse/",
-    "node_modules/langfuse-core/",
-    "node_modules/mustache/"
+    "CLAUDE.md"
   ],
   "scripts": {
     "lint:types": "node scripts/lint-types.cjs",
@@ -80,13 +78,5 @@
   },
   "publishConfig": {
     "access": "restricted"
-  },
-  "dependencies": {
-    "langfuse": "3.38.4"
-  },
-  "bundledDependencies": [
-    "langfuse",
-    "langfuse-core",
-    "mustache"
-  ]
+  }
 }

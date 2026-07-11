@@ -96,20 +96,6 @@ Ver `commands/pipeline.md` linhas finais para detalhamento.
 
 Regras de versionamento de skills, lockstep entre manifests Claude/Cursor, padrão de divulgação progressiva, e rastreamento de adoção de padrões externos vivem em [`references/skill-governance.md`](references/skill-governance.md). Consultar antes de bumpar versão de skill ou refatorar conteúdo.
 
-## Release / Deploy (full deploy canônico)
-
-Quando o pedido for "deploy completo / o que você sempre faz", são **4 canais** — pular qualquer um deixa o release pela metade. O erro recorrente: bumpar código+GitHub mas **não** atualizar o cache global, deixando o Claude Code rodando a versão antiga em todo terminal (foi a causa raiz de deadlocks com o cache preso enquanto a fonte já estava à frente).
-
-**Passo 0 — bump lockstep (neste repo) antes de qualquer canal.** Casar TODAS as superfícies de versão; `tests/regression/v7.1.0/F7_version_sync.cjs` valida 8 delas, e os pins-espelho `tests/regression/v8.5.0/F6-registration-lockstep.test.cjs` (`VERSION`) e `tests/regression/v8.8.0/F01_refactor_slice1.cjs` (`PINNED_VERSION`) também travam a versão — bumpe os três. Superfícies: `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` (version **+** `source.ref` `vX`), `.cursor-plugin/plugin.json`, `package.json` (version + description), `lib/index.cjs`, `hooks/hooks.json` (banner "vX loaded"), `README.md` (badge), `CLAUDE.md` (linha `Atualmente: **X**` + nova linha na tabela), nova entrada no `CHANGELOG.md`. **NÃO** tocar `.claude/hooks/enforcement-surface-verify-hook.cjs` — os `8.18.1` lá são comentários de proveniência (ARCH-001/002), mudá-los falsearia o histórico. Rodar `node scripts/run-tests.cjs` e confirmar baseline (atual: 5 falhas pré-existentes — 3 Langfuse + score-writer + F4 dispatch-pending-gate herdado da v8.18.0).
-
-**Os 4 canais (nesta ordem):**
-1. **GitHub canônico** — commit + `git tag vX.Y.Z` + push de `main` e da tag para `fernandoxavier02/Pipeline-Orchestrator`.
-2. **Cache global (o passo sempre esquecido)** — o marketplace `FX-Studio-AI` **não** tem `autoUpdate`, então o cache em `~/.claude/plugins/cache/FX-Studio-AI/pipeline-orchestrator/<versão>/` fica congelado até ação manual. Instalar a nova versão nesse cache e apontar `~/.claude/plugins/installed_plugins.json` para ela (installPath/version/lastUpdated/gitCommitSha). **É isto que faz o CC carregar a versão nova em qualquer projeto.**
-3. **NPM** — `npm publish` do pacote `@fx-studio-ai/pipeline-orchestrator`.
-4. **Marketplace** — no clone do repo separado `~/.claude/plugins/marketplaces/FX-Studio-AI` (remote `fernandoxavier02/FX-Studio-AI`), editar a entrada pipeline-orchestrator em `.claude-plugin/marketplace.json` (version + `source.ref` → nova tag) + commit + push. Canal público/outward-facing — confirmação de segurança esperada.
-
-Push ao GitHub, `npm publish` e push ao marketplace são ações públicas/irreversíveis — confirmar no momento se houver prompt.
-
 ## Versão deste arquivo
 
 | Versão | Data | Mudança |

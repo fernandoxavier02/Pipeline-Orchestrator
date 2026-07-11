@@ -1,0 +1,14 @@
+{
+  "name": "pipeline-orchestrator",
+  "version": "8.20.0",
+  "description": "Pipeline Orchestrator — multi-agent governance layer for AI coding. Z-Code port (also runs on Claude Code and Cursor via dual manifest). Sits between your spec and production code with deterministic enforcement, TDD, parallel adversarial review, a 49-gate hierarchy, and a glass-box audit trail.",
+  "author": {
+    "name": "FX Studio AI",
+    "url": "https://github.com/fernandoxavier02/Pipeline-Orchestrator"
+  },
+  "license": "PolyForm-Shield-1.0.0",
+  "commands": "commands",
+  "skills": "skills",
+  "hooks": "hooks",
+  "agents": "agents"
+}
