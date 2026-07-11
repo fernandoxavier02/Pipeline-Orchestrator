@@ -1,0 +1,319 @@
+{
+  "ok": true,
+  "schema_version": "1.0.0",
+  "run_id": "2026-06-29-telemetry-instrumentation-spec",
+  "pipeline_doc_path": "D:\\pipeline-orchestrator-claude\\.pipeline\\docs\\Pre-Complexa-action\\2026-06-29-telemetry-instrumentation-spec",
+  "workflow_key": "Spec",
+  "type": "Spec",
+  "complexity": "COMPLEXA",
+  "variant": "spec-heavy",
+  "e2e_score": 30,
+  "subscores": {
+    "step_completion": null,
+    "gate_coverage": 0,
+    "order_integrity": null,
+    "process_hygiene": 0.6666666666666667
+  },
+  "fidelity_score": 0,
+  "expected": {
+    "steps": [],
+    "gates": [
+      "STATE_FILE_INIT_FAIL",
+      "INFO_GATE_BLOCKED",
+      "TDD_APPROVAL",
+      "CHECKPOINT_FAIL",
+      "COMPLEXITY_GATE",
+      "CLOSEOUT_CONFIRM",
+      "PLAN_REJECTED",
+      "ADVERSARIAL_GATE",
+      "ADVERSARIAL_BLOCK",
+      "MICRO_GATE_GAP",
+      "STOP_RULE",
+      "ADVERSARIAL_LOOP_BREAKER",
+      "FINAL_ADVERSARIAL_GATE",
+      "FINAL_ADVERSARIAL_REWORK",
+      "FIX_LOOP_EXHAUSTED",
+      "ADVERSARIAL_GATE_MANDATORY",
+      "SSOT_CONFLICT",
+      "STALE_CONTEXT",
+      "SPEC_ARTIFACT_MISSING",
+      "SPEC_FORMAT_GATE_FAIL",
+      "SPEC_CONTENT_REVIEW_NOGO",
+      "SPEC_AC_TRACEABILITY_GAP",
+      "SPEC_POST_IMPL_FAIL",
+      "ADVERSARIAL_LOOP_CHECKPOINT"
+    ]
+  },
+  "actual": {
+    "steps": [],
+    "gates_fired": [
+      "HUMAN_GATE",
+      "SPEC_REVIEW_FINDINGS",
+      "SPEC_SEALED"
+    ]
+  },
+  "glitches": [
+    {
+      "kind": "missing_gate",
+      "target": "STATE_FILE_INIT_FAIL",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'STATE_FILE_INIT_FAIL' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "INFO_GATE_BLOCKED",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'INFO_GATE_BLOCKED' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "TDD_APPROVAL",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'TDD_APPROVAL' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "CHECKPOINT_FAIL",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'CHECKPOINT_FAIL' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "COMPLEXITY_GATE",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'COMPLEXITY_GATE' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "CLOSEOUT_CONFIRM",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'CLOSEOUT_CONFIRM' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "PLAN_REJECTED",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'PLAN_REJECTED' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "ADVERSARIAL_GATE",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'ADVERSARIAL_GATE' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "ADVERSARIAL_BLOCK",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'ADVERSARIAL_BLOCK' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "MICRO_GATE_GAP",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'MICRO_GATE_GAP' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "STOP_RULE",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'STOP_RULE' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "ADVERSARIAL_LOOP_BREAKER",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'ADVERSARIAL_LOOP_BREAKER' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "FINAL_ADVERSARIAL_GATE",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'FINAL_ADVERSARIAL_GATE' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "FINAL_ADVERSARIAL_REWORK",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'FINAL_ADVERSARIAL_REWORK' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "FIX_LOOP_EXHAUSTED",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'FIX_LOOP_EXHAUSTED' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "ADVERSARIAL_GATE_MANDATORY",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'ADVERSARIAL_GATE_MANDATORY' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "SSOT_CONFLICT",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'SSOT_CONFLICT' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "STALE_CONTEXT",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'STALE_CONTEXT' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "SPEC_ARTIFACT_MISSING",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'SPEC_ARTIFACT_MISSING' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "SPEC_FORMAT_GATE_FAIL",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'SPEC_FORMAT_GATE_FAIL' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "SPEC_CONTENT_REVIEW_NOGO",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'SPEC_CONTENT_REVIEW_NOGO' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "SPEC_AC_TRACEABILITY_GAP",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'SPEC_AC_TRACEABILITY_GAP' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "SPEC_POST_IMPL_FAIL",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'SPEC_POST_IMPL_FAIL' never fired"
+    },
+    {
+      "kind": "missing_gate",
+      "target": "ADVERSARIAL_LOOP_CHECKPOINT",
+      "expected": true,
+      "actual": false,
+      "severity": "high",
+      "weight": 1,
+      "evidence": "gate-decisions.jsonl",
+      "detail": "mandatory gate 'ADVERSARIAL_LOOP_CHECKPOINT' never fired"
+    },
+    {
+      "kind": "hygiene_violation",
+      "target": "DISPATCH_REQUEST",
+      "expected": false,
+      "actual": true,
+      "severity": "medium",
+      "weight": 0.5,
+      "evidence": "protocol-events.jsonl: DISPATCH_REQUEST",
+      "detail": "spec-controller step 1 (explore/clarification); awaiting dispatch results"
+    },
+    {
+      "kind": "hygiene_violation",
+      "target": "DISPATCH_SERVICE",
+      "expected": false,
+      "actual": true,
+      "severity": "medium",
+      "weight": 0.5,
+      "evidence": "protocol-events.jsonl: DISPATCH_SERVICE",
+      "detail": "parent dispatching brainstorm-step-01-explore per Achado #7 protocol"
+    }
+  ],
+  "glitch_count": 26,
+  "generated_at": "2026-07-01T18:45:48.031Z"
+}

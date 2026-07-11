@@ -128,6 +128,21 @@ console.log('=== F8 v8.23.0 — static deny/block liveness sweep ===');
 
 const AUDITED_FILES = [
   {
+    // v8.23.0 anti-fabrication guard (separate work front). 2 real sites:
+    // decision:'block' (decide) + permissionDecision:'deny' (CLI envelope).
+    // NO_TOOL_ASSUMPTION: the deny reason instructs a BACKFILLED marker / logging
+    // the closure chain / ensuring the protocol-event — none name Agent/
+    // AskUserQuestion/EnterPlanMode, so it is equally actionable by a parent or a
+    // dispatched subagent; no subagent-fallback clause needed.
+    file: 'audit-fabrication-gate.cjs',
+    expectedSites: 2,
+    evidence: () => {
+      const src = fs.readFileSync(path.join(HOOKS_DIR, 'audit-fabrication-gate.cjs'), 'utf8');
+      assert.doesNotMatch(src, /via Agent tool|via AskUserQuestion|Enter Plan Mode/i,
+        'audit-fabrication-gate.cjs reason must stay tool-name-agnostic, or this entry needs COVERED treatment');
+    },
+  },
+  {
     // 2 semantic sites (INLINE_WORK_BLOCKED, DISPATCH_PENDING_STATE_CORRUPT) +
     // 1 CLI-wrapper re-serialization of whichever fired into the
     // hookSpecificOutput envelope (same pattern as subagent-stop-commit-hook.cjs
