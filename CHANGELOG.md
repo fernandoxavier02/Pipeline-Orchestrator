@@ -2,6 +2,21 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.24.0] - 2026-07-11
+
+### Added
+
+- next-action-contract pack (loop/next-action-contract, batches 1-7): subagent-fallback wired into the 4 highest-value enforcement hooks (edit-guard, dispatch-pending-gate, dispatch-guard, run-step-guard) so a governed deny always names a reachable next action for subagents; subagent-reachable denies + deny-sweep liveness check (F8); stop-gate live-dispatch exemption (T2.2); /pipeline-orchestrator:unblock skill + scripts/unblock-diagnose.cjs (T1.3, partial).
+- lib/contracts/gate-expectation.cjs — hardened gate-expectation selector contract (S2 ruler recalibration), with regression suites tests/regression/v8.21.0/F1-F3 now GREEN (previously frozen RED).
+- e2e-eval fixtures for the 2026-06-29 telemetry-instrumentation-spec run (tests/fixtures/e2e-eval/) + recalibrated lib/e2e-evaluator.cjs and lib/fidelity-reporter.cjs (same-selector fidelity, reporter bypass guard).
+- docs/port-zcode/ portability inventory (hooks/agents/workflows/gates/lib + plan) and docs/audits/2026-07-08-agent-lockup-audit/.
+- Merged docs/2026-06-11-enforcement-variants-audit into main (historical audit record).
+- .gitattributes pinning eol=lf for Node sources — prevents core.autocrlf checkouts from breaking byte-hash-pinned guard tests (found by adversarial review).
+
+### Notes
+
+- Suite baseline: 0 new failures vs loops/next-action-contract/baseline_failures.txt (3 cured: v8.21.0 F1-F3). Iron Law preserved: Mandatory Gates table + Gate Registry untouched.
+
 ## [8.23.0] - 2026-07-10
 
 ### Added
