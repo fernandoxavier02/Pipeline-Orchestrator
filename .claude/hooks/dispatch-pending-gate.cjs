@@ -30,6 +30,33 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const eg = require('./edit-guard-hook.cjs');
+// Batch 3 (AUDIT-REPORT.md §4 P1 / CR6): the deny reasons below told the reader
+// to "despache via Agent tool" without knowing whether the reader IS a
+// dispatched subagent that has no Agent tool at all (Achado #7 — session_id is
+// identical for parent and subagent, so a hook can never tell them apart).
+// Optional require, same posture as its siblings: missing module just means
+// the fallback clause is skipped, never a harder failure.
+let nextActionLib = null;
+try { nextActionLib = require('../../lib/next-action.cjs'); } catch { nextActionLib = null; }
+function subagentFallbackSuffix(blockType) {
+  try {
+    if (nextActionLib && typeof nextActionLib.buildSubagentFallbackClause === 'function') {
+      return ' ' + nextActionLib.buildSubagentFallbackClause(blockType);
+    }
+  } catch (e) {
+    // Fail-OPEN (the deny itself must still fire) but make the drop OBSERVABLE
+    // (round-2 security review, LOW finding): without this stderr line a
+    // failure here silently re-introduces the exact CR6 deadlock this clause
+    // exists to close, with no telemetry trail. The stderr write is itself
+    // wrapped (round-3 security review, N2): a synchronous throw from a broken
+    // stderr would otherwise escape this catch (a catch does NOT catch its own
+    // throw) and convert the fail-closed deny into a silent allow.
+    try {
+      process.stderr.write('[dispatch-pending-gate] subagent-fallback clause dropped: ' + ((e && e.message) || 'unknown') + '\n');
+    } catch { /* stderr failure must never break the deny */ }
+  }
+  return '';
+}
 
 // Ferramentas que NUNCA são "trabalho inline": delegação (Agent), resolução de
 // gate/plan-mode (AskUserQuestion/EnterPlanMode), controle de fluxo do harness e
@@ -123,7 +150,8 @@ function buildReason(pending, id, tool) {
     `INLINE_WORK_BLOCKED: há um ${pending.block_type} pendente e não-resolvido (id: ${id}) no sentinel-state. ` +
     `NÃO conduza o trabalho INLINE. Resolva o handshake: despache o subagente alvo via Agent tool, ` +
     `e/ou re-invoque o controller (chamada Agent() NOVA) com DISPATCH_RESULTS / GATE_RESPONSES / PLAN_MODE_RESULTS prependado. ` +
-    `A ferramenta '${tool}' fica bloqueada até a resolução. Se o handshake morreu, ele expira por timeout (recovery automático).`
+    `A ferramenta '${tool}' fica bloqueada até a resolução. Se o handshake morreu, ele expira por timeout (recovery automático).` +
+    subagentFallbackSuffix(pending.block_type)
   );
 }
 
@@ -214,7 +242,8 @@ function decideInlineGate(payload) {
         'DISPATCH_PENDING_STATE_CORRUPT: o sentinel-state assinado deste run não passa na ' +
         'verificação de integridade (HMAC), então não dá para provar que NÃO há handshake ' +
         `pendente — a ferramenta de trabalho '${tool}' é BLOQUEADA (fail-closed). Recrie/re-assine ` +
-        'o estado pelo controller, ou resolva via Agent de resolução / AskUserQuestion / EnterPlanMode.',
+        'o estado pelo controller, ou resolva via Agent de resolução / AskUserQuestion / EnterPlanMode.' +
+        subagentFallbackSuffix(),
     };
   }
 

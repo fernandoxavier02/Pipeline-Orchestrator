@@ -15,7 +15,9 @@
 //   - incomplete + ARMED (DEFAULT)    ⇒ decision:block + exact next action,
 //                                        capped at 3 continuities → hard_failed terminal.
 //   - incomplete + escape (warn/off)  ⇒ allow (block logic inert when opted out).
-//   - outstanding pending_dispatches + ARMED ⇒ block.
+//   - outstanding STALE/committed pending_dispatches + ARMED ⇒ block; a LIVE
+//     recent dispatch is a legitimate background wait ⇒ allow (T2.2 — does NOT
+//     advance the continuity counter).
 //   - SessionEnd / StopFailure / interrupt ⇒ NEVER declare success, NEVER delete
 //                                        evidence, keep the run recoverable. Only a
 //                                        PRE-PERSISTED terminal flag may complete.
@@ -48,6 +50,20 @@ let arm = null;
 try { arm = require('../../lib/pipeline-arm.cjs'); } catch { arm = null; }
 
 const CONTINUITY_CAP = 3; // after 3 continuities, convert to hard_failed terminal.
+// T2.2 (loop/next-action-contract): a pending dispatch within this TTL is a LIVE
+// background wait (a dispatched subagent still running) and must NOT count as a
+// continuity failure. Beyond it, the dispatch is stale (the subagent is presumed
+// lost) and falls through to the continuity block. Coincidentally aligned with
+// the 30min PROTOCOL_HANDSHAKE_TIMEOUT default (NOT coupled — each is an
+// independent constant); generous margin so a legitimately long subagent turn is
+// not miscounted as a failed continuity.
+const PENDING_DISPATCH_TTL_MS = 30 * 60 * 1000;
+// T2.2: a created_at more than this many ms in the FUTURE is a forged timestamp
+// (a dispatch cannot legitimately have been created in the future) —
+// hasLivePendingDispatch treats it as NOT live so a tampered state cannot mint a
+// perpetual Stop exemption. A few seconds is tolerated (normal cross-process
+// clock skew between the recorder's now() and this hook's now()).
+const CLOCK_SKEW_MS = 5000;
 
 // B1 (REQ-HAPPY-PATH-COMPLETER): a run that really finished must reach a terminal
 // 'completed' so arming the Stop block (B5) cannot deadlock it. The success signal
@@ -82,10 +98,27 @@ function isTerminalState(value) {
   return ['completed', 'hard_failed', 'aborted_by_user', 'cancelled'].includes(value);
 }
 
-// Does the run still have outstanding pending dispatches?
-function hasPendingDispatches(state) {
+// T2.2 (loop/next-action-contract): the STRICTER live-pending test. A pending
+// dispatch is LIVE only when it is (a) not committed, (b) has a WELL-FORMED
+// created_at (an ISO string per dispatch-record-hook.cjs:206 — bad/absent →
+// fail-safe, do NOT exempt), AND (c) within PENDING_DISPATCH_TTL_MS of now.
+// Stale, committed, or malformed dispatches return false (they do NOT exempt the
+// Stop and fall through to the continuity block). The TTL check is what stops a
+// legitimate background wait from being miscounted as a continuity failure.
+function hasLivePendingDispatch(state, ttlMs) {
   const pd = state && state.pending_dispatches;
-  return !!(pd && typeof pd === 'object' && Object.values(pd).some((r) => r && typeof r === 'object' && r.status !== 'committed' && r.committed !== true));
+  if (!pd || typeof pd !== 'object') return false;
+  const now = Date.now();
+  for (const rec of Object.values(pd)) {
+    if (!rec || typeof rec !== 'object') continue;
+    if (rec.status === 'committed' || rec.committed === true) continue; // S4
+    const createdMs = new Date(rec.created_at).getTime();              // S7: bad -> NaN
+    if (!Number.isFinite(createdMs) || createdMs <= 0) continue;        // S7 fail-safe
+    if (createdMs > now + CLOCK_SKEW_MS) continue;                      // forged future ts
+    if (now - createdMs > ttlMs) continue;                             // S3 stale
+    return true;                                                       // S1/S6 live
+  }
+  return false;
 }
 
 // Is the run complete (a terminal state already persisted)?
@@ -393,6 +426,18 @@ function decide(payload) {
   // Incomplete governed run. Block logic is inert unless armed (default OFF).
   if (!isArmed()) return { decision: 'allow' };
 
+  // T2.2 (loop/next-action-contract): a LIVE pending dispatch (recent within
+  // TTL, well-formed created_at, not committed) is legitimate background work —
+  // the Stop is a turn boundary while a dispatched subagent still runs, NOT a
+  // continuity failure. Allow WITHOUT advancing the continuity counter, so
+  // legitimate background waits cannot accumulate into a false hard_failed
+  // (S1/S6). Runs BEFORE the cap so a live wait never contributes to it. Stale
+  // (S3), committed (S4), or malformed (S7) dispatches do NOT exempt and fall
+  // through to the continuity block below unchanged.
+  if (hasLivePendingDispatch(state, PENDING_DISPATCH_TTL_MS)) {
+    return { decision: 'allow' };
+  }
+
   // Armed + incomplete. Continuity cap: this Stop is continuity attempt
   // (continuity_attempts + 1). On the 3rd, convert to a hard_failed terminal and
   // ALLOW (do not block a third time).
@@ -404,9 +449,10 @@ function decide(payload) {
     return { decision: 'allow' };
   }
 
-  // Outstanding pending dispatches OR an active run OR an unsealed spec run under
-  // teardown (REQ-C2) → block with next action.
-  if (hasPendingDispatches(state) || state.pipeline_active === true || specNeedsSeal) {
+  // No live pending dispatch (none, or stale/committed/malformed per the
+  // hasLivePendingDispatch check above) + an active run OR an unsealed spec run
+  // under teardown (REQ-C2) → block with next action + advance the counter.
+  if (state.pipeline_active === true || specNeedsSeal) {
     // FAIL-SAFE (B5 adversarial): without a writable statePath we cannot advance the
     // continuity counter, so the 3-cap → hard_failed terminator could NEVER fire and
     // the block would repeat forever (an INFINITE deadlock). If we cannot persist the

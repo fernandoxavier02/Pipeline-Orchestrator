@@ -1,0 +1,206 @@
+{
+  "schema_version": "1.0.0",
+  "run_id": "2026-06-29-telemetry-instrumentation-spec",
+  "pipeline_doc_path": "D:\\pipeline-orchestrator-claude\\.pipeline\\docs\\Pre-Complexa-action\\2026-06-29-telemetry-instrumentation-spec",
+  "type": "Spec",
+  "complexity": "COMPLEXA",
+  "variant": "spec-heavy",
+  "mandatory_triggered": 0,
+  "mandatory_expected": 24,
+  "fidelity_score": 0,
+  "global_fidelity_pct": 28.27,
+  "mandatory_gates": [
+    {
+      "gate": "STATE_FILE_INIT_FAIL",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "INFO_GATE_BLOCKED",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "TDD_APPROVAL",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "CHECKPOINT_FAIL",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "COMPLEXITY_GATE",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "CLOSEOUT_CONFIRM",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "PLAN_REJECTED",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "ADVERSARIAL_GATE",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "ADVERSARIAL_BLOCK",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "MICRO_GATE_GAP",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "STOP_RULE",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "ADVERSARIAL_LOOP_BREAKER",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "FINAL_ADVERSARIAL_GATE",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "FINAL_ADVERSARIAL_REWORK",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "FIX_LOOP_EXHAUSTED",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "ADVERSARIAL_GATE_MANDATORY",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "SSOT_CONFLICT",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "STALE_CONTEXT",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "SPEC_ARTIFACT_MISSING",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "SPEC_FORMAT_GATE_FAIL",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "SPEC_CONTENT_REVIEW_NOGO",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "SPEC_AC_TRACEABILITY_GAP",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "SPEC_POST_IMPL_FAIL",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    },
+    {
+      "gate": "ADVERSARIAL_LOOP_CHECKPOINT",
+      "hardness": null,
+      "expected": true,
+      "triggered": false,
+      "decision": null
+    }
+  ],
+  "other_gates": [
+    {
+      "gate": "HUMAN_GATE",
+      "hardness": "AUDIT",
+      "decision": "CONFIRMED",
+      "detail": "tool_use_id=toolu_01McBQn93TS9nZeW7Wvsigfk answer={\"questions\":[{\"question\":\"A trava de plano do plugin está bloqueando a gravação das correções da spec em .kiro/specs/. Como destravar?\",\"header\":\"..."
+    },
+    {
+      "gate": "SPEC_REVIEW_FINDINGS",
+      "hardness": "AUDIT",
+      "decision": "TRIGGERED",
+      "detail": "attempt=1 critical=1 high=3 medium=3 low=2 (9 findings, all corrections applied)"
+    },
+    {
+      "gate": "SPEC_SEALED",
+      "hardness": "AUDIT",
+      "decision": "CONFIRMED",
+      "detail": "spec-authoring sealed; variant=spec-heavy revision=3 grade=A; round1 1C/3H/3M/2L all fixed; round2 CLEAN + 3 minor (SPEC-NEW-1/2/3) applied; Iron Law preserved (24-row Mandatory + 49-row registry b..."
+    }
+  ],
+  "warnings": [
+    "brainstorm evidence missing: no STEP_1_7_ROUTING entry for COMPLEXA/Spec run"
+  ],
+  "generated_at": "2026-07-01T20:05:21.706Z"
+}
