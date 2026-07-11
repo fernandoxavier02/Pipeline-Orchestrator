@@ -1,0 +1,5 @@
+# Hooks e libs Node: LF sempre (testes pinam hash byte-a-byte; autocrlf=true quebrava no checkout)
+*.cjs text eol=lf
+*.mjs text eol=lf
+*.js text eol=lf
+*.json text eol=lf
