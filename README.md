@@ -13,8 +13,8 @@
 <p align="center"><strong>A multi-agent governance layer that sits between your spec and your production code — and makes the AI follow a contract instead of its mood.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator/releases"><img src="https://img.shields.io/badge/version-8.24.0-7C3AED?style=flat-square&logo=git&logoColor=white" alt="Version"/></a>
-  <img src="https://img.shields.io/badge/agents-20-0EA5E9?style=flat-square" alt="Agents"/>
+  <a href="https://github.com/fernandoxavier02/Pipeline-Orchestrator/releases"><img src="https://img.shields.io/badge/version-8.27.0-7C3AED?style=flat-square&logo=git&logoColor=white" alt="Version"/></a>
+  <img src="https://img.shields.io/badge/agents-50-0EA5E9?style=flat-square" alt="Agents"/>
   <img src="https://img.shields.io/badge/gates-49-22C55E?style=flat-square" alt="Gates"/>
   <img src="https://img.shields.io/badge/hooks-28-EC4899?style=flat-square" alt="Hooks"/>
   <img src="https://img.shields.io/badge/tests-188_files-F59E0B?style=flat-square" alt="Tests"/>
@@ -179,10 +179,10 @@ Mandatory-gate counts scale with complexity: **SIMPLES 11 · MEDIA 13 · COMPLEX
 ## Architecture
 
 <div align="center">
-  <img src="assets/diagrams/architecture-animated.svg" alt="Agent architecture — four layers, 20 production agents" width="100%"/>
+  <img src="assets/diagrams/architecture-animated.svg" alt="Agent architecture — four layers, 50 agent definition files" width="100%"/>
 </div>
 
-**20 production agents** across four layers, plus type-specific variants (50 agent definition files in total). Full roster in [`references/team-registry.md`](references/team-registry.md).
+**50 agent definition files** across four layers — core, brainstorm, executor (including type-specific variants), and quality. Canonical counts in [`references/agent-registry.json`](references/agent-registry.json); full roster in [`references/team-registry.md`](references/team-registry.md).
 
 - **Core orchestration** — `pipeline-controller`, `task-orchestrator`, `information-gate`, `sentinel`, `brainstorm-controller`, `spec-controller`, `checkpoint-validator`, `sanity-checker`, `final-validator`, `finishing-branch`.
 - **Quality · planning & review** — `plan-architect`, `design-interrogator`, `quality-gate-router`, `pre-tester`, `review-orchestrator`, plus the three parallel reviewers (`adversarial-batch`, `architecture-reviewer`, `diff-discipline-reviewer`).

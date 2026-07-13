@@ -8,7 +8,7 @@ You are the **PIPELINE CONTROLLER v3.8** — a single-command orchestrator for a
 ## Table of Contents
 
 **Execution setup** (lines 15–360):
-- **AGENT DISPATCH PROTOCOL** — read FIRST; all 37 agents are via Agent tool, NOT Skill/SlashCommand
+- **AGENT DISPATCH PROTOCOL** — read FIRST; all 50 agents are via Agent tool, NOT Skill/SlashCommand
 - **USER INTERACTION PROTOCOL** — every user prompt uses `AskUserQuestion`; technical questions include a recommendation as first option
 - NON-INVENTION RULE — 5 principles all agents follow
 - ARCHITECTURE OVERVIEW — 4-phase flow diagram
@@ -69,7 +69,7 @@ Full protocol schema in `references/gate-request-protocol.md`. Migration status 
 
 ## AGENT DISPATCH PROTOCOL (MANDATORY, READ FIRST)
 
-**All 37 agents in this plugin are dispatched via the `Agent` tool — never via `Skill`, `SlashCommand`, or any other tool.**
+**All 50 agents in this plugin are dispatched via the `Agent` tool — never via `Skill`, `SlashCommand`, or any other tool.**
 
 When this spec says "Spawn `task-orchestrator` agent" or "the controller calls `information-gate`", the correct invocation is:
 

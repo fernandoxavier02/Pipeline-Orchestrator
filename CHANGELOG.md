@@ -2,6 +2,23 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.27.0] - 2026-07-13
+
+### Added
+
+- **workflow-audit-remediation S3 (DocParityLocks):** new canonical SSOT `references/agent-registry.json` for agent-definition counts (`physical_files.total = 50`) + 3 documentation-parity regression locks under `tests/regression/v8.26.0/` — F6 (agent-count parity: every public agent-count surface cites 50), F7 (gate-registry header parity: declared header === real registry rows === 49), F8 (declared suite baseline === live runner discovery). Reconciled the stale `37`/`20`/`38` agent counts to `50` across README, `commands/pipeline.md`, `agents/core/pipeline-controller.md`, and the CLAUDE.md Team-roster row.
+- **workflow-audit-remediation S8 (UserGateSignature):** new `lib/protocol-event-signer.cjs` signs/verifies user-gate protocol events via the HMAC signer SSOT (`lib/sentinel-state-signer.cjs`); the C3 detector in `lib/audit-forgery-guard.cjs` now requires a corroborating user-gate event to be signed **and** validly signed under the strict posture. `lib/codex-operational-runtime.cjs` signs user-gate events on write; `lib/jsonl-sanitizer.cjs` allows the `__signature` key; `.claude/hooks/audit-fabrication-gate.cjs` passes the verifier + strict flag. Tests `tests/regression/v8.27.0/F1` (8 scenarios).
+- Audit report `docs/audits/2026-07-12-controller-forgery-guard-audit/` — investigation of a reported gate-fabrication incident: incident NOT corroborated by disk evidence; the deterministic anti-fabrication defense is active; the real residual ceiling is documented.
+
+### Notes
+
+- **Two-tier posture (spec Emenda 2).** In the DEFAULT (non-strict) posture, an UNSIGNED user-gate event still corroborates a `decided_by:user`, so the C3 ceiling apurado na auditoria stays open by design — a legitimate interactive producer writes unsigned prose, so requiring signatures in the default would false-positive real runs. Full closure requires either `PIPELINE_HMAC_STRICT` (9.2) or a future slice signing the interactive path. Rejection of an INVALID (tampered) signature is unconditional in every posture (9.3).
+- **Suite baseline `declared_suite_files = 306`** reflects the published tree; the 4 in-flight run-007 (implement-spec) test files under `tests/regression/v8.25.0/` are deliberately excluded and version `8.25.0` is reserved for that in-flight slice (mirroring the `8.21.0`/S2 precedent). Run 007 will add those 4 files and bump to 310 when it ships.
+
+### Preserved (Iron Law)
+
+- `references/gates.md` Mandatory Gates table + 49-row Gate Registry UNTOUCHED (verified: `git diff references/gates.md` empty). No new gate. Lockstep across all version surfaces.
+
 ## [8.24.0] - 2026-07-11
 
 ### Added

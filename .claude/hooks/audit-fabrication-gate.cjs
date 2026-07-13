@@ -27,6 +27,11 @@ const path = require('node:path');
 
 let guard = null;
 try { guard = require('../../lib/audit-forgery-guard.cjs'); } catch { guard = null; }
+// v8.27.0 (Requirement 9 — UserGateSignature): the read-only user-gate signature
+// verifier. buildUserGateVerifier returns null when no HMAC key is available, in
+// which case C3 stays legacy-tolerant (migration posture) — never a hard error.
+let peSigner = null;
+try { peSigner = require('../../lib/protocol-event-signer.cjs'); } catch { peSigner = null; }
 
 const TOOL_RE = /^(Write|Edit|MultiEdit)$/;
 const TARGET = new Set(['gate-decisions.jsonl', 'sentinel-state.json']);
@@ -114,6 +119,17 @@ function decide(payload) {
     : (readSafe(path.join(runDir, 'gate-decisions.jsonl')) || '');
   const protocolRaw = readSafe(path.join(runDir, 'protocol-events.jsonl'));
 
+  // v8.27.0 (Requirement 9.2/9.3/9.5): thread the user-gate signature verifier +
+  // strict flag so C3 only corroborates a decided_by:user with a SIGNED+VALID
+  // user-gate event. Null verifier (no key) → legacy migration posture.
+  const hmacStrict = process.env.PIPELINE_HMAC_STRICT === 'true';
+  let verifyUserGateEvent = null;
+  try {
+    if (peSigner && typeof peSigner.buildUserGateVerifier === 'function') {
+      verifyUserGateEvent = peSigner.buildUserGateVerifier({ strict: hmacStrict });
+    }
+  } catch { verifyUserGateEvent = null; }
+
   let res;
   try {
     res = guard.analyze({
@@ -123,6 +139,8 @@ function decide(payload) {
       gateDecisionsText,
       protocolPresent: protocolRaw !== null,
       protocolText: protocolRaw || '',
+      verifyUserGateEvent,
+      hmacStrict,
       nowMs: Date.now(),
       thresholdMs: thresholdMs(),
     });

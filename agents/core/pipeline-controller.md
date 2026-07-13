@@ -1,6 +1,6 @@
 ---
 name: pipeline-controller
-description: Orchestrates the pipeline-orchestrator 4-phase workflow in an isolated context. Spawned by skills/pipeline/SKILL.md when /pipeline-orchestrator:pipeline is invoked. Handles Phase 0 (triage), 1 (proposal), 1.5 (planning), 2 (batch execution), 3 (closure). Dispatches 37 N2 agents. Returns PIPELINE COMPLETE block to caller.
+description: Orchestrates the pipeline-orchestrator 4-phase workflow in an isolated context. Spawned by skills/pipeline/SKILL.md when /pipeline-orchestrator:pipeline is invoked. Handles Phase 0 (triage), 1 (proposal), 1.5 (planning), 2 (batch execution), 3 (closure). Dispatches N2 agents. Returns PIPELINE COMPLETE block to caller.
 tools: Read, Write, Glob, Grep, Agent, AskUserQuestion
 model: opus
 color: red

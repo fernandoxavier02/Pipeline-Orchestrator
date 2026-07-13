@@ -1,0 +1,43 @@
+{
+  "$comment": "Canonical SSOT for agent-definition counts and public agent-count semantics. Created by the workflow-audit-remediation spec, slice S3 (DocParityLocks), task 4.2. Physical counts are derived mechanically from agents/**/*.md. Every public documentation surface that declares a plugin agent count MUST cite physical_files.total (requirement 6.4). The three DocParityLocks (tests/regression/v8.26.0/F6,F7,F8) enforce this file against reality.",
+  "physical_files": {
+    "total": 50,
+    "core": 11,
+    "brainstorm": 4,
+    "executor": 6,
+    "executor_type_specific": 21,
+    "quality": 8
+  },
+  "semantics": {
+    "canonical_total": {
+      "value": 50,
+      "definition": "The single correct plugin agent count: the number of agent-definition Markdown files under agents/**/*.md. All public agent-count surfaces cite this number.",
+      "derivation": "count of agents/**/*.md (core 11 + brainstorm 4 + executor 6 + executor_type_specific 21 + quality 8)"
+    },
+    "historical_20": {
+      "value": 20,
+      "status": "retired",
+      "meant": "The 'production agents' / 'agents reais' roster snapshot recorded at v6.3.0 (2026-05-19), which claimed to count agents/**/*.md.",
+      "disposition": "Retired. The roster has since grown to 50 physical files; even the non-type-specific subset alone is now 29 (core 11 + brainstorm 4 + executor 6 + quality 8), so 20 is stale in every reading. Superseded by canonical_total = 50. Reconciled live surfaces: README badge, README architecture caption + body, CLAUDE.md Source-of-Truth Layer Map 'Team roster' row."
+    },
+    "historical_37": {
+      "value": 37,
+      "status": "retired",
+      "meant": "The plugin agent roster used by the AGENT DISPATCH PROTOCOL prose ('all 37 agents in this plugin are dispatched via the Agent tool') and echoed in the pipeline-controller frontmatter description ('Dispatches 37 N2 agents').",
+      "disposition": "Retired. The plugin now ships 50 agent-definition files, all Agent-dispatched, so the total-roster claims in commands/pipeline.md are realigned to 50. The pipeline-controller description's brittle per-run 'N2 agents' count was removed rather than forced to 50, because the exact number of N2 agents dispatched in a single run varies by task type and variant (heavy/light) and excludes the N1 controller itself; no fixed number is asserted there."
+    },
+    "historical_38": {
+      "value": 38,
+      "status": "retired",
+      "meant": "The original design-doc (D1) agent estimate recorded without a reality-check.",
+      "disposition": "Retired. Already flagged as wrong in CLAUDE.md and corrected in designs/pipeline-orchestrator-v5-consolidated.md (§1.1, §16 error #4). It survives only in historical/changelog prose, which is preserved verbatim (rewriting history would falsify the audit trail). Superseded by canonical_total = 50."
+    }
+  },
+  "suite_baseline": {
+    "declared_suite_files": 306,
+    "definition": "Total number of test suite FILES discovered live by scripts/run-tests.cjs across every category (sum of discover(root).files.length for each CATEGORY, including the opt-in integration/snapshot categories). Read by Lock 3 (tests/regression/v8.26.0/F8_baseline_discovery_parity.cjs). Any changeset that adds or removes a test file must co-update this number in the same commit.",
+    "command": "node -e \"const r=require('./scripts/run-tests.cjs');const root=require('path').resolve('.');let t=0;for(const d of Object.values(r.CATEGORIES)){const x=d.discover(root);if(x.present)t+=x.files.length;}console.log(t)\"",
+    "as_of": "2026-07-13",
+    "note": "Value 306 reflects the tree PUBLISHED at v8.27.0 (S3 DocParityLocks under tests/regression/v8.26.0/ F6/F7/F8 + S8 UserGateSignature under tests/regression/v8.27.0/F1). It DELIBERATELY EXCLUDES the 4 in-flight run-007 (implement-spec) test files under tests/regression/v8.25.0/, which are not part of this release; when run 007 ships it adds those 4 and bumps this to 310. On a working tree that still carries the uncommitted run-007 files, Lock 3 (F8) will read RED by exactly that delta — a true signal of run-007's uncommitted tests, not a defect in this release. This file-count metric is distinct from the pass/fail suite baseline tracked in tests/fixtures/e2e-eval/2026-06-29-telemetry-instrumentation-spec/BASELINE.md, which is left unchanged by this slice."
+  }
+}
