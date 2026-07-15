@@ -25,6 +25,8 @@ stop_rule_max_failures: 2
 
 13 passos canônicos espelhando 1:1 a fonte Pulsar `D:\Projeto Pulsar\.claude\commands\Prompts\Implement_new_feature\Ligth\`. Each step file's prompt body is verbatim from Pulsar; the frontmatter adds the execution contract (sequence, ownership, gates) consumed by the orchestrator.
 
+> **Light vs heavy = content DEPTH, not step count (HonestLightDocs / Req 3.3).** This light variant runs the SAME 13 steps and the identical executor-agent set as `feature-heavy`; the intensity flag modulates content depth and scope (small-to-medium, controlled risk vs domain-rich / sensitive), NOT the number of steps. No step was removed — the Pulsar 1:1 faithful-port mandate is sealed (repo CLAUDE.md v1.4/v1.5); shortening is reversible only with explicit user authorization. See `references/complexity-matrix.md` › "Light vs Heavy".
+
 ## Quando usar
 
 Use **feature-light** quando a feature/melhoria é pequena a média, com risco controlado, e você quer velocidade com disciplina. Se durante a análise surgirem persistência sensível, regras de negócio complexas, integração crítica, concorrência ou grande impacto em UX/contratos, sinalize e escale para `feature-heavy`.

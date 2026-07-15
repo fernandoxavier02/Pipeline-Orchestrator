@@ -17,6 +17,8 @@ This skill executes a deterministic 10-step procedure for MEDIA User Stories (3-
 
 This is a **code-changing** workflow (NOT report-only): step 7 implements under minimal-diff rules, gated by the TDD pre-implementation at step 6.
 
+> **Light vs heavy = content DEPTH, not step count (HonestLightDocs / Req 3.3).** This light variant runs the SAME 10 steps as `user-story-heavy`; the intensity flag modulates content depth and scope (MEDIA story: 3-5 files / 30-100 lines / 2 domains vs larger), NOT the number of steps. No step was removed — the Pulsar 1:1 faithful-port mandate is sealed (repo CLAUDE.md v1.4/v1.5); shortening is reversible only with explicit user authorization. See `references/complexity-matrix.md` › "Light vs Heavy".
+
 ## When to use this skill
 
 Use **user-story-light** when ALL of the following hold:
