@@ -270,6 +270,40 @@ function stamp(payload) {
     }
   }
 
+  // S5 (Requirement 2 — proportional-consolidation PRODUCER). At plan close
+  // (plan-architect return) a run that will need only ONE adversarial round writes
+  // the signed `review_consolidated` flag, collapsing the per-batch round into the
+  // single surviving 3-way final round (2.1-2.3). The collapse condition is read
+  // from the SIGNED state ONLY: (complexity === 'SIMPLES' OR the planned batch
+  // count is exactly 1) AND domains_touched is empty (2.5 — a run already sensitive
+  // never collapses; the consumer ALSO re-checks domains fresh at spawn, closing
+  // TOCTOU) AND a code-changing task type. Fail-safe by construction: an unknown/
+  // absent batch count or an unrecognised (read-only/unknown) type never collapses.
+  // The writer is idempotent (Achado #7 relay may re-dispatch plan-architect) and
+  // emits the ADVERSARIAL_CONSOLIDATED AUDIT event (2.3). A forged flag is a
+  // non-issue: every consumer reads it only from an HMAC-verified state.
+  if (leaf === 'plan-architect' && typeof recorder.recordReviewConsolidated === 'function') {
+    try {
+      const od = (state.orchestrator_decision && typeof state.orchestrator_decision === 'object')
+        ? state.orchestrator_decision : {};
+      const complexity = String(od.complexity || state.complexity || '').trim().toUpperCase();
+      const type = String(od.type || state.task_type || '').trim();
+      const CODE_CHANGING = new Set(['Bug Fix', 'Feature', 'User Story', 'Spec', 'Refactor']);
+      const plannedBatches = Number(state.batch_state && state.batch_state.total_batches_estimated);
+      const domains = Array.isArray(state.domains_touched) ? state.domains_touched : [];
+      const eligibleCount = complexity === 'SIMPLES' || plannedBatches === 1;
+      // Emit-once guard: each PostToolUse fire re-reads state fresh from disk, so a
+      // relay-driven second plan-architect return sees the flag already set and
+      // skips — no duplicate signed-state write and, crucially, no duplicate
+      // ADVERSARIAL_CONSOLIDATED audit entry (recordReviewConsolidated appends one
+      // per successful call).
+      const already = !!(state.review_state && state.review_state.review_consolidated === true);
+      if (!already && eligibleCount && domains.length === 0 && CODE_CHANGING.has(type)) {
+        recorder.recordReviewConsolidated(docDir);
+      }
+    } catch { /* fail-silent — a producer error must never break the stamp */ }
+  }
+
   // Batch 1 (audit ARCH-7): single SSOT workflow-key resolution (was a duplicated
   // inline heuristic that mis-mapped brainstorm → FULL).
   const wf = (typeof ledger.resolveWorkflowKey === 'function')

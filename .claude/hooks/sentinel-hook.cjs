@@ -503,6 +503,18 @@ function handleInput(raw) {
     return process.exit(0);
   }
 
+  // 12b. Achado #7 parent-relay exemption (fixes the s5-review-consolidation r1/r2
+  // deadlock). In relay mode the parent re-dispatches the N1 controller to PROCESS a
+  // completed N2 result, but expected_next still names that N2 agent, so the
+  // controller's re-dispatch "diverges" and is denied — a CIRCULAR deadlock, since
+  // the controller can only advance expected_next by running. The N1 orchestrators
+  // re-hydrate the SIGNED state and re-plan; they are never a mis-sequenced N2 step,
+  // and every upstream check (bootstrap, CORRUPT_SENTINEL, HMAC-strict) already ran
+  // above, so a tampered state is still blocked. Surgical: N1 controllers only; N2
+  // agents keep their divergence deny. Mirrors the sentinel self-exemption (step 3).
+  const ORCHESTRATOR_CONTROLLERS = new Set(['pipeline-controller', 'spec-controller', 'brainstorm-controller']);
+  if (ORCHESTRATOR_CONTROLLERS.has(target)) return process.exit(0);
+
   // 13. DIVERGENCE — deny with reason
   const output = {
     hookSpecificOutput: {

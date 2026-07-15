@@ -84,7 +84,7 @@ DIRETO = Direct execution without pipeline (build + test only, max 2 files, < 30
 | **Per-batch gate** | Ask (skippable) | Ask (skippable) | Ask (skippable) |
 | **Mandatory override** | If auth/crypto/data touched | If auth/crypto/data touched | If auth/crypto/data touched |
 | **Final review gate** | Recommended | Recommended | Strongly recommended |
-| **Final review team** | 1 reviewer (security) | 2 reviewers (security + architecture) | 3 reviewers (security + architecture + quality) |
+| **Final review team** | 3 reviewers (security + architecture + quality) — surviving round when the per-batch round collapses (S5 / Req 2); light/heavy differ in content DEPTH, not reviewer count | 2 reviewers (security + architecture) | 3 reviewers (security + architecture + quality) |
 | **Final review intensity** | COMPLEXA (always full) | COMPLEXA (always full) | COMPLEXA (always full) |
 
 ### Gate Display Rules

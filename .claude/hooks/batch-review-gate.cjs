@@ -96,12 +96,22 @@ function decide(payload) {
 
   // A4: sensitive-domain batches make the review mandatory (no warn skip).
   const domains = Array.isArray(state.domains_touched) ? state.domains_touched : [];
+  // S5 (Requirement 2): the collapse flags are read ONLY from this HMAC-VERIFIED
+  // state (findActiveSentinelState above already fails closed on an invalid
+  // signature → CORRUPT_SENTINEL), so a forged/unsigned flag never reaches the
+  // pure brain. `sensitive` is re-derived FRESH from the CURRENT domains_touched on
+  // every spawn, so a run that turned sensitive after the flag was written loses
+  // the collapse (2.5 / TOCTOU close) — decideBatchReview honours the flag only
+  // while !sensitive.
+  const rs = state.review_state && typeof state.review_state === 'object' ? state.review_state : {};
   return guard.decideBatchReview({
     agentLeaf: leaf,
     checkpointsDone: Number.isFinite(state.batch_checkpoints_done) ? state.batch_checkpoints_done : 0,
     reviewsDone: Number.isFinite(state.batch_reviews_done) ? state.batch_reviews_done : 0,
     sensitive: domains.length > 0,
     domains,
+    reviewConsolidated: rs.review_consolidated === true,
+    finalReviewScheduled: rs.final_review_scheduled === true,
     enforce,
   });
 }

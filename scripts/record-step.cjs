@@ -19,6 +19,11 @@ const path = require('node:path');
 const { writeSignedState, verifyState, readHmacKey } = require(path.join(__dirname, '..', 'lib', 'sentinel-state-signer.cjs'));
 const { STEP_MANIFESTS, buildChainRecovery } = require(path.join(__dirname, '..', 'lib', 'step-ledger.cjs'));
 const { withLock } = require(path.join(__dirname, '..', 'lib', 'exclusive-lock.cjs'));
+// S5 (Requirement 2): the collapse decision (2.3) is logged to the canonical audit
+// trail via the SSOT gate-decision writer (8.3). Loaded lazily/tolerantly so a
+// missing writer never breaks the flag write.
+let gdw = null;
+try { gdw = require(path.join(__dirname, '..', 'lib', 'gate-decision-writer.cjs')); } catch { gdw = null; }
 
 // Runs a read-merge-resign critical section under a cross-process exclusive lock
 // on the state file. Without it, two concurrent stampers (checkpoint + review +
@@ -282,7 +287,65 @@ function reanchorExpectedNext(pipelineDocPath, workflowKey) {
   });
 }
 
-module.exports = { recordStep, recordFixAttempt, recordBatchCheckpoint, recordBatchReview, recordCheckpointVerdict, recordDomainsTouched, recordPhaseVerdict, reanchorExpectedNext, PHASE_VERDICT_FIELDS, STEP_VOCAB };
+// S5 (Requirement 2 — proportional consolidation). Two signed boolean flags in
+// review_state, each written under the exclusive lock via the same read-merge-
+// resign critical section as every other writer. review_state is MERGED (never
+// clobbered) so sibling review bookkeeping survives. Both are strict booleans
+// (allowlist = literal `true`) — an agent cannot smuggle an arbitrary value.
+//
+//   review_consolidated    — 1-batch/SIMPLES non-sensitive collapse (2.1-2.3).
+//                            decideBatchReview accepts it as satisfaction of the
+//                            reviews>=checkpoints invariant (only while non-sensitive).
+//   final_review_scheduled — bugfix-heavy wrapped: the independent final round is
+//                            already scheduled, so step 8 must not duplicate it (2.4).
+function setReviewFlag(pipelineDocPath, flag) {
+  if (typeof pipelineDocPath !== 'string' || !pipelineDocPath) return { ok: false, error: 'pipelineDocPath required' };
+  const safe = resolveSafeStatePath(pipelineDocPath);
+  if (!safe.ok) return safe;
+  return lockedStateUpdate(safe.statePath, () => {
+    let state;
+    try { state = readState(safe.statePath); } catch (err) { return { ok: false, error: err.message }; }
+    const review_state = { ...(state.review_state && typeof state.review_state === 'object' ? state.review_state : {}), [flag]: true };
+    const merged = { ...state, review_state, updated_at: new Date().toISOString() };
+    try { writeSignedState(safe.statePath, merged); }
+    catch (err) { return { ok: false, error: `failed to write signed state: ${err.message}` }; }
+    return { ok: true, [flag]: true, checkpoints: Number.isFinite(state.batch_checkpoints_done) ? state.batch_checkpoints_done : 0 };
+  });
+}
+
+// recordReviewConsolidated — sets review_state.review_consolidated=true AND logs
+// the collapse decision (2.3) to gate-decisions.jsonl via the canonical writer as
+// an AUDIT event `ADVERSARIAL_CONSOLIDATED` (decision TRIGGERED; NO new registry
+// line). The audit write is best-effort: the flag (the load-bearing part) succeeds
+// even if the audit trail is unavailable.
+function recordReviewConsolidated(pipelineDocPath) {
+  const res = setReviewFlag(pipelineDocPath, 'review_consolidated');
+  if (res && res.ok && gdw && typeof gdw.appendGateDecision === 'function' && typeof gdw.buildCtx === 'function') {
+    try {
+      let type = null, complexity = null;
+      try {
+        const st = readState(resolveSafeStatePath(pipelineDocPath).statePath);
+        const od = st && st.orchestrator_decision;
+        type = (od && od.type) || st.task_type || null;
+        complexity = (od && od.complexity) || null;
+      } catch { /* audit context best-effort */ }
+      const ctx = gdw.buildCtx(pipelineDocPath, { type, complexity });
+      gdw.appendGateDecision(path.join(resolveSafeStatePath(pipelineDocPath).statePath, '..', 'gate-decisions.jsonl'), {
+        gate: 'ADVERSARIAL_CONSOLIDATED', hardness: 'AUDIT', phase: '2', decision: 'TRIGGERED',
+        decided_by: 'pipeline-controller',
+        detail: `Proportional consolidation (Req 2.1-2.3): 1-batch/SIMPLES non-sensitive run collapses the per-batch adversarial round into the single surviving 3-way final round. checkpoints=${res.checkpoints}.`,
+        confidence_impact: 0.0,
+      }, ctx);
+    } catch { /* audit event is non-fatal */ }
+  }
+  return res;
+}
+
+function recordFinalReviewScheduled(pipelineDocPath) {
+  return setReviewFlag(pipelineDocPath, 'final_review_scheduled');
+}
+
+module.exports = { recordStep, recordFixAttempt, recordBatchCheckpoint, recordBatchReview, recordCheckpointVerdict, recordDomainsTouched, recordPhaseVerdict, recordReviewConsolidated, recordFinalReviewScheduled, reanchorExpectedNext, PHASE_VERDICT_FIELDS, STEP_VOCAB };
 
 if (require.main === module) {
   const args = process.argv.slice(2);

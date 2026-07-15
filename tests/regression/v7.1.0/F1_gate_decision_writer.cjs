@@ -115,6 +115,47 @@ test('appendGateDecision auto-injects run_id, plugin_version, schema_version, ty
   fs.unlinkSync(tmp);
 });
 
+test('appendGateDecision stamps real write-time, ignoring caller clock drift (clock-skew fix)', () => {
+  const { appendGateDecision } = require(TARGET);
+  const tmp = path.join(os.tmpdir(), `gdw-ts-${Date.now()}-${Math.random().toString(36).slice(2)}.jsonl`);
+  const before = Date.now();
+  appendGateDecision(tmp, {
+    gate: 'COMPLEXITY_GATE',
+    hardness: 'SOFT',
+    phase: '1',
+    decision: 'CONFIRMED',
+    decided_by: 'user',
+    timestamp: '2000-01-01T00:00:00Z',  // absurdly stale caller guess (LLM has no clock)
+    detail: 'clock drift test',
+    confidence_impact: 0,
+  }, { run_id: 'r', plugin_version: '7.1.0', schema_version: '1', type: 'Bug Fix', complexity: 'COMPLEXA' });
+  const after = Date.now();
+  const entry = JSON.parse(fs.readFileSync(tmp, 'utf8').trim());
+  const ts = Date.parse(entry.timestamp);
+  assert.ok(Number.isFinite(ts), 'stamped timestamp must be parseable');
+  assert.ok(ts >= before - 1000 && ts <= after + 1000, `writer must stamp real write-time, got ${entry.timestamp}`);
+  assert.notEqual(entry.timestamp, '2000-01-01T00:00:00Z', 'stale caller timestamp must NOT survive');
+  fs.unlinkSync(tmp);
+});
+
+test('appendGateDecision preserves a deliberate BACKFILLED caller timestamp', () => {
+  const { appendGateDecision } = require(TARGET);
+  const tmp = path.join(os.tmpdir(), `gdw-bf-${Date.now()}-${Math.random().toString(36).slice(2)}.jsonl`);
+  appendGateDecision(tmp, {
+    gate: 'COMPLEXITY_GATE',
+    hardness: 'SOFT',
+    phase: '1',
+    decision: 'CONFIRMED',
+    decided_by: 'system',
+    timestamp: '2020-06-01T12:00:00Z',
+    detail: 'reconstructed after outage [BACKFILLED]',
+    confidence_impact: 0,
+  }, { run_id: 'r', plugin_version: '7.1.0', schema_version: '1', type: 'Bug Fix', complexity: 'COMPLEXA' });
+  const entry = JSON.parse(fs.readFileSync(tmp, 'utf8').trim());
+  assert.equal(entry.timestamp, '2020-06-01T12:00:00Z', 'BACKFILLED entry must keep the caller timestamp');
+  fs.unlinkSync(tmp);
+});
+
 test('buildCtx derives run_id from PIPELINE_DOC_PATH slug', () => {
   const { buildCtx } = require(TARGET);
   const ctx = buildCtx('.pipeline/docs/Pre-Heavy-action/2026-05-19-fix-telemetry-hygiene/', {
