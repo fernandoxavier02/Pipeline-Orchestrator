@@ -31,6 +31,8 @@ let writer = null;
 try { writer = require('../../lib/gate-decision-writer.cjs'); } catch { writer = null; }
 let signer = null;
 try { signer = require('../../lib/sentinel-state-signer.cjs'); } catch { signer = null; }
+let peSigner = null;
+try { peSigner = require('../../lib/protocol-event-signer.cjs'); } catch { peSigner = null; }
 
 function resolveDocFromEnv(cwd) {
   const env = (process.env.PIPELINE_DOC_PATH || '').trim();
@@ -64,6 +66,37 @@ function summarizeAnswer(toolResponse) {
     if (typeof toolResponse === 'string') return toolResponse;
     return JSON.stringify(toolResponse);
   } catch { return 'unserializable_answer'; }
+}
+
+// v8.27.0+ (Fatia S8b / Requirement 9 rota-b — STRICT_INTERACTIVE_PATH). The
+// interactive producer signs the corroborating user-gate protocol-event AT THE
+// SOURCE, so a decided_by:user decision is corroborated even under
+// PIPELINE_HMAC_STRICT (closes the H2 boundary the Emenda 2 disposed). WHY it
+// matters: C3 (lib/audit-forgery-guard.cjs) matches the decision's tool_use_id
+// against ids inside a SIGNED user-gate event; without a signed event, strict
+// would false-positive every legitimate human approval.
+//
+// KEY POSTURE: read the durable key READ-ONLY (readHmacKey) — an observer must
+// never CREATE a key file as a side effect (getOrCreateHmacKey would). No durable
+// key → emit UNSIGNED (two-tier, migration-tolerated), never a fabricated one.
+// The event's `event` kind matches USER_GATE_EVENT_RE and carries the SAME
+// tool_use_id already written in the decision detail, so the two lines correlate.
+// fail-silent: an observer must never disrupt the turn.
+function emitSignedUserGateEvent(docDir, toolUseId, phase) {
+  if (!peSigner || typeof peSigner.signUserGateEvent !== 'function') return;
+  try {
+    const ev = {
+      event: 'HUMAN_GATE_RESPONSE',
+      tool_use_id: toolUseId,
+      phase,
+      timestamp: new Date().toISOString(),
+      source: 'human-gate-record',
+    };
+    const key = (signer && typeof signer.readHmacKey === 'function') ? signer.readHmacKey() : null;
+    // key present → sign; key absent → UNSIGNED (do NOT let signState create a key).
+    const toWrite = key ? peSigner.signUserGateEvent(ev, { key }) : ev;
+    fs.appendFileSync(path.join(docDir, 'protocol-events.jsonl'), JSON.stringify(toWrite) + '\n');
+  } catch { /* fail-silent: the decision is already recorded regardless */ }
 }
 
 function record(payload) {
@@ -120,6 +153,9 @@ function record(payload) {
       detail: `tool_use_id=${toolUseId} answer=${answer}`,
       confidence_impact: 0,
     }, ctx);
+    // Fatia S8b: emit the SIGNED corroborating user-gate event at the source, so
+    // this decided_by:user is corroborated under strict (see fn docstring).
+    emitSignedUserGateEvent(docDir, toolUseId, phase);
   } catch { /* fail-silent: an observer must never disrupt the turn */ }
 }
 
