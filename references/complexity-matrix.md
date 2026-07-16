@@ -77,6 +77,25 @@ DIRETO = Direct execution without pipeline (build + test only, max 2 files, < 30
 
 ---
 
+## Light vs Heavy — what the intensity flag actually changes (HonestLightDocs)
+
+> **Honest proportionality (Requirement 3.1 / 3.3).** For **Feature**, **User Story** and **Audit**, the `--light`/`--heavy` intensity flag modulates **content DEPTH and scope — NOT the number of steps**. Each light variant runs the SAME step count as its heavy sibling; the flag does not buy a structurally shorter pipeline for these three types, so the expected cost saving is proportional to content depth, not to structure (per-pair table below). Runtime-envelope differences you may still observe between typical light and heavy runs (batch size, adversarial checklist count, sentinel checkpoints — Proportional Behavior table above) come from the COMPLEXITY classification the run rides on, not from the flag removing steps.
+
+| Pair | Steps (light = heavy) | Agents dispatched | Expected cost delta | Real difference the flag controls |
+|------|-----------------------|-------------------|---------------------|------------------------------------|
+| **Feature** light/heavy | 13 = 13 | Identical executor-agent set (light == heavy) | Marginal — same steps, same agents; savings come only from shallower per-step content (fewer tokens / less wall-time per pass) | Content depth & scope only (small-to-medium, controlled risk vs domain-rich / sensitive). No step or agent removed. |
+| **User Story** light/heavy | 10 = 10 | Same agents | Marginal — same steps, same agents; savings come only from shallower per-step content | Content depth & scope only (MEDIA story: 3-5 files / 30-100 lines / 2 domains vs larger). No step or agent removed. |
+| **Audit** light/heavy | 9 = 9 | Light dispatches **one fewer distinct agent** | Moderate — one fewer agent dispatch plus capped scope (1 area, 1 depth level) | Same 9 steps, but `audit-domain-analyzer` is folded INLINE into `audit-compliance-checker`'s `light_mode` (capped scope + collapsed ownership) — a DEPTH/ownership modulation within an unchanged step, not a removed step. |
+
+### Disposition of criterion 3.2 (sealed — no step removal)
+
+Criterion 3.2 is conditional ("WHEN the design phase identifies steps removable without loss of guarantee"). The design analyzed all three light variants and concluded **NOT to remove any step**, on two independent grounds:
+
+- **Policy** — the Pulsar 1:1 faithful-port mandate (sealed user decisions in the repo CLAUDE.md: v1.4/v1.5 for the Feature pair; the v7.11.0 entry, batch B5 / AUDIT-014 — "porte 1:1 Pulsar, 10 passos" — for the User Story pair) forbids step surgery on the ported skills. This alone closes the condition for `feature-light` and `user-story-light` (direct ports).
+- **Technical** — `audit-light`'s steps are chained evidence bridges (intake → domain → compliance → risk-matrix): removing a step breaks the next step's input chain, so no step is safely removable.
+
+Therefore the 3.3 path (declare content-depth modulation) is the one executed for all three pairs. **This disposition is reversible only with explicit user authorization** (a Revalidation Trigger); do not silently shorten a light variant.
+
 ## Adversarial Gate Behavior by Complexity
 
 | Aspect | SIMPLES | MEDIA | COMPLEXA |

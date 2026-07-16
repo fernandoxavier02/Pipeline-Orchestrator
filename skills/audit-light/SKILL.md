@@ -19,6 +19,8 @@ This skill executes a deterministic 9-step procedure for SIMPLES/MEDIA audits. P
 - **Heavy**: full coverage of all axes, deep evidence, baseline cross-checks.
 - **Light**: capped scope (1 area, 1 depth level), faster pass, no audit-domain-analyzer (its work folds into `audit-compliance-checker`'s `light_mode` fallback).
 
+> **Light vs heavy = content DEPTH, not step count (HonestLightDocs / Req 3.3).** This light variant runs the SAME 9 steps as `audit-heavy` (§7.2.2 — Light = Heavy em estrutura). The one real structural difference is that light dispatches **one fewer distinct agent**: `audit-domain-analyzer` is folded INLINE into `audit-compliance-checker`'s `light_mode` (capped scope + collapsed ownership) — a depth/ownership modulation within an unchanged step, NOT a removed step. No step was removed — audit steps are chained evidence bridges (intake → domain → compliance → risk-matrix) where removing one breaks the next step's input chain; this disposition is reversible only with explicit user authorization. See `references/complexity-matrix.md` › "Light vs Heavy".
+
 ## When to use this skill
 
 Use **audit-light** when ALL of the following hold:
