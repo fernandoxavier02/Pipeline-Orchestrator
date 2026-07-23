@@ -2,6 +2,27 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.28.0] - 2026-07-23
+
+### Added
+
+- **workflow-audit-remediation S4 (Achado #7 SSOT):** the runtime protocol block (`GATE_REQUEST`/`DISPATCH_REQUEST`) now has a single source-of-truth fragment consumed by the governed agents, ending per-agent copy drift.
+- **workflow-audit-remediation S5 (review consolidation):** proportional adversarial-review consolidation producer wired at plan close (collapse signal).
+- **workflow-audit-remediation S7 (deadlock harness):** deadlock-scenario test harness covering the known enforcement stall shapes.
+- **workflow-audit-remediation S8b (user-gate signature at the source):** user-gate protocol events are now HMAC-signed at the interactive source, completing the S8 verification chain end-to-end.
+- **Docs:** new `docs/ARCHITECTURE.md`, `docs/ENFORCEMENT.md`, `docs/OBSERVABILITY.md`, `docs/INSTALL.md` — deep-dive content moved out of the README.
+
+### Changed
+
+- **README marketing/docs overhaul:** rewritten from 246 to ~150 lines around a 30-second conversion path (problem → solution → install), with every public count verified against the tree (50 agent definition files, 49 gates, 38 enforcement hooks, 34 skills, 15 commands, 311 test files) and the stale v8.9.0 footer/releases refreshed.
+
+### Fixed
+
+- **sentinel-hook:** N1 orchestrator controllers exempted from the divergence deny (Achado #7 relay deadlock).
+- **gate-decision-writer:** stamps real write-time instead of the caller's guessed clock.
+
+Iron Law: Mandatory Gates table + Gate Registry untouched; no new gate.
+
 ## [8.27.0] - 2026-07-13
 
 ### Added

@@ -114,7 +114,7 @@ const HOOK_DISPATCH_SHA256 = '8628dbf8a2c9ceb84503dac59937b4b72c198284644b0a7780
 // enforcement-hardening release (AUDIT-001..007, B6) is that slice close, so the
 // manifests now legitimately read 8.8.0; the hook byte-identity guard below is
 // unaffected (Slice 1 still did not touch enforcement hook code).
-const PINNED_VERSION = '8.27.0';
+const PINNED_VERSION = '8.28.0';
 
 // The three refactor entry-point names that Slice 1 introduces.
 const REFACTOR_NAMES = ['refactor', 'refactor-light', 'refactor-heavy'];
