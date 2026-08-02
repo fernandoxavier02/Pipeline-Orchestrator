@@ -124,6 +124,17 @@ function isPipelineDocWrite(payload, dir) {
   const ti = (payload && payload.tool_input) || {};
   const fp = ti.file_path;
   if (typeof fp !== 'string' || !fp) return false;
+  const normalizeComparablePath = (value, base) => {
+    let candidate = String(value).replace(/\\/g, '/');
+    const basePath = typeof base === 'string' ? String(base).replace(/\\/g, '/') : '';
+    if (!candidate.startsWith('/') && !/^[A-Za-z]:\//.test(candidate)) {
+      candidate = `${basePath}/${candidate}`;
+    }
+    candidate = path.posix.normalize(candidate);
+    return process.platform === 'win32' || /^[A-Za-z]:\//.test(candidate)
+      ? candidate.toLowerCase()
+      : candidate;
+  };
   // Batch 3 correction (adversarial SEC-1): the arm-pending MARKER is enforcement
   // CONTROL state, not a run artifact — a TOOL write to it must NEVER be exempt, or an
   // agent could overwrite it (e.g. an unsigned well-formed EXPIRED marker) to SELF-DISARM
@@ -131,8 +142,8 @@ function isPipelineDocWrite(payload, dir) {
   // operators re-arm by re-invoking the pipeline command (a signed marker), not by hand.
   // (Only governs the GOVERNED window — when !armPending the gate already allows all.)
   try {
-    const norm = (s) => (process.platform === 'win32' ? String(s).toLowerCase() : String(s));
-    if (typeof dir === 'string' && dir && norm(path.resolve(dir, fp)) === norm(armMarkerPath(dir))) return false;
+    if (typeof dir === 'string' && dir &&
+      normalizeComparablePath(fp, dir) === normalizeComparablePath(armMarkerPath(dir), dir)) return false;
   } catch { /* fall through */ }
   if (eg && typeof eg.isExemptPath === 'function') {
     try { if (eg.isExemptPath(fp, dir)) return true; } catch { /* fall through */ }
@@ -143,12 +154,11 @@ function isPipelineDocWrite(payload, dir) {
   // containment) and the substring-only "pipeline-runs-helper.js" false match.
   if (typeof dir === 'string' && dir) {
     try {
-      const norm = process.platform === 'win32' ? (s) => s.toLowerCase() : (s) => s;
-      const resolvedFile = norm(path.resolve(dir, fp));
-      const base = path.resolve(dir);
+      const resolvedFile = normalizeComparablePath(fp, dir);
+      const base = normalizeComparablePath(dir, dir);
       for (const seg of ['.pipeline', 'pipeline-runs']) {
-        const root = norm(path.resolve(path.join(base, seg)));
-        if (resolvedFile === root || resolvedFile.startsWith(root + path.sep)) return true;
+        const root = normalizeComparablePath(`${base}/${seg}`, base);
+        if (resolvedFile === root || resolvedFile.startsWith(root + '/')) return true;
       }
     } catch { /* fall through to the segment regex below */ }
     return false;

@@ -90,7 +90,7 @@ function seedCorrupt(root, extra) {
   }, extra || {}));
   fs.writeFileSync(
     path.join(root, '.pipeline', 'active-run.json'),
-    JSON.stringify({ pipeline_doc_path: docDir, run_id: 'r', updated_at: '2026-06-19T12:00:00.000Z' }, null, 2)
+    JSON.stringify({ pipeline_doc_path: docDir, run_id: 'r', updated_at: new Date().toISOString() }, null, 2)
   );
   // Determine whether the just-written state actually carries a verifiable signature.
   const { verifyState, readHmacKey } = require('../../../lib/sentinel-state-signer.cjs');

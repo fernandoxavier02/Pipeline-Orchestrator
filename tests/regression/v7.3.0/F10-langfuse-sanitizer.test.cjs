@@ -31,6 +31,7 @@ const os = require('node:os');
 const { spawnSync } = require('node:child_process');
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
+const CLIENT_PATH = path.join(ROOT, 'lib', 'langfuse-client.cjs');
 const SANITIZER_PATH = path.join(ROOT, 'lib', 'langfuse-sanitizer.cjs');
 const ERRORS_LOG = path.join(ROOT, '.pipeline', 'langfuse-errors.jsonl');
 
@@ -269,6 +270,25 @@ console.log('=== F10 Langfuse Sanitizer (AC3 + AC5) ===');
 {
   let ok = false;
   let why = '';
+  const previousPluginRoot = process.env.CLAUDE_PLUGIN_ROOT;
+  const previousCustomPassword = process.env.F10_CUSTOM_PASSWORD;
+  process.env.CLAUDE_PLUGIN_ROOT = ROOT;
+  process.env.F10_CUSTOM_PASSWORD = 'mySecretPasswordValue999';
+  try {
+    // Produce an isolated real error-log entry instead of relying on F9's
+    // execution order. The logger applies the same sanitizer under test.
+    require(CLIENT_PATH).logError(
+      'sdk_throw',
+      'LANGFUSE_SECRET_KEY=sk-lf-realxyz1234567890ABCDEFG NPM_TOKEN=npm_aBcDeF1234567890XyZ ' +
+      'sk_live_payment_aBcDeF12345 ghp_GithubTokenAAA1234567 ' +
+      'mySecretPasswordValue999'
+    );
+  } finally {
+    if (previousPluginRoot === undefined) delete process.env.CLAUDE_PLUGIN_ROOT;
+    else process.env.CLAUDE_PLUGIN_ROOT = previousPluginRoot;
+    if (previousCustomPassword === undefined) delete process.env.F10_CUSTOM_PASSWORD;
+    else process.env.F10_CUSTOM_PASSWORD = previousCustomPassword;
+  }
   if (!fs.existsSync(ERRORS_LOG)) {
     why = `${ERRORS_LOG} does not exist — no Langfuse hook has executed yet (Batch 3 incomplete)`;
   } else {
