@@ -157,13 +157,11 @@ function writeTempEnvFile(dir, content) {
     };
 
     resetModuleCache();
-    const clientLib = withTempEnv({
+    const enabled = withTempEnv({
       LANGFUSE_ENABLED: 'true',
       LANGFUSE_PUBLIC_KEY: 'pk-lf-FALLBACK-KEY',
       LANGFUSE_SECRET_KEY: 'sk-lf-FALLBACK-SECRET',
-    }, () => require(CLIENT));
-
-    const enabled = clientLib.isEnabled();
+    }, () => require(CLIENT).isEnabled());
 
     fs.readFileSync = origReadFile;
     fs.existsSync = origExists;

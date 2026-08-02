@@ -184,6 +184,7 @@ function spawnWithMock(scriptPath, env, stdinPayload, extraOpts) {
   const fullEnv = {
     ...process.env,
     PIPELINE_TEST: 'true',
+    CLAUDE_PLUGIN_ROOT: ROOT,
     ...env,
   };
   const result = spawnSync(
@@ -607,6 +608,7 @@ const POST_PAYLOAD = JSON.stringify({
     fs.writeFileSync(captureFile, '');
     const env = {
       ...process.env,
+      CLAUDE_PLUGIN_ROOT: ROOT,
       LANGFUSE_ENABLED: 'true',
       LANGFUSE_PUBLIC_KEY: 'pk-lf-mock',
       LANGFUSE_SECRET_KEY: 'sk-lf-mock',
@@ -670,6 +672,7 @@ const POST_PAYLOAD = JSON.stringify({
   } else {
     const env = {
       ...process.env,
+      CLAUDE_PLUGIN_ROOT: ROOT,
       LANGFUSE_ENABLED: 'true',
       LANGFUSE_PUBLIC_KEY: 'pk-lf-mock',
       LANGFUSE_SECRET_KEY: 'sk-lf-mock',
