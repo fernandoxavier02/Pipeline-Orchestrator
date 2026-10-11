@@ -34,7 +34,7 @@
     }
   },
   "suite_baseline": {
-    "declared_suite_files": 311,
+    "declared_suite_files": 313,
     "definition": "Total number of test suite FILES discovered live by scripts/run-tests.cjs across every category (sum of discover(root).files.length for each CATEGORY, including the opt-in integration/snapshot categories). Read by Lock 3 (tests/regression/v8.26.0/F8_baseline_discovery_parity.cjs). Any changeset that adds or removes a test file must co-update this number in the same commit.",
     "command": "node -e \"const r=require('./scripts/run-tests.cjs');const root=require('path').resolve('.');let t=0;for(const d of Object.values(r.CATEGORIES)){const x=d.discover(root);if(x.present)t+=x.files.length;}console.log(t)\"",
     "as_of": "2026-07-15",

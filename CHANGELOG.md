@@ -2,6 +2,19 @@
 
 All notable changes to the pipeline-orchestrator plugin are documented here.
 
+## [8.29.0] - 2026-10-11
+
+### Added
+
+- **Decision-model fast path for Phase 0a (flag `DECISION_MODEL_ENABLED=1`, default OFF):** the UserPromptSubmit hook (`force-pipeline-agents.cjs`) pre-classifies pipeline-bound prompts with a System One decision model (Jev) through the zero-dependency adapter `lib/decision-client.cjs` and persists the verdict in `.pipeline/state/preclassify-<session_id>.json`. The controller (`Phase 0a-pre`) consumes it through the deterministic reader `node lib/preclassify.cjs read` and, on a match (same normalized request hash, fresh, confidence >= 0.7, type in Bug Fix/Feature/Audit), skips the `task-orchestrator` dispatch and stamps `classify` via `scripts/record-step.cjs`. Information-gate, Sentinel Checkpoint #1, plan-gate arming and every later gate are unchanged. Measured on the author machine: ~1.2k tokens / 0.26 s per classification vs ~75k tokens / 14 s for the cold-cache subagent (bench in the decision-model skill; 56 labelled samples, needs_pipeline 98.2%, type 89.3%, complexity 85.7%; questions were tuned on those same samples, so validate on fresh prompts before leaving the flag on by default).
+- Questions live in `references/decision-classificador.json` (never duplicated in code). `security`, `trivial`, `refactor`, Spec and low-confidence verdicts are never fast-pathed.
+- Tests: `.claude/hooks/__tests__/preclassify.test.cjs` (local System One mock: normal, low confidence, 529, flag off byte-identical, plain stdin, taxonomy) and `tests/regression/v8.29.0/F1_decision_model_fastpath.cjs` (ledger stamp contract, decision file shape, adapter copy fidelity, default-off invariant).
+
+### Changed
+
+- `agents/core/sentinel.md` MODE 1 accepts `ssot_status: DEFERRED` with empty domains/files when `orchestrator_decision.source == decision-model`.
+- `skills/pipeline/SKILL.md`: the no-pre-classification rule names the controller fast path as the only other legitimate classifier.
+
 ## [8.28.0] - 2026-07-23
 
 ### Added

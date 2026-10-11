@@ -26,7 +26,7 @@ Agent(
 
 - **Do NOT perform any orchestration yourself.** The controller handles Phase 0, 1, 1.5, 2, 3.
 - **Do NOT invoke Edit or Write during this session.** The `edit-guard-hook` will block you. Delegate all edits to the controller.
-- **Do NOT attempt to "help" by pre-classifying the task.** The controller's task-orchestrator does that.
+- **Do NOT attempt to "help" by pre-classifying the task.** The controller's task-orchestrator does that (or, when `DECISION_MODEL_ENABLED=1` and the deterministic decision-model fast path matches, the controller's Phase 0a-pre does — never the skill entry point).
 - **Do NOT bypass with reasoning like "this is too small for a pipeline".** If the user invoked `/pipeline-orchestrator:pipeline`, they want the pipeline. If it's truly too small, the controller will propose SIMPLES+DIRETO and ask for confirmation.
 
 ## When controller returns

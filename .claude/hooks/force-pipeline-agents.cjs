@@ -24,6 +24,14 @@ try {
   // lib unavailable → legacy SKILL_PATTERNS / regex fallback (known-incomplete).
   try { process.stderr.write(`force-pipeline-agents: entry-points lib unavailable (${err && err.message}); using legacy regex fallback\n`); } catch { /* ignore */ }
 }
+// v8.29.0: decision-model fast path (DECISION_MODEL_ENABLED=1, default OFF).
+// Side-car pre-classification only; routing below is byte-identical when the flag is off.
+let preclassify = null;
+try {
+  preclassify = require('../../lib/preclassify.cjs');
+} catch (err) {
+  try { process.stderr.write(`force-pipeline-agents: preclassify lib unavailable (${err && err.message}); fast path disabled\n`); } catch { /* ignore */ }
+}
 
 // ============================================================
 // CONFIGURAÇÃO
@@ -249,11 +257,13 @@ function applyGateEnforcement() {
 let input = '';
 process.stdin.setEncoding('utf8');
 process.stdin.on('data', chunk => input += chunk);
-process.stdin.on('end', () => {
+process.stdin.on('end', async () => {
   try {
     const raw = (input || '').trim();
 
     let prompt = '';
+    let hookCwd = process.cwd();
+    let sessionId = null;
     if (raw) {
       try {
         const data = JSON.parse(raw);
@@ -264,6 +274,8 @@ process.stdin.on('end', () => {
           data.text ||
           data.message ||
           '';
+        if (typeof data.cwd === 'string' && data.cwd) hookCwd = data.cwd;
+        if (typeof data.session_id === 'string' && data.session_id) sessionId = data.session_id;
       } catch {
         prompt = raw;
       }
@@ -290,6 +302,16 @@ process.stdin.on('end', () => {
       return;
     }
 
+    // 1.5 v8.29.0: decision-model fast path (flag-gated). Side-car only: it never
+    // changes the routing below. Runs only for prompts that would reach the pipeline
+    // (entry-point skill or pipeline-worthy). Errors/timeouts are swallowed inside run().
+    let preclassHint = null;
+    if (preclassify && preclassify.isEnabled() && (isSkillCommand(prompt) || isPipelineWorthy(prompt))) {
+      const rec = await preclassify.run({ prompt, cwd: hookCwd, sessionId });
+      preclassHint = preclassify.hintLine(rec);
+    }
+    const withHint = (msg) => (preclassHint ? `${msg}\n\n${preclassHint}` : msg);
+
     // 2. Se é skill → passa direto (skill tem seu próprio fluxo)
     if (isSkillCommand(prompt)) {
       // v4.2: thin entry-points (bugfix/feature/userstory/audit/ux) trigger same PIPELINE_SKILL_MESSAGE
@@ -307,7 +329,7 @@ process.stdin.on('end', () => {
         || /^\/(pipeline-orchestrator:(pipeline|bugfix|feature|userstory|audit|ux)|pipeline)\b/i.test(prompt.trim());
       console.log(JSON.stringify({
         continue: true,
-        systemMessage: isPipelineSkill ? PIPELINE_SKILL_MESSAGE : SKILL_MESSAGE
+        systemMessage: withHint(isPipelineSkill ? PIPELINE_SKILL_MESSAGE : SKILL_MESSAGE)
       }));
       return;
     }
@@ -316,7 +338,7 @@ process.stdin.on('end', () => {
     if (isPipelineWorthy(prompt)) {
       console.log(JSON.stringify({
         continue: true,
-        systemMessage: ENFORCEMENT_MESSAGE
+        systemMessage: withHint(ENFORCEMENT_MESSAGE)
       }));
       return;
     }

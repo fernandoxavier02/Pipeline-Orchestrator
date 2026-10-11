@@ -752,6 +752,44 @@ These fields are READ by:
 +==================================================================+
 ```
 
+#### Phase 0a-pre: Decision-model fast path (v8.29.0, flag `DECISION_MODEL_ENABLED=1`)
+
+Deterministic, OFF by default. When the UserPromptSubmit hook pre-classified this exact request with a
+decision model (System One contract, e.g. Jev) and the verdict is eligible, the controller consumes it
+instead of spawning `task-orchestrator`. Nothing else in Phase 0 changes: information-gate, Sentinel
+Checkpoint #1, plan-gate arming and every later gate run exactly as before.
+
+1. **Skip the fast path entirely** (go straight to Phase 0a) when ANY of these hold: mode is not FULL
+   (HOTFIX, REVIEW-ONLY, DIAGNOSTIC, CONTINUE); the invocation carries `--simples/--media/--complexa`,
+   `--light/--heavy`, `--grill`, `--strict-spec`, `--force-level`, a `PRE_CLASSIFIED_TYPE=` or
+   `FORCE_VARIANT=` prefix; or the request names a spec / `.kiro/specs` path.
+2. **Run the deterministic reader** (never compare hashes or confidence "by eye"):
+   `node "${CLAUDE_PLUGIN_ROOT}/lib/preclassify.cjs" read --cwd "<cwd>" --session "<session_id>" --request "<arguments as received>"`.
+   Output `{"match":false,...}` (flag off, no file, hash mismatch, stale, low confidence, type not
+   fast-pathed, decision-version mismatch) → **Phase 0a as usual.** Do not retry, do not call the model yourself.
+3. **On `{"match":true,"decision":{...}}`** build ORCHESTRATOR_DECISION from the file, in the mandatory
+   format of `task-orchestrator.md`, with exactly these values:
+   - `request`: `decision.request_excerpt`
+   - `type`: `decision.type` · `complexity`: `decision.complexity` · `severity`: `decision.severity`
+   - `pipeline_variant`: `decision.pipeline_variant`
+   - `probable_files: []` · `has_spec: "No"` · `domains_affected: []` · `files_affected: []`
+   - `notes: "source=decision-model provider=<provider> model=<model> confidence=<confidence> decision_version=<decision_version>; SSOT and probable_files deferred to information-gate/plan-architect"`
+   - `execution: "pipeline"` · `information_gate: { status: PENDING }` · `user_confirmed: false`
+   - `workflow`: the standard steps for the variant · `risks`: "classification by decision model; verify in information-gate"
+   - `source: "decision-model"` · `ssot_status: "DEFERRED"` · `ssot_conflict: false`
+   Emit it in the progress block as `Phase 0a: SKIPPED (decision-model, confidence <x>)`.
+4. **Stamp the ledger step the skipped agent would have stamped**, otherwise `step-ledger-gate` denies the
+   information-gate spawn (`classify` is the first FULL step): run
+   `node "${CLAUDE_PLUGIN_ROOT}/scripts/record-step.cjs" "{PIPELINE_DOC_PATH}" classify` right after
+   writing the state in Sentinel Checkpoint #1 step 1 (and before step 1b). Only `classify` is stamped by
+   hand; every other step keeps its normal stamp hook.
+5. Continue with **Sentinel Checkpoint #1** (mode ORCHESTRATOR_VALIDATION, which accepts
+   `ssot_status: DEFERRED` for `source: decision-model`) and **Phase 0b** exactly as written below.
+
+Hard limits: never fast-path `security`, `trivial`, `refactor`, Spec or `outro` verdicts (the reader
+already reports them as `match:false`); never edit `.pipeline/state/preclassify-*.json`; never lower
+`min_confidence` in `references/decision-classificador.json` to make a prompt match.
+
 #### Phase 0a: Task Orchestrator
 
 Spawn `task-orchestrator` agent (model: sonnet).
