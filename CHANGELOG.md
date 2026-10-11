@@ -10,6 +10,13 @@ All notable changes to the pipeline-orchestrator plugin are documented here.
 - Questions live in `references/decision-classificador.json` (never duplicated in code). `security`, `trivial`, `refactor`, Spec and low-confidence verdicts are never fast-pathed.
 - Tests: `.claude/hooks/__tests__/preclassify.test.cjs` (local System One mock: normal, low confidence, 529, flag off byte-identical, plain stdin, taxonomy) and `tests/regression/v8.29.0/F1_decision_model_fastpath.cjs` (ledger stamp contract, decision file shape, adapter copy fidelity, default-off invariant).
 
+### Known limits of the fast path
+
+- SIMPLES verdicts never fast-path (SIMPLES routes to DIRETO with its own user confirmation; the task-orchestrator keeps that path). Only MEDIA/COMPLEXA for Bug Fix, Feature and Audit (hotfix → Bug Fix COMPLEXA).
+- The `ssot-verdict.json` that step-ledger-stamp records on the task-orchestrator return is not produced in a fast-pathed run; SSOT is checked by information-gate/plan-architect and the state carries `ssot_status: DEFERRED`.
+- With the flag on, the UserPromptSubmit hook may take up to ~5.6 s on a slow provider (2.5 s timeout, one retry, 4 s deadline) before falling back.
+- The controller passes the request to the reader via a quoted heredoc on stdin, never inline in the shell command.
+
 ### Changed
 
 - `agents/core/sentinel.md` MODE 1 accepts `ssot_status: DEFERRED` with empty domains/files when `orchestrator_decision.source == decision-model`.

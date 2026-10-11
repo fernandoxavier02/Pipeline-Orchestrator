@@ -102,7 +102,7 @@ Triggered: immediately after task-orchestrator returns. This is the MOST CRITICA
    - production incident → minimum COMPLEXA
 5. **Validate SSOT conflict:** If `ssot_conflict: true` in orchestrator_decision, but the pipeline is continuing → BLOCK immediately
 6. **Validate completeness:** Are all required fields present? (type, complexity, persona, variant, domains_affected, files_affected)
-7. **Decision-model fast path (v8.29.0):** when `orchestrator_decision.source == "decision-model"`, accept `ssot_status: "DEFERRED"` and empty `domains_affected` / `files_affected` (SSOT and file discovery happen in information-gate and plan-architect). Routing, elevation and completeness checks still apply; `source` must only ever be set by the controller's Phase 0a-pre behind `DECISION_MODEL_ENABLED=1`.
+7. **Decision-model fast path (v8.29.0):** when `orchestrator_decision.source == "decision-model"`, accept `ssot_status: "DEFERRED"`, empty `domains_affected` / `files_affected` and an absent `persona` (SSOT and file discovery happen in information-gate and plan-architect). Routing and elevation checks still apply in full; `complexity` is never SIMPLES for this source (the reader refuses it). `source` must only ever be set by the controller's Phase 0a-pre behind `DECISION_MODEL_ENABLED=1`; if the step ledger shows any step other than `classify` stamped before its governed agent returned → **BLOCKED**.
 
 ### Decision
 

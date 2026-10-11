@@ -99,6 +99,16 @@ function tmpCwd() { return fs.mkdtempSync(path.join(os.tmpdir(), 'preclass-')); 
     // CLI form
     const cli = spawnSync(process.execPath, [LIB_PATH, 'read', '--cwd', cwd, '--session', 'sess-1', '--request', PROMPTS.worthy], { encoding: 'utf8', env: Object.assign({}, process.env, ON) });
     assertEqual(JSON.parse(cli.stdout).match, true, 'read CLI: match');
+    // stdin form (what the controller uses): request with quotes and $( ) is data, never shell
+    const tricky = PROMPTS.worthy + ' "x" $(echo pwned) `id`';
+    const cliIn = spawnSync(process.execPath, [LIB_PATH, 'read', '--cwd', cwd, '--session', 'sess-1'], { input: tricky, encoding: 'utf8', env: Object.assign({}, process.env, ON) });
+    assertEqual(JSON.parse(cliIn.stdout).match, false, 'read CLI stdin: different request → no match, no execution');
+    const cliIn2 = spawnSync(process.execPath, [LIB_PATH, 'read', '--cwd', cwd, '--session', 'sess-1'], { input: PROMPTS.worthy + String.fromCharCode(10), encoding: 'utf8', env: Object.assign({}, process.env, ON) });
+    assertEqual(JSON.parse(cliIn2.stdout).match, true, 'read CLI stdin: same request (trailing newline) → match');
+    // decision-version mismatch
+    const f = pre.statePath(cwd, 'sess-1'); const rec2 = JSON.parse(fs.readFileSync(f, 'utf8')); rec2.decision_version = 'deadbeef'; fs.writeFileSync(f, JSON.stringify(rec2));
+    assertEqual(pre.read({ cwd, sessionId: 'sess-1', request: PROMPTS.worthy, env: ON }).reason, 'decision-version-mismatch', 'read: decision version mismatch → no match');
+    fs.writeFileSync(f, JSON.stringify(rec));
   }
   // skill-prefixed prompt normalizes to the same hash as bare arguments
   assertEqual(pre.normalizeRequest(PROMPTS.skill), pre.normalizeRequest('corrige o bug do login que retorna 500'), 'normalize strips skill prefix');
@@ -140,7 +150,8 @@ function tmpCwd() { return fs.mkdtempSync(path.join(os.tmpdir(), 'preclass-')); 
   assertEqual(m(ans('trivial', 'simples', 0.1)).eligible, false, 'map: trivial not fast-pathed');
   assertEqual(m(ans('feature', 'outro')).eligible, false, 'map: outro not fast-pathed');
   assertEqual(m(ans('feature', 'complexa'), 'implementar a spec selada X').reason, 'spec-mentioned', 'map: spec mention blocks fast path');
-  assertEqual(m(ans('feature', 'simples')).pipeline_variant, 'feature-light', 'map: feature simples → light');
+  assertEqual(m(ans('feature', 'simples')).reason, 'complexity-simples-legacy', 'map: SIMPLES stays on the legacy DIRETO path');
+  assertEqual(m(ans('hotfix', 'simples')).eligible, true, 'map: hotfix ignores simples (forced COMPLEXA)');
   assertEqual(m(ans('audit', 'complexa')).pipeline_variant, 'audit-heavy', 'map: audit complexa → heavy');
   assertEqual(m(ans('feature', 'media', 0.6)).reason, 'needs_pipeline-below-threshold', 'map: low needs_pipeline blocks');
 

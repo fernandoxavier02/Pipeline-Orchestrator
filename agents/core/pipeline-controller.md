@@ -763,30 +763,45 @@ Checkpoint #1, plan-gate arming and every later gate run exactly as before.
    (HOTFIX, REVIEW-ONLY, DIAGNOSTIC, CONTINUE); the invocation carries `--simples/--media/--complexa`,
    `--light/--heavy`, `--grill`, `--strict-spec`, `--force-level`, a `PRE_CLASSIFIED_TYPE=` or
    `FORCE_VARIANT=` prefix; or the request names a spec / `.kiro/specs` path.
-2. **Run the deterministic reader** (never compare hashes or confidence "by eye"):
-   `node "${CLAUDE_PLUGIN_ROOT}/lib/preclassify.cjs" read --cwd "<cwd>" --session "<session_id>" --request "<arguments as received>"`.
-   Output `{"match":false,...}` (flag off, no file, hash mismatch, stale, low confidence, type not
+2. **Run the deterministic reader** (never compare hashes or confidence "by eye"). The user's request goes
+   in through **stdin via a quoted heredoc**, never inline in the command line (quotes, `$(...)` or
+   backticks in the request must stay data):
+   ```bash
+   node "${CLAUDE_PLUGIN_ROOT}/lib/preclassify.cjs" read --cwd "<cwd>" --session "<session_id>" <<'PRECLASSIFY_REQUEST'
+   <arguments exactly as received, unmodified>
+   PRECLASSIFY_REQUEST
+   ```
+   Output `{"match":false,...}` (flag off, no file, hash mismatch, stale, low confidence, SIMPLES, type not
    fast-pathed, decision-version mismatch) → **Phase 0a as usual.** Do not retry, do not call the model yourself.
 3. **On `{"match":true,"decision":{...}}`** build ORCHESTRATOR_DECISION from the file, in the mandatory
    format of `task-orchestrator.md`, with exactly these values:
    - `request`: `decision.request_excerpt`
    - `type`: `decision.type` · `complexity`: `decision.complexity` · `severity`: `decision.severity`
    - `pipeline_variant`: `decision.pipeline_variant`
-   - `probable_files: []` · `has_spec: "No"` · `domains_affected: []` · `files_affected: []`
+   - `probable_files: []` · `has_spec: "No"` (the decision model reads only the request text)
    - `notes: "source=decision-model provider=<provider> model=<model> confidence=<confidence> decision_version=<decision_version>; SSOT and probable_files deferred to information-gate/plan-architect"`
-   - `execution: "pipeline"` · `information_gate: { status: PENDING }` · `user_confirmed: false`
+   - `execution: "pipeline"` (the reader never matches SIMPLES, so DIRETO is never produced here) · `user_confirmed: false`
+   - `information_gate`: leave it for Phase 0b to fill (`CLEAR | RESOLVED`), exactly as in the task-orchestrator path
    - `workflow`: the standard steps for the variant · `risks`: "classification by decision model; verify in information-gate"
-   - `source: "decision-model"` · `ssot_status: "DEFERRED"` · `ssot_conflict: false`
+   - extra, fast-path-only fields: `source: "decision-model"` · `ssot_status: "DEFERRED"` · `ssot_conflict: false` ·
+     `domains_affected: []` · `files_affected: []` (read by the sentinel's completeness check; empty is accepted for this source;
+     no `persona` is set, the sentinel accepts its absence for this source)
    Emit it in the progress block as `Phase 0a: SKIPPED (decision-model, confidence <x>)`.
 4. **Stamp the ledger step the skipped agent would have stamped**, otherwise `step-ledger-gate` denies the
    information-gate spawn (`classify` is the first FULL step): run
    `node "${CLAUDE_PLUGIN_ROOT}/scripts/record-step.cjs" "{PIPELINE_DOC_PATH}" classify` right after
-   writing the state in Sentinel Checkpoint #1 step 1 (and before step 1b). Only `classify` is stamped by
-   hand; every other step keeps its normal stamp hook.
+   writing the state in Sentinel Checkpoint #1 step 1 (and before step 1b). **This is the only manual
+   `record-step` the controller may ever issue.** Any other step (`info-gate`, `proposal`, `plan`, `tdd`,
+   `execute`, `adversarial`, `sanity`, `final`) is stamped exclusively by the PostToolUse stamp hook when the
+   governed agent returns; a controller that records any of them by hand is violating the protocol and the
+   sentinel must BLOCK the run.
 5. Continue with **Sentinel Checkpoint #1** (mode ORCHESTRATOR_VALIDATION, which accepts
    `ssot_status: DEFERRED` for `source: decision-model`) and **Phase 0b** exactly as written below.
+   Known limit: no `ssot-verdict.json` is produced in a fast-pathed run (that file comes from the
+   task-orchestrator return); the SSOT check happens in information-gate and plan-architect, and the
+   `SSOT conflict → STOP` rule of Phase 0a applies to whatever they report.
 
-Hard limits: never fast-path `security`, `trivial`, `refactor`, Spec or `outro` verdicts (the reader
+Hard limits: never fast-path `security`, `trivial`, `refactor`, SIMPLES, Spec or `outro` verdicts (the reader
 already reports them as `match:false`); never edit `.pipeline/state/preclassify-*.json`; never lower
 `min_confidence` in `references/decision-classificador.json` to make a prompt match.
 
@@ -806,7 +821,7 @@ Spawn `task-orchestrator` agent (model: sonnet).
 - pipeline_variant: bugfix-light | feature-heavy | etc.
 - affected_files: [list]
 - business_rules: [identified rules]
-- ssot_status: OK | CONFLICT
+- ssot_status: OK | CONFLICT (or DEFERRED, only when Phase 0a-pre produced the decision with `source: decision-model`)
 
 **BLOCK:** SSOT conflict → STOP entire pipeline, report to user.
 
