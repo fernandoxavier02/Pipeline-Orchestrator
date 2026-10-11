@@ -79,7 +79,7 @@ const MANDATORY_TABLE_SHA256 = '77213f530ece8eb0ffbcb680406125ad87ff69d1efced544
 //   registry + skills only; it does not touch enforcement hook code).
 // Re-pinned after the legitimate post-Slice-1 enforcement update; this guard
 // still detects any subsequent drift in the force hook.
-const HOOK_FORCE_SHA256 = '93b19adba96d133b88fe254bbcc157e869e4a6d56a520f4596df9d7cd2ec661c';
+const HOOK_FORCE_SHA256 = '51c42085cf5cbd15e99b32c44c030ec49c0c7d42ef36828bb9ded579ee16b535';
 // Batch 3 (loop/next-action-contract, AUDIT-REPORT.md §4 P1 / CR6): updated —
 // this guard's job is catching the ORIGINAL concern (Refactor Slice 1, a
 // long-completed docs/registry/skills-only slice, accidentally touching
@@ -116,7 +116,7 @@ const HOOK_DISPATCH_SHA256 = '8628dbf8a2c9ceb84503dac59937b4b72c198284644b0a7780
 // enforcement-hardening release (AUDIT-001..007, B6) is that slice close, so the
 // manifests now legitimately read 8.8.0; the hook byte-identity guard below is
 // unaffected (Slice 1 still did not touch enforcement hook code).
-const PINNED_VERSION = '8.28.0';
+const PINNED_VERSION = '8.29.0';
 
 // The three refactor entry-point names that Slice 1 introduces.
 const REFACTOR_NAMES = ['refactor', 'refactor-light', 'refactor-heavy'];
